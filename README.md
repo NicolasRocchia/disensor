@@ -19,7 +19,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 ## Uso rápido
 
 ```bash
-pip install .            # o, publicado: pip install disensor
+pip install disensor     # para desarrollo, desde el repo clonado: pip install -e .
 
 disensor nuevo --compuerta diff --nivel B    # plantilla prellenada en .residuo/
 disensor validar .residuo/<id>.json          # schema + reglas R0 a R10
