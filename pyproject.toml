@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "disensor"
-version = "0.1.0"
-description = "disensor: adversarial plan & code review with a declared residue. Emite, valida y hace cumplir en CI declaraciones de residuo (esquema residuo/v0.1)."
+version = "0.2.0"
+description = "Adversarial plan & code review with a declared residue. Emits, validates and CI-enforces residue declarations (residue/v0.2 schema)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -22,4 +22,4 @@ disensor = "disensor.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-disensor = ["residuo.schema.json"]
+disensor = ["residue.schema.json"]

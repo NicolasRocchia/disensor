@@ -11,7 +11,7 @@
  * Lo que este archivo NO hace, a proposito: no corre modelos, no ve codigo,
  * no acepta texto fuera del artefacto. Perfil minimizado bienvenido.
  */
-import schema from "../../spec/residuo.schema.json";
+import schema from "../../spec/residue.schema.json";
 import { compilarSchema, validarArtefacto } from "./validar.js";
 
 export interface Env {
@@ -78,7 +78,7 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
   if (errores.length > 0) return json({ error: "artefacto invalido", errores }, 422);
 
   const hash = await sha256Hex(crudo);
-  const idEvento: string = artefacto.evento.id_evento;
+  const idEvento: string = artefacto.event.event_id;
 
   // Idempotencia: el mismo evento con el mismo contenido devuelve el recibo
   // original; el mismo evento con otro contenido es un conflicto, nunca un
@@ -99,14 +99,14 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
 
   const recibidoEn = new Date().toISOString();
   const firma = await firmarRecibo(env.HMAC_SECRET, hash, recibidoEn);
-  const ev = artefacto.evento;
+  const ev = artefacto.event;
 
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO artefactos (org_id, id_evento, hash, esquema, perfil, nivel, compuerta, recibido_en, cuerpo)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(orgId, idEvento, hash, artefacto.esquema, artefacto.perfil,
-           ev.nivel_criticidad, ev.compuerta, recibidoEn, new TextDecoder().decode(crudo)),
+    ).bind(orgId, idEvento, hash, artefacto.schema, artefacto.profile,
+           ev.criticality_level, ev.gate, recibidoEn, new TextDecoder().decode(crudo)),
     env.DB.prepare(
       `INSERT INTO recibos (org_id, id_evento, hash, recibido_en, firma) VALUES (?, ?, ?, ?, ?)`,
     ).bind(orgId, idEvento, hash, recibidoEn, firma),
@@ -119,7 +119,7 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/v1/salud") {
-      return json({ ok: true, esquema: "residuo/v0.1" });
+      return json({ ok: true, schema: "residue/v0.2" });
     }
     if (req.method === "POST" && url.pathname === "/v1/artefactos") {
       try {

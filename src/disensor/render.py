@@ -1,123 +1,123 @@
-"""Render de la declaracion de residuo como comentario de PR (Markdown).
+"""Render of the residue declaration as a PR comment (Markdown).
 
-Principio de la seccion 9 del protocolo: la declaracion lista residuo, no
-cobertura. El comentario dirige el escrutinio del revisor humano hacia lo que
-el ciclo no pudo cerrar, en lugar de leerse como sello de calidad.
+Principle of section 9 of the protocol: the declaration lists residue, not
+coverage. The comment directs the human reviewer's scrutiny toward what the
+cycle could not close, instead of reading as a seal of quality.
 """
 from __future__ import annotations
 
-MARCADOR = "<!-- disensor-gate -->"
+MARKER = "<!-- disensor-gate -->"
 
-NOMBRE_CLASE = {
-    "escalado_sin_decision": "Escalado sin decision",
-    "refutacion_del_principal": "Refutacion del modelo principal",
-    "gap_de_ejecucion": "Gap de ejecucion",
+CLASS_NAME = {
+    "escalation_without_decision": "Escalation without a decision",
+    "principal_refutation": "Refutation by the principal model",
+    "execution_gap": "Execution gap",
 }
 
-NOMBRE_ESTADO = {
-    "incorporado": "incorporados",
-    "deuda_registrada": "deuda registrada",
-    "decision_del_dueno": "decision del dueno",
-    "refutado_verificable": "refutados con evidencia",
-    "refutado_interpretativo": "refutados por criterio",
-    "escalado_abierto": "escalados abiertos",
+STATE_NAME = {
+    "incorporated": "incorporated",
+    "debt_recorded": "debt recorded",
+    "owner_decision": "owner decision",
+    "refuted_verifiable": "refuted with evidence",
+    "refuted_interpretive": "refuted by judgment",
+    "escalated_open": "escalated open",
 }
 
 
-def _linea_item(item: dict, perfil: str) -> str:
-    clase = NOMBRE_CLASE[item["clase"]]
-    atencion = " **(requiere atencion humana)**" if item.get("requiere_atencion_humana") else ""
-    ref = f" (hallazgo {item['ref_hallazgo']})" if item.get("ref_hallazgo") else ""
-    detalle = ""
-    if perfil == "completo" and item.get("descripcion"):
-        detalle = f": {item['descripcion']}"
-    elif item["clase"] == "refutacion_del_principal" and item.get("tipo_refutacion"):
-        detalle = f" ({item['tipo_refutacion']})"
-    elif item["clase"] == "gap_de_ejecucion" and item.get("motivo_gap"):
-        detalle = f" ({item['motivo_gap'].replace('_', ' ')})"
-    evidencia = item.get("evidencia", {})
-    enlace = f" [evidencia]({evidencia['enlace']})" if evidencia.get("enlace") else ""
-    aceptacion = ""
-    if item.get("aceptacion_referente"):
-        ar = item["aceptacion_referente"]
-        aceptacion = f" Aceptado por escrito por {ar['referente']} ({ar['registro']})."
-    return f"- **{clase}**{ref}{detalle}{atencion}{enlace}{aceptacion}"
+def _item_line(item: dict, profile: str) -> str:
+    klass = CLASS_NAME[item["class"]]
+    attention = " **(requires human attention)**" if item.get("requires_human_attention") else ""
+    ref = f" (finding {item['finding_ref']})" if item.get("finding_ref") else ""
+    detail = ""
+    if profile == "full" and item.get("description"):
+        detail = f": {item['description']}"
+    elif item["class"] == "principal_refutation" and item.get("refutation_type"):
+        detail = f" ({item['refutation_type']})"
+    elif item["class"] == "execution_gap" and item.get("gap_reason"):
+        detail = f" ({item['gap_reason'].replace('_', ' ')})"
+    evidence = item.get("evidence", {})
+    link = f" [evidence]({evidence['link']})" if evidence.get("link") else ""
+    acceptance = ""
+    if item.get("lead_acceptance"):
+        la = item["lead_acceptance"]
+        acceptance = f" Accepted in writing by {la['lead']} ({la['record']})."
+    return f"- **{klass}**{ref}{detail}{attention}{link}{acceptance}"
 
 
-def _resumen_conteos(a: dict) -> str:
-    c = a["metricas"]["conteos"]
-    v = c["validos"]
-    fp = c["falsos_positivos"]
-    partes = []
-    if v["incorporado"]:
-        partes.append(f"{v['incorporado']} incorporados")
-    if v["deuda_registrada"]:
-        partes.append(f"{v['deuda_registrada']} a deuda registrada")
-    if v["decision_del_dueno"]:
-        partes.append(f"{v['decision_del_dueno']} con decision del dueno")
-    if fp["refutado_verificable"]:
-        partes.append(f"{fp['refutado_verificable']} refutados con evidencia")
-    if fp["refutado_interpretativo"]:
-        partes.append(f"{fp['refutado_interpretativo']} refutados por criterio")
-    if c["escalados_abiertos"]:
-        partes.append(f"{c['escalados_abiertos']} escalados abiertos")
-    detalle = ", ".join(partes) if partes else "sin hallazgos"
-    return f"{c['total_hallazgos']} hallazgos: {detalle}."
+def _counts_summary(a: dict) -> str:
+    c = a["metrics"]["counts"]
+    v = c["valid"]
+    fp = c["false_positives"]
+    parts = []
+    if v["incorporated"]:
+        parts.append(f"{v['incorporated']} incorporated")
+    if v["debt_recorded"]:
+        parts.append(f"{v['debt_recorded']} to recorded debt")
+    if v["owner_decision"]:
+        parts.append(f"{v['owner_decision']} with an owner decision")
+    if fp["refuted_verifiable"]:
+        parts.append(f"{fp['refuted_verifiable']} refuted with evidence")
+    if fp["refuted_interpretive"]:
+        parts.append(f"{fp['refuted_interpretive']} refuted by judgment")
+    if c["escalated_open"]:
+        parts.append(f"{c['escalated_open']} escalated open")
+    detail = ", ".join(parts) if parts else "no findings"
+    return f"{c['total_findings']} findings: {detail}."
 
 
-def render_artefacto(a: dict) -> str:
-    ev = a["evento"]
-    ac = a["actores"]
-    lineas = []
-    revisores = ", ".join(f"{r['modelo']} ({r['familia']})" for r in ac["revisores"])
-    confinamientos = ", ".join(
-        f"{r['confinamiento']['modo'].replace('_', ' ')}"
-        + (" verificado" if r["confinamiento"]["verificado"] else " SIN VERIFICAR")
-        for r in ac["revisores"]
+def render_artifact(a: dict) -> str:
+    ev = a["event"]
+    ac = a["actors"]
+    lines = []
+    reviewers = ", ".join(f"{r['model']} ({r['family']})" for r in ac["reviewers"])
+    confinements = ", ".join(
+        f"{r['confinement']['mode'].replace('_', ' ')}"
+        + (" verified" if r["confinement"]["verified"] else " NOT VERIFIED")
+        for r in ac["reviewers"]
     )
-    lineas.append(
-        f"### Evento `{a['evento']['id_evento'][:8]}` "
-        f"(compuerta {ev['compuerta']}, Nivel {ev['nivel_criticidad']}, commit `{ev['commit_cabeza'][:7]}`)"
+    lines.append(
+        f"### Event `{a['event']['event_id'][:8]}` "
+        f"({ev['gate']} gate, Level {ev['criticality_level']}, commit `{ev['head_commit'][:7]}`)"
     )
-    lineas.append("")
-    lineas.append(
-        f"Generador {ac['generador']['modelo']} ({ac['generador']['familia']}); "
-        f"revisor {revisores}; confinamiento: {confinamientos}. "
-        f"{_resumen_conteos(a)}"
+    lines.append("")
+    lines.append(
+        f"Generator {ac['generator']['model']} ({ac['generator']['family']}); "
+        f"reviewer {reviewers}; confinement: {confinements}. "
+        f"{_counts_summary(a)}"
     )
-    if ev["ruta_abreviada"].get("usada"):
-        lineas.append(f"Ruta abreviada usada. Justificacion: {ev['ruta_abreviada'].get('justificacion', '')}")
-    lineas.append("")
-    residuo = a["residuo"]
-    if residuo.get("ausencia_declarada"):
-        lineas.append(f"**Sin residuo.** Declaracion expresa: {residuo['declaracion']}")
+    if ev["abbreviated_path"].get("used"):
+        lines.append(f"Abbreviated path used. Justification: {ev['abbreviated_path'].get('justification', '')}")
+    lines.append("")
+    residue = a["residue"]
+    if residue.get("declared_absence"):
+        lines.append(f"**No residue.** Express declaration: {residue['declaration']}")
     else:
-        lineas.append("**Residuo declarado** (lo que el ciclo no pudo cerrar por si mismo):")
-        for item in residuo["items"]:
-            lineas.append(_linea_item(item, a["perfil"]))
-    return "\n".join(lineas)
+        lines.append("**Declared residue** (what the cycle could not close by itself):")
+        for item in residue["items"]:
+            lines.append(_item_line(item, a["profile"]))
+    return "\n".join(lines)
 
 
-def render_comentario(validos: list[dict], errores_por_archivo: dict[str, list[str]],
-                      errores_gate: list[str]) -> str:
-    """Comentario completo del PR, con marcador para actualizarlo en el lugar."""
-    lineas = [MARCADOR, "## Declaracion de residuo", ""]
-    if errores_gate or errores_por_archivo:
-        lineas.append("**El gate fallo.** El PR no declara residuo en forma valida:")
-        for msg in errores_gate:
-            lineas.append(f"- {msg}")
-        for archivo, errs in errores_por_archivo.items():
+def render_comment(valid: list[dict], errors_by_file: dict[str, list[str]],
+                   gate_errors: list[str]) -> str:
+    """Complete PR comment, with a marker to update it in place."""
+    lines = [MARKER, "## Residue declaration", ""]
+    if gate_errors or errors_by_file:
+        lines.append("**The gate failed.** The PR does not declare residue in a valid form:")
+        for msg in gate_errors:
+            lines.append(f"- {msg}")
+        for file, errs in errors_by_file.items():
             for msg in errs:
-                lineas.append(f"- `{archivo}`: {msg}")
-        lineas.append("")
-    for a in validos:
-        lineas.append(render_artefacto(a))
-        lineas.append("")
-    lineas.append("---")
-    lineas.append(
-        "Esta declaracion lista residuo, no cobertura: dirige el escrutinio del revisor humano "
-        "hacia lo que quedo abierto en lugar de leerse como sello de calidad. "
-        "La maquina valida forma y coherencia; que el residuo declarado sea el residuo real "
-        "se controla por muestreo humano, no por este gate."
+                lines.append(f"- `{file}`: {msg}")
+        lines.append("")
+    for a in valid:
+        lines.append(render_artifact(a))
+        lines.append("")
+    lines.append("---")
+    lines.append(
+        "This declaration lists residue, not coverage: it directs the human reviewer's "
+        "scrutiny toward what remained open instead of reading as a seal of quality. "
+        "The machine validates shape and coherence; that the declared residue is the real "
+        "residue is controlled by human sampling, not by this gate."
     )
-    return "\n".join(lineas)
+    return "\n".join(lines)
