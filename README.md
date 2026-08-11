@@ -14,7 +14,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 - `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.2.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
-- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G5), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`).
+- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G5), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
 
@@ -25,15 +25,18 @@ El paquete se instala una vez (global); cada repositorio se inicializa una vez:
 ```bash
 pip install disensor        # o pipx install disensor, recomendado para CLIs
 
-disensor init               # en la raíz del repo: config, sección de CLAUDE.md y workflow de CI
+disensor init               # en la raíz del repo: config, CLAUDE.md, skill de llenado y workflow de CI
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
 disensor validate .residue/<id>.json   # schema + reglas R0 a R10
 disensor gate --no-comment             # lo que va a correr CI, en local
+
+disensor guide                         # la guía de llenado, para cualquier agente o humano
+disensor hash consigna.md              # el sha256: que pide prompt_hash, sin calcularlo a mano
 ```
 
 Los subcomandos y flags de la v0.1 en español (`nuevo`, `validar`, `--compuerta`, `--nivel`, `--directorio`, `--sin-comentario`) siguen funcionando como alias.
 
-`disensor init` escribe, en forma idempotente, el `disensor.config.json` (el nivel viaja con el código, en un archivo versionado), la sección de cierre de evento en `CLAUDE.md` y el workflow del gate; lo que ya existe se respeta y se informa. Config resultante:
+`disensor init` escribe, en forma idempotente, el `disensor.config.json` (el nivel viaja con el código, en un archivo versionado), la sección de cierre de evento en `CLAUDE.md`, la skill de Claude Code con la guía completa de llenado (`.claude/skills/disensor/SKILL.md`, cargada a demanda al cerrar cada ronda) y el workflow del gate; lo que ya existe se respeta y se informa. El principio es que después de `pip install disensor` y `disensor init` el usuario no toque nada a mano: Claude sabe cuándo (CLAUDE.md) y cómo (la skill), cualquier otro agente recibe lo mismo con `disensor guide`, y el CI hace cumplir el resultado. Config resultante:
 
 ```json
 {
@@ -106,7 +109,7 @@ Migración desde v0.1: renombrar `.residuo/` a `.residue/`, las claves del confi
 
 ## Estado
 
-v0.2, borrador en uso. Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
+v0.3, borrador en uso. El esquema sigue en residue/v0.2 (v0.3 no lo toca: agrega la skill de llenado, `disensor guide` y `disensor hash`). Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
 
 ## Licencia
 
