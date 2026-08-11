@@ -1,4 +1,4 @@
-"""Command line interface: disensor {new, validate, gate}.
+"""Command line interface: disensor {init, new, validate, gate}.
 
 v0.1 was published with Spanish subcommands and flags; they remain as
 aliases (nuevo, validar, and the Spanish long flags) so existing scripts
@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from .gate import main_gate
+from .init import main_init
 from .rules import load_schema, validate_artifact
 from .template import main_new
 
@@ -36,6 +37,14 @@ def build_parser() -> argparse.ArgumentParser:
         description="Residue declaration of adversarial review (controlled disagreement).",
     )
     sub = p.add_subparsers(dest="command", required=True)
+
+    init = sub.add_parser("init", help="Scaffold a repository: config, CLAUDE.md section and CI workflow.")
+    init.add_argument("--level", "--nivel", choices=["A", "B", "C"], default="B")
+    init.add_argument("--no-claude", action="store_true", help="Do not touch CLAUDE.md.")
+    init.add_argument("--claude-global", action="store_true",
+                      help="Write the Claude Code section to ~/.claude/CLAUDE.md instead of the repo.")
+    init.add_argument("--no-workflow", action="store_true", help="Do not write the CI workflow.")
+    init.set_defaults(func=main_init)
 
     new = sub.add_parser("new", aliases=["nuevo"],
                          help="Create an artifact template for the current event.")
