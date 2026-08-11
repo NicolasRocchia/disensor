@@ -30,24 +30,25 @@ def test_init_scaffolds_everything(repo, monkeypatch):
     assert config == {"criticality_level": "B", "level_A_enabled": False}
     claude = (repo / "CLAUDE.md").read_text(encoding="utf-8")
     assert CLAUDE_HEADING in claude and "disensor validate" in claude
+    skill = (repo / ".claude" / "skills" / "disensor" / "SKILL.md").read_text(encoding="utf-8")
+    assert skill.startswith("---\nname: disensor\n")
+    assert "final_state" in skill and "R4" in skill  # the full guide travels in the skill
     workflow = (repo / ".github" / "workflows" / "disensor.yml").read_text(encoding="utf-8")
     assert f"NicolasRocchia/disensor@v{__version__}" in workflow
     assert "fetch-depth: 0" in workflow
 
 
 def test_init_is_idempotent(repo, monkeypatch):
+    pieces = [
+        repo / "disensor.config.json",
+        repo / "CLAUDE.md",
+        repo / ".claude" / "skills" / "disensor" / "SKILL.md",
+        repo / ".github" / "workflows" / "disensor.yml",
+    ]
     run_init(repo, monkeypatch)
-    before = {
-        p.name: p.read_text(encoding="utf-8")
-        for p in [repo / "disensor.config.json", repo / "CLAUDE.md",
-                  repo / ".github" / "workflows" / "disensor.yml"]
-    }
+    before = {str(p): p.read_text(encoding="utf-8") for p in pieces}
     run_init(repo, monkeypatch)
-    after = {
-        p.name: p.read_text(encoding="utf-8")
-        for p in [repo / "disensor.config.json", repo / "CLAUDE.md",
-                  repo / ".github" / "workflows" / "disensor.yml"]
-    }
+    after = {str(p): p.read_text(encoding="utf-8") for p in pieces}
     assert before == after
 
 
@@ -69,7 +70,14 @@ def test_init_flags_skip_pieces(repo, monkeypatch):
     assert json.loads((repo / "disensor.config.json").read_text(encoding="utf-8"))[
         "criticality_level"] == "C"
     assert not (repo / "CLAUDE.md").exists()
+    assert not (repo / ".claude").exists()  # --no-claude also skips the skill
     assert not (repo / ".github").exists()
+
+
+def test_init_no_skill_keeps_claude_section(repo, monkeypatch):
+    run_init(repo, monkeypatch, "--no-skill")
+    assert CLAUDE_HEADING in (repo / "CLAUDE.md").read_text(encoding="utf-8")
+    assert not (repo / ".claude").exists()
 
 
 def test_init_claude_global_is_guarded(repo, monkeypatch, tmp_path_factory):
@@ -81,7 +89,9 @@ def test_init_claude_global_is_guarded(repo, monkeypatch, tmp_path_factory):
     content = global_md.read_text(encoding="utf-8")
     assert "disensor.config.json" in content.splitlines()[0] or "ONLY inside repositories" in content
     assert CLAUDE_HEADING in content
+    assert (home / ".claude" / "skills" / "disensor" / "SKILL.md").exists()
     assert not (repo / "CLAUDE.md").exists()
+    assert not (repo / ".claude").exists()
 
 
 def test_init_warns_on_v01_config(repo, monkeypatch, capsys):

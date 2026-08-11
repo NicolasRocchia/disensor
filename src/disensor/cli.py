@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from .gate import main_gate
+from .guide import main_guide, main_hash
 from .init import main_init
 from .rules import load_schema, validate_artifact
 from .template import main_new
@@ -38,11 +39,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="command", required=True)
 
-    init = sub.add_parser("init", help="Scaffold a repository: config, CLAUDE.md section and CI workflow.")
+    init = sub.add_parser("init", help="Scaffold a repository: config, CLAUDE.md section, filling skill and CI workflow.")
     init.add_argument("--level", "--nivel", choices=["A", "B", "C"], default="B")
-    init.add_argument("--no-claude", action="store_true", help="Do not touch CLAUDE.md.")
+    init.add_argument("--no-claude", action="store_true", help="Do not touch CLAUDE.md nor the skill.")
+    init.add_argument("--no-skill", action="store_true", help="Write the CLAUDE.md section but not the skill.")
     init.add_argument("--claude-global", action="store_true",
-                      help="Write the Claude Code section to ~/.claude/CLAUDE.md instead of the repo.")
+                      help="Write the Claude Code section and skill to ~/.claude instead of the repo.")
     init.add_argument("--no-workflow", action="store_true", help="Do not write the CI workflow.")
     init.set_defaults(func=main_init)
 
@@ -67,6 +69,15 @@ def build_parser() -> argparse.ArgumentParser:
     gate.add_argument("--no-comment", "--sin-comentario", action="store_true",
                       help="Do not post a comment on the PR.")
     gate.set_defaults(func=main_gate)
+
+    guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
+    guide.set_defaults(func=main_guide)
+
+    hash_ = sub.add_parser("hash", help="Compute the sha256:<hex> value for prompt_hash from a file or text.")
+    src = hash_.add_mutually_exclusive_group(required=True)
+    src.add_argument("file", nargs="?", help="File to hash (e.g. the adversarial brief).")
+    src.add_argument("--text", help="Hash this literal text instead of a file.")
+    hash_.set_defaults(func=main_hash)
     return p
 
 
