@@ -1,5 +1,5 @@
-# Copiar a .github/workflows/residuo.yml en el repositorio consumidor.
-name: residuo
+# Copiar a .github/workflows/disensor.yml en el repositorio consumidor.
+name: disensor
 on:
   pull_request:
 permissions:
@@ -12,6 +12,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # el gate necesita el rango de commits del PR (chequeo G5)
-      - uses: nicolasrocchia/residuo@v0.1.0
+      - uses: NicolasRocchia/disensor@v0.1.0
         # Mientras el repo de la Action sea privado o local, usar la ruta relativa:
-        # uses: ./residuo
+        # uses: ./disensor

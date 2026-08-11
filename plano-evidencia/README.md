@@ -24,8 +24,8 @@ No verificado todavia (se estrena con `wrangler dev`): el handler HTTP contra D1
 ## Despliegue
 
 ```bash
-wrangler d1 create residuo-evidencia          # pegar el database_id en wrangler.toml
-wrangler d1 execute residuo-evidencia --file=schema.sql
+wrangler d1 create disensor-evidencia          # pegar el database_id en wrangler.toml
+wrangler d1 execute disensor-evidencia --file=schema.sql
 wrangler secret put HMAC_SECRET
 wrangler dev                                   # estreno local
 wrangler deploy

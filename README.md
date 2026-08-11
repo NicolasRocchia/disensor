@@ -1,4 +1,6 @@
-# residuo
+# disensor
+
+Adversarial plan & code review with a declared residue.
 
 Declaración de residuo de revisión adversarial, con validación y gate de CI. Implementación de referencia del artefacto definido a partir del método de **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo hallazgo quedó resuelto, refutado con evidencia o escalado a un humano.
 
@@ -10,21 +12,21 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 - `spec/residuo.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión v0.1.
 - `spec/ejemplos/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
-- `src/residuo/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G5), el render del comentario de PR y el scaffolding de artefactos.
+- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G5), el render del comentario de PR y el scaffolding de artefactos.
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code + Codex) emite el artefacto al cierre de cada evento.
 
 ## Uso rápido
 
 ```bash
-pip install .            # o, publicado: pip install residuo
+pip install .            # o, publicado: pip install disensor
 
-residuo nuevo --compuerta diff --nivel B    # plantilla prellenada en .residuo/
-residuo validar .residuo/<id>.json          # schema + reglas R0 a R10
-residuo gate --sin-comentario               # lo que va a correr CI, en local
+disensor nuevo --compuerta diff --nivel B    # plantilla prellenada en .residuo/
+disensor validar .residuo/<id>.json          # schema + reglas R0 a R10
+disensor gate --sin-comentario               # lo que va a correr CI, en local
 ```
 
-En el repositorio consumidor, `residuo.config.json` en la raíz declara el nivel de criticidad (el nivel viaja con el código, en un archivo versionado):
+En el repositorio consumidor, `disensor.config.json` en la raíz declara el nivel de criticidad (el nivel viaja con el código, en un archivo versionado):
 
 ```json
 {
@@ -47,7 +49,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: nicolasrocchia/residuo@v0.1.0
+      - uses: NicolasRocchia/disensor@v0.1.0
 ```
 
 El gate valida todos los artefactos de `.residuo/` del PR, aplica la política y publica la declaración como comentario (se actualiza en el lugar en cada push).
@@ -66,7 +68,7 @@ No corre modelos, no pide claves de API en CI, y ningún código viaja a ningún
 
 ## Conformidad entre implementaciones
 
-`spec/vectores/` contiene los vectores de conformidad: 22 artefactos con su veredicto esperado (valido o no, y las etiquetas de regla que deben dispararse). Toda implementacion del validador tiene que pasarlos identicos: la referencia en Python los corre en la suite (`tests/test_vectores.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m residuo.vectores spec/vectores`.
+`spec/vectores/` contiene los vectores de conformidad: 22 artefactos con su veredicto esperado (valido o no, y las etiquetas de regla que deben dispararse). Toda implementacion del validador tiene que pasarlos identicos: la referencia en Python los corre en la suite (`tests/test_vectores.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m disensor.vectores spec/vectores`.
 
 `plano-evidencia/` contiene el Worker de ingesta (Cloudflare Workers mas D1) con el port TypeScript del validador y el recibo de integridad de solo agregado. Ver su README para el estado de verificacion y el despliegue.
 

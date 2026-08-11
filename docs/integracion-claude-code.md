@@ -5,9 +5,9 @@ El gate no corre el loop: el loop sigue corriendo donde corre hoy (Claude Code e
 ## El circuito completo
 
 1. Ronda adversarial como siempre (compuerta de plan o de diff).
-2. Al cierre del ciclo: `residuo nuevo --compuerta diff --nivel B` genera la plantilla prellenada (uuid, timestamp, repositorio, commits desde git).
+2. Al cierre del ciclo: `disensor nuevo --compuerta diff --nivel B` genera la plantilla prellenada (uuid, timestamp, repositorio, commits desde git).
 3. Claude Code completa la plantilla con los hallazgos del evento y sus estados terminales, el residuo o la declaración expresa de ausencia, y los conteos.
-4. `residuo validar .residuo/<id>.json` en local. Si falla, se corrige antes de commitear: el gate de CI va a rechazar lo mismo.
+4. `disensor validar .residuo/<id>.json` en local. Si falla, se corrige antes de commitear: el gate de CI va a rechazar lo mismo.
 5. El artefacto va en su propio commit (`docs(residuo): declara evento <id-corto>`), separado del código, siguiendo la convención de commits atómicos.
 6. El PR dispara el gate, que valida todo el rango, aplica política y publica la declaración como comentario.
 
@@ -20,7 +20,7 @@ Agregar al `CLAUDE.md` del proyecto (o al global), a continuación de la secció
 
 Al terminar cada ronda de Codex (plan o diff), ANTES de dar el evento por cerrado:
 
-1. Corré `residuo nuevo --compuerta <plan|diff> --nivel <A|B|C>` y completá la
+1. Corré `disensor nuevo --compuerta <plan|diff> --nivel <A|B|C>` y completá la
    plantilla en `.residuo/` con lo que pasó en la ronda:
    - Un hallazgo por cada punto que trajo Codex, con su estado terminal:
      incorporado (con `ajuste_al_remedio` si le corregiste la solución),
@@ -36,7 +36,7 @@ Al terminar cada ronda de Codex (plan o diff), ANTES de dar el evento por cerrad
    - El hash sha256 de la consigna adversarial usada en `consigna_hash`.
    - `confinamiento.verificado: true` SOLO si corriste `git status` después de
      la ronda y estaba limpio.
-2. Corré `residuo validar` sobre el archivo. Si falla, corregilo: el gate de CI
+2. Corré `disensor validar` sobre el archivo. Si falla, corregilo: el gate de CI
    rechaza exactamente lo mismo.
 3. El artefacto va en un commit propio: `docs(residuo): declara evento <id-corto>`.
    Nunca mezclado con el código.
