@@ -6,7 +6,7 @@ el ciclo no pudo cerrar, en lugar de leerse como sello de calidad.
 """
 from __future__ import annotations
 
-MARCADOR = "<!-- residuo-gate -->"
+MARCADOR = "<!-- disensor-gate -->"
 
 NOMBRE_CLASE = {
     "escalado_sin_decision": "Escalado sin decision",

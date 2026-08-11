@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from residuo.gate import CONFIG_DEFECTO, cargar_config
-from residuo.reglas import cargar_schema, validar_artefacto
+from disensor.gate import CONFIG_DEFECTO, cargar_config
+from disensor.reglas import cargar_schema, validar_artefacto
 
 RAIZ = Path(__file__).resolve().parents[1]
 EJEMPLOS = RAIZ / "spec" / "ejemplos"
@@ -178,7 +178,7 @@ def test_ausencia_declarada_valida(schema, diff):
 
 
 def test_config_combina_con_defecto(tmp_path):
-    ruta = tmp_path / "residuo.config.json"
+    ruta = tmp_path / "disensor.config.json"
     ruta.write_text(json.dumps({"nivel_criticidad": "A", "gate": {"requerido": False}}), encoding="utf-8")
     config = cargar_config(ruta)
     assert config["nivel_criticidad"] == "A"
@@ -188,7 +188,7 @@ def test_config_combina_con_defecto(tmp_path):
 
 
 def test_r2_plantilla_minimizada_sin_completar_no_valida(schema, tmp_path, monkeypatch):
-    from residuo.plantilla import plantilla
+    from disensor.plantilla import plantilla
 
     monkeypatch.chdir(tmp_path)
     m = plantilla("diff", "B", "minimizado", tmp_path)

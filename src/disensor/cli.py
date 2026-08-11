@@ -1,4 +1,4 @@
-"""Interfaz de linea de comandos: residuo {nuevo, validar, gate}."""
+"""Interfaz de linea de comandos: disensor {nuevo, validar, gate}."""
 from __future__ import annotations
 
 import argparse
@@ -27,7 +27,7 @@ def main_validar(args) -> int:
 
 def construir_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="residuo",
+        prog="disensor",
         description="Declaracion de residuo de revision adversarial (desacuerdo controlado).",
     )
     sub = p.add_subparsers(dest="comando", required=True)
@@ -45,7 +45,7 @@ def construir_parser() -> argparse.ArgumentParser:
 
     gate = sub.add_parser("gate", help="Gate de CI: valida el PR completo y aplica politica G1 a G5.")
     gate.add_argument("--directorio", default=".residuo")
-    gate.add_argument("--config", default="residuo.config.json")
+    gate.add_argument("--config", default="disensor.config.json")
     gate.add_argument("--base", default=None, help="SHA base del PR (por defecto, el evento de GitHub).")
     gate.add_argument("--cabeza", default=None, help="SHA cabeza del PR (por defecto, el evento de GitHub).")
     gate.add_argument("--sin-comentario", action="store_true", help="No publicar comentario en el PR.")

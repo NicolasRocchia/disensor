@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "residuo"
+name = "disensor"
 version = "0.1.0"
-description = "Declaracion de residuo de revision adversarial (desacuerdo controlado): schema, validador y gate de CI"
+description = "disensor: adversarial plan & code review with a declared residue. Emite, valida y hace cumplir en CI declaraciones de residuo (esquema residuo/v0.1)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -16,10 +16,10 @@ dependencies = ["jsonschema>=4.18"]
 test = ["pytest>=8"]
 
 [project.scripts]
-residuo = "residuo.cli:main"
+disensor = "disensor.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-residuo = ["residuo.schema.json"]
+disensor = ["residuo.schema.json"]

@@ -33,7 +33,7 @@ CAMPOS_TEXTO_PROHIBIDOS_MINIMIZADO = {"titulo", "descripcion", "ubicacion"}
 
 def cargar_schema() -> dict:
     """Carga el schema empaquetado con la distribucion."""
-    with resources.files("residuo").joinpath("residuo.schema.json").open(encoding="utf-8") as f:
+    with resources.files("disensor").joinpath("residuo.schema.json").open(encoding="utf-8") as f:
         return json.load(f)
 
 

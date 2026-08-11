@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from residuo.reglas import validar_artefacto
-from residuo.vectores import _etiquetas
+from disensor.reglas import validar_artefacto
+from disensor.vectores import _etiquetas
 
 VECTORES = Path(__file__).resolve().parents[1] / "spec" / "vectores"
 

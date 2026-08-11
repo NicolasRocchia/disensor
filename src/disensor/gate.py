@@ -101,7 +101,7 @@ def publicar_comentario(cuerpo: str) -> str:
     cabeceras = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
-        "User-Agent": "residuo-gate",
+        "User-Agent": "disensor-gate",
     }
     try:
         req = urllib.request.Request(

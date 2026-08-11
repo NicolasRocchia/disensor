@@ -9,7 +9,7 @@ errores de forma, "R0" a "R10" para reglas estructurales).
 Se comparan etiquetas, no mensajes: los mensajes son libres por
 implementacion; las etiquetas no pueden divergir.
 
-Uso: python -m residuo.vectores <directorio_destino>
+Uso: python -m disensor.vectores <directorio_destino>
 """
 from __future__ import annotations
 

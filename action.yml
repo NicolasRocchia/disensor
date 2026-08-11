@@ -1,4 +1,4 @@
-name: 'Residuo Gate'
+name: 'Disensor Gate'
 description: 'Valida la declaracion de residuo de revision adversarial de un PR (desacuerdo controlado) y publica la declaracion como comentario.'
 author: 'Nicolas Rocchia'
 branding:
@@ -16,7 +16,7 @@ inputs:
   config:
     description: 'Archivo de configuracion del gate en el repo.'
     required: false
-    default: 'residuo.config.json'
+    default: 'disensor.config.json'
   python-version:
     description: 'Version de Python para el gate.'
     required: false
@@ -28,11 +28,11 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
-    - name: Instalar residuo
+    - name: Instalar disensor
       shell: bash
       run: python -m pip install --quiet "${{ github.action_path }}"
     - name: Correr el gate
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-      run: residuo gate --directorio "${{ inputs.directorio }}" --config "${{ inputs.config }}"
+      run: disensor gate --directorio "${{ inputs.directorio }}" --config "${{ inputs.config }}"

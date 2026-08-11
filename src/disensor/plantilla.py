@@ -1,4 +1,4 @@
-"""Scaffolding de un artefacto nuevo: `residuo nuevo`.
+"""Scaffolding de un artefacto nuevo: `disensor nuevo`.
 
 Genera una plantilla prellenada con lo que git ya sabe (repositorio, commits,
 timestamp) y marcadores que no pasan la validacion hasta completarse. Una
@@ -81,6 +81,6 @@ def main_nuevo(args) -> int:
         json.dump(a, f, ensure_ascii=False, indent=2)
         f.write("\n")
     print(f"Plantilla creada: {ruta}")
-    print("Completar los campos COMPLETAR_ y los hallazgos del evento; despues: residuo validar", ruta)
+    print("Completar los campos COMPLETAR_ y los hallazgos del evento; despues: disensor validar", ruta)
     print("Nota: la plantilla no valida hasta completarse. Es intencional.")
     return 0

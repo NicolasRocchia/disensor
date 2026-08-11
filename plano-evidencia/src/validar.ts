@@ -1,7 +1,7 @@
 /**
  * Port TypeScript del validador del artefacto de residuo (esquema v0.1).
  *
- * Espejo de src/residuo/reglas.py (implementacion de referencia en Python).
+ * Espejo de src/disensor/reglas.py (implementacion de referencia en Python).
  * La paridad no se asegura leyendo el codigo: se asegura corriendo los
  * vectores de conformidad de spec/vectores. Mismo veredicto y mismas
  * etiquetas de regla por vector, o el port esta roto.
