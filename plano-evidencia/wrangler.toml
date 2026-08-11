@@ -1,0 +1,13 @@
+name = "residuo-ingesta"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Crear la base y pegar el binding:
+#   wrangler d1 create residuo-evidencia
+#   wrangler d1 execute residuo-evidencia --file=schema.sql
+# Secreto de firma de recibos:
+#   wrangler secret put HMAC_SECRET
+[[d1_databases]]
+binding = "DB"
+database_name = "residuo-evidencia"
+database_id = "COMPLETAR_tras_wrangler_d1_create"

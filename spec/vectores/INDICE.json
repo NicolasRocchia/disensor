@@ -1,0 +1,27 @@
+{
+  "esquema": "residuo/v0.1",
+  "vectores": [
+    "valido_compuerta_plan",
+    "valido_compuerta_diff",
+    "valido_perfil_minimizado",
+    "valido_nivel_a_gap_con_referente",
+    "valido_minimizado_ausencia_declarada",
+    "r0_sin_arbitro_humano",
+    "r1_escalado_sin_item",
+    "r1_referencia_inexistente",
+    "r2_marcador_generico",
+    "r2_marcador_de_plantilla",
+    "r4_sin_decorrelacion",
+    "r5_gap_nivel_a_sin_referente",
+    "r6_conteo_inflado",
+    "r7_correccion_pendiente_en_diff",
+    "r9_fuga_de_texto_en_minimizado",
+    "r9_url_en_claro_en_minimizado",
+    "r10_completo_sin_hallazgos",
+    "schema_ruta_abreviada_sobre_caso_protegido",
+    "schema_deuda_sin_id",
+    "schema_interpretativa_sin_atencion_humana",
+    "schema_commit_invalido",
+    "schema_residuo_vacio"
+  ]
+}
