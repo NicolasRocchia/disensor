@@ -1,4 +1,5 @@
-# Copiar a .github/workflows/disensor.yml en el repositorio consumidor.
+# Copiar a .github/workflows/disensor.yml en el repositorio consumidor
+# (o dejar que `disensor init` lo escriba solo).
 name: disensor
 on:
   pull_request:
@@ -12,6 +13,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # el gate necesita el rango de commits del PR (chequeo G5)
-      - uses: NicolasRocchia/disensor@v0.1.0
+      - uses: NicolasRocchia/disensor@v0.2.0
         # Mientras el repo de la Action sea privado o local, usar la ruta relativa:
         # uses: ./disensor

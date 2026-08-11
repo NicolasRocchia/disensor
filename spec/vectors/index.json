@@ -1,0 +1,27 @@
+{
+  "schema": "residue/v0.2",
+  "vectors": [
+    "valid_plan_gate",
+    "valid_diff_gate",
+    "valid_minimized_profile",
+    "valid_level_a_gap_with_lead",
+    "valid_minimized_declared_absence",
+    "r0_no_human_arbiter",
+    "r1_escalation_without_item",
+    "r1_nonexistent_reference",
+    "r2_generic_marker",
+    "r2_template_marker",
+    "r4_no_decorrelation",
+    "r5_level_a_gap_without_lead",
+    "r6_inflated_count",
+    "r7_fix_pending_in_diff",
+    "r9_text_leak_in_minimized",
+    "r9_clear_url_in_minimized",
+    "r10_full_without_findings",
+    "schema_abbreviated_path_on_protected_case",
+    "schema_debt_without_id",
+    "schema_interpretive_without_human_attention",
+    "schema_invalid_commit",
+    "schema_empty_residue"
+  ]
+}

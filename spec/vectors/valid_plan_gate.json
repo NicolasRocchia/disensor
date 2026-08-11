@@ -1,0 +1,182 @@
+{
+  "name": "valid_plan_gate",
+  "expected": {
+    "valid": true,
+    "rules": []
+  },
+  "artifact": {
+    "schema": "residue/v0.2",
+    "profile": "full",
+    "event": {
+      "event_id": "3f2a9c1e-8b4d-4e6a-9c7f-1a2b3c4d5e6f",
+      "created_at": "2026-06-28T22:36:00-03:00",
+      "repository": "https://github.com/ejemplo/app-gastos-hogar",
+      "base_commit": "0000000",
+      "head_commit": "a1b2c3d",
+      "gate": "plan",
+      "criticality_level": "B",
+      "abbreviated_path": {
+        "used": false,
+        "protected_cases_touched": [
+          "auth_authorization",
+          "economic_calculation"
+        ]
+      }
+    },
+    "actors": {
+      "generator": {
+        "family": "anthropic",
+        "model": "claude-code"
+      },
+      "reviewers": [
+        {
+          "reviewer_id": "r1",
+          "family": "openai",
+          "model": "gpt-5.4",
+          "session_id": "019f105d-5994-7942-98b5-3e775f0e8dff",
+          "prompt_hash": "sha256:9b1f4c0a4a1e2d3f4b5a6978877665544332211009f8e7d6c5b4a3928170605f",
+          "confinement": {
+            "mode": "read_only_by_instruction",
+            "verified": true,
+            "verification_method": "clean_git_status"
+          }
+        }
+      ],
+      "human_arbiter": {
+        "present": true,
+        "id": "dueno-feature-01"
+      }
+    },
+    "findings": [
+      {
+        "id": "h1",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "El cliente tiene escritura directa: la validacion server-side es opcional",
+        "description": "El plan otorgaba INSERT y UPDATE directos al cliente, de modo que podia saltarse el RPC de validacion e insertar registros con el split forjado. El modelo de autoridad no se sostenia.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Confirmado contra la matriz de permisos del plan: el grant DML directo existia."
+        },
+        "remedy_adjustment": "El remedio literal del revisor (FORCE ROW LEVEL SECURITY) se descarto con contraejemplo: bloquearia la transicion legitima de estado del cierre. Se adopto REVOKE de DML mas escritura exclusiva por RPC con SECURITY DEFINER; la inmutabilidad la garantizan los triggers.",
+        "fix_verification": {
+          "type": "pending_in_diff_gate",
+          "reference": "El plan corregido se verifica cuando el SQL escrito pase su propia compuerta de diff."
+        }
+      },
+      {
+        "id": "h2",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "Carrera entre cierre de mes y alta de cargo",
+        "description": "Sin un lock compartido entre el cierre y el alta, un cargo tardio puede colarse entre la validacion y la liquidacion.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "La secuencia del RPC de cierre del plan no tomaba lock; el intercalado era posible."
+        },
+        "fix_verification": {
+          "type": "pending_in_diff_gate",
+          "reference": "pg_advisory_xact_lock por unidad y mes, incorporado al plan; se verifica sobre el SQL."
+        }
+      },
+      {
+        "id": "h3",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "El bloqueo de mes cerrado cubria INSERT pero no UPDATE",
+        "description": "Mover un registro existente hacia un mes cerrado, o cambiarle el estado, esquivaba el trigger que solo miraba inserciones.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "La tabla de triggers del plan solo cubria BEFORE INSERT para ese caso."
+        },
+        "fix_verification": {
+          "type": "pending_in_diff_gate",
+          "reference": "Trigger extendido a BEFORE UPDATE, incorporado al plan."
+        }
+      },
+      {
+        "id": "h4",
+        "origin": "r1",
+        "severity": "major",
+        "title": "Anti forja en el alta y errores sin fuga de informacion",
+        "description": "Faltaban validaciones de cardinalidad y secuencia de cuotas en el RPC de alta, y los mensajes de error podian filtrar detalle interno.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Las validaciones listadas en el plan no cubrian cardinalidad ni numeracion de cuotas."
+        },
+        "fix_verification": {
+          "type": "pending_in_diff_gate",
+          "reference": "Validaciones y errores genericos agregados al plan."
+        }
+      },
+      {
+        "id": "h5",
+        "origin": "r1",
+        "severity": "minor",
+        "title": "Propuesta de CHECK(monto distinto de cero)",
+        "description": "El revisor propuso un CHECK que prohibe montos en cero en la tabla de cargos.",
+        "final_state": "refuted_verifiable",
+        "verification": {
+          "against": "repository",
+          "detail": "Contrastado con la regla de generacion de cuotas del dominio."
+        },
+        "evidence": {
+          "text": "La generacion valida de cuotas produce montos en cero: un total de 0.01 en tres cuotas rinde 0.00, 0.00 y 0.01, con la ultima cuota absorbiendo el redondeo. El CHECK rechazaria filas legitimas.",
+          "link": "plan#regla-redondeo-cuotas"
+        }
+      },
+      {
+        "id": "h6",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "La validacion liviana del cierre deja pasar snapshots mal pero consistentes",
+        "description": "El snapshot que se congela como inmutable pasaba con verificaciones de suma y balance que no detectan un intercambio de deudas entre miembros ni un split errado por cargo.",
+        "final_state": "owner_decision",
+        "verification": {
+          "against": "repository",
+          "detail": "Confirmado: los tres chequeos del plan eran insuficientes para el caso de intercambio."
+        },
+        "risk_record": "El dueno adopto recompute and compare en el servidor sobre el conjunto lockeado, con la misma regla por cargo del motor. Cambia el alcance de la entrega. Riesgo aceptado: replicar la regla de redondeo en SQL introduce posibilidad de drift, mitigada con un test de paridad entre el motor y el SQL."
+      }
+    ],
+    "residue": {
+      "items": [
+        {
+          "id": "r1",
+          "class": "principal_refutation",
+          "finding_ref": "h5",
+          "refutation_type": "verifiable",
+          "requires_human_attention": false,
+          "description": "El generador refuto el CHECK propuesto por el revisor con contraejemplo del dominio.",
+          "evidence": {
+            "text": "Total 0.01 en tres cuotas rinde 0.00, 0.00 y 0.01: las primeras cuotas pueden ser cero por regla de redondeo.",
+            "link": "plan#regla-redondeo-cuotas"
+          }
+        }
+      ]
+    },
+    "metrics": {
+      "counts": {
+        "total_findings": 6,
+        "valid": {
+          "incorporated": 4,
+          "debt_recorded": 0,
+          "owner_decision": 1
+        },
+        "false_positives": {
+          "refuted_verifiable": 1,
+          "refuted_interpretive": 0
+        },
+        "escalated_open": 0
+      },
+      "extra_time_sec": 2700,
+      "token_cost": {
+        "reviewers": 41000
+      }
+    }
+  }
+}

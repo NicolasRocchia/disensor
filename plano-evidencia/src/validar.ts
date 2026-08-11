@@ -1,210 +1,215 @@
 /**
- * Port TypeScript del validador del artefacto de residuo (esquema v0.1).
+ * TypeScript port of the residue artifact validator (schema v0.2).
  *
- * Espejo de src/disensor/reglas.py (implementacion de referencia en Python).
- * La paridad no se asegura leyendo el codigo: se asegura corriendo los
- * vectores de conformidad de spec/vectores. Mismo veredicto y mismas
- * etiquetas de regla por vector, o el port esta roto.
+ * Mirror of src/disensor/rules.py (the Python reference implementation).
+ * Parity is not ensured by reading the code: it is ensured by running the
+ * conformance vectors of spec/vectors. Same verdict and same rule labels
+ * per vector, or the port is broken.
  *
- * Nota de paridad con la referencia: los "format" (uuid, date-time) no se
- * validan, igual que jsonschema en Python sin format checker.
+ * Parity note with the reference: "format" (uuid, date-time) is not
+ * validated, same as Python jsonschema without a format checker.
  */
 import Ajv2020 from "ajv/dist/2020.js";
 import type { ValidateFunction } from "ajv";
 
-export const MARCADORES_GENERICOS = new Set([
-  "n/a", "na", "ninguno", "ninguna", "todo resuelto", "aplicado",
-  "ok", "sin residuo", "-", "no aplica",
+export const GENERIC_MARKERS = new Set([
+  // English
+  "n/a", "na", "none", "all resolved", "applied", "ok", "no residue",
+  "-", "not applicable", "done", "resolved",
+  // Spanish (teams write in their own language; laziness has no border)
+  "ninguno", "ninguna", "todo resuelto", "aplicado", "sin residuo", "no aplica",
 ]);
 
-const ESTADOS_A_RESIDUO = new Set([
-  "escalado_abierto", "refutado_verificable", "refutado_interpretativo",
+const RESIDUE_STATES = new Set([
+  "escalated_open", "refuted_verifiable", "refuted_interpretive",
 ]);
 
-const CLASE_ESPERADA: Record<string, string> = {
-  escalado_abierto: "escalado_sin_decision",
-  refutado_verificable: "refutacion_del_principal",
-  refutado_interpretativo: "refutacion_del_principal",
+const EXPECTED_CLASS: Record<string, string> = {
+  escalated_open: "escalation_without_decision",
+  refuted_verifiable: "principal_refutation",
+  refuted_interpretive: "principal_refutation",
 };
 
-const CAMPOS_TEXTO_PROHIBIDOS_MINIMIZADO = ["titulo", "descripcion", "ubicacion"];
+const MINIMIZED_FORBIDDEN_TEXT_FIELDS = ["title", "description", "location"];
 
-type Artefacto = any;
+const TEMPLATE_MARKER = "FILL_IN";
+
+type Artifact = any;
 
 export function compilarSchema(schema: object): ValidateFunction {
   const ajv = new Ajv2020({ strict: false, validateFormats: false, allErrors: true });
   return ajv.compile(schema);
 }
 
-export function erroresSchema(a: Artefacto, validar: ValidateFunction): string[] {
+export function erroresSchema(a: Artifact, validar: ValidateFunction): string[] {
   const ok = validar(a);
   if (ok) return [];
   return (validar.errors ?? []).map(
-    (e) => `[schema] ${e.instancePath || "(raiz)"}: ${e.message ?? ""}`,
+    (e) => `[schema] ${e.instancePath || "(root)"}: ${e.message ?? ""}`,
   );
 }
 
-export function erroresReglas(a: Artefacto): string[] {
+export function erroresReglas(a: Artifact): string[] {
   const e: string[] = [];
-  const error = (regla: string, msg: string) => e.push(`[${regla}] ${msg}`);
+  const error = (rule: string, msg: string) => e.push(`[${rule}] ${msg}`);
 
-  const perfil: string = a.perfil;
-  const hallazgos: any[] = a.hallazgos ?? [];
-  const residuo = a.residuo;
-  const items: any[] = residuo.items ?? [];
-  const porId = new Map<string, any>(hallazgos.map((h) => [h.id, h]));
-  const compuerta: string = a.evento.compuerta;
-  const nivel: string = a.evento.nivel_criticidad;
+  const profile: string = a.profile;
+  const findings: any[] = a.findings ?? [];
+  const residue = a.residue;
+  const items: any[] = residue.items ?? [];
+  const byId = new Map<string, any>(findings.map((h) => [h.id, h]));
+  const gate: string = a.event.gate;
+  const level: string = a.event.criticality_level;
 
-  // R0: sin arbitro humano el evento no cumple el protocolo (seccion 6).
-  if (!a.actores.arbitro_humano.presente) {
-    error("R0", "evento sin arbitro humano presente");
+  // R0: without a human arbiter the event does not comply with the protocol (section 6).
+  if (!a.actors.human_arbiter.present) {
+    error("R0", "event without a human arbiter present");
   }
 
-  // R10: en perfil completo, la lista de hallazgos es obligatoria.
-  if (perfil === "completo" && hallazgos.length === 0) {
-    error("R10", "perfil completo sin lista de hallazgos");
+  // R10: in the full profile, the findings list is mandatory.
+  if (profile === "full" && findings.length === 0) {
+    error("R10", "full profile without a findings list");
   }
 
-  // R1: coherencia entre estados que integran el residuo y sus items.
-  if (hallazgos.length > 0) {
-    const refs = new Set(items.map((i) => i.ref_hallazgo).filter(Boolean));
-    for (const h of hallazgos) {
-      if (ESTADOS_A_RESIDUO.has(h.estado_final) && !refs.has(h.id)) {
-        error("R1", `hallazgo ${h.id} (${h.estado_final}) sin item de residuo`);
+  // R1: coherence between residue-joining states and their items.
+  if (findings.length > 0) {
+    const refs = new Set(items.map((i) => i.finding_ref).filter(Boolean));
+    for (const h of findings) {
+      if (RESIDUE_STATES.has(h.final_state) && !refs.has(h.id)) {
+        error("R1", `finding ${h.id} (${h.final_state}) without a residue item`);
       }
     }
     for (const i of items) {
-      const ref = i.ref_hallazgo;
+      const ref = i.finding_ref;
       if (ref) {
-        if (!porId.has(ref)) {
-          error("R1", `item ${i.id} referencia hallazgo inexistente ${ref}`);
+        if (!byId.has(ref)) {
+          error("R1", `item ${i.id} references nonexistent finding ${ref}`);
         } else {
-          const est = porId.get(ref).estado_final;
-          if (est in CLASE_ESPERADA && i.clase !== CLASE_ESPERADA[est]) {
-            error("R1", `item ${i.id} clase ${i.clase} no corresponde al estado ${est} de ${ref}`);
+          const st = byId.get(ref).final_state;
+          if (st in EXPECTED_CLASS && i.class !== EXPECTED_CLASS[st]) {
+            error("R1", `item ${i.id} class ${i.class} does not match state ${st} of ${ref}`);
           }
         }
       }
     }
   }
 
-  // R2: sin marcadores genericos en las declaraciones de texto.
-  const textos: Array<[string, string]> = [];
-  if (residuo.ausencia_declarada) {
-    textos.push(["residuo.declaracion", residuo.declaracion ?? ""]);
+  // R2: no generic markers in text declarations.
+  const texts: Array<[string, string]> = [];
+  if (residue.declared_absence) {
+    texts.push(["residue.declaration", residue.declaration ?? ""]);
   }
   for (const i of items) {
-    if (typeof i.descripcion === "string") {
-      textos.push([`residuo.items[${i.id}].descripcion`, i.descripcion]);
+    if (typeof i.description === "string") {
+      texts.push([`residue.items[${i.id}].description`, i.description]);
     }
   }
-  for (const [donde, t] of textos) {
-    if (MARCADORES_GENERICOS.has(t.trim().toLowerCase())) {
-      error("R2", `marcador generico en ${donde}: '${t}'`);
+  for (const [where, t] of texts) {
+    if (GENERIC_MARKERS.has(t.trim().toLowerCase())) {
+      error("R2", `generic marker in ${where}: '${t}'`);
     }
   }
 
-  // R2 bis: marcadores de plantilla sin completar, en cualquier campo.
-  const buscarPlantilla = (valor: unknown, ruta: string): void => {
-    if (typeof valor === "string" && valor.startsWith("COMPLETAR")) {
-      error("R2", `marcador de plantilla sin completar en ${ruta}`);
-    } else if (Array.isArray(valor)) {
-      valor.forEach((v, n) => buscarPlantilla(v, `${ruta}[${n}]`));
-    } else if (valor !== null && typeof valor === "object") {
-      for (const [k, v] of Object.entries(valor)) buscarPlantilla(v, `${ruta}.${k}`);
+  // R2 bis: unfilled template markers, in any field.
+  const findTemplateMarker = (value: unknown, path: string): void => {
+    if (typeof value === "string" && value.startsWith(TEMPLATE_MARKER)) {
+      error("R2", `unfilled template marker in ${path}`);
+    } else if (Array.isArray(value)) {
+      value.forEach((v, n) => findTemplateMarker(v, `${path}[${n}]`));
+    } else if (value !== null && typeof value === "object") {
+      for (const [k, v] of Object.entries(value)) findTemplateMarker(v, `${path}.${k}`);
     }
   };
-  buscarPlantilla(a, "artefacto");
+  findTemplateMarker(a, "artifact");
 
-  // R3: ruta abreviada incompatible con los cinco casos protegidos (3.2).
-  const ra = a.evento.ruta_abreviada;
-  if (ra.usada && (ra.casos_protegidos_tocados ?? []).length > 0) {
-    error("R3", "ruta abreviada usada sobre un cambio que toca casos protegidos de 3.2");
+  // R3: the abbreviated path is incompatible with the five protected cases (3.2).
+  const ap = a.event.abbreviated_path;
+  if (ap.used && (ap.protected_cases_touched ?? []).length > 0) {
+    error("R3", "abbreviated path used on a change that touches protected cases of 3.2");
   }
 
-  // R4: decorrelacion entre generador y revisores.
-  const famGen: string = a.actores.generador.familia;
-  for (const r of a.actores.revisores) {
-    if (r.familia === famGen) {
-      error("R4", `revisor ${r.id_revisor} comparte familia (${famGen}) con el generador: sin decorrelacion`);
+  // R4: decorrelation between generator and reviewers.
+  const genFamily: string = a.actors.generator.family;
+  for (const r of a.actors.reviewers) {
+    if (r.family === genFamily) {
+      error("R4", `reviewer ${r.reviewer_id} shares family (${genFamily}) with the generator: no decorrelation`);
     }
   }
 
-  // R5: Nivel A + gap de ejecucion exige aceptacion escrita (seccion 7).
-  if (nivel === "A") {
+  // R5: Level A + execution gap demands written acceptance (section 7).
+  if (level === "A") {
     for (const i of items) {
-      if (i.clase === "gap_de_ejecucion" && !("aceptacion_referente" in i)) {
-        error("R5", `item ${i.id}: gap de ejecucion en Nivel A sin aceptacion de referente (bloquea el merge)`);
+      if (i.class === "execution_gap" && !("lead_acceptance" in i)) {
+        error("R5", `item ${i.id}: execution gap in Level A without lead acceptance (blocks the merge)`);
       }
     }
   }
 
-  // R6: conteos coherentes con la lista de hallazgos.
-  if (hallazgos.length > 0) {
-    const c = a.metricas.conteos;
-    const conteo = (est: string) => hallazgos.filter((h) => h.estado_final === est).length;
-    const esperado: Array<[string, string, number]> = [
-      ["validos", "incorporado", conteo("incorporado")],
-      ["validos", "deuda_registrada", conteo("deuda_registrada")],
-      ["validos", "decision_del_dueno", conteo("decision_del_dueno")],
-      ["falsos_positivos", "refutado_verificable", conteo("refutado_verificable")],
-      ["falsos_positivos", "refutado_interpretativo", conteo("refutado_interpretativo")],
+  // R6: counts coherent with the findings list.
+  if (findings.length > 0) {
+    const c = a.metrics.counts;
+    const count = (st: string) => findings.filter((h) => h.final_state === st).length;
+    const expected: Array<[string, string, number]> = [
+      ["valid", "incorporated", count("incorporated")],
+      ["valid", "debt_recorded", count("debt_recorded")],
+      ["valid", "owner_decision", count("owner_decision")],
+      ["false_positives", "refuted_verifiable", count("refuted_verifiable")],
+      ["false_positives", "refuted_interpretive", count("refuted_interpretive")],
     ];
-    for (const [grupo, campo, v] of esperado) {
-      if (c[grupo][campo] !== v) {
-        error("R6", `conteo ${grupo}.${campo}=${c[grupo][campo]} pero la lista tiene ${v}`);
+    for (const [group, field, v] of expected) {
+      if (c[group][field] !== v) {
+        error("R6", `count ${group}.${field}=${c[group][field]} but the list has ${v}`);
       }
     }
-    if (c.escalados_abiertos !== conteo("escalado_abierto")) {
-      error("R6", `escalados_abiertos=${c.escalados_abiertos} pero la lista tiene ${conteo("escalado_abierto")}`);
+    if (c.escalated_open !== count("escalated_open")) {
+      error("R6", `escalated_open=${c.escalated_open} but the list has ${count("escalated_open")}`);
     }
-    if (c.total_hallazgos !== hallazgos.length) {
-      error("R6", `total_hallazgos=${c.total_hallazgos} pero la lista tiene ${hallazgos.length}`);
+    if (c.total_findings !== findings.length) {
+      error("R6", `total_findings=${c.total_findings} but the list has ${findings.length}`);
     }
   }
 
-  // R7: en compuerta diff, todo incorporado cierra con la correccion verificada.
-  if (compuerta === "diff") {
-    for (const h of hallazgos) {
-      if (h.estado_final === "incorporado") {
-        const v = h.verificacion_de_la_correccion;
+  // R7: in the diff gate, every incorporated finding closes with its fix verified.
+  if (gate === "diff") {
+    for (const h of findings) {
+      if (h.final_state === "incorporated") {
+        const v = h.fix_verification;
         if (!v) {
-          error("R7", `hallazgo ${h.id} incorporado en compuerta diff sin verificacion de la correccion`);
-        } else if (v.tipo === "pendiente_en_compuerta_diff") {
-          error("R7", `hallazgo ${h.id}: la verificacion de la correccion no puede quedar pendiente en la propia compuerta diff`);
+          error("R7", `finding ${h.id} incorporated in the diff gate without fix verification`);
+        } else if (v.type === "pending_in_diff_gate") {
+          error("R7", `finding ${h.id}: fix verification cannot stay pending in the diff gate itself`);
         }
       }
     }
   }
 
-  // R8: refutacion interpretativa siempre pide atencion humana.
+  // R8: an interpretive refutation always asks for human attention.
   for (const i of items) {
-    if (i.tipo_refutacion === "interpretativa" && !i.requiere_atencion_humana) {
-      error("R8", `item ${i.id}: refutacion interpretativa con requiere_atencion_humana=false`);
+    if (i.refutation_type === "interpretive" && !i.requires_human_attention) {
+      error("R8", `item ${i.id}: interpretive refutation with requires_human_attention=false`);
     }
   }
 
-  // R9: perfil minimizado no admite texto libre.
-  if (perfil === "minimizado") {
-    for (const h of hallazgos) {
-      for (const campo of CAMPOS_TEXTO_PROHIBIDOS_MINIMIZADO) {
-        if (campo in h) error("R9", `hallazgo ${h.id}: campo '${campo}' prohibido en perfil minimizado`);
+  // R9: the minimized profile admits no free text.
+  if (profile === "minimized") {
+    for (const h of findings) {
+      for (const field of MINIMIZED_FORBIDDEN_TEXT_FIELDS) {
+        if (field in h) error("R9", `finding ${h.id}: field '${field}' forbidden in the minimized profile`);
       }
-      const ev = h.evidencia ?? {};
-      if ("texto" in ev || "enlace" in ev) {
-        error("R9", `hallazgo ${h.id}: evidencia con texto o enlace en perfil minimizado (solo hash)`);
+      const ev = h.evidence ?? {};
+      if ("text" in ev || "link" in ev) {
+        error("R9", `finding ${h.id}: evidence with text or link in the minimized profile (hash only)`);
       }
     }
     for (const i of items) {
-      if ("descripcion" in i) error("R9", `item ${i.id}: descripcion prohibida en perfil minimizado`);
-      const ev = i.evidencia ?? {};
-      if ("texto" in ev || "enlace" in ev) {
-        error("R9", `item ${i.id}: evidencia con texto o enlace en perfil minimizado (solo hash)`);
+      if ("description" in i) error("R9", `item ${i.id}: description forbidden in the minimized profile`);
+      const ev = i.evidence ?? {};
+      if ("text" in ev || "link" in ev) {
+        error("R9", `item ${i.id}: evidence with text or link in the minimized profile (hash only)`);
       }
     }
-    if (String(a.evento.repositorio).startsWith("http")) {
-      error("R9", "perfil minimizado con URL de repositorio en claro (usar hash o identificador opaco)");
+    if (String(a.event.repository).startsWith("http")) {
+      error("R9", "minimized profile with a clear repository URL (use a hash or opaque identifier)");
     }
   }
 
@@ -212,10 +217,18 @@ export function erroresReglas(a: Artefacto): string[] {
 }
 
 /**
- * Valida un artefacto completo. Si el schema falla, las reglas no se evaluan
- * (misma semantica que la referencia): operarian sobre una forma no garantizada.
+ * Validates a complete artifact. If the schema fails, rules are not evaluated
+ * (same semantics as the reference): they would operate over an unguaranteed shape.
  */
-export function validarArtefacto(a: Artefacto, validar: ValidateFunction): string[] {
+export function validarArtefacto(a: Artifact, validar: ValidateFunction): string[] {
+  if (a !== null && typeof a === "object" && !Array.isArray(a)
+      && typeof a.esquema === "string" && a.esquema.startsWith("residuo/")) {
+    return [
+      "[schema] artifact declares 'esquema: residuo/v0.1' (Spanish keys). "
+      + "This validator checks residue/v0.2, which renamed every key and enum "
+      + "to English. See the ES-EN glossary in the repository README to migrate.",
+    ];
+  }
   const es = erroresSchema(a, validar);
   if (es.length > 0) return es;
   return erroresReglas(a);

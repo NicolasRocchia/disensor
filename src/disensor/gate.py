@@ -1,15 +1,15 @@
-"""Gate de CI: valida las declaraciones de residuo de un PR y aplica politica.
+"""CI gate: validates the residue declarations of a PR and applies policy.
 
-Chequeos del gate (sobre los R0 a R10 por artefacto de reglas.py):
-  G1: al menos un artefacto valido en el rango del PR, salvo que la
-      configuracion declare el gate como no requerido (tipico en Nivel C).
-  G2: el nivel del artefacto coincide con el nivel declarado del repositorio
-      (seccion 12.2: nivel de criticidad declarado en un archivo del repo).
-  G3: Nivel A bloqueado mientras la gobernanza no este validada
-      (seccion 3.1: el Nivel A no arranca hasta que la seccion 10 este validada).
-  G4: politica de confinamiento por nivel (seccion 10: el revisor solo lee,
-      y eso se garantiza con permisos y no con la consigna).
-  G5: el commit revisado pertenece al rango del PR.
+Gate checks (on top of the per-artifact R0 to R10 of rules.py):
+  G1: at least one valid artifact in the PR range, unless the configuration
+      declares the gate as not required (typical in Level C).
+  G2: the artifact level matches the declared level of the repository
+      (section 12.2: criticality level declared in a repo file).
+  G3: Level A blocked while governance is not validated
+      (section 3.1: Level A does not start until section 10 is validated).
+  G4: confinement policy per level (section 10: the reviewer only reads,
+      and that is guaranteed with permissions, not with the brief).
+  G5: the reviewed commit belongs to the PR range.
 """
 from __future__ import annotations
 
@@ -20,226 +20,238 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from .reglas import cargar_schema, validar_artefacto
-from .render import MARCADOR, render_comentario
+from .render import MARKER, render_comment
+from .rules import load_schema, validate_artifact
 
-CONFIG_DEFECTO = {
-    "nivel_criticidad": "B",
-    "nivel_A_habilitado": False,
+DEFAULT_CONFIG = {
+    "criticality_level": "B",
+    "level_A_enabled": False,
     "gate": {
-        "requerido": True,
-        "confinamiento_aceptado_nivel_A": ["permisos", "sandbox"],
-        "advertir_confinamiento_no_verificado": True,
+        "required": True,
+        "level_A_accepted_confinement": ["permissions", "sandbox"],
+        "warn_unverified_confinement": True,
     },
 }
 
+V01_CONFIG_KEYS = {"nivel_criticidad", "nivel_A_habilitado"}
 
-def cargar_config(ruta: Path) -> dict:
-    if not ruta.exists():
-        return dict(CONFIG_DEFECTO)
-    with ruta.open(encoding="utf-8") as f:
+
+def load_config(path: Path) -> dict:
+    if not path.exists():
+        return dict(DEFAULT_CONFIG)
+    with path.open(encoding="utf-8") as f:
         config = json.load(f)
-    combinada = dict(CONFIG_DEFECTO)
-    combinada.update({k: v for k, v in config.items() if k != "gate"})
-    gate = dict(CONFIG_DEFECTO["gate"])
+    old_keys = V01_CONFIG_KEYS & set(config)
+    if old_keys:
+        raise SystemExit(
+            f"{path}: v0.1 Spanish keys found ({', '.join(sorted(old_keys))}). "
+            "disensor 0.2 renamed the configuration to English: nivel_criticidad -> "
+            "criticality_level, nivel_A_habilitado -> level_A_enabled, gate.requerido -> "
+            "gate.required, gate.confinamiento_aceptado_nivel_A -> gate.level_A_accepted_confinement, "
+            "gate.advertir_confinamiento_no_verificado -> gate.warn_unverified_confinement. "
+            "Failing loudly instead of silently applying defaults."
+        )
+    combined = dict(DEFAULT_CONFIG)
+    combined.update({k: v for k, v in config.items() if k != "gate"})
+    gate = dict(DEFAULT_CONFIG["gate"])
     gate.update(config.get("gate", {}))
-    combinada["gate"] = gate
-    return combinada
+    combined["gate"] = gate
+    return combined
 
 
-def rango_del_pr(base: str | None, cabeza: str | None) -> tuple[str | None, str | None]:
-    """Base y cabeza del PR: flags primero, despues el evento de GitHub."""
-    if base and cabeza:
-        return base, cabeza
-    ruta_evento = os.environ.get("GITHUB_EVENT_PATH")
-    if ruta_evento and Path(ruta_evento).exists():
-        with open(ruta_evento, encoding="utf-8") as f:
-            evento = json.load(f)
-        pr = evento.get("pull_request") or {}
+def pr_range(base: str | None, head: str | None) -> tuple[str | None, str | None]:
+    """Base and head of the PR: flags first, then the GitHub event."""
+    if base and head:
+        return base, head
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path and Path(event_path).exists():
+        with open(event_path, encoding="utf-8") as f:
+            event = json.load(f)
+        pr = event.get("pull_request") or {}
         return (
             base or (pr.get("base") or {}).get("sha"),
-            cabeza or (pr.get("head") or {}).get("sha"),
+            head or (pr.get("head") or {}).get("sha"),
         )
-    return base, cabeza
+    return base, head
 
 
-def commits_del_rango(base: str, cabeza: str, cwd: Path) -> list[str] | None:
-    """Commits del rango base..cabeza, incluida la cabeza.
+def range_commits(base: str, head: str, cwd: Path) -> list[str] | None:
+    """Commits of the base..head range, head included.
 
-    Devuelve None si git no puede resolver el rango (clon superficial, shas
-    desconocidos): eso es una advertencia. Una lista vacia es un resultado
-    valido y significa que el rango no contiene commits: G5 debe evaluarse
-    igual, porque un rango vacio no puede contener el commit revisado.
+    Returns None if git cannot resolve the range (shallow clone, unknown
+    shas): that is a warning. An empty list is a valid result and means the
+    range contains no commits: G5 must still be evaluated, because an empty
+    range cannot contain the reviewed commit.
     """
     r = subprocess.run(
-        ["git", "rev-list", f"{base}..{cabeza}"],
+        ["git", "rev-list", f"{base}..{head}"],
         capture_output=True, text=True, cwd=cwd, check=False,
     )
     if r.returncode != 0:
         return None
-    return [linea.strip() for linea in r.stdout.splitlines() if linea.strip()]
+    return [line.strip() for line in r.stdout.splitlines() if line.strip()]
 
 
-def numero_de_pr() -> int | None:
-    ruta_evento = os.environ.get("GITHUB_EVENT_PATH")
-    if ruta_evento and Path(ruta_evento).exists():
-        with open(ruta_evento, encoding="utf-8") as f:
-            evento = json.load(f)
-        pr = evento.get("pull_request") or {}
+def pr_number() -> int | None:
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if event_path and Path(event_path).exists():
+        with open(event_path, encoding="utf-8") as f:
+            event = json.load(f)
+        pr = event.get("pull_request") or {}
         return pr.get("number")
     return None
 
 
-def publicar_comentario(cuerpo: str) -> str:
-    """Crea o actualiza el comentario del gate en el PR. Devuelve un estado legible."""
+def post_comment(body: str) -> str:
+    """Creates or updates the gate comment on the PR. Returns a readable status."""
     token = os.environ.get("GITHUB_TOKEN")
     repo = os.environ.get("GITHUB_REPOSITORY")
-    pr = numero_de_pr()
+    pr = pr_number()
     if not (token and repo and pr):
-        return "sin token, repositorio o numero de PR: comentario no publicado"
+        return "no token, repository or PR number: comment not posted"
     api = os.environ.get("GITHUB_API_URL", "https://api.github.com")
-    cabeceras = {
+    headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
         "User-Agent": "disensor-gate",
     }
     try:
         req = urllib.request.Request(
-            f"{api}/repos/{repo}/issues/{pr}/comments?per_page=100", headers=cabeceras
+            f"{api}/repos/{repo}/issues/{pr}/comments?per_page=100", headers=headers
         )
         with urllib.request.urlopen(req, timeout=30) as resp:
-            comentarios = json.load(resp)
-        existente = next((c for c in comentarios if MARCADOR in (c.get("body") or "")), None)
-        datos = json.dumps({"body": cuerpo}).encode("utf-8")
-        if existente:
+            comments = json.load(resp)
+        existing = next((c for c in comments if MARKER in (c.get("body") or "")), None)
+        data = json.dumps({"body": body}).encode("utf-8")
+        if existing:
             req = urllib.request.Request(
-                f"{api}/repos/{repo}/issues/comments/{existente['id']}",
-                data=datos, headers=cabeceras, method="PATCH",
+                f"{api}/repos/{repo}/issues/comments/{existing['id']}",
+                data=data, headers=headers, method="PATCH",
             )
         else:
             req = urllib.request.Request(
                 f"{api}/repos/{repo}/issues/{pr}/comments",
-                data=datos, headers=cabeceras, method="POST",
+                data=data, headers=headers, method="POST",
             )
         with urllib.request.urlopen(req, timeout=30):
             pass
-        return "comentario actualizado" if existente else "comentario publicado"
-    except Exception as exc:  # el gate no debe caerse por la red
-        return f"no se pudo publicar el comentario: {exc}"
+        return "comment updated" if existing else "comment posted"
+    except Exception as exc:  # the gate must not crash on network issues
+        return f"could not post the comment: {exc}"
 
 
-def escribir_resumen(cuerpo: str) -> None:
-    ruta = os.environ.get("GITHUB_STEP_SUMMARY")
-    if ruta:
-        with open(ruta, "a", encoding="utf-8") as f:
-            f.write(cuerpo + "\n")
+def write_summary(body: str) -> None:
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if path:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(body + "\n")
 
 
-def correr_gate(directorio: Path, config_ruta: Path, base: str | None,
-                cabeza: str | None, repo_dir: Path, publicar: bool = True) -> int:
-    config = cargar_config(config_ruta)
-    schema = cargar_schema()
+def run_gate(directory: Path, config_path: Path, base: str | None,
+             head: str | None, repo_dir: Path, post: bool = True) -> int:
+    config = load_config(config_path)
+    schema = load_schema()
     gate_cfg = config["gate"]
 
-    errores_gate: list[str] = []
-    advertencias: list[str] = []
-    errores_por_archivo: dict[str, list[str]] = {}
-    validos: list[dict] = []
+    gate_errors: list[str] = []
+    warnings: list[str] = []
+    errors_by_file: dict[str, list[str]] = {}
+    valid: list[dict] = []
 
-    base, cabeza = rango_del_pr(base, cabeza)
-    commits = commits_del_rango(base, cabeza, repo_dir) if (base and cabeza) else None
-    if commits is None and base and cabeza:
-        advertencias.append(
-            "no se pudo resolver el rango de commits (checkout con fetch-depth 0): G5 no se evalua"
+    base, head = pr_range(base, head)
+    commits = range_commits(base, head, repo_dir) if (base and head) else None
+    if commits is None and base and head:
+        warnings.append(
+            "could not resolve the commit range (checkout with fetch-depth 0): G5 not evaluated"
         )
 
-    archivos = sorted(p for p in directorio.glob("*.json")) if directorio.exists() else []
-    for ruta in archivos:
-        with ruta.open(encoding="utf-8") as f:
+    files = sorted(p for p in directory.glob("*.json")) if directory.exists() else []
+    for path in files:
+        with path.open(encoding="utf-8") as f:
             try:
-                artefacto = json.load(f)
+                artifact = json.load(f)
             except json.JSONDecodeError as exc:
-                errores_por_archivo[ruta.name] = [f"JSON invalido: {exc}"]
+                errors_by_file[path.name] = [f"invalid JSON: {exc}"]
                 continue
-        errores = validar_artefacto(artefacto, schema)
-        if errores:
-            errores_por_archivo[ruta.name] = errores
+        errors = validate_artifact(artifact, schema)
+        if errors:
+            errors_by_file[path.name] = errors
             continue
 
-        ev = artefacto["evento"]
-        propios: list[str] = []
+        ev = artifact["event"]
+        own: list[str] = []
 
-        # G2: nivel del artefacto contra nivel declarado del repositorio.
-        if ev["nivel_criticidad"] != config["nivel_criticidad"]:
-            propios.append(
-                f"[G2] nivel del artefacto ({ev['nivel_criticidad']}) distinto del declarado "
-                f"en el repositorio ({config['nivel_criticidad']})"
+        # G2: artifact level against the declared level of the repository.
+        if ev["criticality_level"] != config["criticality_level"]:
+            own.append(
+                f"[G2] artifact level ({ev['criticality_level']}) differs from the one declared "
+                f"in the repository ({config['criticality_level']})"
             )
 
-        # G3: Nivel A bloqueado hasta validar la gobernanza (seccion 3.1).
-        if ev["nivel_criticidad"] == "A" and not config.get("nivel_A_habilitado", False):
-            propios.append(
-                "[G3] Nivel A bloqueado: la gobernanza de datos (seccion 10) no esta validada "
-                "en este repositorio (nivel_A_habilitado=false). Aplicar el protocolo en Nivel A "
-                "en esta situacion no es cumplirlo a medias: es violarlo."
+        # G3: Level A blocked until governance is validated (section 3.1).
+        if ev["criticality_level"] == "A" and not config.get("level_A_enabled", False):
+            own.append(
+                "[G3] Level A blocked: data governance (section 10) is not validated "
+                "in this repository (level_A_enabled=false). Applying the protocol at Level A "
+                "in this situation is not half-compliance: it is a violation."
             )
 
-        # G4: politica de confinamiento por nivel.
-        for r in artefacto["actores"]["revisores"]:
-            conf = r["confinamiento"]
-            if ev["nivel_criticidad"] == "A" and conf["modo"] not in gate_cfg["confinamiento_aceptado_nivel_A"]:
-                propios.append(
-                    f"[G4] revisor {r['id_revisor']}: confinamiento '{conf['modo']}' no admitido en Nivel A "
-                    f"(el revisor solo lee, y eso se garantiza con permisos y no con la consigna)"
+        # G4: confinement policy per level.
+        for r in artifact["actors"]["reviewers"]:
+            conf = r["confinement"]
+            if ev["criticality_level"] == "A" and conf["mode"] not in gate_cfg["level_A_accepted_confinement"]:
+                own.append(
+                    f"[G4] reviewer {r['reviewer_id']}: confinement '{conf['mode']}' not admitted in Level A "
+                    f"(the reviewer only reads, and that is guaranteed with permissions, not with the brief)"
                 )
-            if not conf["verificado"] and gate_cfg.get("advertir_confinamiento_no_verificado", True):
-                advertencias.append(
-                    f"{ruta.name}: confinamiento del revisor {r['id_revisor']} sin verificacion posterior"
+            if not conf["verified"] and gate_cfg.get("warn_unverified_confinement", True):
+                warnings.append(
+                    f"{path.name}: confinement of reviewer {r['reviewer_id']} without post-run verification"
                 )
 
-        # G5: el commit revisado pertenece al rango del PR.
+        # G5: the reviewed commit belongs to the PR range.
         if commits is not None:
-            cc = ev["commit_cabeza"]
-            if not any(c.startswith(cc) or cc.startswith(c) for c in commits):
-                propios.append(
-                    f"[G5] commit revisado {cc} fuera del rango del PR ({base[:7]}..{cabeza[:7]})"
+            hc = ev["head_commit"]
+            if not any(c.startswith(hc) or hc.startswith(c) for c in commits):
+                own.append(
+                    f"[G5] reviewed commit {hc} outside the PR range ({base[:7]}..{head[:7]})"
                 )
 
-        if propios:
-            errores_por_archivo[ruta.name] = propios
+        if own:
+            errors_by_file[path.name] = own
         else:
-            validos.append(artefacto)
+            valid.append(artifact)
 
-    # G1: al menos un artefacto valido, salvo gate no requerido.
-    if gate_cfg.get("requerido", True) and not validos:
-        errores_gate.append(
-            "[G1] ningun artefacto de residuo valido para este PR "
-            f"(directorio '{directorio}'). La declaracion lista residuo concreto o dice "
-            "explicitamente que no hubo ninguno; un campo vacio no es una declaracion."
+    # G1: at least one valid artifact, unless the gate is not required.
+    if gate_cfg.get("required", True) and not valid:
+        gate_errors.append(
+            "[G1] no valid residue artifact for this PR "
+            f"(directory '{directory}'). The declaration lists concrete residue or says "
+            "explicitly that there was none; an empty field is not a declaration."
         )
 
-    cuerpo = render_comentario(validos, errores_por_archivo, errores_gate)
-    if advertencias:
-        cuerpo += "\n\nAdvertencias:\n" + "\n".join(f"- {a}" for a in advertencias)
+    body = render_comment(valid, errors_by_file, gate_errors)
+    if warnings:
+        body += "\n\nWarnings:\n" + "\n".join(f"- {w}" for w in warnings)
 
-    escribir_resumen(cuerpo)
-    if publicar:
-        estado = publicar_comentario(cuerpo)
-        print(f"[gate] {estado}")
+    write_summary(body)
+    if post:
+        status = post_comment(body)
+        print(f"[gate] {status}")
 
-    fallo = bool(errores_gate or errores_por_archivo)
-    print(cuerpo)
-    print(f"\n[gate] {'FALLO' if fallo else 'OK'}: {len(validos)} artefacto(s) valido(s), "
-          f"{len(errores_por_archivo)} con errores, {len(errores_gate)} error(es) globales")
-    return 1 if fallo else 0
+    failed = bool(gate_errors or errors_by_file)
+    print(body)
+    print(f"\n[gate] {'FAILED' if failed else 'OK'}: {len(valid)} valid artifact(s), "
+          f"{len(errors_by_file)} with errors, {len(gate_errors)} global error(s)")
+    return 1 if failed else 0
 
 
 def main_gate(args) -> int:
-    return correr_gate(
-        directorio=Path(args.directorio),
-        config_ruta=Path(args.config),
+    return run_gate(
+        directory=Path(args.directory),
+        config_path=Path(args.config),
         base=args.base,
-        cabeza=args.cabeza,
+        head=args.head,
         repo_dir=Path.cwd(),
-        publicar=not args.sin_comentario,
+        post=not args.no_comment,
     )

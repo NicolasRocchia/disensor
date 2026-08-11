@@ -1,0 +1,124 @@
+{
+  "name": "r9_clear_url_in_minimized",
+  "expected": {
+    "valid": false,
+    "rules": [
+      "R9"
+    ]
+  },
+  "artifact": {
+    "schema": "residue/v0.2",
+    "profile": "minimized",
+    "event": {
+      "event_id": "7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
+      "created_at": "2026-07-15T18:40:00-03:00",
+      "repository": "https://github.com/ejemplo/repo",
+      "base_commit": "c0ffee1",
+      "head_commit": "beef042",
+      "gate": "diff",
+      "criticality_level": "B",
+      "abbreviated_path": {
+        "used": false
+      }
+    },
+    "actors": {
+      "generator": {
+        "family": "anthropic",
+        "model": "claude-code"
+      },
+      "reviewers": [
+        {
+          "reviewer_id": "r1",
+          "family": "openai",
+          "model": "gpt-5.4",
+          "prompt_hash": "sha256:1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
+          "confinement": {
+            "mode": "read_only_by_instruction",
+            "verified": true,
+            "verification_method": "clean_git_status"
+          }
+        }
+      ],
+      "human_arbiter": {
+        "present": true
+      }
+    },
+    "findings": [
+      {
+        "id": "h1",
+        "origin": "r1",
+        "severity": "major",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository"
+        },
+        "fix_verification": {
+          "type": "specific_test"
+        }
+      },
+      {
+        "id": "h2",
+        "origin": "r1",
+        "severity": "major",
+        "final_state": "escalated_open",
+        "verification": {
+          "against": "repository"
+        }
+      },
+      {
+        "id": "h3",
+        "origin": "r1",
+        "severity": "minor",
+        "final_state": "refuted_verifiable",
+        "verification": {
+          "against": "repository"
+        },
+        "evidence": {
+          "hash": "sha256:aa11bb22cc33dd44ee55ff667788990011223344556677889900aabbccddeeff"
+        }
+      }
+    ],
+    "residue": {
+      "items": [
+        {
+          "id": "r1",
+          "class": "escalation_without_decision",
+          "finding_ref": "h2",
+          "requires_human_attention": true
+        },
+        {
+          "id": "r2",
+          "class": "principal_refutation",
+          "finding_ref": "h3",
+          "refutation_type": "verifiable",
+          "requires_human_attention": false,
+          "evidence": {
+            "hash": "sha256:aa11bb22cc33dd44ee55ff667788990011223344556677889900aabbccddeeff"
+          }
+        },
+        {
+          "id": "r3",
+          "class": "execution_gap",
+          "requires_human_attention": true,
+          "gap_reason": "environment_not_reproducible"
+        }
+      ]
+    },
+    "metrics": {
+      "counts": {
+        "total_findings": 3,
+        "valid": {
+          "incorporated": 1,
+          "debt_recorded": 0,
+          "owner_decision": 0
+        },
+        "false_positives": {
+          "refuted_verifiable": 1,
+          "refuted_interpretive": 0
+        },
+        "escalated_open": 1
+      },
+      "extra_time_sec": 2400
+    }
+  }
+}

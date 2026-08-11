@@ -1,9 +1,9 @@
 {
-  "nivel_criticidad": "B",
-  "nivel_A_habilitado": false,
+  "criticality_level": "B",
+  "level_A_enabled": false,
   "gate": {
-    "requerido": true,
-    "confinamiento_aceptado_nivel_A": ["permisos", "sandbox"],
-    "advertir_confinamiento_no_verificado": true
+    "required": true,
+    "level_A_accepted_confinement": ["permissions", "sandbox"],
+    "warn_unverified_confinement": true
   }
 }

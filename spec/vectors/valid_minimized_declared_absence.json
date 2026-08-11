@@ -1,0 +1,66 @@
+{
+  "name": "valid_minimized_declared_absence",
+  "expected": {
+    "valid": true,
+    "rules": []
+  },
+  "artifact": {
+    "schema": "residue/v0.2",
+    "profile": "minimized",
+    "event": {
+      "event_id": "7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
+      "created_at": "2026-07-15T18:40:00-03:00",
+      "repository": "sha256:f1e2d3c4b5a69788f1e2d3c4b5a69788f1e2d3c4b5a69788f1e2d3c4b5a69788",
+      "base_commit": "c0ffee1",
+      "head_commit": "beef042",
+      "gate": "diff",
+      "criticality_level": "B",
+      "abbreviated_path": {
+        "used": false
+      }
+    },
+    "actors": {
+      "generator": {
+        "family": "anthropic",
+        "model": "claude-code"
+      },
+      "reviewers": [
+        {
+          "reviewer_id": "r1",
+          "family": "openai",
+          "model": "gpt-5.4",
+          "prompt_hash": "sha256:1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
+          "confinement": {
+            "mode": "read_only_by_instruction",
+            "verified": true,
+            "verification_method": "clean_git_status"
+          }
+        }
+      ],
+      "human_arbiter": {
+        "present": true
+      }
+    },
+    "findings": [],
+    "residue": {
+      "declared_absence": true,
+      "declaration": "El ciclo corrio completo sobre el diff y no quedo nada sin resolver: todo hallazgo se incorporo y sus correcciones pasaron pruebas especificas."
+    },
+    "metrics": {
+      "counts": {
+        "total_findings": 0,
+        "valid": {
+          "incorporated": 0,
+          "debt_recorded": 0,
+          "owner_decision": 0
+        },
+        "false_positives": {
+          "refuted_verifiable": 0,
+          "refuted_interpretive": 0
+        },
+        "escalated_open": 0
+      },
+      "extra_time_sec": 2400
+    }
+  }
+}

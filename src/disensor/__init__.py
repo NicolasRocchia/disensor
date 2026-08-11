@@ -1,2 +1,2 @@
-"""disensor: declaracion de residuo de revision adversarial (desacuerdo controlado)."""
-__version__ = "0.1.0"
+"""disensor: residue declaration of adversarial review (controlled disagreement)."""
+__version__ = "0.2.0"
