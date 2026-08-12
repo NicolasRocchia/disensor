@@ -11,40 +11,14 @@ El gate no corre el loop: el loop sigue corriendo donde corre hoy (Claude Code e
 5. El artefacto va en su propio commit (`docs(residue): declare event <short-id>`), separado del código, siguiendo la convención de commits atómicos.
 6. El PR dispara el gate, que valida todo el rango, aplica política y publica la declaración como comentario.
 
-## Snippet para CLAUDE.md
+## Qué escribe init para Claude Code
 
-`disensor init` escribe esta sección en el `CLAUDE.md` del repo (o en el global con `--claude-global`, condicionada a que el repo tenga `disensor.config.json`). Es la versión en inglés y generalizada del snippet original; se reproduce acá para leerla sin correr el comando:
+Desde la 0.3.0 el conocimiento está partido en dos piezas, las dos escritas por `disensor init` (o en el ámbito global con `--claude-global`, condicionadas a que el repo tenga `disensor.config.json`):
 
-```markdown
-## disensor: residue declaration at event close
+1. **La sección de `CLAUDE.md`**: el disparador. Dice cuándo actuar (al cierre de cada ronda), en cuatro pasos cortos, y delega el detalle en la skill. Al estar siempre en contexto, se mantiene mínima a propósito.
+2. **La skill `.claude/skills/disensor/SKILL.md`**: la guía completa de llenado, que Claude Code carga a demanda cuando cierra una ronda. Campo por campo: la tabla de decisión de `final_state`, las tres clases de residuo, qué exige cada regla R antes de que `validate` rechace, `disensor hash` para el `prompt_hash`, y la política de `confinement.verified`.
 
-At the end of each adversarial review round (plan or diff), BEFORE closing
-the event:
-
-1. Run `disensor new --gate <plan|diff> --level <A|B|C>` and fill in the
-   template it creates under `.residue/` with what happened in the round:
-   - One finding per point raised by the reviewer (an assistant of another
-     model family), with its terminal state: incorporated (with
-     `remedy_adjustment` if you fixed the proposed remedy), debt_recorded
-     (with id), owner_decision (with the risk record), refuted_verifiable
-     (with evidence), refuted_interpretive, or escalated_open.
-   - The verification of each finding (`against`: repository or execution).
-   - In the diff gate, the fix verification of each incorporated finding
-     (diff_gate or specific_test). Never "pending".
-   - The residue: escalations without a decision, refutations of the
-     principal, and execution gaps. If nothing remained, the express
-     declaration of absence (concrete text, not "no residue").
-   - The sha256 hash of the adversarial brief used, in `prompt_hash`.
-   - `confinement.verified: true` ONLY if you ran `git status` after the
-     round and it was clean.
-2. Run `disensor validate` on the file. If it fails, fix it: the CI gate
-   rejects exactly the same.
-3. The artifact goes in its own commit (`docs(residue): declare event
-   <short-id>`). Never mixed with code.
-4. Do not invent findings or states: the artifact declares what happened,
-   not what should have happened. An event without findings and with an
-   express declaration of absence is valid pilot data, not a failure.
-```
+La misma guía vive empaquetada en la distribución: `disensor guide` la imprime por stdout para pasársela a un agente que no es Claude (Codex, Gemini, el que sea) o para leerla. Una sola fuente de verdad, tres salidas.
 
 ## Nota sobre el confinamiento
 
