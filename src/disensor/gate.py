@@ -518,6 +518,17 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
 
         own: list[str] = []
         ev = artifact.event
+        # A new artifact has to carry a canonical UUID, full stop. Chasing every
+        # equivalent spelling instead (URN prefixes, the `?+`, `?=` and `#`
+        # components RFC 8141 ignores, empty or blank ids) is a losing game while
+        # the validator does not assert `format: uuid`. Demanding the canonical
+        # form closes all of them at once, and `event_key` stays for reading
+        # history, which may hold artifacts written before this rule existed.
+        if event_key(artifact.event_id) != artifact.event_id:
+            own.append(
+                f"[G8] event_id '{artifact.event_id}' is not a canonical UUID. Identity has to have "
+                "one spelling: otherwise the same event written differently looks like two."
+            )
         if Path(path).name != f"{artifact.event_id}.json":
             own.append(f"[G8] the file has to be named `{artifact.event_id}.json`")
         # Checked against history AND against the artifacts this same PR already

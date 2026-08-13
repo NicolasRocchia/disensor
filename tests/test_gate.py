@@ -404,6 +404,27 @@ def test_two_artifacts_in_the_same_pr_cannot_share_an_id(repo, capsys):
     assert "[G8]" in out(capsys)
 
 
+@pytest.mark.parametrize("event_id", [
+    "URN:UUID:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f#x",  # RFC 8141 ignores `#`
+    "urn:uuid:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
+    "EEEEEEEE-1A2B-4C3D-8E5F-6A7B8C9D0E1F",
+    "eeeeeeee1a2b4c3d8e5f6a7b8c9d0e1f",
+])
+def test_a_new_artifact_needs_a_canonical_event_id(repo, event_id, capsys):
+    """One identity, one spelling.
+
+    While the validator does not assert `format: uuid`, chasing every equivalent
+    spelling is a losing game: demanding the canonical form closes all of them.
+    """
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/a.py", "one")
+    code = repo.commit("feat")
+    repo.artifact("diff", head=code, base=base, event_id=event_id, name="artifact")
+    head = repo.commit("docs(residue)")
+    assert repo.run(base, head) == 1
+    assert "canonical UUID" in out(capsys)
+
+
 def test_unreadable_historical_evidence_fails_closed(repo, capsys):
     """If a past artifact cannot be read, its id is unknown and could be reused."""
     repo.write(".residue/legacy.json", "{ this is not valid json")
