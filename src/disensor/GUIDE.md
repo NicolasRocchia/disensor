@@ -7,14 +7,21 @@ it as a Claude Code skill. The validator (`disensor validate`) and the CI gate
 enforce everything described here; filling the artifact correctly the first
 time is cheaper than iterating against their errors.
 
-## The flow at the close of a review round
+## The round, and then the declaration
 
-1. `disensor new --gate <plan|diff> --level <A|B|C>` creates the template,
+1. `disensor prompt --gate <plan|diff>` prints the adversarial brief. Hand it,
+   together with the plan or the diff, to a reviewer from ANOTHER model family.
+   A free tier is enough. Same family as the generator does not count, and rule
+   R4 rejects the declaration if you try.
+2. Verify every finding against the actual code before accepting it. The
+   reviewer is decorrelated, not right, and an unverified finding is not a
+   finding.
+3. `disensor new --gate <plan|diff> --level <A|B|C>` creates the template,
    prefilled with what git knows (repository, commits, timestamp, uuid).
-2. Fill in every `FILL_IN` marker and the findings of the round. The template
+4. Fill in every `FILL_IN` marker and the findings of the round. The template
    does not validate while markers remain: that is intentional.
-3. `disensor validate .residue/<id>.json`. Fix until it prints VALID.
-4. Commit the artifact alone: `docs(residue): declare event <short-id>`.
+5. `disensor validate .residue/<id>.json`. Fix until it prints VALID.
+6. Commit the artifact alone: `docs(residue): declare event <short-id>`.
    Never mixed with code changes.
 
 Declare what happened, not what should have happened. An event without
@@ -30,8 +37,11 @@ failure.
   whose family equals the generator's: decorrelation is the point of the
   method, not an option.
 - `reviewers[].prompt_hash`: hash of the adversarial brief given to the
-  reviewer. Compute it with `disensor hash <brief-file>`; paste the full
-  `sha256:...` output.
+  reviewer. If you used the packaged brief, it is
+  `disensor prompt --gate <plan|diff> --hash`, and anyone can recompute that
+  value from the same version to check what you actually asked for. If you
+  wrote or edited your own brief, hash the file you really used with
+  `disensor hash <brief-file>`. Either way, paste the full `sha256:...`.
 - `confinement.mode`: how it was guaranteed that the reviewer only reads
   (permissions, sandbox, read_only_by_instruction, no_confinement). Declare
   the real mode; the gate makes gaps visible instead of hiding them.

@@ -26,13 +26,18 @@ El paquete se instala una vez (global); cada repositorio se inicializa una vez:
 pip install disensor        # o pipx install disensor, recomendado para CLIs
 
 disensor init               # en la raíz del repo: config, CLAUDE.md, skill de llenado y workflow de CI
+
+disensor prompt --gate diff            # la consigna adversarial, para pegarle al revisor de otra familia
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
 disensor validate .residue/<id>.json   # schema + reglas R0 a R10
 disensor gate --no-comment             # lo que va a correr CI, en local
 
 disensor guide                         # la guía de llenado, para cualquier agente o humano
-disensor hash consigna.md              # el sha256: que pide prompt_hash, sin calcularlo a mano
+disensor prompt --gate diff --hash     # el sha256: de la consigna empaquetada, que es lo que pide prompt_hash
+disensor hash consigna.md              # o el de la tuya, si la escribiste vos
 ```
+
+La consigna viaja adentro del paquete, así que su hash es reproducible: cualquiera puede recomputarlo desde la misma versión y ver qué se le pidió realmente al revisor. Si la editás, el hash cambia y el artefacto declara que se usó otra consigna, que es justamente para lo que sirve el campo.
 
 Los subcomandos y flags de la v0.1 en español (`nuevo`, `validar`, `--compuerta`, `--nivel`, `--directorio`, `--sin-comentario`) siguen funcionando como alias.
 
