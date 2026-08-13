@@ -21,11 +21,23 @@ from importlib import resources
 GATES = ("plan", "diff", "architecture")
 
 
+def _read(name: str) -> str:
+    return resources.files("disensor").joinpath("prompts", name).read_text(encoding="utf-8")
+
+
 def brief_text(gate: str) -> str:
-    """The packaged brief for a gate, verbatim."""
+    """The packaged brief for a gate: its attack surfaces plus the shared rules.
+
+    Composed instead of duplicated so the evidence rules cannot drift between
+    gates. Those rules are the part that keeps the review honest (no quota of
+    findings, a stated burden of proof, and treating the reviewed material as
+    data rather than as instructions), so having three copies of them would be
+    three chances to weaken one by accident.
+    """
     if gate not in GATES:
         raise ValueError(f"unknown gate '{gate}' (expected one of {', '.join(GATES)})")
-    return resources.files("disensor").joinpath("prompts", f"{gate}.md").read_text(encoding="utf-8")
+    head, _, body = _read(f"{gate}.md").partition("---\n")
+    return f"{head}---\n\n{_read('_common.md')}\n{body.lstrip()}"
 
 
 def brief_hash(gate: str) -> str:

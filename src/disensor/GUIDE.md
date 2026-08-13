@@ -28,6 +28,26 @@ Declare what happened, not what should have happened. An event without
 findings and with an express declaration of absence is valid data, not a
 failure.
 
+## The three gates
+
+`event.gate` says what was submitted to review, and it changes what the rules
+demand afterwards. Each one has its own packaged brief.
+
+- **`plan`**: the plan before implementing. The cheapest moment to be wrong.
+  An `incorporated` finding here may close with `fix_verification` of type
+  `pending_in_diff_gate`, because the fix has not been written yet.
+- **`diff`**: the change before merging. This is the one the CI gate demands for
+  code, and the only one where `incorporated` requires the fix to have passed
+  its own verification (`diff_gate` or `specific_test`, rule R7). Applying the
+  fix is not closing the finding; verifying it is.
+- **`architecture`**: a design decision or a comparison of alternatives, when
+  the question is not whether the code is right but whether the shape is. Same
+  contract as the others; what changes is the brief and the horizon of the
+  findings.
+
+A repository declares in its configuration which gate it accepts for which
+paths. By default everything demands `diff`.
+
 ## Actors
 
 - `generator`: the assistant that produced the plan or diff. `family` is its

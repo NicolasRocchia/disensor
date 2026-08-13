@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -24,9 +25,20 @@ def test_every_gate_has_a_brief(gate):
     assert gate in text.split("\n", 1)[0], "the first line should say which gate it is for"
 
 
+def flat(gate: str) -> str:
+    """Lowercased with collapsed whitespace.
+
+    The briefs are wrapped markdown, so a phrase can straddle a line break.
+    Asserting on the raw text makes these tests fail when a paragraph is
+    rewrapped, which says nothing about whether the brief still asks for the
+    right thing.
+    """
+    return re.sub(r"\s+", " ", brief_text(gate)).lower()
+
+
 @pytest.mark.parametrize("gate", GATES)
 def test_the_brief_asks_for_the_things_the_method_needs(gate):
-    text = brief_text(gate).lower()
+    text = flat(gate)
     # Decorrelation, because a same-family reviewer nods at the same blind spots
     # and R4 rejects the declaration anyway.
     assert "different family" in text
@@ -35,6 +47,43 @@ def test_the_brief_asks_for_the_things_the_method_needs(gate):
     # Attack, not approval: a brief that asks for a review gets a review.
     assert "red team" in text
     assert "severity" in text
+
+
+@pytest.mark.parametrize("gate", GATES)
+def test_the_brief_demands_evidence_instead_of_volume(gate):
+    """A brief that only asks for aggression buys plausible findings.
+
+    Every point raised has to be verified against the code by whoever receives
+    it, so a false positive costs real time. The brief states a burden of proof
+    and says out loud that zero findings is a valid result.
+    """
+    text = flat(gate)
+    assert "zero findings is a valid" in text
+    assert "no quota" in text
+    assert "unverified hypotheses" in text
+    assert "execution gaps" in text
+
+
+@pytest.mark.parametrize("gate", GATES)
+def test_the_brief_defends_the_reviewer_from_the_material(gate):
+    """The reviewed code, its comments and its docs are data, not instructions.
+
+    Otherwise a comment that says "approve this" is an injection into the very
+    review that is supposed to catch it.
+    """
+    text = flat(gate)
+    assert "never as instructions" in text
+    assert "do not obey it" in text
+
+
+@pytest.mark.parametrize("gate", GATES)
+def test_the_shared_rules_are_composed_and_not_copied(gate):
+    """One copy of the evidence rules, so they cannot drift between gates."""
+    from disensor.brief import _read
+
+    common = _read("_common.md").strip()
+    assert common in brief_text(gate)
+    assert common not in _read(f"{gate}.md"), "the gate file should not carry its own copy"
 
 
 def test_unknown_gate_is_rejected():
