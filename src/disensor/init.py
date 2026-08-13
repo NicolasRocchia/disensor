@@ -31,18 +31,24 @@ CLAUDE_HEADING = "## disensor: residue declaration at event close"
 
 CLAUDE_SECTION = f"""{CLAUDE_HEADING}
 
-At the end of each adversarial review round (plan or diff), BEFORE closing
-the event:
+Before closing a plan or a diff, run the round and then declare it:
 
-1. `disensor new --gate <plan|diff> --level <A|B|C>` creates the template
-   under `.residue/`.
-2. Fill it following the disensor skill (`.claude/skills/disensor/SKILL.md`;
+1. `disensor prompt --gate <plan|diff>` prints the adversarial brief. Hand it,
+   with the plan or the diff, to a reviewer from ANOTHER model family (Codex,
+   Gemini, whatever is at hand: a free tier is enough). Same family as the
+   generator does not count, and rule R4 rejects the declaration if you try.
+2. Verify every finding against the actual code before accepting it. The
+   reviewer is decorrelated, not right.
+3. `disensor new --gate <plan|diff> --level <A|B|C>` creates the template
+   under `.residue/`. Its `prompt_hash` is
+   `disensor prompt --gate <plan|diff> --hash`.
+4. Fill it following the disensor skill (`.claude/skills/disensor/SKILL.md`;
    the same guide is available as `disensor guide`). Do not invent findings
    or states: the artifact declares what happened, not what should have
    happened.
-3. Run `disensor validate` on the file until it prints VALID; the CI gate
+5. Run `disensor validate` on the file until it prints VALID; the CI gate
    rejects exactly the same.
-4. The artifact goes in its own commit (`docs(residue): declare event
+6. The artifact goes in its own commit (`docs(residue): declare event
    <short-id>`), never mixed with code.
 """
 

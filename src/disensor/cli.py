@@ -11,6 +11,7 @@ import json
 import sys
 from pathlib import Path
 
+from .brief import GATES, main_prompt
 from .gate import main_gate
 from .guide import main_guide, main_hash
 from .init import main_init
@@ -69,6 +70,15 @@ def build_parser() -> argparse.ArgumentParser:
     gate.add_argument("--no-comment", "--sin-comentario", action="store_true",
                       help="Do not post a comment on the PR.")
     gate.set_defaults(func=main_gate)
+
+    prompt = sub.add_parser(
+        "prompt",
+        help="Print the adversarial brief to hand to the reviewer from another model family.",
+    )
+    prompt.add_argument("--gate", "--compuerta", choices=list(GATES), default="diff")
+    prompt.add_argument("--hash", action="store_true",
+                        help="Print only the sha256: of the brief, the value prompt_hash expects.")
+    prompt.set_defaults(func=main_prompt)
 
     guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
     guide.set_defaults(func=main_guide)
