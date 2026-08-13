@@ -77,3 +77,16 @@ def test_r10_says_how_to_declare_a_round_that_found_nothing(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "[R10]" in out
     assert "total_findings=0" in out
+
+
+def test_the_help_footer_offers_every_public_gate(tmp_path, capsys):
+    """architecture is a public gate; leaving it out of the hint hides it."""
+    broken = json.loads((EXAMPLES / "example_2_diff_gate.json").read_text(encoding="utf-8"))
+    del broken["findings"]
+    path = tmp_path / "a.json"
+    path.write_text(json.dumps(broken), encoding="utf-8")
+
+    run(["validate", str(path)])
+    out = capsys.readouterr().out
+    for gate in ("plan", "diff", "architecture"):
+        assert gate in out
