@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import os
 import urllib.request
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -60,6 +61,21 @@ KNOWN_GATE_KEYS = {"required", "level_A_accepted_confinement", "warn_unverified_
 
 class GateFailure(Exception):
     """The gate cannot reach a verdict, so it refuses to give a green check."""
+
+
+def event_key(raw) -> str:
+    """Comparable identity of an event.
+
+    The same UUID has many textual forms (upper case, no dashes, braces, a urn:
+    prefix, a trailing space) and the schema declares `format: uuid` without the
+    validator asserting it, so comparing raw strings lets a new artifact reuse a
+    historical id just by writing it differently.
+    """
+    text = str(raw).strip()
+    try:
+        return str(uuid.UUID(text))
+    except (ValueError, AttributeError, TypeError):
+        return text.casefold()
 
 
 @dataclass
@@ -459,14 +475,18 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
     for p in gitctx.list_tree(mb, evidence_root, repo_dir):
         if not p.endswith(".json"):
             continue
-        historical.add(Path(p).stem)
+        historical.add(event_key(Path(p).stem))
         try:
             past = json.loads(gitctx.show_text(mb, p, repo_dir))
-        except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError):
+        except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError) as exc:
+            # Said out loud instead of skipped: unreadable historical evidence
+            # means uniqueness cannot be guaranteed against it.
+            warnings.append(f"historical evidence {p} could not be read ({exc}); it does not count for uniqueness")
             continue
-        past_id = (past.get("event") or {}).get("event_id") if isinstance(past, dict) else None
-        if isinstance(past_id, str) and past_id:
-            historical.add(past_id)
+        event = past.get("event") if isinstance(past, dict) else None
+        past_id = event.get("event_id") if isinstance(event, dict) else None
+        if isinstance(past_id, str) and past_id.strip():
+            historical.add(event_key(past_id))
 
     schema = load_schema()
     artifacts: list[Artifact] = []
@@ -486,7 +506,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         ev = artifact.event
         if Path(path).name != f"{artifact.event_id}.json":
             own.append(f"[G8] the file has to be named `{artifact.event_id}.json`")
-        if artifact.event_id in historical:
+        if event_key(artifact.event_id) in historical:
             own.append(
                 f"[G8] event_id {artifact.event_id[:8]} already exists in the evidence of this "
                 "repository: reusing it breaks the identity of the record"

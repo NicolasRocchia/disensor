@@ -10,7 +10,9 @@ It writes four pieces, each optional by flag:
   2. A CLAUDE.md section: the event-close trigger for Claude Code.
   3. A Claude Code skill with the full filling guide, loaded on demand
      (the same text `disensor guide` prints for any other agent).
-  4. .github/workflows/disensor.yml: the CI gate, pinned to this version.
+  4. .github/workflows/disensor.yml: the CI gate, at this version's tag.
+     A tag can be moved, so the workflow says out loud that whoever deploys
+     has to replace it with the commit SHA it points at.
 
 After `pip install disensor` and `disensor init`, the user should not have
 to touch anything by hand: Claude knows when (CLAUDE.md) and how (skill),
@@ -143,7 +145,10 @@ def _write_workflow(root: Path, report: list[str]) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(WORKFLOW, encoding="utf-8")
-    report.append(f"created {path.relative_to(root)} (pinned to v{__version__})")
+    report.append(
+        f"created {path.relative_to(root)} (tag v{__version__}; replace it with its commit "
+        "SHA, a tag is movable and is not a root of trust)"
+    )
 
 
 def main_init(args) -> int:

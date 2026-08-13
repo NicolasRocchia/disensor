@@ -63,7 +63,12 @@ def compile_pattern(pattern: str) -> re.Pattern[str]:
         parts.append(chunk)
         if not last:
             parts.append("/")
-    return re.compile("".join(parts))
+    # DOTALL because `**` compiles to `.*`, and without it `.` refuses to cross a
+    # newline while the `[^/]*` of a plain `*` crosses it happily. That asymmetry
+    # was a real escape: `.github/workflows/a\nb.yml` did not match the floor
+    # pattern `.github/workflows/**` but did match a permissive
+    # `.github/workflows/*` rule, so a path inside a protected root came out exempt.
+    return re.compile("".join(parts), re.DOTALL)
 
 
 def matches(pattern: str, path: str) -> bool:

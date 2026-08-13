@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from disensor.gate import run_gate
+from disensor.gate import event_key, run_gate
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "spec" / "examples"
 PLAN = json.loads((EXAMPLES / "example_1_plan_gate.json").read_text(encoding="utf-8"))
@@ -360,6 +360,42 @@ def test_duplicate_event_id_fails_even_if_history_used_another_filename(repo, ca
     repo.write("src/b.py", "two")
     c2 = repo.commit("feat 2")
     repo.artifact("diff", head=c2, base=first, event_id=shared)  # canonical name, reused id
+    head = repo.commit("docs(residue) 2")
+    assert repo.run(first, head) == 1
+    assert "already exists" in out(capsys)
+
+
+@pytest.mark.parametrize("variant", [
+    "EEEEEEEE-1A2B-4C3D-8E5F-6A7B8C9D0E1F",
+    "{eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f}",
+    "urn:uuid:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
+    "eeeeeeee1a2b4c3d8e5f6a7b8c9d0e1f",
+    " eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f ",
+])
+def test_event_key_normalises_every_spelling_of_the_same_uuid(variant):
+    """Unit test on purpose: `:` and case-insensitivity make several of these
+    unrepresentable as file names on Windows, and the point is the identity
+    comparison, not what the filesystem happens to allow."""
+    assert event_key(variant) == event_key("eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f")
+
+
+@pytest.mark.parametrize("variant", ["{eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f}"])
+def test_the_same_uuid_written_differently_still_collides(repo, variant, capsys):
+    """Identity is the event, not its spelling.
+
+    The schema declares `format: uuid` without the validator asserting it, so
+    without normalisation the same id in another textual form gets another file
+    name, validates, and the collision goes unnoticed.
+    """
+    original = "eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
+    repo.write("src/a.py", "one")
+    c1 = repo.commit("feat")
+    repo.artifact("diff", head=c1, base=repo.git("rev-parse", "HEAD~1"), event_id=original)
+    first = repo.commit("docs(residue)")
+
+    repo.write("src/b.py", "two")
+    c2 = repo.commit("feat 2")
+    repo.artifact("diff", head=c2, base=first, event_id=variant)
     head = repo.commit("docs(residue) 2")
     assert repo.run(first, head) == 1
     assert "already exists" in out(capsys)
