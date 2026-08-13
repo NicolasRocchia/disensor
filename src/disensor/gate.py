@@ -219,23 +219,29 @@ def merge_config(raw: dict) -> dict:
 
 
 def load_config_at(rev: str, config_path: str, repo_dir: Path) -> tuple[dict, str]:
-    """Policy as of the base of the PR.
+    """Policy as of the current tip of the target branch.
 
-    Reading the policy from the base is what makes a PR that changes the policy
-    be judged by the previous one. It also dissolves the deadlock of the obvious
-    alternative, where the PR that relaxes the configuration is rejected by the
-    very rule it is trying to change, leaving no legitimate transition.
+    Reading it from the target and not from the head is what makes a PR that
+    changes the policy be judged by the previous one, and it dissolves the
+    deadlock of the obvious alternative, where the PR that relaxes the
+    configuration is rejected by the very rule it is trying to change.
+
+    From the *tip* and not from the merge base, which is a different question:
+    the merge base is as old as the branch, so a branch created before the
+    repository tightened its policy would drag the weaker one along and be judged
+    by a rule the target abandoned. The scope of the PR is measured against the
+    merge base; the policy in force is the one the target has today.
     """
     if not gitctx.path_exists(rev, config_path, repo_dir):
         return merge_config({}), (
-            f"no {config_path} at the base of the PR: safe defaults apply "
+            f"no {config_path} on the target branch: safe defaults apply "
             "(gate required, level B, everything demands a diff review)"
         )
     raw = json.loads(gitctx.show_text(rev, config_path, repo_dir))
     if not isinstance(raw, dict):
-        raise GateFailure(f"{config_path} at the base of the PR is not an object")
-    validate_config_shape(raw, f"{config_path} (base of the PR)")
-    return merge_config(raw), f"policy read from {config_path} at the base of the PR"
+        raise GateFailure(f"{config_path} on the target branch is not an object")
+    validate_config_shape(raw, f"{config_path} (target branch)")
+    return merge_config(raw), f"policy read from {config_path} at the tip of the target branch"
 
 
 def pr_range(base: str | None, head: str | None) -> tuple[str | None, str | None]:
@@ -480,7 +486,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
     except gitctx.GitError as exc:
         raise GateFailure(f"{exc}. Check out with fetch-depth: 0 so the whole range is available.") from exc
 
-    config, policy_note = load_config_at(mb, cfg_path, repo_dir)
+    config, policy_note = load_config_at(base_oid, cfg_path, repo_dir)
     gate_cfg = config["gate"]
 
     status = gitctx.changed_status(mb, head_oid, repo_dir)
@@ -499,13 +505,16 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
     # The identity of a record is the event_id it declares, not the name of the
     # file. Reading only the file names misses an artifact from before 0.4, when
     # the name did not have to match, whose id a new artifact could reuse.
+    # From the target tip, like the policy: an id already recorded on the target
+    # after this branch was created is just as taken, and reading only the merge
+    # base would let an old branch reuse it.
     historical: set[str] = set()
-    for p in gitctx.list_tree(mb, evidence_root, repo_dir):
+    for p in gitctx.list_tree(base_oid, evidence_root, repo_dir):
         if not p.endswith(".json"):
             continue
         historical.add(event_key(Path(p).stem))
         try:
-            past = json.loads(gitctx.show_text(mb, p, repo_dir))
+            past = json.loads(gitctx.show_text(base_oid, p, repo_dir))
         except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError) as exc:
             # Not a warning: if a historical artifact cannot be read, its
             # event_id is unknown and a new artifact could reuse it. Warning
@@ -614,8 +623,8 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
                 raise GateFailure("the configuration is not an object")
             validate_config_shape(head_raw, f"{cfg_path} (head of the PR)")
             base_raw = (
-                json.loads(gitctx.show_text(mb, cfg_path, repo_dir))
-                if gitctx.path_exists(mb, cfg_path, repo_dir)
+                json.loads(gitctx.show_text(base_oid, cfg_path, repo_dir))
+                if gitctx.path_exists(base_oid, cfg_path, repo_dir)
                 else None
             )
             if head_raw != base_raw:

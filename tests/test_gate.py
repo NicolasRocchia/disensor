@@ -222,6 +222,27 @@ def test_required_false_in_the_base_still_validates_what_is_declared(repo, capsy
     assert "[R2]" in out(capsys)
 
 
+def test_a_stale_branch_does_not_drag_the_old_policy_along(repo, capsys):
+    """The policy in force is the target's today, not the one of the day the branch was born.
+
+    Anchoring it to the merge base would let a branch created before the
+    repository tightened its policy be judged by the rule the target abandoned.
+    """
+    repo.config({**CONFIG, "gate": {"required": False}})
+    weak = repo.commit("chore: gate not required")
+
+    repo.git("checkout", "-q", "-b", "stale")
+    repo.write("src/evil.py", "no declaration at all")
+    head = repo.commit("feat on a branch born under the weak policy")
+
+    repo.git("checkout", "-q", "main")
+    repo.config(CONFIG)  # the target tightens: gate required again
+    tightened = repo.commit("chore: gate required")
+
+    assert repo.git("merge-base", tightened, head) == weak
+    assert repo.run(tightened, head) == 1
+
+
 def test_bootstrap_without_config_in_the_base_uses_safe_defaults(tmp_path, capsys):
     r = Repo(tmp_path)
     r.write("README.md", "start")

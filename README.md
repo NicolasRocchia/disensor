@@ -83,7 +83,7 @@ Límite honesto, heredado del protocolo: la máquina detecta el campo vacío y e
 
 ## Política de alcance
 
-Qué compuerta se acepta para cada ruta se declara en el config, y **se lee siempre de la base del PR**, nunca del checkout del PR. Por eso un PR que cambia la política se juzga con la política anterior, que es lo correcto y además evita el bloqueo mutuo del diseño ingenuo, donde el PR que afloja la configuración queda rechazado por la regla que quiere cambiar y no hay transición posible.
+Qué compuerta se acepta para cada ruta se declara en el config, y **se lee siempre de la punta actual de la rama destino**, nunca del checkout del PR. Del destino y no del merge-base, que es otra pregunta: el merge-base es tan viejo como la rama, así que una rama creada antes de que el repositorio endureciera su política arrastraría la vieja. El alcance del PR se mide contra el merge-base; la política que rige es la que el destino tiene hoy. Por eso un PR que cambia la política se juzga con la política anterior, que es lo correcto y además evita el bloqueo mutuo del diseño ingenuo, donde el PR que afloja la configuración queda rechazado por la regla que quiere cambiar y no hay transición posible.
 
 ```json
 {
