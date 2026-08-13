@@ -151,6 +151,26 @@ La terminología del paper es en español; el contrato (claves y enums del esque
 
 Migración desde v0.1: renombrar `.residuo/` a `.residue/`, las claves del config (`nivel_criticidad` a `criticality_level`, `nivel_A_habilitado` a `level_A_enabled`) y las claves de los artefactos según el glosario. El validador reconoce artefactos v0.1 y lo dice explícitamente; el gate rechaza en voz alta un config con claves viejas en lugar de aplicar defaults en silencio.
 
+## Migración de v0.3 a v0.4
+
+El esquema del artefacto no cambia y las declaraciones ya versionadas siguen siendo válidas: lo que cambia es qué PRs aprueba el gate. Actualizar sin leer esto deja el CI en rojo con mensajes que sí explican la causa, pero conviene saberlo antes.
+
+**Lo que empieza a fallar y por qué:**
+
+| Antes pasaba | Ahora falla | Qué hacer |
+|---|---|---|
+| Checkout sin `fetch-depth: 0` (el gate avisaba y aprobaba igual) | El gate no puede resolver el rango del PR y **falla cerrado** | Agregar `fetch-depth: 0` al checkout. Un control que no puede decidir no aprueba. |
+| Declaración de compuerta `diff` sin `base_commit` | Se rechaza | Completarlo. Una revisión de diff identifica el par (base revisada, head revisada), no un head suelto. |
+| Artefacto con cualquier nombre de archivo | Se rechaza | El archivo se llama `<event_id>.json` y el `event_id` tiene que ser un UUID canónico. `disensor new` ya los genera así. |
+| Config con claves desconocidas o del tipo equivocado | Se rechaza | La configuración se valida contra un esquema cerrado. `level_A_enabled: "false"` entre comillas ya no habilita Nivel A por ser un texto no vacío. |
+| Una declaración de un PR anterior alcanzaba para aprobar el PR actual | Se rechaza | Cada PR declara lo suyo. El gate solo evalúa lo que el PR agrega. |
+| Declarar `plan` para aprobar un cambio de código | Se rechaza | La política de alcance dice qué compuerta acepta cada ruta, y por defecto todo exige `diff`. |
+| Revisar un commit y después seguir agregando código | Se rechaza | La declaración tiene que cubrir cada ruta en el estado en que se va a mergear. |
+
+**Lo que se arregla solo, sin tocar nada:** el gate dejaba de funcionar a partir del segundo PR, porque evaluaba también los artefactos de PRs anteriores y su commit revisado quedaba fuera del rango nuevo. Si venías conviviendo con eso, desaparece.
+
+**Antes de actualizar**, si el repositorio ya tiene `.residue/` con historia, conviene correr `disensor gate --no-comment` en local sobre un PR abierto para ver qué dice.
+
 ## Estado
 
 v0.4, borrador en uso. El esquema sigue en residue/v0.2: la v0.4 no lo toca, reescribe el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate"). El endurecimiento de las reglas del artefacto y el paso a residue/v0.3 son la tanda siguiente. Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
