@@ -1,0 +1,231 @@
+{
+ "schema": "residue/v0.2",
+ "profile": "full",
+ "event": {
+  "event_id": "4a5f41ff-bddd-47a4-94ca-33fffc86b939",
+  "created_at": "2026-08-13T20:30:00-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "f79fc6b831e5c33e2f18fb1220ad075aba0cb240",
+  "base_commit": "2404e6e9d91d495a5b88fad14b3deb61016e3c12",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  }
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "openai",
+    "model": "codex-cli",
+    "prompt_hash": "sha256:3cca73f23757b2c913930bc6d1a2ac716c2b79c749ed911f5dabee8010a7d8af",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    }
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "Una ronda sin hallazgos era indeclarable en el perfil por defecto",
+   "description": "R10 rechazaba toda lista vacia. La guia prometia que cero hallazgos es un dato valido y el propio mensaje de error aconsejaba declared_absence, y seguir esa instruccion no arreglaba el archivo: la unica salida era cambiar de perfil, que no estaba dicho en ningun lado. Es el primer caso con el que se topa alguien que instala y hace una ronda limpia.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: el artefacto con lista vacia y conteos en cero era rechazado."
+   },
+   "remedy_adjustment": "R10 distingue la lista ausente, que es no haber declarado, de la lista vacia con conteos en cero, que es la declaracion expresa de que no hubo hallazgos.",
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_rules.py::test_declared_absence_valid"
+   }
+  },
+  {
+   "id": "h2",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "brief_text fallaba abierto ante una consigna mal formada",
+   "description": "Sin separador seguia produciendo una consigna, con las reglas de confinamiento, evidencia e inyeccion despues del ataque y del veredicto, y hasheaba limpio. Los tests habrian seguido verdes.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido sobre la funcion de composicion."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_brief.py::test_a_brief_without_its_separator_is_rejected"
+   }
+  },
+  {
+   "id": "h3",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "El contrato del redirect no se cumple en la shell del propio autor",
+   "description": "PowerShell 5.1 manda la redireccion por Out-File y escribe UTF-16LE, asi que el archivo guardado no puede coincidir con el hash UTF-8. El test que lo verificaba abria el archivo en binario y se lo pasaba al subproceso, o sea que evitaba el shell y pasaba por la razon equivocada.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra la documentacion de redireccion de PowerShell y el codigo del test."
+   },
+   "remedy_adjustment": "Se agrega --output, que es la unica forma de prometer ese contrato, y el redirect deja de anunciarse como garantia.",
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_brief.py::test_output_writes_the_canonical_bytes"
+   }
+  },
+  {
+   "id": "h4",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El auto-gate estaba pineado por un tag movible",
+   "description": "El repositorio se juzgaba con una referencia que se puede mover, contra el requisito de despliegue que este mismo README exige. Predicar una cosa y hacer otra en el propio repo es peor que no predicarla.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra .github/workflows/ci.yml y la seccion de requisitos del README."
+   },
+   "fix_verification": {
+    "type": "diff_gate",
+    "reference": ".github/workflows/ci.yml"
+   }
+  },
+  {
+   "id": "h5",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "Dos codigos distintos se identificaban como 0.4.0",
+   "description": "La rama agregaba un subcomando y no subia la version, lo que ademas volvia falsa la afirmacion de que el hash de la consigna se puede recomputar desde la misma version, y hacia que los tests de documentacion pasaran por la razon equivocada: coincidian todos en la version vieja.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra pyproject.toml y __init__.py."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_documented_action_version_matches_the_package"
+   }
+  },
+  {
+   "id": "h6",
+   "origin": "r1",
+   "severity": "major",
+   "title": "Este mismo PR era rechazado por su propio gate",
+   "description": "El job nuevo corre el gate sobre el PR y el rango no agregaba ninguna declaracion.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido corriendo el gate en local sobre main..HEAD."
+   },
+   "fix_verification": {
+    "type": "diff_gate",
+    "reference": ".residue/"
+   }
+  },
+  {
+   "id": "h7",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "validate reventaba con cualquier OSError que no fuera archivo faltante",
+   "description": "Pasarle un directorio producia un traceback en vez de un mensaje.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido pasando un directorio a validate."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_cli_errors.py::test_an_unreadable_path_is_not_a_traceback"
+   }
+  },
+  {
+   "id": "h8",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "El pie de ayuda y el cierre de init omitian parte del flujo",
+   "description": "El pie ofrecia plan y diff sin architecture, que es compuerta publica, y el cierre de init seguia recomendando hash sin mencionar prompt. El documento de integracion todavia empezaba en la ronda dada por hecha.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra cli.py, init.py y docs/integracion-claude-code.md."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_cli_errors.py::test_the_help_footer_offers_every_public_gate"
+   }
+  },
+  {
+   "id": "h9",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "test_brief.py quedo commiteado con CRLF",
+   "description": "Los scripts de edicion en Windows convierten los finales de linea, y el archivo entro asi al historial: git diff --check lo reportaba entero.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido con git diff --check sobre el rango."
+   },
+   "fix_verification": {
+    "type": "diff_gate",
+    "reference": "tests/test_brief.py"
+   }
+  },
+  {
+   "id": "h10",
+   "origin": "r1",
+   "severity": "major",
+   "title": "Volver a correr init no actualiza lo que escribio una version anterior",
+   "description": "init respeta lo que existe, que es correcto para no pisar cambios del usuario, pero implica que quien inicializo con 0.4.0 no recibe el flujo nuevo en CLAUDE.md ni en la skill.",
+   "final_state": "debt_recorded",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra el codigo de init.py, que informa y conserva."
+   },
+   "debt_id": "disensor-init-actualiza-scaffolding"
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "escalation_without_decision",
+    "requires_human_attention": true,
+    "description": "El scaffold sigue sin ser seguro por defecto respecto del pin por SHA: init escribe el tag y avisa que hay que reemplazarlo. Resolverlo exige que init consulte la red desde un comando hoy offline, y es decision de producto sin tomar. Viene abierto del evento anterior."
+   },
+   {
+    "id": "r2",
+    "class": "execution_gap",
+    "requires_human_attention": true,
+    "gap_reason": "environment_not_reproducible",
+    "description": "El comportamiento de la redireccion en PowerShell 5.1 se acepto por documentacion y no se ejecuto: la suite corre bajo pytest y no a traves de esa shell. Por eso el remedio fue agregar --output en vez de confiar en el redirect."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 10,
+   "valid": {
+    "incorporated": 9,
+    "debt_recorded": 1,
+    "owner_decision": 0
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 0
+  }
+ }
+}
