@@ -39,6 +39,20 @@ disensor hash consigna.md              # o el de la tuya, si la escribiste vos
 
 La consigna viaja adentro del paquete, así que su hash es reproducible: cualquiera puede recomputarlo desde la misma versión y ver qué se le pidió realmente al revisor. Si la editás, el hash cambia y el artefacto declara que se usó otra consigna, que es justamente para lo que sirve el campo.
 
+## Probarlo sin tocar tu CI
+
+Hay dos modos y conviene no mezclarlos. Para **probarlo**, no hace falta workflow, ni required checks, ni permisos de organización: el gate corre igual en tu máquina y dice exactamente lo mismo que diría en CI.
+
+```bash
+disensor init --no-workflow          # config, CLAUDE.md y skill; sin tocar .github/
+disensor prompt --gate diff          # la consigna, al revisor de otra familia
+disensor new --gate diff --level B   # y llenás la declaración con lo que pasó
+disensor validate .residue/<id>.json
+disensor gate --no-comment --base <sha-base> --head HEAD
+```
+
+Recién cuando quieras que **haga cumplir**, corré `disensor init` completo (que escribe el workflow) y aplicá los requisitos de despliegue de más abajo. Antes de eso es una herramienta que te dice cómo te iría; después es un control que bloquea.
+
 Los subcomandos y flags de la v0.1 en español (`nuevo`, `validar`, `--compuerta`, `--nivel`, `--directorio`, `--sin-comentario`) siguen funcionando como alias.
 
 `disensor init` escribe, en forma idempotente, el `disensor.config.json` (el nivel viaja con el código, en un archivo versionado), la sección de cierre de evento en `CLAUDE.md`, la skill de Claude Code con la guía completa de llenado (`.claude/skills/disensor/SKILL.md`, cargada a demanda al cerrar cada ronda) y el workflow del gate; lo que ya existe se respeta y se informa. El principio es que después de `pip install disensor` y `disensor init` el usuario no toque nada a mano: Claude sabe cuándo (CLAUDE.md) y cómo (la skill), cualquier otro agente recibe lo mismo con `disensor guide`, y el CI hace cumplir el resultado. Config resultante:
