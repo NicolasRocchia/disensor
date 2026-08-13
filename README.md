@@ -26,13 +26,32 @@ El paquete se instala una vez (global); cada repositorio se inicializa una vez:
 pip install disensor        # o pipx install disensor, recomendado para CLIs
 
 disensor init               # en la raíz del repo: config, CLAUDE.md, skill de llenado y workflow de CI
+
+disensor prompt --gate diff            # la consigna adversarial, para pegarle al revisor de otra familia
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
 disensor validate .residue/<id>.json   # schema + reglas R0 a R10
 disensor gate --no-comment             # lo que va a correr CI, en local
 
 disensor guide                         # la guía de llenado, para cualquier agente o humano
-disensor hash consigna.md              # el sha256: que pide prompt_hash, sin calcularlo a mano
+disensor prompt --gate diff --hash     # el sha256: de la consigna empaquetada, que es lo que pide prompt_hash
+disensor hash consigna.md              # o el de la tuya, si la escribiste vos
 ```
+
+La consigna viaja adentro del paquete, así que su hash es reproducible: cualquiera puede recomputarlo desde la misma versión y ver qué se le pidió realmente al revisor. Si la editás, el hash cambia y el artefacto declara que se usó otra consigna, que es justamente para lo que sirve el campo.
+
+## Probarlo sin tocar tu CI
+
+Hay dos modos y conviene no mezclarlos. Para **probarlo**, no hace falta workflow, ni required checks, ni permisos de organización: el gate corre igual en tu máquina y dice exactamente lo mismo que diría en CI.
+
+```bash
+disensor init --no-workflow          # config, CLAUDE.md y skill; sin tocar .github/
+disensor prompt --gate diff          # la consigna, al revisor de otra familia
+disensor new --gate diff --level B   # y llenás la declaración con lo que pasó
+disensor validate .residue/<id>.json
+disensor gate --no-comment --base <sha-base> --head HEAD
+```
+
+Recién cuando quieras que **haga cumplir**, corré `disensor init` completo (que escribe el workflow) y aplicá los requisitos de despliegue de más abajo. Antes de eso es una herramienta que te dice cómo te iría; después es un control que bloquea.
 
 Los subcomandos y flags de la v0.1 en español (`nuevo`, `validar`, `--compuerta`, `--nivel`, `--directorio`, `--sin-comentario`) siguen funcionando como alias.
 
@@ -59,7 +78,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.4.0
+      - uses: NicolasRocchia/disensor@v0.5.0
 ```
 
 El gate valida las declaraciones que **el PR agrega**, aplica la política y publica el resultado como comentario (se actualiza en el lugar en cada push). Todo lo que decide sale de objetos de git en el rango `merge-base..head`, nunca del working tree: en un evento `pull_request` el checkout deja el merge commit sintético mientras `head.sha` apunta al head real, así que leer del disco clasificaría un árbol y validaría otro.

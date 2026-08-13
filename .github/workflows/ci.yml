@@ -31,3 +31,23 @@ jobs:
       - run: npm ci
       - run: npm run conformidad
       - run: npm run typecheck
+
+  # Este repositorio se aplica su propio gate, con la version publicada y no con
+  # el codigo del PR: el juez no puede venir del arbol que se esta juzgando. Solo
+  # en pull_request, porque sin rango el gate falla cerrado y en push no hay.
+  #
+  # Pineado por SHA y no por tag, que es lo que el README exige como requisito de
+  # despliegue: un tag se puede mover, asi que no es raiz de confianza para el
+  # codigo que decide si un merge se permite. Predicar una cosa y hacer otra en
+  # el propio repositorio es peor que no predicarla.
+  residuo:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: NicolasRocchia/disensor@2404e6e9d91d495a5b88fad14b3deb61016e3c12  # v0.4.0

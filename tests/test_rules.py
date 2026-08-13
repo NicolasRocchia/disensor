@@ -176,11 +176,28 @@ def test_declared_absence_valid(schema, diff):
         "false_positives": {"refuted_verifiable": 0, "refuted_interpretive": 0},
         "escalated_open": 0,
     }
-    errors = validate_artifact(m, schema)
-    assert any("[R10]" in e for e in errors)  # the full profile demands listed findings
+    # A round that found nothing is valid data, and it has to be declarable in
+    # the profile the tool creates by default. Demanding the minimized profile
+    # for it, as this test used to assert, left a first-time user following the
+    # guide into an error with no way out.
+    assert validate_artifact(m, schema) == []
     m["profile"] = "minimized"
     m["event"]["repository"] = "sha256:" + "ab" * 32
     assert validate_artifact(m, schema) == []
+
+
+def test_counts_without_their_findings_are_not_a_record(schema, diff):
+    """An empty list is a declaration; an empty list with counts is a contradiction."""
+    m = copy.deepcopy(diff)
+    m["findings"] = []
+    errors = validate_artifact(m, schema)
+    assert any("[R10]" in e for e in errors)
+
+
+def test_full_profile_still_demands_the_list_exists(schema, diff):
+    m = copy.deepcopy(diff)
+    del m["findings"]
+    assert any("[R10]" in e for e in validate_artifact(m, schema))
 
 
 def test_v01_artifact_gets_migration_hint(schema):
