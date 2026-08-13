@@ -72,9 +72,18 @@ def event_key(raw) -> str:
     historical id just by writing it differently.
     """
     text = str(raw).strip()
+    # `uuid.UUID` accepts `urn:uuid:` in lower case only, while both the URI
+    # scheme and the URN namespace are case insensitive (RFC 3986, RFC 8141), so
+    # `URN:UUID:<id>` is the same identity and used to fall through to the
+    # fallback with a different key.
+    if text[:9].casefold() == "urn:uuid:":
+        text = text[9:]
     try:
         return str(uuid.UUID(text))
     except (ValueError, AttributeError, TypeError):
+        # Not a UUID at all, which the schema should not allow. Casefolding errs
+        # towards collision, and a false collision blocks a PR while a missed one
+        # lets an id be reused: between the two, the gate fails closed.
         return text.casefold()
 
 
@@ -479,9 +488,14 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         try:
             past = json.loads(gitctx.show_text(mb, p, repo_dir))
         except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError) as exc:
-            # Said out loud instead of skipped: unreadable historical evidence
-            # means uniqueness cannot be guaranteed against it.
-            warnings.append(f"historical evidence {p} could not be read ({exc}); it does not count for uniqueness")
+            # Not a warning: if a historical artifact cannot be read, its
+            # event_id is unknown and a new artifact could reuse it. Warning
+            # would make the uncertainty visible while still handing out a green
+            # check, which is the failure mode this whole gate exists to avoid.
+            gate_errors.append(
+                f"[G8] historical evidence `{p}` cannot be read ({exc}), so the uniqueness of "
+                "event ids cannot be guaranteed against it"
+            )
             continue
         event = past.get("event") if isinstance(past, dict) else None
         past_id = event.get("event_id") if isinstance(event, dict) else None
@@ -506,11 +520,16 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         ev = artifact.event
         if Path(path).name != f"{artifact.event_id}.json":
             own.append(f"[G8] the file has to be named `{artifact.event_id}.json`")
+        # Checked against history AND against the artifacts this same PR already
+        # added: two files in one PR can spell the same id differently and each
+        # one, on its own, looks unique.
         if event_key(artifact.event_id) in historical:
             own.append(
                 f"[G8] event_id {artifact.event_id[:8]} already exists in the evidence of this "
-                "repository: reusing it breaks the identity of the record"
+                "repository or earlier in this PR: reusing it breaks the identity of the record"
             )
+        else:
+            historical.add(event_key(artifact.event_id))
         if ev.get("criticality_level") != config["criticality_level"]:
             own.append(
                 f"[G2] artifact level ({ev.get('criticality_level')}) differs from the one declared "

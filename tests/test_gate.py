@@ -371,12 +371,49 @@ def test_duplicate_event_id_fails_even_if_history_used_another_filename(repo, ca
     "urn:uuid:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
     "eeeeeeee1a2b4c3d8e5f6a7b8c9d0e1f",
     " eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f ",
+    # Both the URI scheme and the URN namespace are case insensitive, but
+    # uuid.UUID only accepts the lower case prefix.
+    "URN:UUID:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
+    "Urn:Uuid:EEEEEEEE-1A2B-4C3D-8E5F-6A7B8C9D0E1F",
 ])
-def test_event_key_normalises_every_spelling_of_the_same_uuid(variant):
+def test_event_key_normalises_these_spellings_of_the_same_uuid(variant):
     """Unit test on purpose: `:` and case-insensitivity make several of these
     unrepresentable as file names on Windows, and the point is the identity
     comparison, not what the filesystem happens to allow."""
     assert event_key(variant) == event_key("eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f")
+
+
+def test_event_key_keeps_different_uuids_apart():
+    """The opposite error also matters: a false collision blocks a legitimate PR."""
+    a = "eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
+    b = "eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e20"
+    assert event_key(a) != event_key(b)
+    assert event_key("not-a-uuid-at-all") != event_key(a)
+
+
+def test_two_artifacts_in_the_same_pr_cannot_share_an_id(repo, capsys):
+    """History is not the only place an id can be reused: the PR itself is one."""
+    shared = "ffffffff-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/a.py", "one")
+    code = repo.commit("feat")
+    repo.artifact("diff", head=code, base=base, event_id=shared)
+    repo.artifact("plan", head=code, event_id="{ffffffff-1a2b-4c3d-8e5f-6a7b8c9d0e1f}")
+    head = repo.commit("docs(residue)")
+    assert repo.run(base, head) == 1
+    assert "[G8]" in out(capsys)
+
+
+def test_unreadable_historical_evidence_fails_closed(repo, capsys):
+    """If a past artifact cannot be read, its id is unknown and could be reused."""
+    repo.write(".residue/legacy.json", "{ this is not valid json")
+    first = repo.commit("chore: unreadable evidence from another era")
+    repo.write("src/a.py", "one")
+    code = repo.commit("feat")
+    repo.artifact("diff", head=code, base=first)
+    head = repo.commit("docs(residue)")
+    assert repo.run(first, head) == 1
+    assert "cannot be read" in out(capsys)
 
 
 @pytest.mark.parametrize("variant", ["{eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f}"])
