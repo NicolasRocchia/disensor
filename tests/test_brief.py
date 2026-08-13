@@ -122,3 +122,47 @@ def test_redirecting_the_brief_to_a_file_keeps_the_canonical_hash(tmp_path):
     on_disk = "sha256:" + hashlib.sha256(saved.read_bytes()).hexdigest()
     assert on_disk == brief_hash("diff")
     assert b"\r\n" not in saved.read_bytes()
+
+
+def test_a_brief_without_its_separator_is_rejected(monkeypatch):
+    """A lost separator used to produce a brief that read as complete.
+
+    With `partition`, the confinement, evidence and injection rules ended up
+    AFTER the attack surfaces and the verdict, and the result hashed cleanly.
+    Failing loudly beats shipping a brief that looks fine and is not.
+    """
+    import disensor.brief as brief
+
+    monkeypatch.setattr(brief, "_read", lambda name: "no separator here at all\n")
+    with pytest.raises(ValueError, match="malformed brief"):
+        brief.brief_text("diff")
+
+
+def test_a_brief_with_two_separators_is_rejected(monkeypatch):
+    import disensor.brief as brief
+
+    monkeypatch.setattr(brief, "_read", lambda name: "head\n---\nbody\n---\nmore\n")
+    with pytest.raises(ValueError, match="malformed brief"):
+        brief.brief_text("plan")
+
+
+@pytest.mark.parametrize("gate", GATES)
+def test_the_rules_come_before_the_attack_surfaces(gate):
+    """Order is not cosmetic: the burden of proof has to be read first."""
+    text = brief_text(gate)
+    assert text.index("no quota") < text.index("Attack surfaces")
+
+
+def test_output_writes_the_canonical_bytes(tmp_path):
+    """`--output` exists because shell redirection is not ours to control.
+
+    Windows PowerShell 5.1 sends `>` through Out-File and writes UTF-16LE, so
+    the saved file cannot match the UTF-8 hash however the process writes stdout.
+    """
+    from disensor.cli import build_parser
+
+    target = tmp_path / "brief.md"
+    args = build_parser().parse_args(["prompt", "--gate", "diff", "--output", str(target)])
+    assert args.func(args) == 0
+    assert "sha256:" + hashlib.sha256(target.read_bytes()).hexdigest() == brief_hash("diff")
+    assert b"\r\n" not in target.read_bytes()

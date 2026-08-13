@@ -17,8 +17,11 @@ from __future__ import annotations
 import hashlib
 import sys
 from importlib import resources
+from pathlib import Path
 
 GATES = ("plan", "diff", "architecture")
+
+SEPARATOR = "\n---\n"
 
 
 def _read(name: str) -> str:
@@ -36,8 +39,19 @@ def brief_text(gate: str) -> str:
     """
     if gate not in GATES:
         raise ValueError(f"unknown gate '{gate}' (expected one of {', '.join(GATES)})")
-    head, _, body = _read(f"{gate}.md").partition("---\n")
-    return f"{head}---\n\n{_read('_common.md')}\n{body.lstrip()}"
+    raw = _read(f"{gate}.md")
+    # Checked instead of assumed: with `partition`, a file that lost its
+    # separator still produced a brief, with the confinement, evidence and
+    # injection rules appended AFTER the attack surfaces and the verdict. It
+    # hashed cleanly and read as complete, which is the worst way to be broken.
+    parts = raw.split(SEPARATOR)
+    if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+        raise ValueError(
+            f"malformed brief for gate '{gate}': expected exactly one '---' separator with "
+            f"content on both sides, found {len(parts) - 1}"
+        )
+    head, body = parts
+    return f"{head.rstrip()}\n\n{SEPARATOR.strip()}\n\n{_read('_common.md').strip()}\n\n{body.strip()}\n"
 
 
 def brief_hash(gate: str) -> str:
@@ -49,12 +63,17 @@ def main_prompt(args) -> int:
     if args.hash:
         print(brief_hash(args.gate))
         return 0
-    # Written as bytes so that `disensor prompt > brief.md` produces a file whose
-    # hash is the canonical one. Printing as text lets the platform rewrite the
-    # line endings, and on Windows the redirected file hashes differently from
-    # the packaged brief: whoever saved it would declare a prompt_hash nobody
-    # else could recompute, which defeats the point of the field.
     data = brief_text(args.gate).encode("utf-8")
+    if args.output:
+        # The only way to promise the saved file hashes to the canonical value.
+        # Shell redirection is not ours to control: Windows PowerShell 5.1 sends
+        # `>` through Out-File and writes UTF-16LE, so the file cannot match the
+        # UTF-8 hash no matter how carefully the process writes its stdout.
+        Path(args.output).write_bytes(data)
+        print(f"written to {args.output} ({brief_hash(args.gate)})")
+        return 0
+    # Bytes rather than text so that a plain pipe or a POSIX redirect keeps the
+    # exact content, without the platform rewriting line endings.
     buffer = getattr(sys.stdout, "buffer", None)
     if buffer is None:  # stdout replaced, as pytest does when capturing
         sys.stdout.write(data.decode("utf-8"))

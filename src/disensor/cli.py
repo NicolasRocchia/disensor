@@ -22,7 +22,8 @@ from .template import main_new
 HELP_AFTER_INVALID = """
 What to do next:
   disensor guide                     what every field expects, rule by rule
-  disensor prompt --gate <plan|diff> the brief for the reviewer, if the round has not happened yet
+  disensor prompt --gate <plan|diff|architecture>
+                                     the brief for the reviewer, if the round has not happened yet
 
 A freshly created template is invalid on purpose: it is a form to fill with what
 actually happened in the round, not a file to commit as it comes."""
@@ -36,8 +37,8 @@ def main_validate(args) -> int:
         try:
             with open(path, encoding="utf-8") as f:
                 artifact = json.load(f)
-        except FileNotFoundError:
-            print(f"{path}: no such file")
+        except OSError as exc:
+            print(f"{path}: cannot read ({exc.strerror or exc})")
             failed = True
             continue
         except json.JSONDecodeError as exc:
@@ -104,6 +105,9 @@ def build_parser() -> argparse.ArgumentParser:
     prompt.add_argument("--gate", "--compuerta", choices=list(GATES), default="diff")
     prompt.add_argument("--hash", action="store_true",
                         help="Print only the sha256: of the brief, the value prompt_hash expects.")
+    prompt.add_argument("--output", "--salida", metavar="FILE",
+                        help="Write the brief to a file, keeping the bytes the hash is computed over. "
+                             "Safer than shell redirection, which on some shells re-encodes the output.")
     prompt.set_defaults(func=main_prompt)
 
     guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")

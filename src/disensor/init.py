@@ -191,10 +191,9 @@ def main_init(args) -> int:
     for line in report:
         print(line)
     print(
-        "\nNext: the adversarial loop needs a reviewer from another model family "
-        "(rule R4). Close each review round with `disensor new`, fill in the "
-        "artifact (the skill or `disensor guide` explains every field, and "
-        "`disensor hash` computes prompt_hash), and `disensor validate` it "
-        "before committing."
+        "\nNext: `disensor prompt --gate <plan|diff>` prints the brief to hand to a "
+        "reviewer from ANOTHER model family (rule R4; a free tier is enough). Then "
+        "`disensor new` creates the declaration, the skill or `disensor guide` explains "
+        "every field, and `disensor validate` checks it before committing."
     )
     return 0

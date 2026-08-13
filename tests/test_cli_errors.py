@@ -41,10 +41,12 @@ def test_a_valid_artifact_gets_no_lecture(capsys):
     assert "What to do next" not in out
 
 
-def test_a_missing_file_is_not_a_traceback(tmp_path, capsys):
-    assert run(["validate", str(tmp_path / "nope.json")]) == 1
+@pytest.mark.parametrize("target", ["nope.json", "."])
+def test_an_unreadable_path_is_not_a_traceback(tmp_path, target, capsys):
+    """Including a directory: catching only FileNotFoundError left that one raising."""
+    assert run(["validate", str(tmp_path / target if target != "." else tmp_path)]) == 1
     out = capsys.readouterr().out
-    assert "no such file" in out
+    assert "cannot read" in out
     # The template advice is about a file that was read and rejected; after a
     # missing path it would be noise.
     assert "What to do next" not in out
@@ -64,8 +66,8 @@ def test_hashing_a_missing_file_points_at_the_packaged_brief(tmp_path, capsys):
     assert "disensor prompt" in out
 
 
-def test_r10_explains_that_an_empty_round_is_declarable(tmp_path, capsys):
-    """A round that found nothing is valid data, and the message has to say it."""
+def test_r10_says_how_to_declare_a_round_that_found_nothing(tmp_path, capsys):
+    """The message has to name the way out, because there is one."""
     artifact = json.loads((EXAMPLES / "example_2_diff_gate.json").read_text(encoding="utf-8"))
     del artifact["findings"]
     path = tmp_path / "a.json"
@@ -74,4 +76,4 @@ def test_r10_explains_that_an_empty_round_is_declarable(tmp_path, capsys):
     assert run(["validate", str(path)]) == 1
     out = capsys.readouterr().out
     assert "[R10]" in out
-    assert "declared_absence" in out
+    assert "total_findings=0" in out

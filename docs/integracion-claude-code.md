@@ -4,8 +4,8 @@ El gate no corre el loop: el loop sigue corriendo donde corre hoy (Claude Code e
 
 ## El circuito completo
 
-1. Ronda adversarial como siempre (compuerta de plan o de diff).
-2. Al cierre del ciclo: `disensor new --gate diff --level B` genera la plantilla prellenada (uuid, timestamp, repositorio, commits desde git).
+1. `disensor prompt --gate <plan|diff>` imprime la consigna adversarial, que viaja adentro del paquete. Se le pasa, junto con el plan o el diff, a un revisor de **otra familia**. Su hash (`--hash`) es el que después va en `prompt_hash`, y es reproducible: cualquiera puede recomputarlo desde la misma versión y ver qué se le pidió al revisor. Si usás una consigna propia, se hashea con `disensor hash`.
+2. Cada hallazgo se verifica contra el código antes de aceptarlo: el revisor está decorrelacionado, no es infalible. Después, `disensor new --gate diff --level B` genera la plantilla prellenada (uuid, timestamp, repositorio, commits desde git).
 3. Claude Code completa la plantilla con los hallazgos del evento y sus estados terminales, el residuo o la declaración expresa de ausencia, y los conteos.
 4. `disensor validate .residue/<id>.json` en local. Si falla, se corrige antes de commitear: el gate de CI va a rechazar lo mismo.
 5. El artefacto va en su propio commit (`docs(residue): declare event <short-id>`), separado del código, siguiendo la convención de commits atómicos.
