@@ -14,7 +14,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 - `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.2.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
-- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G5), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
+- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G8), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
 
@@ -59,18 +59,62 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.2.0
+      - uses: NicolasRocchia/disensor@v0.4.0
 ```
 
-El gate valida todos los artefactos de `.residue/` del PR, aplica la política y publica la declaración como comentario (se actualiza en el lugar en cada push).
+El gate valida las declaraciones que **el PR agrega**, aplica la política y publica el resultado como comentario (se actualiza en el lugar en cada push). Todo lo que decide sale de objetos de git en el rango `merge-base..head`, nunca del working tree: en un evento `pull_request` el checkout deja el merge commit sintético mientras `head.sha` apunta al head real, así que leer del disco clasificaría un árbol y validaría otro.
 
 ## Qué hace cumplir el gate
 
 Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, evidencia obligatoria en refutaciones verificables, atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado sin fugas de texto.
 
-Por PR (chequeos G1 a G5): al menos una declaración válida en el rango, nivel del artefacto igual al declarado del repositorio, Nivel A bloqueado mientras la gobernanza no esté validada, política de confinamiento del revisor por nivel, y commit revisado dentro del rango del PR.
+Por artefacto, contra el PR: nivel igual al declarado del repositorio (G2), Nivel A bloqueado mientras la gobernanza no esté validada (G3), política de confinamiento del revisor por nivel (G4), y pertenencia al PR del commit revisado (G5), que para la compuerta de diff exige además `base_commit`, porque una revisión de diff identifica el par (base revisada, head revisada) y no un head suelto.
+
+Por PR:
+
+- **G1**: si el PR toca rutas que requieren revisión, agrega al menos una declaración válida.
+- **G6, cobertura**: cada ruta cambiada está cubierta por una declaración cuya compuerta la política de alcance acepta para esa ruta, y que **califica** para ella, o sea que la ruta no cambió entre el commit revisado y el head. Una declaración rancia no cubre nada.
+- **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración.
+- **G8, la evidencia es de solo agregar**: un PR no puede modificar, borrar ni renombrar declaraciones que ya estaban, ni reutilizar un `event_id` existente.
+
+El gate **falla cerrado**: si no puede resolver el rango del PR, no da verde. Un control de cumplimiento que no puede decidir, no aprueba.
 
 Límite honesto, heredado del protocolo: la máquina detecta el campo vacío y el marcador genérico, no la declaración falsa. El muestreo humano de PR cerrados sigue siendo la única defensa real contra el cumplimiento cosmético.
+
+## Política de alcance
+
+Qué compuerta se acepta para cada ruta se declara en el config, y **se lee siempre de la punta actual de la rama destino**, nunca del checkout del PR. Del destino y no del merge-base, que es otra pregunta: el merge-base es tan viejo como la rama, así que una rama creada antes de que el repositorio endureciera su política arrastraría la vieja. El alcance del PR se mide contra el merge-base; la política que rige es la que el destino tiene hoy. Por eso un PR que cambia la política se juzga con la política anterior, que es lo correcto y además evita el bloqueo mutuo del diseño ingenuo, donde el PR que afloja la configuración queda rechazado por la regla que quiere cambiar y no hay transición posible.
+
+```json
+{
+  "criticality_level": "B",
+  "level_A_enabled": false,
+  "gate": {
+    "required": true,
+    "scope": [
+      { "paths": ["docs/adr/**"], "accepts": ["architecture", "diff"] },
+      { "paths": ["CHANGELOG.md"], "accepts": [] },
+      { "paths": ["**"], "accepts": ["diff"] }
+    ]
+  }
+}
+```
+
+Gana la primera entrada que matchea. `accepts: []` es una exención explícita, que es la salida gobernada para changelogs o PRs automatizados. Los patrones están anclados a la raíz, `*` no cruza `/`, `**` matchea cero o más segmentos completos, y el match es **sensible a mayúsculas byte a byte** para que la misma política signifique lo mismo en cualquier runner. Una ruta que no matchea nada exige `diff`: la ausencia de política no es un permiso.
+
+**Piso no relajable**: la ruta efectiva de configuración, `.github/workflows/**` y el directorio de evidencia siempre exigen `diff`, diga lo que diga `scope`. Sin ese piso, una política de aspecto inocente como `**/*.yml` con `architecture` rebajaría los workflows, que son la fuente del propio control.
+
+## Requisitos de despliegue
+
+Esto es requisito, no sugerencia. El gate corre dentro del workflow que audita, así que hay una frontera que ningún código suyo puede cruzar y que resuelve la plataforma:
+
+- **Required check estricto** (o merge queue) sobre `pull_request`, para que el check tenga que corresponder al último head.
+- **CODEOWNERS** sobre la ruta efectiva de configuración (puede no llamarse `disensor.config.json` si se usa `--config`) y sobre `.github/workflows/`.
+- **Ruleset o required workflow de organización**, definido fuera del repositorio auditado.
+- **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza. `disensor init` escribe el tag de la versión instalada por comodidad, y el propio workflow generado avisa que hay que reemplazarlo por el SHA al que ese tag apunta. La documentación de este repo también usa el tag, porque documenta qué versión corresponde; el SHA lo pone quien despliega.
+- **Bootstrap**: el primer PR que agrega el config y el workflow no puede convertirse a sí mismo en raíz de confianza. La activación inicial es un paso administrativo, previo a que el gate signifique algo.
+
+Límite explícito: leer la política de la base convierte un bypass de un paso en uno de dos, no lo elimina. Quien pueda mergear una relajación la usa en el PR siguiente. Y nada de esto protege contra un workflow modificado, salteado o sustituido. Eso solo lo resuelve la plataforma.
 
 ## Qué no hace
 
@@ -107,9 +151,29 @@ La terminología del paper es en español; el contrato (claves y enums del esque
 
 Migración desde v0.1: renombrar `.residuo/` a `.residue/`, las claves del config (`nivel_criticidad` a `criticality_level`, `nivel_A_habilitado` a `level_A_enabled`) y las claves de los artefactos según el glosario. El validador reconoce artefactos v0.1 y lo dice explícitamente; el gate rechaza en voz alta un config con claves viejas en lugar de aplicar defaults en silencio.
 
+## Migración de v0.3 a v0.4
+
+El esquema del artefacto no cambia y las declaraciones ya versionadas siguen siendo válidas: lo que cambia es qué PRs aprueba el gate. Actualizar sin leer esto deja el CI en rojo con mensajes que sí explican la causa, pero conviene saberlo antes.
+
+**Lo que empieza a fallar y por qué:**
+
+| Antes pasaba | Ahora falla | Qué hacer |
+|---|---|---|
+| Checkout sin `fetch-depth: 0` (el gate avisaba y aprobaba igual) | El gate no puede resolver el rango del PR y **falla cerrado** | Agregar `fetch-depth: 0` al checkout. Un control que no puede decidir no aprueba. |
+| Declaración de compuerta `diff` sin `base_commit` | Se rechaza | Completarlo. Una revisión de diff identifica el par (base revisada, head revisada), no un head suelto. |
+| Artefacto con cualquier nombre de archivo | Se rechaza | El archivo se llama `<event_id>.json` y el `event_id` tiene que ser un UUID canónico. `disensor new` ya los genera así. |
+| Config con claves desconocidas o del tipo equivocado | Se rechaza | La configuración se valida contra un esquema cerrado. `level_A_enabled: "false"` entre comillas ya no habilita Nivel A por ser un texto no vacío. |
+| Una declaración de un PR anterior alcanzaba para aprobar el PR actual | Se rechaza | Cada PR declara lo suyo. El gate solo evalúa lo que el PR agrega. |
+| Declarar `plan` para aprobar un cambio de código | Se rechaza | La política de alcance dice qué compuerta acepta cada ruta, y por defecto todo exige `diff`. |
+| Revisar un commit y después seguir agregando código | Se rechaza | La declaración tiene que cubrir cada ruta en el estado en que se va a mergear. |
+
+**Lo que se arregla solo, sin tocar nada:** el gate dejaba de funcionar a partir del segundo PR, porque evaluaba también los artefactos de PRs anteriores y su commit revisado quedaba fuera del rango nuevo. Si venías conviviendo con eso, desaparece.
+
+**Antes de actualizar**, si el repositorio ya tiene `.residue/` con historia, conviene correr `disensor gate --no-comment` en local sobre un PR abierto para ver qué dice.
+
 ## Estado
 
-v0.3, borrador en uso. El esquema sigue en residue/v0.2 (v0.3 no lo toca: agrega la skill de llenado, `disensor guide` y `disensor hash`). Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
+v0.4, borrador en uso. El esquema sigue en residue/v0.2: la v0.4 no lo toca, reescribe el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate"). El endurecimiento de las reglas del artefacto y el paso a residue/v0.3 son la tanda siguiente. Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
 
 ## Licencia
 

@@ -1,18 +1,27 @@
 # Copiar a .github/workflows/disensor.yml en el repositorio consumidor
 # (o dejar que `disensor init` lo escriba solo).
+#
+# Antes de que este workflow signifique algo, ver "Requisitos de despliegue" en
+# el README: required check estricto, CODEOWNERS sobre este archivo y sobre la
+# configuracion, y ruleset definido fuera del repositorio auditado. Y reemplazar
+# el tag de abajo por el SHA al que apunta: un tag se puede mover, asi que no es
+# raiz de confianza para el codigo que decide si un merge se permite.
+#
+# NO usar una accion local (`uses: ./disensor`) para correr el gate: una accion
+# relativa se carga desde el checkout del PR, o sea que el propio PR puede
+# reescribir la implementacion del gate y fabricar su check en verde. El juez
+# tiene que venir de afuera del arbol que se esta juzgando.
 name: disensor
 on:
   pull_request:
-permissions:
-  contents: read
-  pull-requests: write
 jobs:
   gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # el gate necesita el rango de commits del PR (chequeo G5)
-      - uses: NicolasRocchia/disensor@v0.2.0
-        # Mientras el repo de la Action sea privado o local, usar la ruta relativa:
-        # uses: ./disensor
+          fetch-depth: 0   # sin el rango de commits del PR el gate falla cerrado
+      - uses: NicolasRocchia/disensor@v0.4.0

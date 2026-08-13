@@ -1,0 +1,352 @@
+{
+ "schema": "residue/v0.2",
+ "profile": "full",
+ "event": {
+  "event_id": "1e1e3a06-a699-47dc-af4e-95bbb2841baf",
+  "created_at": "2026-08-13T00:15:00-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "17abf68c2b56ac3b3db524d361e5c10ebd1dbdee",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  },
+  "base_commit": "12f9bfad92539fe816c6933910e68bda92841db8"
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "openai",
+    "model": "codex-cli",
+    "prompt_hash": "sha256:c807a95cd20e119cee3b51f8ce722ef818a090c69f5494a6697d1d1ac3ca08a0",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    }
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "Una ruta terminada en newline heredaba una exencion exacta",
+   "description": "En Python el ancla de fin tambien coincide justo antes del newline final, asi que un archivo llamado literalmente CHANGELOG.md con un salto de linea al final, que git rastrea sin problema en Linux, quedaba exento por una politica escrita para otro archivo.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: matches sobre el nombre con salto de linea devolvia verdadero."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_scope.py::test_a_trailing_newline_does_not_inherit_an_exact_exemption"
+   }
+  },
+  {
+   "id": "h2",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "La unicidad de evento comparaba nombres de archivo y no identidades",
+   "description": "Un artefacto anterior a 0.4, cuando el nombre no tenia que coincidir con el id, dejaba libre su event_id para que un artefacto nuevo lo reutilizara.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido en un repositorio de prueba con un artefacto historico de nombre legacy."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_duplicate_event_id_fails_even_if_history_used_another_filename"
+   }
+  },
+  {
+   "id": "h3",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "El piso no cubria su propia raiz",
+   "description": "Un patron con dos asteriscos coincide con lo que esta bajo un directorio pero no con el directorio mismo, asi que un PR que agregaba la raiz de evidencia o la de workflows como archivo o symlink caia fuera del piso y una regla permisiva lo eximia.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: el piso no coincidia con la ruta exacta."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_scope.py::test_floor_cannot_be_escaped"
+   }
+  },
+  {
+   "id": "h4",
+   "origin": "r1",
+   "severity": "major",
+   "title": "La configuracion no validaba tipos",
+   "description": "Un level_A_enabled con el texto false es verdadero en Python, asi que una configuracion invalida habilitaba Nivel A en vez de fallar cerrado, y un texto en la lista de confinamientos convertia la pertenencia en busqueda de subcadena.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: la configuracion invalida era aceptada y el chequeo G3 no se disparaba."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_scope.py::test_config_types_are_checked"
+   }
+  },
+  {
+   "id": "h5",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "La gramatica aceptaba operadores que el contrato no define",
+   "description": "El signo de pregunta funcionaba como comodin y los dos asteriscos embebidos se comportaban como varios comodines, aunque el contrato declara solo un operador y su forma de segmento completo.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido sobre la funcion de match."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_scope.py::test_invalid_patterns_are_rejected"
+   }
+  },
+  {
+   "id": "h6",
+   "origin": "r1",
+   "severity": "major",
+   "title": "Dos tests pasaban por la razon equivocada",
+   "description": "El de colision de event_id fallaba en realidad por el nombre del archivo, y el del piso de workflows declaraba una compuerta que la politica relajada no aceptaba, asi que habria fallado igual sin piso. Ambos afirmaban menos de lo que su nombre prometia.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el codigo de los propios tests."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_scope_cannot_lower_the_floor_on_workflows"
+   }
+  },
+  {
+   "id": "h7",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "El piso era evadible con un salto de linea por una asimetria del compilador",
+   "description": "Los dos asteriscos compilan a un comodin que sin DOTALL no cruza un salto de linea, mientras el comodin de un solo asterisco si lo cruza: una ruta dentro de una raiz protegida no coincidia con el piso pero si con una regla permisiva.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: la ruta con salto de linea bajo workflows resultaba exenta."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_scope.py::test_floor_cannot_be_escaped"
+   }
+  },
+  {
+   "id": "h8",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "El mismo UUID escrito distinto no colisionaba",
+   "description": "Mayusculas, sin guiones, entre llaves, con prefijo urn o con un espacio final son textos distintos, producen nombres de archivo distintos en Linux y la colision pasaba desapercibida.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: cinco variantes textuales que parsean al mismo UUID canonico no colisionaban."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_event_key_normalises_these_spellings_of_the_same_uuid"
+   }
+  },
+  {
+   "id": "h9",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "La unicidad no se comprobaba entre los artefactos del mismo PR",
+   "description": "El conjunto de identidades se armaba una vez desde la historia y nunca se le sumaban las de los artefactos que el propio PR agrega, asi que dos archivos de un mismo PR con distinta grafia del mismo UUID pasaban cada uno por separado.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido en un repositorio de prueba con dos artefactos en un mismo PR."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_two_artifacts_in_the_same_pr_cannot_share_an_id"
+   }
+  },
+  {
+   "id": "h10",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "La evidencia historica ilegible era fail-open",
+   "description": "Si un artefacto anterior no se puede leer, su event_id es desconocido y otro puede reutilizarlo. Advertir hacia visible la incertidumbre y entregaba el verde igual, que es el modo de falla que el gate existe para evitar.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el codigo: la advertencia no participaba del veredicto."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_unreadable_historical_evidence_fails_closed"
+   }
+  },
+  {
+   "id": "h11",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "La equivalencia de identidad quedaba a medias",
+   "description": "Despues del prefijo urn en mayusculas aparecieron los componentes que RFC 8141 ignora para la equivalencia y los identificadores vacios o en blanco, que hoy validan porque el validador no hace cumplir el formato.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: cada grafia nueva volvia a abrir el mismo hueco."
+   },
+   "remedy_adjustment": "En vez de implementar la equivalencia completa, se invierte la regla: un artefacto nuevo tiene que traer un UUID canonico. Perseguir grafias era la superficie equivocada.",
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_a_new_artifact_needs_a_canonical_event_id"
+   }
+  },
+  {
+   "id": "h12",
+   "origin": "r1",
+   "severity": "major",
+   "title": "La regla de UUID canonico se apoyaba en un punto fijo",
+   "description": "El respaldo de la normalizacion es la identidad para cualquier texto que no sea un UUID, asi que comparar la clave con el original dejaba pasar valores como una cadena arbitraria o vacia.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido: la comparacion daba verdadero para textos que no son UUID."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_a_new_artifact_needs_a_canonical_event_id"
+   }
+  },
+  {
+   "id": "h13",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "El workflow de ejemplo ofrecia una accion local",
+   "description": "Una accion relativa se carga desde el checkout del PR, asi que el propio PR podia reescribir la implementacion del gate y fabricar su check en verde. El juez venia del arbol juzgado.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra la documentacion de acciones locales y del checkout en pull_request."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "docs/ejemplo-workflow.yml"
+   }
+  },
+  {
+   "id": "h14",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "La Action ejecutaba el interprete con el workspace del PR en la ruta de modulos",
+   "description": "Los pasos de una accion compuesta corren con el directorio de trabajo en el checkout del PR y la invocacion por modulo pone ese directorio primero, asi que un PR que agregaba un paquete pip propio ejecutaba su instalador y dejaba un disensor falso para el paso siguiente. Pinear la Action por SHA no lo evita.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra la inicializacion de la ruta de modulos de Python y la documentacion de runners."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "action.yml"
+   }
+  },
+  {
+   "id": "h15",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "La politica se leia del merge-base y no de la rama destino",
+   "description": "El merge-base es tan viejo como la rama, asi que una rama creada antes de que el repositorio endureciera su politica arrastraba la vieja y salia en verde contra un destino que ya exigia declaracion.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Reproducido en un repositorio de prueba con una rama obsoleta y un destino endurecido."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_gate.py::test_a_stale_branch_does_not_drag_the_old_policy_along"
+   }
+  },
+  {
+   "id": "h16",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El scaffold no es seguro por defecto respecto del pin por SHA",
+   "description": "El workflow generado usa el tag de la version, y un tag se puede mover, asi que el codigo que decide si un merge se permite no tiene raiz de confianza inmutable.",
+   "final_state": "escalated_open",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el codigo de init y el ejemplo publicado."
+   }
+  },
+  {
+   "id": "h17",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "Las acciones de terceros del workflow tampoco estan pineadas por SHA",
+   "description": "El checkout y la preparacion de Python se referencian por tag movible, y las dependencias de instalacion se resuelven de PyPI en el momento.",
+   "final_state": "debt_recorded",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el ejemplo publicado y sobre la Action compuesta."
+   },
+   "debt_id": "disensor-supply-chain-pins"
+  },
+  {
+   "id": "h18",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El validador sigue sin hacer cumplir los formatos declarados",
+   "description": "El schema declara formato de UUID y de fecha y ninguno de los dos validadores lo asserta, lo que habilito varias de las grafias de identidad de esta misma ronda.",
+   "final_state": "debt_recorded",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el codigo de reglas y sobre el port TypeScript."
+   },
+   "debt_id": "disensor-formatos-tanda-2"
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "escalation_without_decision",
+    "finding_ref": "h16",
+    "requires_human_attention": true,
+    "description": "Que el scaffold sea seguro por defecto exige que init resuelva el SHA del tag contra la red desde un comando hoy offline. Es una decision de producto y quedo sin decidir al cierre del evento."
+   },
+   {
+    "id": "r2",
+    "class": "execution_gap",
+    "requires_human_attention": true,
+    "gap_reason": "environment_not_reproducible",
+    "description": "El build del paquete no se pudo verificar en esta maquina porque el modulo de build no esta instalado en el interprete global. La suite completa y el gate si se ejecutaron; el empaquetado queda sin comprobar hasta el release."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 18,
+   "valid": {
+    "incorporated": 15,
+    "debt_recorded": 2,
+    "owner_decision": 0
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 1
+  }
+ }
+}

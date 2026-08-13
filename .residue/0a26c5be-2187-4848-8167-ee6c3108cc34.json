@@ -1,0 +1,204 @@
+{
+ "schema": "residue/v0.2",
+ "profile": "full",
+ "event": {
+  "event_id": "0a26c5be-2187-4848-8167-ee6c3108cc34",
+  "created_at": "2026-08-13T00:15:00-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "17abf68c2b56ac3b3db524d361e5c10ebd1dbdee",
+  "gate": "plan",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  }
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "openai",
+    "model": "codex-cli",
+    "prompt_hash": "sha256:e11ed9cb5fa3cfa5f36c5e894f6e586742d82051c4bbbe06aad16a9a0859883f",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    }
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El rango era base..head y no el merge-base",
+   "description": "El plan derivaba el alcance comparando dos arboles, asi que una base que avanza mostraria como tocados archivos que el PR nunca toco.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra la semantica de git diff: base..head compara arboles, no el aporte de la rama."
+   },
+   "remedy_adjustment": "Se agrega merge-base --all exigiendo exactamente un resultado, porque un historial criss-cross no define un alcance."
+  },
+  {
+   "id": "h2",
+   "origin": "r1",
+   "severity": "major",
+   "title": "Los artefactos se leian del working tree",
+   "description": "En pull_request el checkout deja el merge commit sintetico mientras head.sha apunta al head real, asi que se clasificaria un arbol y se validaria otro.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra la documentacion del evento pull_request y el comportamiento de actions/checkout."
+   }
+  },
+  {
+   "id": "h3",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "G7 universal destruia las compuertas plan y architecture",
+   "description": "Exigir diff para todo archivo fuera del directorio de evidencia dejaba plan y architecture utiles solo para PRs que no contienen el plan revisado, y bloqueaba a Dependabot sin salida.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el propio plan: un PR que modifica un documento de plan tocaba una ruta ordinaria y exigia diff."
+   },
+   "remedy_adjustment": "Reemplazado por una matriz de alcance de ruta a compuertas admitidas, cargada de la rama destino."
+  },
+  {
+   "id": "h4",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "G9 no tenia transicion legitima",
+   "description": "Rechazar el PR que afloja la politica tambien rechazaba el PR propio que la cambiaba: no existia transicion posible y el repositorio quedaba trabado.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el texto del plan: la regla se aplicaba a si misma."
+   },
+   "remedy_adjustment": "G9 desaparece como chequeo. La politica se carga de la rama destino, asi que el PR que la cambia se juzga con la anterior."
+  },
+  {
+   "id": "h5",
+   "origin": "r1",
+   "severity": "major",
+   "title": "La exencion de frescura era demasiado amplia",
+   "description": "Permitir cualquier cambio posterior bajo el directorio de artefactos dejaba meter codigo, configuracion o symlinks ahi adentro, y con directory igual a punto todo el repositorio quedaba exento.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el plan y sobre el input directory de la Action, que es configurable."
+   }
+  },
+  {
+   "id": "h6",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El argumento para no subir el schema era una racionalizacion",
+   "description": "En JSON Schema 2020-12 format es anotacion por defecto, asi que un consumidor que acepta una fecha invalida no incumple el schema; y un mismo residue/v0.2 con veredictos opuestos de dos validadores rompe el determinismo del contrato.",
+   "final_state": "owner_decision",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra la especificacion de JSON Schema 2020-12."
+   },
+   "risk_record": "El dueno decidio subir a residue/v0.3 con dispatch por version en la tanda siguiente, y mantener esta tanda acotada al gate para no mezclar el cambio de contrato con el cierre de los bypasses. Riesgo aceptado: hasta esa tanda, el validador sigue sin hacer cumplir format."
+  },
+  {
+   "id": "h7",
+   "origin": "r1",
+   "severity": "major",
+   "title": "Lo declarado como costo aceptable de Dependabot era un defecto de especificacion",
+   "description": "La matriz solo permitia elegir compuerta, no eximir, asi que declarar una politica explicita no desbloqueaba un PR sin artefacto: el costo dado por asumido era una funcionalidad faltante.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el propio plan: ninguna entrada de la matriz podia expresar la exencion."
+   },
+   "remedy_adjustment": "accepts vacio pasa a significar exencion explicita, gobernada porque vive en la rama destino."
+  },
+  {
+   "id": "h8",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "Cobertura mosaico: la calificacion por ruta no implica revision de la integracion",
+   "description": "Dos ramas laterales revisadas por separado y fusionadas cubren entre las dos todas las rutas, porque cada ruta no cambio despues de su propia revision, mientras nadie vio el arbol donde las dos mitades se juntan.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el mecanismo propuesto en la version anterior del plan, que era del generador."
+   },
+   "remedy_adjustment": "Se agrega el testigo de integracion y se reconoce que la frescura global, eliminada antes por creerla subsumida, es estrictamente mas fuerte que la calificacion por ruta."
+  },
+  {
+   "id": "h9",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "Una politica de aspecto inocente podia rebajar los workflows",
+   "description": "Sin un piso no relajable, una entrada como todos los .yml con compuerta architecture rebajaba .github/workflows, que es la fuente del propio control.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre la gramatica de la matriz de alcance propuesta."
+   }
+  },
+  {
+   "id": "h10",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "merge_group no era implementable con este contrato",
+   "description": "El check corre sobre el SHA sintetico del grupo, que puede contener varios PRs, asi que ningun artefacto tendria como base revisada el merge-base del grupo.",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado contra la documentacion del evento merge_group."
+   },
+   "remedy_adjustment": "Sale del alcance de la tanda, declarado, en vez de implementarse a medias."
+  },
+  {
+   "id": "h11",
+   "origin": "r1",
+   "severity": "major",
+   "title": "La supresion de evidencia con datos personales no tiene respuesta",
+   "description": "Append-only absoluto impide retirar un secreto o un dato personal subido por error, y que git conserve la historia no responde a una obligacion de supresion en un ambiente regulado.",
+   "final_state": "escalated_open",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado sobre el diseno de G8 propuesto."
+   }
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "escalation_without_decision",
+    "finding_ref": "h11",
+    "requires_human_attention": true,
+    "description": "La operacion de supersesion o tombstone auditada para evidencia con datos personales quedo sin diseno y sin decision del dueno al cierre de la compuerta de plan."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 11,
+   "valid": {
+    "incorporated": 9,
+    "debt_recorded": 0,
+    "owner_decision": 1
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 1
+  }
+ }
+}
