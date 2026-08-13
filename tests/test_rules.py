@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from disensor.gate import DEFAULT_CONFIG, load_config
+from disensor.gate import DEFAULT_CONFIG, GateFailure, merge_config, validate_config_shape
 from disensor.rules import load_schema, validate_artifact
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -189,21 +189,17 @@ def test_v01_artifact_gets_migration_hint(schema):
     assert len(errors) == 1 and "residue/v0.2" in errors[0] and "glossary" in errors[0]
 
 
-def test_config_merges_with_default(tmp_path):
-    path = tmp_path / "disensor.config.json"
-    path.write_text(json.dumps({"criticality_level": "A", "gate": {"required": False}}), encoding="utf-8")
-    config = load_config(path)
+def test_config_merges_with_default():
+    config = merge_config({"criticality_level": "A", "gate": {"required": False}})
     assert config["criticality_level"] == "A"
     assert config["gate"]["required"] is False
     assert config["gate"]["level_A_accepted_confinement"] == DEFAULT_CONFIG["gate"]["level_A_accepted_confinement"]
     assert config["level_A_enabled"] is False
 
 
-def test_config_with_v01_keys_fails_loudly(tmp_path):
-    path = tmp_path / "disensor.config.json"
-    path.write_text(json.dumps({"nivel_criticidad": "A"}), encoding="utf-8")
-    with pytest.raises(SystemExit) as exc:
-        load_config(path)
+def test_config_with_v01_keys_fails_loudly():
+    with pytest.raises(GateFailure) as exc:
+        validate_config_shape({"nivel_criticidad": "A"}, "config")
     assert "criticality_level" in str(exc.value)
 
 
