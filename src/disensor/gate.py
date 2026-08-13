@@ -101,8 +101,12 @@ def canonical_repo_path(raw: str, root: Path, label: str) -> str:
     if raw is None or not str(raw).strip():
         raise GateFailure(f"{label}: empty path")
     text = str(raw).replace("\\", "/").strip()
+    if ":" in text:
+        # Drive letters, and git pathspec magic such as `:(top)`, which would make
+        # the path mean something other than a plain repository-relative path.
+        raise GateFailure(f"{label}: '{raw}' must be a plain repository-relative path")
     pure = PurePosixPath(text)
-    if pure.is_absolute() or (len(text) > 1 and text[1] == ":"):
+    if pure.is_absolute():
         raise GateFailure(f"{label}: '{raw}' must be relative to the repository root")
     parts = [p for p in pure.parts if p != "."]
     if any(p == ".." for p in parts):
@@ -136,8 +140,25 @@ def validate_config_shape(config: dict, where: str) -> None:
         raise GateFailure(f"{where}: unknown keys under 'gate' ({', '.join(sorted(unknown_gate))})")
     if "criticality_level" in config and config["criticality_level"] not in ("A", "B", "C"):
         raise GateFailure(f"{where}: criticality_level must be A, B or C")
-    if "required" in gate and not isinstance(gate["required"], bool):
-        raise GateFailure(f"{where}: gate.required must be a boolean")
+    # Types are checked one by one and not merely "present": a string
+    # `level_A_enabled: "false"` is truthy, so an invalid configuration would
+    # switch governance on instead of failing closed, and a string in
+    # `level_A_accepted_confinement` turns the `in` check into a substring search.
+    for key, kind, kind_name in (
+        ("level_A_enabled", bool, "a boolean"),
+    ):
+        if key in config and not isinstance(config[key], kind):
+            raise GateFailure(f"{where}: {key} must be {kind_name}")
+    for key, kind, kind_name in (
+        ("required", bool, "a boolean"),
+        ("warn_unverified_confinement", bool, "a boolean"),
+        ("level_A_accepted_confinement", list, "a list"),
+    ):
+        if key in gate and not isinstance(gate[key], kind):
+            raise GateFailure(f"{where}: gate.{key} must be {kind_name}")
+    for mode in gate.get("level_A_accepted_confinement", []):
+        if not isinstance(mode, str):
+            raise GateFailure(f"{where}: gate.level_A_accepted_confinement must hold strings")
     try:
         validate_scope(gate.get("scope", DEFAULT_SCOPE))
     except ScopeError as exc:
@@ -431,9 +452,21 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
             "A declaration is a record of what happened: it is written once and never rewritten."
         ]
 
-    historical = {
-        Path(p).stem for p in gitctx.list_tree(mb, evidence_root, repo_dir) if p.endswith(".json")
-    }
+    # The identity of a record is the event_id it declares, not the name of the
+    # file. Reading only the file names misses an artifact from before 0.4, when
+    # the name did not have to match, whose id a new artifact could reuse.
+    historical: set[str] = set()
+    for p in gitctx.list_tree(mb, evidence_root, repo_dir):
+        if not p.endswith(".json"):
+            continue
+        historical.add(Path(p).stem)
+        try:
+            past = json.loads(gitctx.show_text(mb, p, repo_dir))
+        except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError):
+            continue
+        past_id = (past.get("event") or {}).get("event_id") if isinstance(past, dict) else None
+        if isinstance(past_id, str) and past_id:
+            historical.add(past_id)
 
     schema = load_schema()
     artifacts: list[Artifact] = []
@@ -508,6 +541,8 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
     if gitctx.path_exists(head_oid, cfg_path, repo_dir):
         try:
             head_raw = json.loads(gitctx.show_text(head_oid, cfg_path, repo_dir))
+            if not isinstance(head_raw, dict):
+                raise GateFailure("the configuration is not an object")
             validate_config_shape(head_raw, f"{cfg_path} (head of the PR)")
             base_raw = (
                 json.loads(gitctx.show_text(mb, cfg_path, repo_dir))
@@ -519,7 +554,9 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
                     f"this PR changes {cfg_path}. It is judged by the policy at the base; the new "
                     "one governs from the merge onwards."
                 )
-        except (GateFailure, json.JSONDecodeError) as exc:
+        except (GateFailure, json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError) as exc:
+            # The configuration at the head does not govern this PR, so an
+            # unusable one warns and never decides the verdict.
             warnings.append(f"the configuration left at the head is not usable: {exc}")
     else:
         warnings.append(f"this PR leaves the repository without {cfg_path}")

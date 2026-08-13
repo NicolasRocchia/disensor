@@ -259,6 +259,7 @@ def test_exempt_paths_need_no_artifact(repo, capsys):
 
 
 def test_scope_cannot_lower_the_floor_on_workflows(repo, capsys):
+    """The artifact is the gate the relaxed policy accepts, so only the floor can reject it."""
     repo.config({**CONFIG, "gate": {"scope": [
         {"paths": ["**/*.yml"], "accepts": ["architecture"]},
         {"paths": ["**"], "accepts": ["diff"]},
@@ -266,8 +267,18 @@ def test_scope_cannot_lower_the_floor_on_workflows(repo, capsys):
     base = repo.commit("chore: scope")
     repo.write(".github/workflows/ci.yml", "on: push")
     wf = repo.commit("ci")
-    repo.artifact("plan", head=wf)
+    repo.artifact("architecture", head=wf)
     head = repo.commit("docs(residue)")
+    assert repo.run(base, head) == 1
+    assert "[G6]" in out(capsys)
+
+
+def test_the_floor_covers_the_protected_root_itself(repo, capsys):
+    """`foo/**` does not match `foo`, so the exact root has to be in the floor too."""
+    repo.config({**CONFIG, "gate": {"scope": [{"paths": ["**"], "accepts": []}]}})
+    base = repo.commit("chore: everything exempt")
+    repo.write(".residue", "a file where the evidence directory should be")
+    head = repo.commit("chore: park a file on the evidence root")
     assert repo.run(base, head) == 1
 
 
@@ -333,18 +344,25 @@ def test_historical_evidence_cannot_be_deleted(repo, capsys):
     assert "[G8]" in out(capsys)
 
 
-def test_duplicate_event_id_fails(repo, capsys):
+def test_duplicate_event_id_fails_even_if_history_used_another_filename(repo, capsys):
+    """Identity is the declared event_id, not the file name.
+
+    Before 0.4 the name did not have to match the id, so reading only file names
+    would miss a new artifact reusing the id of a legacy one.
+    """
     shared = "eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
     repo.write("src/a.py", "one")
     c1 = repo.commit("feat")
-    repo.artifact("diff", head=c1, base=repo.git("rev-parse", "HEAD~1"), event_id=shared)
-    first = repo.commit("docs(residue)")
+    repo.artifact("diff", head=c1, base=repo.git("rev-parse", "HEAD~1"),
+                  event_id=shared, name="legacy-name")
+    first = repo.commit("docs(residue) with a pre-0.4 file name")
+
     repo.write("src/b.py", "two")
     c2 = repo.commit("feat 2")
-    repo.artifact("diff", head=c2, base=first, event_id=shared, name="other")
+    repo.artifact("diff", head=c2, base=first, event_id=shared)  # canonical name, reused id
     head = repo.commit("docs(residue) 2")
     assert repo.run(first, head) == 1
-    assert "[G8]" in out(capsys)
+    assert "already exists" in out(capsys)
 
 
 def test_filename_must_match_the_event_id(repo, capsys):

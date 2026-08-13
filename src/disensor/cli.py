@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("files", nargs="+")
     validate.set_defaults(func=main_validate)
 
-    gate = sub.add_parser("gate", help="CI gate: validates the whole PR and applies policy G1 to G5.")
+    gate = sub.add_parser("gate", help="CI gate: validates the declarations this PR adds and applies policy G1 to G8.")
     gate.add_argument("--directory", "--directorio", default=".residue")
     gate.add_argument("--config", default="disensor.config.json")
     gate.add_argument("--base", default=None, help="Base SHA of the PR (defaults to the GitHub event).")

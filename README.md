@@ -14,7 +14,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 - `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.2.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
-- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G5), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
+- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G8), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
 
@@ -111,7 +111,7 @@ Esto es requisito, no sugerencia. El gate corre dentro del workflow que audita, 
 - **Required check estricto** (o merge queue) sobre `pull_request`, para que el check tenga que corresponder al último head.
 - **CODEOWNERS** sobre la ruta efectiva de configuración (puede no llamarse `disensor.config.json` si se usa `--config`) y sobre `.github/workflows/`.
 - **Ruleset o required workflow de organización**, definido fuera del repositorio auditado.
-- **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza.
+- **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza. `disensor init` escribe el tag de la versión instalada por comodidad, y el propio workflow generado avisa que hay que reemplazarlo por el SHA al que ese tag apunta. La documentación de este repo también usa el tag, porque documenta qué versión corresponde; el SHA lo pone quien despliega.
 - **Bootstrap**: el primer PR que agrega el config y el workflow no puede convertirse a sí mismo en raíz de confianza. La activación inicial es un paso administrativo, previo a que el gate signifique algo.
 
 Límite explícito: leer la política de la base convierte un bypass de un paso en uno de dos, no lo elimina. Quien pueda mergear una relajación la usa en el PR siguiente. Y nada de esto protege contra un workflow modificado, salteado o sustituido. Eso solo lo resuelve la plataforma.
@@ -153,7 +153,7 @@ Migración desde v0.1: renombrar `.residuo/` a `.residue/`, las claves del confi
 
 ## Estado
 
-v0.3, borrador en uso. El esquema sigue en residue/v0.2 (v0.3 no lo toca: agrega la skill de llenado, `disensor guide` y `disensor hash`). Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
+v0.4, borrador en uso. El esquema sigue en residue/v0.2: la v0.4 no lo toca, reescribe el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate"). El endurecimiento de las reglas del artefacto y el paso a residue/v0.3 son la tanda siguiente. Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
 
 ## Licencia
 

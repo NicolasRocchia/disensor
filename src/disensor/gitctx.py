@@ -112,7 +112,7 @@ def changed_paths(a: str, b: str, cwd: Path) -> set[str]:
 
 def tree_entry(rev: str, path: str, cwd: Path) -> tuple[str, str, str] | None:
     """(mode, type, oid) of a path at a revision, or None if absent."""
-    out = _git_z(["ls-tree", "-z", "--full-tree", rev, "--", path], cwd)
+    out = _git_z(["--literal-pathspecs", "ls-tree", "-z", "--full-tree", rev, "--", path], cwd)
     if not out:
         return None
     meta, _, _name = out[0].partition("\t")
@@ -124,7 +124,10 @@ def tree_entry(rev: str, path: str, cwd: Path) -> tuple[str, str, str] | None:
 
 def list_tree(rev: str, prefix: str, cwd: Path) -> list[str]:
     """Every file path under a prefix at a revision."""
-    return _git_z(["ls-tree", "-r", "-z", "--name-only", "--full-tree", rev, "--", prefix], cwd)
+    return _git_z(
+        ["--literal-pathspecs", "ls-tree", "-r", "-z", "--name-only", "--full-tree", rev, "--", prefix],
+        cwd,
+    )
 
 
 def show_text(rev: str, path: str, cwd: Path) -> str:

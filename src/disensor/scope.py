@@ -50,22 +50,31 @@ def compile_pattern(pattern: str) -> re.Pattern[str]:
             continue
         if not segment:
             raise ScopeError(f"invalid pattern '{pattern}': empty segment")
+        if "**" in segment:
+            raise ScopeError(
+                f"invalid pattern '{pattern}': '**' is only valid as a whole segment. "
+                "Embedded, it reads like a wildcard that crosses directories and does not."
+            )
         chunk = ""
         for ch in segment:
-            if ch == "*":
-                chunk += "[^/]*"
-            elif ch == "?":
-                chunk += "[^/]"
-            else:
-                chunk += re.escape(ch)
+            # Only `*` and `**` are operators. Everything else, `?` included, is a
+            # literal: a pattern must not quietly match more than it says.
+            chunk += "[^/]*" if ch == "*" else re.escape(ch)
         parts.append(chunk)
         if not last:
             parts.append("/")
-    return re.compile("^" + "".join(parts) + "$")
+    return re.compile("".join(parts))
 
 
 def matches(pattern: str, path: str) -> bool:
-    return compile_pattern(pattern).match(path) is not None
+    """Whole-path match.
+
+    `fullmatch` and not `match` with a trailing `$`: in Python `$` also matches
+    right before a final newline, so `CHANGELOG.md` would match a file literally
+    named `CHANGELOG.md\\n`, and an exemption written for one file would be
+    inherited by another that git happily tracks on Linux.
+    """
+    return compile_pattern(pattern).fullmatch(path) is not None
 
 
 def validate_scope(scope) -> list[dict]:
@@ -99,8 +108,19 @@ def floor_patterns(config_path: str, evidence_root: str) -> list[str]:
     renamed with `--config`: a floor pinned to the literal `disensor.config.json`
     would let a PR relax its own scope policy through the side door and let the
     next PR walk in through the exemption it just created.
+
+    Each protected root is listed twice, exactly and with `/**`, because `foo/**`
+    matches what is under `foo` and not `foo` itself. Without the exact form, a PR
+    that adds `.residue` or `.github/workflows` as a file, a symlink or a gitlink
+    falls outside the floor and a permissive `**` rule exempts it.
     """
-    return [config_path, ".github/workflows/**", f"{evidence_root}/**"]
+    return [
+        config_path,
+        ".github/workflows",
+        ".github/workflows/**",
+        evidence_root,
+        f"{evidence_root}/**",
+    ]
 
 
 def accepts_for(path: str, scope: list[dict], floor: list[str]) -> tuple[list[str], str]:
