@@ -383,6 +383,20 @@ def test_event_key_normalises_these_spellings_of_the_same_uuid(variant):
     assert event_key(variant) == event_key("eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f")
 
 
+@pytest.mark.parametrize("historical_id", [
+    "urn:uuid:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f#x",
+    "URN:UUID:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f?=x",
+    "eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f?+x",
+])
+def test_history_written_before_the_canonical_rule_still_blocks_reuse(historical_id):
+    """RFC 8141 ignores the r-component, q-component and fragment for equivalence.
+
+    A repository can hold ids written that way from before the rule existed; if
+    they keyed differently, a new canonical artifact would reuse the identity.
+    """
+    assert event_key(historical_id) == event_key("eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f")
+
+
 def test_event_key_keeps_different_uuids_apart():
     """The opposite error also matters: a false collision blocks a legitimate PR."""
     a = "eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
@@ -409,6 +423,10 @@ def test_two_artifacts_in_the_same_pr_cannot_share_an_id(repo, capsys):
     "urn:uuid:eeeeeeee-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
     "EEEEEEEE-1A2B-4C3D-8E5F-6A7B8C9D0E1F",
     "eeeeeeee1a2b4c3d8e5f6a7b8c9d0e1f",
+    # Fixed points of the fallback: `event_key(x) == x` for these, so a check
+    # written that way would let them through. The parse has to be explicit.
+    "not-a-uuid-at-all",
+    "x",
 ])
 def test_a_new_artifact_needs_a_canonical_event_id(repo, event_id, capsys):
     """One identity, one spelling.

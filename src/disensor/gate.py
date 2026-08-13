@@ -74,10 +74,15 @@ def event_key(raw) -> str:
     text = str(raw).strip()
     # `uuid.UUID` accepts `urn:uuid:` in lower case only, while both the URI
     # scheme and the URN namespace are case insensitive (RFC 3986, RFC 8141), so
-    # `URN:UUID:<id>` is the same identity and used to fall through to the
-    # fallback with a different key.
+    # `URN:UUID:<id>` is the same identity.
     if text[:9].casefold() == "urn:uuid:":
         text = text[9:]
+    # RFC 8141 ignores the r-component, q-component and fragment when deciding
+    # URN equivalence, so `<uuid>#x` is the same identity as `<uuid>`. Without
+    # this, a historical id written that way keys differently from the canonical
+    # one and a new artifact reuses it unnoticed.
+    for separator in ("?+", "?=", "#"):
+        text = text.split(separator, 1)[0]
     try:
         return str(uuid.UUID(text))
     except (ValueError, AttributeError, TypeError):
@@ -85,6 +90,20 @@ def event_key(raw) -> str:
         # towards collision, and a false collision blocks a PR while a missed one
         # lets an id be reused: between the two, the gate fails closed.
         return text.casefold()
+
+
+def is_canonical_uuid(raw) -> bool:
+    """Whether an id is a UUID in its one canonical spelling.
+
+    Comparing `event_key(x) == x` is not enough: for a string that is not a UUID
+    at all the fallback is the identity, so `not-a-uuid-at-all` and `` would pass
+    a check written that way. The parse has to be explicit.
+    """
+    text = str(raw).strip()
+    try:
+        return str(uuid.UUID(text)) == raw
+    except (ValueError, AttributeError, TypeError):
+        return False
 
 
 @dataclass
@@ -524,7 +543,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         # the validator does not assert `format: uuid`. Demanding the canonical
         # form closes all of them at once, and `event_key` stays for reading
         # history, which may hold artifacts written before this rule existed.
-        if event_key(artifact.event_id) != artifact.event_id:
+        if not is_canonical_uuid(artifact.event_id):
             own.append(
                 f"[G8] event_id '{artifact.event_id}' is not a canonical UUID. Identity has to have "
                 "one spelling: otherwise the same event written differently looks like two."
