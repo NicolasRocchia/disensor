@@ -27,6 +27,14 @@ def main_hash(args) -> int:
     if args.text is not None:
         data = args.text.encode("utf-8")
     else:
-        data = Path(args.file).read_bytes()
+        try:
+            data = Path(args.file).read_bytes()
+        except OSError as exc:
+            print(f"cannot read {args.file}: {exc.strerror or exc}")
+            print(
+                "If you used the packaged brief, its hash is "
+                "`disensor prompt --gate <plan|diff> --hash`."
+            )
+            return 1
     print("sha256:" + hashlib.sha256(data).hexdigest())
     return 0

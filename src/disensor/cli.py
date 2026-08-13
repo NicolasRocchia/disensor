@@ -19,17 +19,43 @@ from .rules import load_schema, validate_artifact
 from .template import main_new
 
 
+HELP_AFTER_INVALID = """
+What to do next:
+  disensor guide                     what every field expects, rule by rule
+  disensor prompt --gate <plan|diff> the brief for the reviewer, if the round has not happened yet
+
+A freshly created template is invalid on purpose: it is a form to fill with what
+actually happened in the round, not a file to commit as it comes."""
+
+
 def main_validate(args) -> int:
     schema = load_schema()
     failed = False
+    invalid_artifact = False
     for path in args.files:
-        with open(path, encoding="utf-8") as f:
-            artifact = json.load(f)
+        try:
+            with open(path, encoding="utf-8") as f:
+                artifact = json.load(f)
+        except FileNotFoundError:
+            print(f"{path}: no such file")
+            failed = True
+            continue
+        except json.JSONDecodeError as exc:
+            print(f"{path}: not valid JSON ({exc})")
+            failed = True
+            continue
         errors = validate_artifact(artifact, schema)
         print(f"{path}: {'VALID' if not errors else 'INVALID'}")
         for msg in errors:
             print(f"  {msg}")
         failed = failed or bool(errors)
+        invalid_artifact = invalid_artifact or bool(errors)
+    if invalid_artifact:
+        # The rule labels say what is wrong and nothing about where to look. For
+        # someone on their first artifact that is a dead end, and the first
+        # rejection is where people give up. Only shown for an artifact that was
+        # read and rejected: after a missing file it would be noise.
+        print(HELP_AFTER_INVALID)
     return 1 if failed else 0
 
 

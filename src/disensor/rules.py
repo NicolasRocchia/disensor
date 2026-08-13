@@ -71,7 +71,12 @@ def rule_errors(a: dict) -> list[str]:
 
     # R10: in the full profile, the findings list is mandatory.
     if profile == "full" and not findings:
-        error("R10", "full profile without a findings list")
+        error(
+            "R10",
+            "full profile without a findings list: list every finding of the round. If the "
+            "round found nothing, that is valid data, and it is declared in residue with "
+            "declared_absence and an express declaration",
+        )
 
     # R1: every finding whose state joins the residue has its item, and every
     # item with a reference points to an existing finding of the right state.
