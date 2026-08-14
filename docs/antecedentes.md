@@ -333,12 +333,14 @@ De contrastar el protocolo contra sus vecinos salen tres direcciones, y el orden
 
 `disensor validate` responde `VALID`. La lectura literal es: *lo verifiqué contra nada, mi evidencia es nada, por lo tanto el hallazgo es un falso positivo verificable.* Las tres variantes (evidencia vacía sola, `against: none` sola, y ambas) pasan hoy.
 
-Esa contradicción semántica se corrige barato y conviene hacerlo antes que cualquier arquitectura nueva:
+Esa contradicción semántica se corrige barato y conviene hacerlo antes que cualquier arquitectura nueva. Son **dos invariantes independientes**, y conviene tratarlos como dos criterios de aceptación separados porque evitan clases distintas de declaración cosmética:
 
-- `refuted_verifiable` ⇒ `verification.against ∈ {repository, execution}`.
-- `evidence` con al menos una de `text`, `link` o `hash` presente (`anyOf`/`minProperties`).
+- **A, evidencia material**: `evidence` con al menos una de `text`, `link` o `hash`. Con `anyOf` sobre `required`, no con `minProperties: 1` — si el objeto gana metadata más adelante (`kind`, `source`), un `{"kind": "repository_fact"}` satisfaría la cardinalidad sin aportar evidencia.
+- **B, blanco verificable**: `verification.against ∈ {repository, execution}`, excluyendo `none`.
 
 No resuelve Goodhart. Evita que el artefacto se contradiga a sí mismo, que es distinto y es prerrequisito.
+
+El endurecimiento va bajo residue/v0.3 y no retroactivamente sobre v0.2: un artefacto válido bajo un identificador de esquema no debería volverse inválido bajo ese mismo identificador. Para una herramienta construida sobre provenance y reproducibilidad, la disciplina se aplica primero a sí misma. Reproducción, alcance en los cuatro consumidores del contrato y criterios de aceptación en el [issue #5](https://github.com/NicolasRocchia/disensor/issues/5).
 
 **El problema conceptual de fondo es más profundo, y Assurance 2.0 ya tiene la distinción para nombrarlo**: separar *lo medido* de *lo útil*. Que se haya observado algo y que de esa observación se siga la conclusión son dos pasos distintos.
 

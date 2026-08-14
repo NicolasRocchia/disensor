@@ -86,7 +86,9 @@ El gate valida las declaraciones que **el PR agrega**, aplica la política y pub
 
 ## Qué hace cumplir el gate
 
-Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, evidencia obligatoria en refutaciones verificables, atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado sin fugas de texto.
+Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, presencia obligatoria del objeto de evidencia en refutaciones verificables (ver el límite de más abajo), atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado sin fugas de texto.
+
+**Límite conocido de residue/v0.2, en `refuted_verifiable`**: el esquema exige que el objeto `evidence` esté presente, pero todavía no exige que contenga evidencia material (`evidence: {}` valida) ni impide `verification.against: "none"`. O sea que hoy la garantía es de forma y no de contenido: un hallazgo puede cerrarse como falso positivo verificable declarando que se verificó contra nada. Los dos invariantes están previstos para el endurecimiento de residue/v0.3 y se corrigen ahí, no retroactivamente sobre v0.2: un artefacto que era válido bajo una versión del esquema no debería volverse inválido bajo el mismo identificador. Detalle y reproducción en el [issue #5](https://github.com/NicolasRocchia/disensor/issues/5).
 
 Por artefacto, contra el PR: nivel igual al declarado del repositorio (G2), Nivel A bloqueado mientras la gobernanza no esté validada (G3), política de confinamiento del revisor por nivel (G4), y pertenencia al PR del commit revisado (G5), que para la compuerta de diff exige además `base_commit`, porque una revisión de diff identifica el par (base revisada, head revisada) y no un head suelto.
 
