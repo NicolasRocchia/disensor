@@ -17,6 +17,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 - `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G8), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
+- `docs/antecedentes.md`: dónde se ubica el método respecto de la literatura (residual doubt y defeaters, design rationale y su capture bottleneck, revisión adversarial multi-agente, governance runtimes, provenance de cadena de suministro), con el estado de verificación de cada referencia.
 
 ## Uso rápido
 
@@ -85,7 +86,9 @@ El gate valida las declaraciones que **el PR agrega**, aplica la política y pub
 
 ## Qué hace cumplir el gate
 
-Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, evidencia obligatoria en refutaciones verificables, atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado sin fugas de texto.
+Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, presencia obligatoria del objeto de evidencia en refutaciones verificables (ver el límite de más abajo), atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado sin fugas de texto.
+
+**Límite conocido de residue/v0.2, en `refuted_verifiable`**: el esquema exige que el objeto `evidence` esté presente, pero todavía no exige que contenga evidencia material (`evidence: {}` valida) ni impide `verification.against: "none"`. O sea que hoy la garantía es de forma y no de contenido: un hallazgo puede cerrarse como falso positivo verificable declarando que se verificó contra nada. Los dos invariantes están previstos para el endurecimiento de residue/v0.3 y se corrigen ahí, no retroactivamente sobre v0.2: un artefacto que era válido bajo una versión del esquema no debería volverse inválido bajo el mismo identificador. Detalle y reproducción en el [issue #5](https://github.com/NicolasRocchia/disensor/issues/5).
 
 Por artefacto, contra el PR: nivel igual al declarado del repositorio (G2), Nivel A bloqueado mientras la gobernanza no esté validada (G3), política de confinamiento del revisor por nivel (G4), y pertenencia al PR del commit revisado (G5), que para la compuerta de diff exige además `base_commit`, porque una revisión de diff identifica el par (base revisada, head revisada) y no un head suelto.
 
@@ -137,7 +140,9 @@ Límite explícito: leer la política de la base convierte un bypass de un paso 
 
 ## Qué no hace
 
-No corre modelos, no pide claves de API en CI, y ningún código viaja a ningún servicio: valida un JSON que ya está versionado en el repo. La orquestación del loop vive donde el equipo ya trabaja; el perfil `minimized` del artefacto permite ambientes donde ni siquiera el texto de los hallazgos puede salir del entorno.
+No corre modelos, no pide claves de API en CI, y ningún código viaja a ningún servicio: valida un JSON que ya está versionado en el repo. La orquestación del loop vive donde el equipo ya trabaja; el perfil `minimized` del artefacto está pensado para ambientes donde el texto de los hallazgos no puede salir del entorno.
+
+**Límite conocido del perfil `minimized`**: R9 impide el texto libre en los campos que el protocolo define (`title`, `description` y `location` de los hallazgos, la descripción de los ítems de residuo, `evidence.text` y `evidence.link`, y la URL en claro del repositorio), pero **no inspecciona `extensions`**, que admite un objeto arbitrario y por diseño no participa de las reglas, ni otros strings libres como `verification.detail`. Un artefacto `minimized` conforme puede contener texto sensible por esas vías. Tratarlo como garantía de que nada en claro sale del entorno es más de lo que el validador hace cumplir; el endurecimiento va en residue/v0.3 junto con el resto, ver el [issue #8](https://github.com/NicolasRocchia/disensor/issues/8).
 
 ## Conformidad entre implementaciones
 
@@ -192,7 +197,7 @@ El esquema del artefacto no cambia y las declaraciones ya versionadas siguen sie
 
 ## Estado
 
-v0.4, borrador en uso. El esquema sigue en residue/v0.2: la v0.4 no lo toca, reescribe el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate"). El endurecimiento de las reglas del artefacto y el paso a residue/v0.3 son la tanda siguiente. Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes antes del release público).
+v0.5.0, publicada. El esquema sigue en residue/v0.2: ni la v0.4 ni la v0.5 lo tocan; la v0.4 reescribió el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate") y la v0.5 entrega la consigna adversarial empaquetada con hash reproducible. El endurecimiento de las reglas del artefacto y el paso a residue/v0.3 son la tanda siguiente, y hay tres defectos de contrato ya levantados que entran ahí: [#5](https://github.com/NicolasRocchia/disensor/issues/5), [#7](https://github.com/NicolasRocchia/disensor/issues/7) y [#8](https://github.com/NicolasRocchia/disensor/issues/8). Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes).
 
 ## Licencia
 

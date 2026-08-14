@@ -11,6 +11,27 @@ El gate no corre el loop: el loop sigue corriendo donde corre hoy (Claude Code e
 5. El artefacto va en su propio commit (`docs(residue): declare event <short-id>`), separado del código, siguiendo la convención de commits atómicos.
 6. El PR dispara el gate, que valida todo el rango, aplica política y publica la declaración como comentario.
 
+## Nota operativa: revisar la afirmación, no el tema
+
+Cuando lo sometido a revisión afirma novedad, precedencia o ausencia de antecedentes, la ronda rinde mucho más si la consigna entrega el **enunciado falsable** en lugar del tema.
+
+> Si el trabajo afirma novedad, ausencia de antecedentes o una distinción conceptual nueva, formulá primero el claim en términos falsables y buscá trabajos que satisfagan esa propiedad, **aunque usen otro vocabulario o pertenezcan a otro dominio**. Buscar sólo por el nombre del proyecto o por las palabras del dominio puede no encontrar antecedentes que expresan la misma idea con otro lenguaje.
+
+Y conviene que el revisor clasifique cada antecedente, porque no todos hacen lo mismo con el claim:
+
+| Clase | Qué implica |
+|---|---|
+| **Refuta** | Ya expresa esencialmente la propiedad reclamada. |
+| **Estrecha** | Contiene parte de la contribución y obliga a reducir el claim. |
+| **Adyacente** | Se parece, pero una diferencia material impide que refute. |
+| **No verificado** | Plausible, sin fuente primaria suficiente; queda abierto. |
+
+El caso que produjo esta nota, en `docs/antecedentes.md`: buscar por "revisión adversarial" o "residuo" no encontraba nada relevante durante varias rondas. Preguntar *"¿alguien separó estas clases de incompletitud en artefactos de assurance?"* encontró dos trabajos en una sola. Uno **estrechó** el claim al cubrir dos de las tres dimensiones reclamadas; el otro resultó **adyacente** y, paradójicamente, lo fortaleció, porque su propia definición del concepto vecino lo dejaba explícitamente del otro lado de la distinción.
+
+**Advertencia que no hay que perder**: formular el claim de manera falsable mejora la búsqueda de refutaciones; **no convierte la ausencia de refutación en evidencia de novedad**. Una búsqueda sin antecedentes deja el claim sin refutar en esa búsqueda, y nada más. Sin esa advertencia, una técnica útil de red team se convierte en un verificador de originalidad, que es justo lo que no es.
+
+Esto es documentación operativa y todavía **no** está en la consigna empaquetada. La incorporación natural sería condicional — activarse sólo cuando lo sometido hace un claim de novedad, no exigir revisión bibliográfica en cada diff — y conviene esperar a que produzca mejores hallazgos en más de una ronda antes de moverla ahí. Cuando se mueva, `prompt_hash` registra desde qué versión el revisor recibió la instrucción, que es exactamente para lo que sirve el campo.
+
 ## Qué escribe init para Claude Code
 
 Desde la 0.3.0 el conocimiento está partido en dos piezas, las dos escritas por `disensor init` (o en el ámbito global con `--claude-global`, condicionadas a que el repo tenga `disensor.config.json`):
