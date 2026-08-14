@@ -133,9 +133,23 @@ La formulación defendible es más estrecha, y el *to our knowledge* no es corte
 
 Y la tesis del proyecto conviene enunciarla al nivel correcto. No "produce código correcto", ni siquiera "mejora la revisión", sino: **hacer revisable y auditable el estado epistemológico con el que termina una revisión adversarial.** Es la misma separación que Software Delegation Contracts midió y nombró: *reviewability, not correctness*.
 
-## La frontera de assurance
+## Las tres fronteras
 
 Esta sección debería estar en el cuerpo del paper y no relegada a limitaciones, porque es lo que impide leer `.residue/` como una certificación de calidad emitida por IA.
+
+El protocolo es incompleto en tres direcciones distintas, y confundirlas lleva a aplicar la mitigación equivocada:
+
+| Frontera | Pregunta | Dirección |
+|---|---|---|
+| **Epistémica** | ¿Podemos comprobar lo que el artefacto afirma? | hacia arriba |
+| **Semántica** | ¿Podemos decir correctamente lo que ocurrió? | hacia los costados |
+| **Temporal** | ¿Podemos incorporar después lo que todavía no sabíamos? | hacia adelante |
+
+Las tres tuvieron un caso real en el primer uso autorreferencial del formato, y a cada una le corresponde uno de los issues abiertos: [#5](https://github.com/NicolasRocchia/disensor/issues/5) es epistémica, [#7](https://github.com/NicolasRocchia/disensor/issues/7) es semántica, [#6](https://github.com/NicolasRocchia/disensor/issues/6) es temporal.
+
+**Ninguna domina a las otras.** Un protocolo con assurance extraordinario y vocabulario pobre es malo: demuestra con precisión impecable quién escribió una representación incorrecta. Uno muy expresivo donde todo es autodeclarado también. Y uno perfecto para eventos individuales pero incapaz de relacionarlos longitudinalmente pierde el aprendizaje. De ahí que el progreso del protocolo tenga tres formas y no una: algo que había que creer pasa a comprobarse, algo que sólo podía representarse por aproximación pasa a representarse fielmente, o algo que quedaba congelado en su estado histórico pasa a poder recibir conocimiento posterior sin alterar el pasado.
+
+### Frontera epistémica
 
 Lo importante es que **no es una métrica escalar**. La tentación de decir "17 de 24 propiedades verificables = 71 %" lleva directo al Goodhart de la sección anterior: se mejora el ratio agregando propiedades triviales de verificar. Lo que sirve no es el conteo sino el mapa, y el mapa necesita tres columnas: qué estado tiene hoy la propiedad, **cuál es su raíz de confianza**, y cuál es su **techo** — hasta dónde podría llegar, incluso en el mejor caso.
 
@@ -158,6 +172,52 @@ De ahí sale la promesa correcta del artefacto, más modesta y mucho más sosten
 
 - No: *evidencia de que la revisión fue buena.*
 - Sí: *evidencia de que un proceso de revisión determinado ocurrió sobre un estado determinado del código fuente, más una declaración de su remanente sin resolver.*
+
+### Frontera semántica
+
+Toda la escala anterior mide cuán justificable es una afirmación **una vez que pudo ser expresada**. Antes de eso hay una pregunta más básica: si el contrato puede expresar fielmente lo que ocurrió. Si la respuesta es no, la escala de assurance queda montada sobre una representación ya deformada.
+
+```
+REALIDAD              verificado contra una fuente académica externa
+      ↓
+VOCABULARIO           repository | execution | none
+      ↓
+ARTEFACTO             against = repository
+```
+
+Con commit identificado, revisor atestiguado, artefacto firmado y custodio independiente, la provenance seguiría demostrando con precisión impecable **quién escribió una representación incorrecta**.
+
+No conviene llamar a esto *completitud*, porque reaparece el mundo abierto: nunca se demuestra que un vocabulario expresa todos los casos futuros. Sirve mejor **adecuación representacional**, formulada de manera falsable:
+
+> El vocabulario es adecuado respecto de los casos observados mientras ningún caso conocido obligue al declarante a elegir una categoría materialmente falsa o a perder una distinción necesaria para interpretar el evento.
+
+El issue #7 es exactamente un contraejemplo. No demuestra que v0.2 fuera malo; demuestra que no tenía vocabulario suficiente para representar fielmente una clase de verificación observada. Y el criterio de expansión sale de ahí: **más enums no es mejor**. La ampliación se justifica cuando un caso real fuerza una distinción que antes se perdía, no cuando se diseñan veinte categorías hipotéticas.
+
+**Ésta es una clase de falsedad sin agente malicioso, y su mitigación es la opuesta a la de Goodhart.** Conviene no confundirlas:
+
+| | Goodhart (#5) | Insuficiencia semántica (#7) |
+|---|---|---|
+| Qué pasa | el agente quiere pasar el gate y llena campos cosméticamente | el agente quiere ser honesto y ninguna opción es correcta |
+| Dónde falla | qué tan fuerte es la garantía | qué puede decir el contrato |
+| Mitigación | restringir más, exigir evidencia más fuerte | ampliar el lenguaje |
+
+Responder a un caso de insuficiencia semántica endureciendo reglas no sólo no ayuda: puede empeorarlo. De ahí un principio de diseño que conviene enunciar explícitamente:
+
+> disensor no debería forzar a una declaración conforme a hacer una afirmación materialmente falsa cuando el evento subyacente se conoce con más precisión que la que el vocabulario permite.
+
+No implica aceptar texto libre para todo — la interoperabilidad necesita vocabulario común. Implica que un caso como #7 se trata como **deuda del protocolo, no como error del declarante**.
+
+### Frontera temporal
+
+Una declaración puede haber sido perfectamente fiel y bien fundada en T₀, y aparecer información nueva en T₁. La solución no es editar el pasado:
+
+```
+EVENTO A   lo que sabíamos entonces
+    ↓ referencia
+EVENTO B   lo que aprendimos después
+```
+
+Es la forma del issue #6, y ya tuvo su primer caso real en pequeño: el hallazgo semántico de #7 apareció **después** de que la declaración `aabede1f` estuviera emitida y commiteada, y se registró como artefacto nuevo en lugar de corregir el JSON. El valor probatorio está justamente en dejar la declaración intacta.
 
 ### Relación con Nidus, ajustada
 
@@ -422,11 +482,11 @@ La ronda que produjo este documento se cerró con su propia declaración (evento
 2. **Diferida sin decidir**: el artefacto no distingue un hallazgo *en* el diff de uno descubierto *al verificar* el diff contra un contrato existente. Un campo tipo `relation_to_submission` lo expresaría, pero con un caso no hay cómo saber si aporta o sólo suma ceremonia.
 3. **Confirmada, y es la de fondo**: `verification.against` no puede representar evidencia externa. Su vocabulario (`repository` = código, config, contratos; `execution` = correr tests o el programa; `none`) está diseñado para software, y dos hallazgos de esa misma ronda se resolvieron verificando contra papers. Ninguna de las tres opciones era verdadera, así que ambos quedaron declarados como `repository` mientras su `detail` dice "verificado contra el paper" ([issue #7](https://github.com/NicolasRocchia/disensor/issues/7)).
 
-La tercera merece subrayarse porque **no es Goodhart**. No hubo intención de maquillar: el vocabulario disponible empujó al declarante hacia la categoría menos incorrecta. Es una falla de ontología, no de incentivos, y las defensas contra el cumplimiento cosmético no la tocan. Enunciada de forma general:
+La tercera es la que expandió el marco, porque **no es Goodhart**: no hubo intención de maquillar, el vocabulario disponible empujó al declarante hacia la categoría menos incorrecta. Enunciada de forma general:
 
 > disensor puede representar qué se revisó y cómo terminó el hallazgo, pero no siempre puede representar honestamente **contra qué clase de realidad fue verificado**.
 
-La declaración no se corrigió retroactivamente. Su valor probatorio está en dejarla intacta: una declaración válida obligó a clasificar dos verificaciones externas como `repository` porque no había categoría verdadera disponible. Eso es mejor evidencia para decidir el cambio que un JSON arreglado después — y es, en pequeño, la forma que P2 propone para todo conocimiento posterior.
+Es la frontera semántica, y su tratamiento está arriba. Lo que importa acá es que las tres observaciones fallaron en direcciones distintas y sólo la primera era del tipo que el proyecto ya sabía nombrar.
 
 ### P3: identidad del modelo
 
