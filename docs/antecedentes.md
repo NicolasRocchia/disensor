@@ -115,7 +115,7 @@ Eso está conceptualmente muy cerca de G6 (anti-rancidez) y G7 (testigo de integ
 | Software Delegation Contracts | "El work package del agente puede hacerse revisable exigiendo estructura." |
 | Nidus | "Estas obligaciones de ingeniería se verificaron externamente en cada commit." |
 | Trust Without Trusting | "El cumplimiento puede recomputarse desde afuera, sin confiar en el operador." |
-| **disensor** | **"Ocurrió una revisión adversarial entre familias sobre este estado exacto del código, ésta fue la disposición terminal de cada hallazgo, y esto quedó sin poder cerrarse."** |
+| **disensor** | **"Se declara una revisión adversarial entre familias, con esta disposición terminal de cada hallazgo y este remanente sin cerrar; su alcance, frescura e integración sobre el código son mecánicamente verificables."** |
 
 La contribución no es ninguno de los componentes por separado. Es la intersección: qué quedó sin resolver después de una revisión adversarial, sobre qué estado exacto del código ocurrió esa revisión, y qué partes de esa historia pueden hacerse exigibles por CI.
 
@@ -171,7 +171,22 @@ El progreso del protocolo no se enuncia entonces como "subió a 73 %", sino como
 De ahí sale la promesa correcta del artefacto, más modesta y mucho más sostenible que la ingenua:
 
 - No: *evidencia de que la revisión fue buena.*
-- Sí: *evidencia de que un proceso de revisión determinado ocurrió sobre un estado determinado del código fuente, más una declaración de su remanente sin resolver.*
+- No: *evidencia de que la revisión ocurrió.*
+- Sí: *evidencia estructurada de una revisión **declarada**, con su alcance, frescura e integración mecánicamente verificables sobre git, más una declaración de su remanente sin resolver.*
+
+La segunda negación es fácil de perder de vista y hay que sostenerla. **Nada en el artefacto demuestra que el revisor haya sido invocado.** R4 compara los valores declarados de `family` entre generador y revisores (`rules.py:140-144`); `reviewer_id`, `family`, `model` y `prompt_hash` llegan desde el artefacto, y ninguna regla los contrasta contra una attestation. El ataque es trivial y no requiere ninguna sofisticación:
+
+```
+1. no invocar a ningún revisor
+2. fabricar un artefacto válido
+3. declarar generator.family = anthropic
+4. declarar reviewer.family  = openai
+5. usar merge-base y head reales del PR
+6. declarar findings vacío y ausencia expresa de residuo
+→ G5, G6 y G7 validan
+```
+
+G5, G6 y G7 no quedan invalidados por esto; lo que cambia es **qué prueban**: que el estado que la declaración *afirma* haber revisado corresponde a este PR, no que la revisión declarada haya ocurrido.
 
 ### Frontera semántica
 
@@ -288,11 +303,13 @@ Con esa separación, disensor puede aceptar la ejecución de análisis como evid
 
 | Trabajo | Qué establece | Estado |
 |---|---|---|
-| [NanoZK: Layerwise Zero-Knowledge Proofs for Verifiable LLM Inference](https://arxiv.org/abs/2603.18046) (ICLR 2026) | Prueba en conocimiento cero de que un output corresponde a ejecutar los pesos comprometidos en una raíz Merkle pública. Halo2 con IPA, sin trusted setup. A escala GPT-2: 43 s de prueba, 6,9 KB, 23 ms de verificación, 52× sobre EZKL. Parte del problema exacto: las APIs actuales no ofrecen binding criptográfico entre la identidad declarada del modelo y la computación real. | Verificado |
+| [NanoZK: Layerwise Zero-Knowledge Proofs for Verifiable LLM Inference](https://arxiv.org/abs/2603.18046v1) (ICLR 2026) | Prueba en conocimiento cero de que un output corresponde a ejecutar los pesos comprometidos en una raíz Merkle pública. Halo2 con IPA, sin trusted setup. **Cifras según reporta v1**: a escala GPT-2, 43 s de prueba, 6,9 KB, 23 ms de verificación, 52× sobre EZKL. Parte del problema exacto: las APIs actuales no ofrecen binding criptográfico entre la identidad declarada del modelo y la computación real. | Verificado contra v1 |
 | [Attestable Audits: Verifiable AI Safety Benchmarks Using TEEs](https://arxiv.org/abs/2506.23706) | Dentro de un enclave: carga pesos, calcula su hash, vincula modelo y código, ejecuta, y emite remote attestation. Impide la sustitución silenciosa del modelo por parte del host. | Verificado |
 | [KBF: Knowledge Boundary as Fingerprint](https://arxiv.org/abs/2605.29524) | Auditoría black-box de bajo costo sobre 16 endpoints de producción: señala las 155 sustituciones económicamente relevantes sin rechazar ningún control del mismo modelo, y detecta routing mixto con 5–10 % del tráfico sustituido. | Verificado |
 | [IRIS: Budgeted Black-Box Auditing of Model Substitution and Routing Dilution](https://arxiv.org/abs/2607.20860) | Auditoría sólo sobre el texto devuelto: detecta sustitución completa y dilución fraccional, y atribuye el backend servido. | Verificado |
 | [Auditing Black-Box LLM APIs with a Rank-Based Uniformity Test](https://arxiv.org/abs/2506.06975) (2025) | Antecedente directo de la línea de auditoría black-box. | Verificado |
+
+> **Pendiente sobre NanoZK**: existe una v2 posterior que revisa esas métricas y las califica (setup y prueba sólo del MLP, proyecciones por bloque y para las 12 capas, tamaño por capa contra el compuesto, verificación de la cadena completa). El enlace quedó pinneado a v1 porque es la versión contra la que se verificaron las cifras aquí citadas; adoptar las de v2 sin poder leerlas repetiría el error en la otra dirección. Antes de publicar, leer v2 y actualizar la síntesis con sus calificadores. Es, además, un caso real de la frontera temporal de este mismo documento: la fuente primaria cambió después de haber sido verificada.
 
 **El techo actual, y es duro.** La criptografía resuelve la integridad de la inferencia *desde el commitment hacia abajo*: se puede probar que una respuesta salió de los pesos `abc123`. Lo que no resuelve es la semántica de arriba: **quién dice que `abc123` es el modelo comercial X.** Si lo dice el proveedor, se sigue confiando en el proveedor para el binding identidad ↔ pesos; si lo certifica un auditor, se confía en el auditor; si hay un registro, en la autoridad del registro. Para pesos abiertos el problema desaparece, porque cualquiera recomputa el commitment desde los pesos públicos. Para modelos propietarios, hace falta alguna raíz de confianza externa.
 
@@ -397,7 +414,7 @@ IBIS moría por fricción; disensor puede morir por Goodhart. Un agente al que s
 
 El README ya admite el límite: la máquina detecta el campo vacío y el marcador genérico, no la declaración falsa, y el muestreo humano de PRs cerrados sigue siendo la única defensa real contra el cumplimiento cosmético.
 
-Lo que conviene hacer explícito, y en el cuerpo del paper y no en limitaciones, es **por qué G5, G6 y G7 son una respuesta parcial pero real**: no creen lo que el agente dice sobre el árbol, lo reconstruyen desde git. No verifican el contenido del residuo (nada lo hace), pero sí que la revisión haya ocurrido sobre este árbol, en este par de commits, incluyendo la integración. Un residuo cosmético sigue siendo posible; una revisión inexistente o rancia, no.
+Lo que conviene hacer explícito, y en el cuerpo del paper y no en limitaciones, es **por qué G5, G6 y G7 son una respuesta parcial pero real**: no creen lo que el agente dice sobre el árbol, lo reconstruyen desde git. No verifican el contenido del residuo (nada lo hace) ni que la revisión haya ocurrido, pero sí que **el estado que la declaración dice haber revisado sea este par de commits, sin rutas cambiadas por detrás y con la integración incluida**. Un residuo cosmético sigue siendo posible y una revisión inventada también; lo que deja de ser posible es una declaración rancia o desalineada del árbol que se va a mergear.
 
 ### La pregunta de investigación
 
