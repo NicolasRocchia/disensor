@@ -17,6 +17,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 - `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G8), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
+- `docs/antecedentes.md`: dónde se ubica el método respecto de la literatura (residual doubt y defeaters, design rationale y su capture bottleneck, revisión adversarial multi-agente, governance runtimes, provenance de cadena de suministro), con el estado de verificación de cada referencia.
 
 ## Uso rápido
 
