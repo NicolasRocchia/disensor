@@ -133,32 +133,113 @@ La formulación defendible es más estrecha, y el *to our knowledge* no es corte
 
 Y la tesis del proyecto conviene enunciarla al nivel correcto. No "produce código correcto", ni siquiera "mejora la revisión", sino: **hacer revisable y auditable el estado epistemológico con el que termina una revisión adversarial.** Es la misma separación que Software Delegation Contracts midió y nombró: *reviewability, not correctness*.
 
-## Qué puede verificar el artefacto y qué no
+## La frontera de assurance
 
-Esta tabla debería estar en el cuerpo del paper y no relegada a limitaciones, porque es lo que impide leer `.residue/` como una certificación de calidad emitida por IA. Divide el artefacto en dos clases de propiedad que hoy conviven mezcladas: **provenance computable** y **contenido declarado**.
+Esta sección debería estar en el cuerpo del paper y no relegada a limitaciones, porque es lo que impide leer `.residue/` como una certificación de calidad emitida por IA.
 
-| Propiedad | ¿La verifica disensor? | Cómo |
-|---|---|---|
-| El commit revisado existe | Sí | Objeto de git |
-| El commit pertenece al PR | Sí | G5, rango `merge-base..head` |
-| El código cambió después de la revisión | Sí | G6, anti-rancidez |
-| Alguna revisión vio el árbol integrado completo | Sí | G7, testigo de integración |
-| La evidencia previa no fue alterada ni borrada | Sí | G8, solo agregar |
-| El artefacto es internamente coherente | Sí | Esquema y reglas R0–R10 |
-| Alguien declaró haber revisado ese estado | Sí | Es lo que el artefacto afirma |
-| El revisor realmente razonó en profundidad | **No** | Declaración |
-| El modelo declarado fue efectivamente quien revisó | **No, hoy** | Declaración; sin attestation criptográfica |
-| La refutación es intelectualmente correcta | **No** | Declaración |
-| No existen otros riesgos sin declarar | **No** | Fuera del alcance de cualquier artefacto |
+Lo importante es que **no es una métrica escalar**. La tentación de decir "17 de 24 propiedades verificables = 71 %" lleva directo al Goodhart de la sección anterior: se mejora el ratio agregando propiedades triviales de verificar. Lo que sirve no es el conteo sino el mapa, y el mapa necesita tres columnas: qué estado tiene hoy la propiedad, **cuál es su raíz de confianza**, y cuál es su **techo** — hasta dónde podría llegar, incluso en el mejor caso.
 
-Todo lo verificable es **un hecho sobre git**, no una afirmación del agente. Ésa es la propiedad que hace que la columna izquierda sea defendible y la derecha, honesta.
+| Propiedad | Estado hoy | Raíz de confianza | Techo |
+|---|---|---|---|
+| El commit revisado existe y pertenece al PR | Verificable | git (G5) | Verificable |
+| El código no cambió después de la revisión | Verificable | git (G6) | Verificable |
+| Alguna revisión vio el árbol integrado completo | Verificable | git (G7) | Verificable |
+| La evidencia previa no fue alterada | Verificable | git (G8) | Verificable |
+| El artefacto es internamente coherente | Verificable | esquema y R0–R10 | Verificable |
+| Se invocó al revisor declarado | Declarado | el agente | Attestation de invocación posible |
+| El modelo servido era el declarado | Declarado | el proveedor | Parcialmente movible (ver abajo) |
+| El revisor razonó en profundidad | Juicio | revisor / humano | No mecanizable |
+| La refutación es intelectualmente correcta | Juicio | revisor / humano | No mecanizable plenamente |
+| No existen riesgos sin declarar | Mundo abierto | — | **No verificable en principio** |
 
-De ahí sale la promesa correcta del artefacto, que es más modesta y mucho más sostenible que la ingenua:
+El progreso del protocolo no se enuncia entonces como "subió a 73 %", sino como una transición nominal: *v0.6 movió esta propiedad de declarada a verificada mecánicamente, con esta raíz de confianza.* Eso es auditable y difícil de maquillar agregando quince propiedades triviales.
+
+De ahí sale la promesa correcta del artefacto, más modesta y mucho más sostenible que la ingenua:
 
 - No: *evidencia de que la revisión fue buena.*
 - Sí: *evidencia de que un proceso de revisión determinado ocurrió sobre un estado determinado del código fuente, más una declaración de su remanente sin resolver.*
 
-Lo primero es casi imposible de demostrar desde afuera. Lo segundo contiene una parte mecánicamente verificable.
+### Relación con Nidus, ajustada
+
+Nidus **sí** enmarca su progreso como expansión de lo mecánicamente exigible, y afirmar lo contrario sería falso: su conjunto de obligaciones **crece monótonamente**, todo estado del artefacto satisface las obligaciones activas, y las fallas observadas se convierten en obligaciones nuevas mediante mapeos falla → causa raíz → obligación. También declara el límite: la verificación es sólida sólo respecto de las obligaciones actualmente modeladas, y no garantiza propiedades que no fueron modeladas.
+
+Lo que no encontré en Nidus es la clasificación misma: *esta propiedad era declarativa y ahora es verificable; ésta sigue dependiendo de confianza y de quién; ésta es intrínsecamente no verificable.* Nidus expande la superficie exigible y reconoce que es incompleta; no mapea las clases de propiedad ni sus raíces de confianza.
+
+La contribución potencial, entonces, es estrecha y enunciable así: **hacer explícita la frontera entre propiedades declaradas, verificadas y fundamentalmente no verificables, y usar las transiciones nominales entre esas clases como criterio de evolución del protocolo.**
+
+### La salida a la contradicción con "residuo, no cobertura"
+
+Hay una objeción obvia: mover la fila "no existen riesgos sin declarar" hacia arriba obligaría a declarar que corrió SAST, que corrió el fuzzer, que hay 95 % de cobertura — y eso reconstruye el artefacto de cobertura que el proyecto rechazó.
+
+La salida es no intentar nunca mover esa fila. Queda marcada de forma permanente como **afirmación de mundo abierto, no verificable en principio**, y eso es parte de la filosofía del protocolo, no una carencia a resolver.
+
+Lo que sí puede moverse es una propiedad mucho más estrecha, y la distinción es la que salva la coherencia:
+
+> **Verificar que un análisis ocurrió ≠ verificar que el análisis fue exhaustivo.**
+
+```
+VERIFICABLE:   Semgrep 1.x corrió con ruleset hash ABC sobre el commit DEF.
+NO AFIRMADO:   Semgrep habría detectado toda vulnerabilidad relevante.
+```
+
+Con esa separación, disensor puede aceptar la ejecución de análisis como evidencia sin convertirse en un artefacto de cobertura. La contradicción aparece recién si se agregan los checks y se da el salto a "software revisado". Ese salto es precisamente el que el protocolo no debe dar.
+
+## Identidad del modelo revisor: qué es posible hoy
+
+Ésta es la fila más interesante de la tabla, porque es donde se ve que "declarado / verificado" es una dicotomía demasiado pobre: hay varias raíces de confianza distintas, y la diferencia entre ellas importa.
+
+| Trabajo | Qué establece | Estado |
+|---|---|---|
+| [NanoZK: Layerwise Zero-Knowledge Proofs for Verifiable LLM Inference](https://arxiv.org/abs/2603.18046) (ICLR 2026) | Prueba en conocimiento cero de que un output corresponde a ejecutar los pesos comprometidos en una raíz Merkle pública. Halo2 con IPA, sin trusted setup. A escala GPT-2: 43 s de prueba, 6,9 KB, 23 ms de verificación, 52× sobre EZKL. Parte del problema exacto: las APIs actuales no ofrecen binding criptográfico entre la identidad declarada del modelo y la computación real. | Verificado |
+| [Attestable Audits: Verifiable AI Safety Benchmarks Using TEEs](https://arxiv.org/abs/2506.23706) | Dentro de un enclave: carga pesos, calcula su hash, vincula modelo y código, ejecuta, y emite remote attestation. Impide la sustitución silenciosa del modelo por parte del host. | Verificado |
+| [KBF: Knowledge Boundary as Fingerprint](https://arxiv.org/abs/2605.29524) | Auditoría black-box de bajo costo sobre 16 endpoints de producción: señala las 155 sustituciones económicamente relevantes sin rechazar ningún control del mismo modelo, y detecta routing mixto con 5–10 % del tráfico sustituido. | Verificado |
+| [IRIS: Budgeted Black-Box Auditing of Model Substitution and Routing Dilution](https://arxiv.org/abs/2607.20860) | Auditoría sólo sobre el texto devuelto: detecta sustitución completa y dilución fraccional, y atribuye el backend servido. | Verificado |
+| [Auditing Black-Box LLM APIs with a Rank-Based Uniformity Test](https://arxiv.org/abs/2506.06975) (2025) | Antecedente directo de la línea de auditoría black-box. | Verificado |
+
+**El techo actual, y es duro.** La criptografía resuelve la integridad de la inferencia *desde el commitment hacia abajo*: se puede probar que una respuesta salió de los pesos `abc123`. Lo que no resuelve es la semántica de arriba: **quién dice que `abc123` es el modelo comercial X.** Si lo dice el proveedor, se sigue confiando en el proveedor para el binding identidad ↔ pesos; si lo certifica un auditor, se confía en el auditor; si hay un registro, en la autoridad del registro. Para pesos abiertos el problema desaparece, porque cualquiera recomputa el commitment desde los pesos públicos. Para modelos propietarios, hace falta alguna raíz de confianza externa.
+
+> Confirmar contra el PDF de NanoZK la formulación exacta del requisito de un registro público de commitments antes de citarlo textualmente; la estructura del límite está clara, el fraseo no lo verifiqué.
+
+Los TEE reducen mucho la confianza en el proveedor pero introducen la confianza en el fabricante del hardware, y la remote attestation prueba qué binario corre, no que ese binario corresponda al código auditado. El fingerprinting black-box es otra vía y está muy activa, pero es **auditoría de identidad**, no attestation: existe además trabajo sobre spoofing de fingerprints frente a proveedores adversariales. Serviría como `CORROBORATED_BY_FINGERPRINT`; nunca como `VERIFIED_MODEL_IDENTITY`.
+
+### La escala de evidencia
+
+De ahí sale que la propiedad no admite dos estados sino varios, y no como escala de calidad sino como **tipos de evidencia con raíces de confianza distintas**:
+
+| Nivel | Qué afirma | En quién se confía |
+|---|---|---|
+| `DECLARED` | El actor dice que ocurrió | el agente |
+| `RUNNER_ATTESTED` | Un entorno controlado observó la invocación | el runner |
+| `PROVIDER_ATTESTED` | El proveedor firmó la identidad servida | el proveedor |
+| `HARDWARE_ATTESTED` | Un TEE verificó los pesos cargados | el fabricante del hardware |
+| `CRYPTOGRAPHICALLY_BOUND` | Una prueba liga la inferencia a un commitment | la criptografía |
+| `INDEPENDENTLY_IDENTIFIED` | El verificador comprueba que el commitment es el modelo nominal | nadie / registro público |
+
+El último nivel es trivial para pesos abiertos y hoy inalcanzable para propietarios sin una autoridad externa.
+
+### Qué implica para la firma del runner
+
+La idea de correr la ronda en CI para que el runner firme **no mueve** "el modelo declarado fue realmente quien revisó" de declarado a verificado. Mueve una propiedad distinta, y conviene nombrarla como lo que es: **provenance de la invocación**, no identidad del modelo.
+
+```
+Antes:   DECLARED          el agente dice que un revisor de otra familia revisó.
+Con CI:  RUNNER_ATTESTED   un runner firmado llamó al endpoint E pidiendo model_id=M,
+                           con request_hash=P y response_hash=R.
+Sigue:   PROVIDER_ASSERTED que E haya servido realmente M.
+```
+
+Es evidencia real y vale la pena, pero no es lo que parecía prometer.
+
+**Por eso no debería ser el default.** Hoy el gate no necesita claves de API, no corre modelos y no manda código a ningún servicio: trabaja sobre evidencia ya versionada. Perder esa propiedad — que es justamente la que hace la herramienta adoptable en entornos restringidos, los mismos del perfil minimizado — a cambio de poder demostrar que se llamó a un endpoint pidiendo cierto modelo, es mal negocio. La forma correcta es **verificación offline de evidencia por default, ejecución atestiguada como perfil opcional** para organizaciones que quieran pagar ese costo.
+
+La ventaja de modelar la escala desde ahora es que el modelo conceptual no tiene que cambiar cuando el campo avance. Si algún día los proveedores soportan proof-of-inference, el runner guarda `provider_response`, `model_commitment` e `inference_proof`, y disensor los valida. La misma propiedad avanza sin rediseñar el artefacto:
+
+```
+v0.5      DECLARED                  "reviewer = <familia>"
+   ↓      RUNNER_ATTESTED           "una llamada firmada solicitó <proveedor>/<modelo>"
+   ↓      CRYPTOGRAPHICALLY_BOUND   "esta inferencia corresponde al commitment abc123"
+   ↓      INDEPENDENTLY_IDENTIFIED  "abc123 está públicamente registrado como <modelo>"
+```
 
 ## Qué advierte la historia
 
@@ -226,9 +307,9 @@ De todo lo anterior sale la pregunta que probablemente sea la más interesante d
 
 > ¿Cómo se hace obligatorio declarar incertidumbre sin convertir la declaración de incertidumbre en otra casilla que el agente aprende a marcar?
 
-Y sale también la dirección de evolución, que no es la obvia. **La evolución natural de disensor no es hacer cada vez más obligatorio el JSON.** Es aumentar la proporción del artefacto que puede verificarse independientemente y reducir la que necesita ser creída — mover filas de la mitad inferior de la tabla de arriba a la superior.
+Y sale también la dirección de evolución, que no es la obvia. **La evolución natural de disensor no es hacer cada vez más obligatorio el JSON.** Es aumentar la parte del artefacto que puede verificarse independientemente y reducir la que necesita ser creída, moviendo propiedades nominales entre las clases de la frontera de assurance.
 
-Trust Without Trusting marca el horizonte de esa dirección: *declarado → verificado externamente → recomputable de forma independiente*. Hoy el artefacto mezcla las dos primeras clases sin distinguirlas en su propia estructura; hacer esa distinción explícita en el esquema sería un paso concreto en esa dirección. La attestation criptográfica de qué modelo revisó realmente es otro: es la fila de la tabla que hoy dice "No, hoy" y podría no decirlo.
+Trust Without Trusting marca el horizonte: *declarado → verificado externamente → recomputable de forma independiente*. Hoy el artefacto mezcla esas clases sin distinguirlas en su propia estructura, y hacer la distinción explícita en el esquema — registrar no sólo qué se afirma sino con qué raíz de confianza — sería el paso concreto más barato en esa dirección. No requiere criptografía nueva ni cambiar el flujo: requiere admitir en el esquema que no todas las afirmaciones del artefacto tienen el mismo estatus.
 
 ### La restricción de producto
 
