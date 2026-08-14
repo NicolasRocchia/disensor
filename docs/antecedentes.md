@@ -315,6 +315,100 @@ Trust Without Trusting marca el horizonte: *declarado → verificado externament
 
 De los assurance cases y del rationale sale la misma lección, y es una restricción dura: **no inventar una metodología que el desarrollador tenga que "hacer"**. Los obstáculos reportados no fueron conceptuales sino de tooling e integración. El residuo tiene que emitirse dentro del agente, git, el PR y CI, sin sistema paralelo, sin representación nueva que aprender, y sin que nadie interrumpa lo que estaba haciendo. Es exactamente lo que apuntan `disensor init`, la skill y `disensor guide`, y conviene tratar cualquier fricción agregada ahí como riesgo existencial y no como detalle de UX.
 
+## Direcciones que abre
+
+De contrastar el protocolo contra sus vecinos salen tres direcciones, y el orden de prioridad entre ellas cambió respecto del que traía este documento en su primera versión.
+
+### P1: el assurance de las refutaciones
+
+**Aquí se toma la decisión con consecuencias**: `refuted_verifiable` significa que este hallazgo no requiere modificar el código. Es el estado terminal donde una declaración falsa tiene más efecto y menos resistencia, y es más importante que la identidad del revisor — una identidad perfectamente atestiguada no arregla que un modelo criptográficamente identificado haya producido una refutación equivocada.
+
+**Defecto verificado en la implementación de referencia.** El esquema exige `evidence` para `refuted_verifiable` (`$defs/finding/allOf[2]`), pero `$defs/evidence` no declara `minProperties`, `required` ni `anyOf`, y ninguna regla liga ese estado con `verification.against`. Reproducción, partiendo de `spec/examples/example_2_diff_gate.json` y mutando su hallazgo `h3`:
+
+```json
+"final_state": "refuted_verifiable",
+"verification": { "against": "none" },
+"evidence": {}
+```
+
+`disensor validate` responde `VALID`. La lectura literal es: *lo verifiqué contra nada, mi evidencia es nada, por lo tanto el hallazgo es un falso positivo verificable.* Las tres variantes (evidencia vacía sola, `against: none` sola, y ambas) pasan hoy.
+
+Esa contradicción semántica se corrige barato y conviene hacerlo antes que cualquier arquitectura nueva:
+
+- `refuted_verifiable` ⇒ `verification.against ∈ {repository, execution}`.
+- `evidence` con al menos una de `text`, `link` o `hash` presente (`anyOf`/`minProperties`).
+
+No resuelve Goodhart. Evita que el artefacto se contradiga a sí mismo, que es distinto y es prerrequisito.
+
+**El problema conceptual de fondo es más profundo, y Assurance 2.0 ya tiene la distinción para nombrarlo**: separar *lo medido* de *lo útil*. Que se haya observado algo y que de esa observación se siga la conclusión son dos pasos distintos.
+
+```
+MEDIDO:  corrimos el test de concurrencia 100 veces sobre el commit abc123 y pasó.
+ÚTIL:    por lo tanto la race condition no existe.
+```
+
+Lo primero puede ser mecánicamente verificable hasta el último detalle: qué test, qué commit, qué iteraciones, qué exit code, qué hash del reporte. Lo segundo no se deduce de lo primero — un test que pasa es evidencia de una observación, no refutación de una afirmación universal.
+
+De ahí que una escala unidimensional no alcance. Son **dos dimensiones independientes**:
+
+| Provenance de la evidencia | Fuerza de la inferencia evidencia → refutación |
+|---|---|
+| `declared` | `interpretive` |
+| `artifact_bound` | `empirical` |
+| `runner_attested` | `deductive` |
+| `recomputable` | `mechanically_checked` |
+| `formally_verified` | |
+
+No forman una escala total, y el ejemplo de la race condition es justamente el cruce incómodo: evidencia `runner_attested` con inferencia `empirical`. Alta provenance, inferencia débil.
+
+Eso revela un problema de naming en el contrato actual: **`refuted_verifiable` fusiona dos afirmaciones distintas** — que la evidencia es verificable y que la refutación lo es. No cambiar el nombre hoy, pero sí redefinir formalmente qué significa, y considerar para residue/v1 descomponerlo en lugar de seguir metiendo semántica adentro del enum.
+
+**Cómo avanzar sin romper la propiedad de no ejecutar nada.** disensor no debería empezar a correr tests declarados desde el JSON: dejar que un artefacto diga qué comando ejecutar abre una superficie de seguridad nueva. Pero puede **consumir attestations** producidas por el CI que ya corre. Existe el predicado [Test Result de in-toto](https://github.com/in-toto/attestation/tree/main/spec/predicates) ("a generic schema to express results of any type of tests"), el de Vulnerability, y el bundle de SLSA Source incluye code review para el commit revisado. El circuito sería:
+
+```
+evidencia de refutación → attestation de test result del CI
+                        → subject SHA == reviewed_head
+                        → disensor verifica que ese test pasó sobre ese commit, sin correrlo
+```
+
+Eso mueve *"el test pasó"* de declarado a atestiguado, y deja deliberadamente *"por lo tanto el hallazgo es falso"* en empírico o interpretativo. Es la separación honesta.
+
+**Medir antes de vigilar.** El paso inmediato no es bloquear por nivel, sino registrar la clase: qué tipo de evidencia sostiene cada refutación (`repository_fact`, `test_result`, `static_analysis`, `formal_proof`, `external_contract`, `other`) y con qué assurance. Sin datos, cualquier umbral es arbitrario.
+
+### P2: el lazo longitudinal que hoy no existe
+
+Nidus no depende de que el arquitecto se dé cuenta: tiene un **decay detector**, un proceso de fondo que escanea su friction ledger buscando fallas recurrentes agrupadas por tipo de obligación; cuando el conteo supera un umbral configurable en una ventana móvil, genera una obligación candidata, la prueba contra el artefacto actual y la deja abierta para incorporarla. Más la cadena explícita falla → causa raíz → obligación en sus *lessons*.
+
+disensor hoy tiene `desacuerdo → residuo → historia`, y nada más. Falta: *¿qué pasó después? ¿tenía razón? ¿qué aprende el protocolo?*
+
+La respuesta no es copiar Nidus y convertir cada residuo en regla. Hay una versión propia, y la diferencia importa: el motor de Nidus es *falla → restricción*; el de disensor sería **historial de incertidumbre → resultado observado → calibración de qué evidencias merecían confianza → endurecimiento de la frontera**.
+
+El artefacto histórico no se toca — eso rompería G8. Se emite otro, que lo referencia:
+
+```
+outcome
+  event_ref:    <event_id>
+  finding_ref:  h3
+  outcome:      refutation_invalidated
+  discovered_by: incident
+  evidence:     ...
+```
+
+Con eso aparece una medición que hoy es imposible. No sólo "4 refutaciones verificables", sino cuántas de ellas se invalidaron después — y, mucho más interesante, **desagregado por clase de evidencia**: qué proporción de las refutaciones basadas en prosa del repositorio terminó invalidada, contra las basadas en un test atestiguado por CI. Ahí la escala de assurance deja de ser filosófica y se vuelve calibrable.
+
+Cuidado con la interpretación, y es una asimetría real: *que no haya aparecido un bug nunca demuestra que la refutación fuera correcta* — sigue siendo mundo abierto. Pero `refutation_invalidated` sí es una observación positiva fuerte. La asimetría no invalida la medición; la limita a una dirección.
+
+Dos cosas más que esto habilita:
+
+- **El aprendizaje no debe forzarse a ser regla.** Un outcome puede producir una regla nueva, un requisito de evidencia más fuerte para cierta clase, un cambio de criticidad, una modificación del brief adversarial, una política organizacional — o simplemente una lección no mecanizable. Obligar a que todo aprendizaje se cristalice en regla es la misma trampa de Goodhart un nivel más arriba.
+- **El residuo como índice de incidentes.** Cuando aparece un defecto en producción, se puede preguntar si hubo antes una objeción relacionada. Si la hubo, ese bug no era desconocido: hubo una señal adversarial previa que se descartó. Como dato de proceso es potente, y es un uso del artefacto que no estaba en su diseño original.
+
+Y responde parcialmente a Goodhart, sin eliminarlo. Hoy el agente puede aprender que declarando `refuted_verifiable` con evidencia plausible cierra el hallazgo. Si los outcomes se miden longitudinalmente por modelo, clase de evidencia y clase de hallazgo, aparece una señal externa que el agente **no controla en el momento de producir la declaración**: el outcome futuro funciona como prueba diferida. Imperfecta, porque muchos errores nunca se descubren. Pero cuando uno se descubre, ya no desaparece en el historial.
+
+### P3: identidad del modelo
+
+Baja de prioridad. Sigue siendo interesante para provenance y la sección de arriba mantiene su análisis, pero resuelve una pregunta menos consecuente: saber con exactitud quién se equivocó vale menos que aumentar la fuerza con la que se justifica por qué se cerró un hallazgo.
+
 ## Referencias no confirmadas
 
 Aparecieron en búsqueda pero **sin fuente primaria verificable**. No citar sin confirmación propia:
