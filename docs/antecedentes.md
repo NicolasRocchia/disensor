@@ -400,10 +400,17 @@ Con eso aparece una medición que hoy es imposible. No sólo "4 refutaciones ver
 
 Cuidado con la interpretación, y es una asimetría real: *que no haya aparecido un bug nunca demuestra que la refutación fuera correcta* — sigue siendo mundo abierto. Pero `refutation_invalidated` sí es una observación positiva fuerte. La asimetría no invalida la medición; la limita a una dirección.
 
+De ahí sale un **non-goal que conviene fijar antes que el diseño**: con 500 refutaciones verificables y 12 posteriormente invalidadas no se puede afirmar "precisión 97,6 %". Las otras 488 son *unknown*, no true negatives. Inventar ese denominador produciría exactamente el sello de calidad que el protocolo existe para no emitir. Lo afirmable es "observamos 12 refutaciones contradichas después", y comparar entre ellas qué clase de evidencia las sostenía. Eso es interesante sin inventar denominadores.
+
 Dos cosas más que esto habilita:
 
 - **El aprendizaje no debe forzarse a ser regla.** Un outcome puede producir una regla nueva, un requisito de evidencia más fuerte para cierta clase, un cambio de criticidad, una modificación del brief adversarial, una política organizacional — o simplemente una lección no mecanizable. Obligar a que todo aprendizaje se cristalice en regla es la misma trampa de Goodhart un nivel más arriba.
 - **El residuo como índice de incidentes.** Cuando aparece un defecto en producción, se puede preguntar si hubo antes una objeción relacionada. Si la hubo, ese bug no era desconocido: hubo una señal adversarial previa que se descartó. Como dato de proceso es potente, y es un uso del artefacto que no estaba en su diseño original.
+- **El outcome necesita su propia provenance.** Sin eso el problema sólo se muda a "el agente dice que aquella refutación resultó incorrecta". Un outcome declarado, uno ligado a un issue, una regresión atestiguada por CI y uno atestiguado por un incidente no valen lo mismo, y la tabla de estado / raíz de confianza / techo aplica igual acá.
+
+Queda planteado como **dirección de investigación y no como obligación de protocolo** ([issue #6](https://github.com/NicolasRocchia/disensor/issues/6)): todavía no está claro cuál es la abstracción correcta, y fijarla ahora empujaría el esquema hacia una solución antes de tener casos reales. Va después del endurecimiento de v0.3, de la equivalencia Python/TypeScript y de la semántica de `evidence`.
+
+Conviene registrar además una observación sobre el propio proyecto: **el primer lazo de retroalimentación de disensor ocurrió antes de que se diseñara el lazo.** El issue #5 no salió de un outcome en producción sino de la otra fuente, la que el protocolo ya tenía: una revisión adversarial encontró que el protocolo decía garantizar algo mejor de lo que podía garantizarlo. P2 no reemplaza ese circuito; le agrega una segunda fuente.
 
 Y responde parcialmente a Goodhart, sin eliminarlo. Hoy el agente puede aprender que declarando `refuted_verifiable` con evidencia plausible cierra el hallazgo. Si los outcomes se miden longitudinalmente por modelo, clase de evidencia y clase de hallazgo, aparece una señal externa que el agente **no controla en el momento de producir la declaración**: el outcome futuro funciona como prueba diferida. Imperfecta, porque muchos errores nunca se descubren. Pero cuando uno se descubre, ya no desaparece en el historial.
 
