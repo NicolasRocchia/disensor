@@ -414,6 +414,20 @@ Conviene registrar además una observación sobre el propio proyecto: **el prime
 
 Y responde parcialmente a Goodhart, sin eliminarlo. Hoy el agente puede aprender que declarando `refuted_verifiable` con evidencia plausible cierra el hallazgo. Si los outcomes se miden longitudinalmente por modelo, clase de evidencia y clase de hallazgo, aparece una señal externa que el agente **no controla en el momento de producir la declaración**: el outcome futuro funciona como prueba diferida. Imperfecta, porque muchos errores nunca se descubren. Pero cuando uno se descubre, ya no desaparece en el historial.
 
+### El primer uso autorreferencial del formato
+
+La ronda que produjo este documento se cerró con su propia declaración (evento `aabede1f`), y de aplicarse el formato a sí mismo salieron tres observaciones sobre el protocolo, en orden creciente de interés:
+
+1. **Refutada**: que el modelo no supiera clasificar un hallazgo sobre el propio protocolo descubierto durante una ronda documental. El contrato lo resuelve — `event.gate` describe *qué se sometió a revisión* y no dónde está el hallazgo, `repository` incluye contratos, y `debt_recorded` significa válido pero diferido. El dominio del hallazgo no tiene que coincidir con la modalidad de la revisión, y esa separación ya estaba en el diseño; sólo no se había puesto a prueba.
+2. **Diferida sin decidir**: el artefacto no distingue un hallazgo *en* el diff de uno descubierto *al verificar* el diff contra un contrato existente. Un campo tipo `relation_to_submission` lo expresaría, pero con un caso no hay cómo saber si aporta o sólo suma ceremonia.
+3. **Confirmada, y es la de fondo**: `verification.against` no puede representar evidencia externa. Su vocabulario (`repository` = código, config, contratos; `execution` = correr tests o el programa; `none`) está diseñado para software, y dos hallazgos de esa misma ronda se resolvieron verificando contra papers. Ninguna de las tres opciones era verdadera, así que ambos quedaron declarados como `repository` mientras su `detail` dice "verificado contra el paper" ([issue #7](https://github.com/NicolasRocchia/disensor/issues/7)).
+
+La tercera merece subrayarse porque **no es Goodhart**. No hubo intención de maquillar: el vocabulario disponible empujó al declarante hacia la categoría menos incorrecta. Es una falla de ontología, no de incentivos, y las defensas contra el cumplimiento cosmético no la tocan. Enunciada de forma general:
+
+> disensor puede representar qué se revisó y cómo terminó el hallazgo, pero no siempre puede representar honestamente **contra qué clase de realidad fue verificado**.
+
+La declaración no se corrigió retroactivamente. Su valor probatorio está en dejarla intacta: una declaración válida obligó a clasificar dos verificaciones externas como `repository` porque no había categoría verdadera disponible. Eso es mejor evidencia para decidir el cambio que un JSON arreglado después — y es, en pequeño, la forma que P2 propone para todo conocimiento posterior.
+
 ### P3: identidad del modelo
 
 Baja de prioridad. Sigue siendo interesante para provenance y la sección de arriba mantiene su análisis, pero resuelve una pregunta menos consecuente: saber con exactitud quién se equivocó vale menos que aumentar la fuerza con la que se justifica por qué se cerró un hallazgo.
