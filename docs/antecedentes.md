@@ -2,7 +2,7 @@
 
 Este documento ubica a disensor respecto de lo que ya existe. No es una sección de trabajo relacionado terminada: es el insumo verificado para escribirla, y está acá porque el claim de novedad del método necesita sostenerse contra literatura concreta y no contra la ausencia de búsqueda.
 
-La idea central del artefacto (conservar explícitamente lo que una evaluación no pudo cerrar) **no es nueva**. Tiene al menos dos tradiciones detrás, una de las cuales fracasó de una forma documentada y muy relevante. Lo que no encontré es la composición completa: revisión adversarial entre familias + disposición terminal de cada hallazgo + residuo explícito + provenance exacta de git + anti-rancidez + gate de merge + artefacto portable.
+La idea central del artefacto (conservar explícitamente lo que una evaluación no pudo cerrar) **no es nueva**. Tiene al menos dos tradiciones detrás, una de las cuales fracasó de una forma documentada y muy relevante. Tampoco son nuevas la revisión adversarial multi-agente, la gobernanza externa de coding agents ni la provenance verificable: cada una tiene trabajo publicado en 2026 que se cita abajo. Lo que no encontré es la intersección estrecha, y el capítulo sobre cómo formular el claim de novedad explica cuál es y qué formulaciones quedan descartadas.
 
 ## Estado de verificación
 
@@ -58,12 +58,22 @@ Ya está apareciendo por varios lados, y esto es lo que **descarta a la revisió
 |---|---|---|
 | [Adversarial Review: Cooperative Code Review through Structured Disagreement](https://openreview.net/forum?id=fOHvpLs6zp) (workshop AI4GOOD, jun 2026) | Protocolo cooperativo con agente principal, revisor y crítico que audita la revisión mediante desacuerdo estructurado antes de editar o commitear. | Verificado |
 | [Structured Disagreement for Grounded Agentic Code Review](https://openreview.net/forum?id=h9UPyo3bbp) | Vocabulario casi idéntico. | Verificado (existe; sin leer) |
-| [Refute-or-Promote: An Adversarial Stage-Gated Multi-Agent Review Methodology](https://arxiv.org/abs/2604.19049) | Revisión adversarial con stage gates para descubrimiento de defectos de alta precisión. | Verificado (existe; sin leer) |
-| [alecnielsen/adversarial-review](https://github.com/alecnielsen/adversarial-review) | Claude + Codex en loop de debate, con protocolo de desacuerdo: escala a humano tras 3 rondas sin resolver, circuit breaker a las 5. | Verificado |
+| [Refute-or-Promote: An Adversarial Stage-Gated Multi-Agent Review Methodology](https://arxiv.org/abs/2604.19049) | Patrón de confiabilidad en inferencia: mandatos adversariales de refutación en cada compuerta de promoción, asimetría de contexto, revisores en frío para reducir cascadas de anclaje, y un **Cross-Model Critic**. Campaña de 31 días sobre 7 targets (librerías de seguridad, estándar ISO C++, compiladores): ~79 % de 171 candidatos descartados antes de disclosure (agregado retrospectivo); 83 % de kill rate prospectivo en el subconjunto de protocolo consolidado (lcms2, wolfSSL, n=30). | Verificado |
+| [alecnielsen/adversarial-review](https://github.com/alecnielsen/adversarial-review) | Claude + Codex: revisiones independientes, cross-review, meta-review y síntesis iterativa, guardando artifacts de cada ronda. Máximo de iteraciones configurable, detección de falta de progreso, y circuit breaker ante desacuerdo persistente (5+ iteraciones) o problemas repetidos. | Verificado |
 
-El foco de todos es **conseguir una mejor revisión** mediante agentes que discuten. Ninguno convierte el desacuerdo residual en un artefacto de provenance gobernado por git. El repositorio de Nielsen es el más cercano al método en la práctica (misma decorrelación Claude/Codex, misma escalación a humano); lo que no tiene es artefacto versionado ni enforcement.
+El foco de todos es **conseguir una mejor revisión** mediante agentes que discuten. Ninguno convierte el desacuerdo residual en un artefacto de provenance gobernado por git.
 
-**Hallazgo aprovechable, no competencia**: el paper de Adversarial Review reporta que en SWE-PRBench la variante ingenua expone un modo de falla de **falso consenso**, y que la cooperación confiable requiere desacuerdo estructurado y anclado en evidencia, no consenso. Eso es evidencia publicada a favor de la regla R4 (decorrelación de familias entre generador y revisor) y del requisito de evidencia en las refutaciones verificables. Conviene citarlo como sustento, no como trabajo rival.
+El repositorio de Nielsen es el más cercano al método en la práctica: misma decorrelación Claude/Codex, y un circuit breaker que en espíritu es `escalated_open` (dejar de fingir que hay consenso cuando el desacuerdo persiste). La diferencia no está en el método sino en la finalidad: su loop existe para converger en fixes y salir, y sus artifacts son transcripts y resultados del proceso, no una declaración portable con alcance de git, semántica de rancidez, testigo de integración, evidencia de solo agregar y política de merge. El propio proyecto se presenta como prototipo experimental. Citarlo en trabajo relacionado conviene: reconocerlo deja más nítido qué agrega el artefacto.
+
+### Sobre el sustento empírico de R4
+
+Conviene ser preciso acá, porque es la regla más fácil de sobrevender.
+
+Lo que **sí** está publicado y verificado: Adversarial Review observa en SWE-PRBench un modo de falla de **falso consenso** en la variante ingenua (los agentes convergen sin evidencia suficiente) y concluye que la cooperación confiable requiere desacuerdo estructurado y anclado en evidencia, no consenso. Refute-or-Promote usa un Cross-Model Critic y sus autores sostienen que la revisión cross-family puede detectar **blind spots correlacionados** que la same-family pierde, con una campaña que reporta tasas altas de descarte antes de promover.
+
+Lo que **no** está publicado, y no debe afirmarse: una ablación limpia same-family contra cross-family que permita atribuir causalmente el falso consenso a la familia compartida. El falso consenso de Adversarial Review apoya con fuerza la necesidad de mecanismos contra el consenso superficial, pero no identifica la familia como la causa. Y el cross-family de Refute-or-Promote es fundamento de diseño dentro de una campaña de defect discovery, no un experimento controlado sobre la variable familia.
+
+Formulación defendible: **R4 es un diseño plausible con sustento convergente en la literatura, no una regla empíricamente demostrada.** La decorrelación de familias está bien motivada; la magnitud de su efecto está sin medir, y medirla es trabajo futuro concreto para este proyecto.
 
 ### Governance runtimes y contratos de delegación
 
@@ -71,13 +81,22 @@ El foco de todos es **conseguir una mejor revisión** mediante agentes que discu
 |---|---|---|
 | [Nidus: Externalized Reasoning for AI-Assisted Engineering](https://arxiv.org/abs/2604.05080) (abr 2026) | Governance runtime que mecaniza el V-model: una "living specification" en S-expression es a la vez diseño, conjunto de obligaciones de prueba y autoridad de gobernanza, verificada con Z3 **en cada commit**. Self-hosted: tres familias (Claude, Gemini, Codex) entregaron un sistema de 100.000 líneas bajo obligaciones de prueba. | Verificado |
 | [Software Delegation Contracts: Measuring Reviewability in AI Coding-Agent Work](https://arxiv.org/abs/2606.17099) (jun 2026) | 64 corridas de agentes sobre un entorno instrumentado con defectos sembrados, tres condiciones (prompt tipo issue, contrato explícito, contrato con evidence bundle), 192 revisiones ciegas a condición. | Verificado |
-| [Trust Without Trusting: A Recomputable Trust Protocol for Autonomous Agents](https://arxiv.org/abs/2605.06738) | Vecino del lado provenance/verificabilidad. | Verificado (existe; sin leer) |
+| [Trust Without Trusting: A Recomputable Trust Protocol for Autonomous Agents](https://arxiv.org/abs/2605.06738) | Propone que el cumplimiento no dependa de creerle a quien aplica la regla, sino que pueda ser **recomputado por terceros** desde evidencia anclada: convertir "¿aplicó correctamente sus propias reglas?" de afirmación en hecho recomputable. | Verificado (sin leer entero) |
 
-**Nidus es el antecedente más cercano en principio de diseño.** Su tesis es literalmente la de disensor: los invariantes de ingeniería no se sostienen como comportamiento aprendido, y el assurance exige enforcement por un mecanismo **externo al proponente**. La diferencia es qué se conserva: Nidus verifica que las obligaciones de prueba se satisfagan; no conserva lo insatisfecho como entidad de primera clase.
+**Nidus es el antecedente más cercano en principio de diseño**, y define lo que este proyecto **no puede reclamar**. Su tesis es literalmente la de disensor: los invariantes de ingeniería no se sostienen como comportamiento aprendido, y el assurance exige enforcement por un mecanismo **externo al proponente**. Más todavía, declara entre sus contribuciones la *governance theater prevention*: que la evidencia de cumplimiento no pueda fabricarse dentro del camino de mutación que gobierna — o sea, ataca deliberadamente una versión del mismo problema de Goodhart que se discute abajo.
 
-**Software Delegation Contracts** es la referencia empírica más valiosa, con una salvedad de lectura. Su resultado principal es más preciso (y más útil) que la versión que circula resumida: los contratos **no cambiaron los resultados objetivos** (las 64 corridas pasaron los acceptance checks ocultos, con cero violaciones de alcance), pero sí la **revisabilidad**: suficiencia de evidencia mejor en 22 de 30 comparaciones pareadas y peor en ninguna (+0,83 en escala de 5, p < 0,0001, Cliff's δ = 0,66), y menos ambigüedad para el revisor (p = 0,035), a un costo de +13 % de tokens y +38 % de tiempo. Su conclusión textual: *delegation contracts buy reviewability rather than correctness*.
+Consecuencia directa para el paper: **no escribir nada parecido a "no existen mecanismos externos de gobernanza para coding agents".** Sería falso y verificablemente falso.
 
-Esa frase es la tesis de disensor mejor formulada que en el README: el artefacto no promete que el código esté bien, promete que alguien pueda revisarlo sabiendo dónde mirar. Es un piloto de un solo autor con tareas chicas: citar como evidencia preliminar, no como establecido.
+La diferencia defendible es más estrecha y más interesante que esa. Nidus mecaniza **obligaciones que deben quedar satisfechas**; disensor convierte en artefacto **lo que sobrevivió sin poder cerrarse**. Dicho brutalmente:
+
+- Nidus pregunta: *¿cumpliste las obligaciones?*
+- disensor pregunta: *¿qué objeción sobrevivió aun después de intentar resolverla?*
+
+Ahí sí queda espacio conceptual.
+
+**Software Delegation Contracts** es la referencia empírica más valiosa, con una salvedad de lectura. Su resultado principal es más preciso (y más útil) que la versión que circula resumida: los contratos **no cambiaron los resultados objetivos** (las 64 corridas pasaron los acceptance checks ocultos, con cero violaciones de alcance), pero sí la **revisabilidad**: suficiencia de evidencia mejor en 22 de 30 comparaciones pareadas y peor en ninguna (+0,83 en escala de 5, p < 0,0001, Cliff's δ = 0,66), y menos ambigüedad para el revisor (p = 0,035), a un costo de +13 % de tokens y +38 % de tiempo. Las secciones de riesgo residual y los checklists de revisor aparecieron cuando el contrato las exigía. Su conclusión textual: *delegation contracts buy reviewability rather than correctness*.
+
+Esa frase es la tesis de disensor mejor formulada que en el README: el artefacto no promete que el código esté bien, promete que alguien pueda revisarlo sabiendo dónde mirar. Y el detalle del riesgo residual sostiene la hipótesis de fondo del protocolo: **un agente no conserva espontáneamente aquello que no pudo demostrar; hay que obligarlo.** Es un piloto de un solo autor con tareas chicas: citar como evidencia preliminar, no como establecido.
 
 ### Provenance de la cadena de suministro
 
@@ -92,11 +111,54 @@ Eso está conceptualmente muy cerca de G6 (anti-rancidez) y G7 (testigo de integ
 | SLSA / gittuf / in-toto | "Esta revisión o aprobación ocurrió sobre esta revisión del código fuente." |
 | Assurance 2.0 / Defeater Cards | "Estas objeciones existieron y estas dudas quedaron sin resolver." |
 | IBIS / design rationale | "Se consideraron estas alternativas y estos argumentos, y se decidió esto." |
-| Adversarial Review / Refute-or-Promote | "El desacuerdo entre agentes produce mejores hallazgos." |
-| Nidus | "Estas obligaciones de prueba se verificaron externamente en cada commit." |
-| **disensor** | **"Ocurrió una revisión adversarial entre familias sobre este código exacto, éstos fueron sus hallazgos, ésta fue su disposición terminal, y esto quedó sin poder cerrarse."** |
+| Adversarial Review / Refute-or-Promote / adversarial-review | "El desacuerdo estructurado entre agentes produce hallazgos de mayor precisión." |
+| Software Delegation Contracts | "El work package del agente puede hacerse revisable exigiendo estructura." |
+| Nidus | "Estas obligaciones de ingeniería se verificaron externamente en cada commit." |
+| Trust Without Trusting | "El cumplimiento puede recomputarse desde afuera, sin confiar en el operador." |
+| **disensor** | **"Ocurrió una revisión adversarial entre familias sobre este estado exacto del código, ésta fue la disposición terminal de cada hallazgo, y esto quedó sin poder cerrarse."** |
 
-La contribución no es ninguno de los componentes por separado. Es la composición: residuo explícito + disposición terminal + identidad y familia del revisor + provenance exacta de commit + anti-rancidez + testigo de integración + evidencia de solo agregar + gate de merge, en un artefacto portable y versionado. No encontré un equivalente directo, lo que no autoriza a afirmar que no exista.
+La contribución no es ninguno de los componentes por separado. Es la intersección: qué quedó sin resolver después de una revisión adversarial, sobre qué estado exacto del código ocurrió esa revisión, y qué partes de esa historia pueden hacerse exigibles por CI.
+
+### Cómo formular el claim de novedad
+
+Tres formulaciones que **no** se pueden usar, cada una invalidada por trabajo verificado arriba:
+
+- ~~"introduce la revisión de código adversarial con IA"~~ — Adversarial Review, Refute-or-Promote, adversarial-review.
+- ~~"introduce gobernanza para coding agents"~~ — Nidus.
+- ~~"introduce el desacuerdo estructurado"~~ — Adversarial Review, Structured Disagreement.
+
+La formulación defendible es más estrecha, y el *to our knowledge* no es cortesía sino requisito, porque no se hizo todavía una búsqueda bibliográfica sistemática:
+
+> To our knowledge, prior work separately addresses adversarial multi-agent review, reviewable agent work packages, externally enforced engineering obligations, and recomputable provenance. Disensor explores a narrower intersection: treating unresolved outcomes of cross-family adversarial code review as a versioned, Git-scoped evidence artifact whose freshness and integration coverage can be mechanically enforced at merge time.
+
+Y la tesis del proyecto conviene enunciarla al nivel correcto. No "produce código correcto", ni siquiera "mejora la revisión", sino: **hacer revisable y auditable el estado epistemológico con el que termina una revisión adversarial.** Es la misma separación que Software Delegation Contracts midió y nombró: *reviewability, not correctness*.
+
+## Qué puede verificar el artefacto y qué no
+
+Esta tabla debería estar en el cuerpo del paper y no relegada a limitaciones, porque es lo que impide leer `.residue/` como una certificación de calidad emitida por IA. Divide el artefacto en dos clases de propiedad que hoy conviven mezcladas: **provenance computable** y **contenido declarado**.
+
+| Propiedad | ¿La verifica disensor? | Cómo |
+|---|---|---|
+| El commit revisado existe | Sí | Objeto de git |
+| El commit pertenece al PR | Sí | G5, rango `merge-base..head` |
+| El código cambió después de la revisión | Sí | G6, anti-rancidez |
+| Alguna revisión vio el árbol integrado completo | Sí | G7, testigo de integración |
+| La evidencia previa no fue alterada ni borrada | Sí | G8, solo agregar |
+| El artefacto es internamente coherente | Sí | Esquema y reglas R0–R10 |
+| Alguien declaró haber revisado ese estado | Sí | Es lo que el artefacto afirma |
+| El revisor realmente razonó en profundidad | **No** | Declaración |
+| El modelo declarado fue efectivamente quien revisó | **No, hoy** | Declaración; sin attestation criptográfica |
+| La refutación es intelectualmente correcta | **No** | Declaración |
+| No existen otros riesgos sin declarar | **No** | Fuera del alcance de cualquier artefacto |
+
+Todo lo verificable es **un hecho sobre git**, no una afirmación del agente. Ésa es la propiedad que hace que la columna izquierda sea defendible y la derecha, honesta.
+
+De ahí sale la promesa correcta del artefacto, que es más modesta y mucho más sostenible que la ingenua:
+
+- No: *evidencia de que la revisión fue buena.*
+- Sí: *evidencia de que un proceso de revisión determinado ocurrió sobre un estado determinado del código fuente, más una declaración de su remanente sin resolver.*
+
+Lo primero es casi imposible de demostrar desde afuera. Lo segundo contiene una parte mecánicamente verificable.
 
 ## Qué advierte la historia
 
@@ -108,19 +170,65 @@ En 1995, "documentá todas las objeciones que consideraste" implicaba trabajo hu
 
 Y el beneficio deja de ser diferido, que era la otra mitad del problema: el gate consume el artefacto **ahora** y puede decir "no mergeás porque esa revisión ya no corresponde al código actual". No hay que esperar seis meses a que alguien pregunte por qué se hizo algo.
 
-Segunda diferencia con IBIS, deliberada: IBIS intentaba conservar *todo* el razonamiento relevante. Declarar **residuo y no cobertura** es la respuesta directa a ese fracaso. Cien mil tokens de interacción comprimen a unos pocos hallazgos con estado terminal y una o dos incertidumbres sin cerrar. El volumen es órdenes de magnitud menor y la relación señal/ruido, mucho mejor que la de un transcript o un grafo de rationale completo.
+### Residuo y no cobertura: una elección epistemológica, no de volumen
 
-Y hay una razón más fuerte que el tamaño para preferir residuo a cobertura: cambia **quién lleva la carga de la prueba**. Un grafo de rationale completo se lee como sello de calidad. Una lista de lo que no se pudo cerrar no se puede leer así ni queriendo.
+IBIS intentaba conservar *todo* el razonamiento relevante. Declarar **residuo y no cobertura** es la respuesta directa a ese fracaso, y es cierto que baja el volumen en órdenes de magnitud: cien mil tokens de interacción comprimen a unos pocos hallazgos con estado terminal y una o dos incertidumbres sin cerrar, con mejor relación señal/ruido que un transcript o un grafo de rationale completo.
 
-### El riesgo que la historia no advierte
+Pero la compresión es el argumento secundario. El primero es que **invierte la carga semántica del artefacto**.
+
+Un artefacto de cobertura tiende a leerse así:
+
+```
+✅ revisamos seguridad
+✅ revisamos arquitectura
+✅ revisamos tests
+✅ revisamos edge cases
+```
+
+Formalmente eso no afirma que todo esté bien. Psicológicamente se convierte en eso con una facilidad enorme, y ése es exactamente el fracaso que hay que evitar.
+
+Un artefacto de residuo dice otra cosa: *éstas son precisamente las cosas que el proceso no logró hacer desaparecer.* No prueba que sean las únicas, no prueba que el resto esté bien, y no se presta a transformarse visualmente en un sello de calidad.
+
+- Cobertura pregunta: **¿qué comprobamos?**
+- Residuo pregunta: **¿qué seguimos sin poder cerrar?**
+
+La primera dirige la atención del revisor humano hacia lo ya hecho; la segunda, hacia lo que falta. Es una decisión de diseño bastante más profunda que ahorrar tokens.
+
+### El riesgo Nº1: Goodhart
 
 La analogía con design rationale se rompe en un punto, y es el punto que puede matar a disensor.
 
-Si el costo de producir residuo tiende a cero **porque lo produce el agente**, el costo de producir residuo **falso** también tiende a cero. IBIS moría por fricción; disensor puede morir por Goodhart. Un agente al que se le exige declarar residuo bajo pena de no mergear tiene incentivo estructural a declarar un residuo cosmético: verdadero, irrelevante y barato. La literatura de rationale no advierte sobre esto porque ahí el productor era humano y la ceremonia funcionaba, sin querer, como filtro.
+El análisis del capture bottleneck es correcto pero está incompleto. Sí: el costo de generar evidencia útil baja a casi cero porque la produce el agente. Pero simultáneamente el costo de generar **evidencia cosmética** baja a casi cero, por la misma razón.
 
-El README ya lo admite: la máquina detecta el campo vacío y el marcador genérico, no la declaración falsa, y el muestreo humano de PRs cerrados sigue siendo la única defensa real contra el cumplimiento cosmético.
+Y ahí aparece el problema propiamente moderno. Si CI exige residuo declarado, lo que el agente aprende operacionalmente es:
 
-Lo que conviene hacer explícito es **por qué G5, G6 y G7 valen más de lo que parecen** frente a esta objeción: no verifican el contenido del residuo (nada lo hace), pero sí que la revisión haya ocurrido sobre este árbol, en este par de commits, incluyendo la integración. Es la única parte de la declaración que no depende de la buena fe del declarante. Un residuo cosmético sigue siendo posible; una revisión inexistente o rancia, no. Ese es el argumento a poner en el paper, porque la objeción es inmediata y previsible.
+```
+quiero mergear
+  → necesito un residue válido
+  → produzco JSON que satisfaga el gate
+```
+
+No necesariamente:
+
+```
+quiero expresar sinceramente mi incertidumbre epistemológica
+```
+
+IBIS moría por fricción; disensor puede morir por Goodhart. Un agente al que se le exige declarar residuo bajo pena de no mergear tiene incentivo estructural a declarar un residuo cosmético: verdadero, irrelevante y barato. La literatura de rationale no advierte sobre esto porque ahí el productor era humano y la ceremonia funcionaba, sin querer, como filtro. Nidus ataca explícitamente una versión de este mismo problema con su *governance theater prevention*.
+
+El README ya admite el límite: la máquina detecta el campo vacío y el marcador genérico, no la declaración falsa, y el muestreo humano de PRs cerrados sigue siendo la única defensa real contra el cumplimiento cosmético.
+
+Lo que conviene hacer explícito, y en el cuerpo del paper y no en limitaciones, es **por qué G5, G6 y G7 son una respuesta parcial pero real**: no creen lo que el agente dice sobre el árbol, lo reconstruyen desde git. No verifican el contenido del residuo (nada lo hace), pero sí que la revisión haya ocurrido sobre este árbol, en este par de commits, incluyendo la integración. Un residuo cosmético sigue siendo posible; una revisión inexistente o rancia, no.
+
+### La pregunta de investigación
+
+De todo lo anterior sale la pregunta que probablemente sea la más interesante del proyecto:
+
+> ¿Cómo se hace obligatorio declarar incertidumbre sin convertir la declaración de incertidumbre en otra casilla que el agente aprende a marcar?
+
+Y sale también la dirección de evolución, que no es la obvia. **La evolución natural de disensor no es hacer cada vez más obligatorio el JSON.** Es aumentar la proporción del artefacto que puede verificarse independientemente y reducir la que necesita ser creída — mover filas de la mitad inferior de la tabla de arriba a la superior.
+
+Trust Without Trusting marca el horizonte de esa dirección: *declarado → verificado externamente → recomputable de forma independiente*. Hoy el artefacto mezcla las dos primeras clases sin distinguirlas en su propia estructura; hacer esa distinción explícita en el esquema sería un paso concreto en esa dirección. La attestation criptográfica de qué modelo revisó realmente es otro: es la fila de la tabla que hoy dice "No, hoy" y podría no decirlo.
 
 ### La restricción de producto
 
