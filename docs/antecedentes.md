@@ -219,6 +219,44 @@ EVENTO B   lo que aprendimos después
 
 Es la forma del issue #6, y ya tuvo su primer caso real en pequeño: el hallazgo semántico de #7 apareció **después** de que la declaración `aabede1f` estuviera emitida y commiteada, y se registró como artefacto nuevo en lugar de corregir el JSON. El valor probatorio está justamente en dejar la declaración intacta.
 
+### Estado del claim, tras la ronda bibliográfica
+
+Sometido el marco a una ronda con la pregunta específica *¿alguien ya distinguió incompletitud epistémica de incompletitud semántica en artefactos de assurance?*, dos de las tres fronteras quedaron claramente antecedidas.
+
+| Trabajo | Qué aporta | Estado |
+|---|---|---|
+| [FPF: AI-Assisted Engineering Should Track the Epistemic Status and Temporal Validity of Architectural Decisions](https://arxiv.org/abs/2601.21116) (Gilda & Gilda, ene 2026) | Capas epistémicas que separan hipótesis no verificadas de claims validados empíricamente; agregación conservadora con t-norma de Gödel contra la inflación de confianza; y decay automático de evidencia. Auditoría retrospectiva: 20–25 % de las decisiones arquitectónicas tenían evidencia rancia en dos meses. | Verificado |
+| [SACO: Ontological Foundations for Deterministic Assurance Context Construction and Governed AI Reasoning](https://www.mdpi.com/2076-3417/16/4/1984) (feb 2026) | Ontología que modela elementos de contexto, relaciones, provenance y estado epistémico, y hace explícita la incompletitud como *semantic gaps*. | Verificado |
+| CLARISSA / análisis semántico de Assurance 2.0 | Propiedades semánticas del assurance case: consistencia, adecuación, completitud, indefeasibility. Reconoce explícitamente que las notaciones formales tienen límites de expresividad. | Estándar |
+| ACCESS, Digital Dependability Identities, análisis de regresión en assurance cases | Assurance cases vivos, continuos, que evolucionan durante desarrollo y runtime. | Citado por el revisor; sin verificar en esta ronda |
+
+**Frontera epistémica: antecedida.** FPF hace exactamente eso, y Assurance 2.0 y Nidus también.
+
+**Frontera temporal: antecedida.** FPF vuelve a hacerlo — su tesis es que *cuán justificado está algo* y *hasta cuándo sigue válida esa justificación* son dimensiones independientes. Sumado a toda la línea de living/continuous assurance, "los artefactos de assurance deben evolucionar" no tiene novedad alguna. Lo que el issue #6 propone es más específico — preservar T₀ y emitir conocimiento T₁ que lo referencia, en vez de actualizar el evento retrospectivamente, más cerca de una historia epistemológica de solo agregar que de un documento vivo — pero eso no alcanza para reclamar novedad sin más búsqueda.
+
+**Frontera representacional: no encontré la misma formulación**, y los dos candidatos que parecían matarla no lo hacen.
+
+La dimensión *Formality* de FPF (informal, estructurada, empírica, formal) mide **cuán rigurosamente está expresada y sustentada** una afirmación, no si el vocabulario puede representar el fenómeno. Un artefacto podría ser perfectamente formal y contener `against: repository` cuando lo verdadero era `external_source`: formalidad excelente, representación falsa.
+
+El *semantic gap* de SACO es la ausencia reconocida de información **semánticamente requerida** para interpretar un elemento de contexto — una limitación epistémica persistente, explícitamente no un indicador de error ni un placeholder. Sigue siendo *falta conocimiento dentro de una representación capaz de alojarlo*. El caso #7 es lo contrario: el conocimiento existe y es preciso ("verifiqué contra un paper externo"), y lo que falta es la **categoría capaz de decirlo**.
+
+La distinción que sale de ahí es más defendible que llamar a ambas cosas incompletitud semántica:
+
+- **Completitud interna**: ¿falta algo que el modelo ya sabe expresar? Detectable por reglas.
+- **Adecuación representacional**: ¿el modelo posee los conceptos para representar fielmente el fenómeno observado? Normalmente requiere un contraejemplo del mundo real para descubrirse.
+
+Y explica por qué #7 fue invisible al validador. El checker de completitud de Assurance 2.0 trabaja **contra un conjunto global predefinido** de objetos, propiedades y entornos: puede detectar que el caso no instancia una categoría del vocabulario, no que el vocabulario carezca de la categoría necesaria. Con `against: repository` el artefacto tenía tipo correcto, enum correcto, campo presente y autorización del esquema. El defecto era que el conjunto de estados posibles del esquema no contenía el estado real, y ninguna regla R0–R10 puede resolver eso mientras comparta la ontología deficiente.
+
+> **#5 es un fallo *dentro* del lenguaje. #7 es un fallo *del* lenguaje.**
+
+**Lo que sí podría ser contribución, entonces, no es ninguna frontera por separado**: es tratarlas como **ortogonales y con mitigaciones incompatibles**. Ante una deficiencia epistémica corresponde más evidencia, más provenance, más enforcement. Ante una deficiencia representacional eso mismo es contraproducente — más restricciones sobre un vocabulario insuficiente aumentan la presión para elegir una categoría falsa — y la respuesta correcta es casi opuesta: ampliar o corregir el modelo. Ante una deficiencia temporal no corresponde ninguna de las dos, sino preservar T₀ y relacionarlo con evidencia nueva. No encontré en FPF, SACO, CLARISSA, Nidus ni en la línea de evolución de assurance cases una taxonomía que derive esas tres clases de error y sus respuestas incompatibles.
+
+**Dos cautelas.** *Adecuación representacional* no debe reclamarse como invención: es terminología vieja de representación del conocimiento, y la literatura de assurance ya discute expresividad y formalización. Lo potencialmente nuevo es tratar la adecuación representacional **del propio artefacto de assurance** como frontera distinta de la fuerza epistémica de sus afirmaciones. Y el marco todavía no debería promoverse a claim principal: pasa de observación interna a **hipótesis conceptual que merece revisión bibliográfica dedicada**, y nada más.
+
+**Un dato metodológico a favor**: el marco no nació top-down. Los tres casos fallaron primero — podíamos decirlo pero verificábamos demasiado poco (#5); sabíamos exactamente qué ocurrió pero no podíamos decirlo fielmente (#7); podíamos decirlo y justificarlo en T₀ pero faltaba representar lo aprendido en T₁ (#6) — y la clasificación apareció después. Eso no prueba que sea universal, pero evita que parezca una taxonomía inventada para llenar tres casilleros.
+
+**Dónde atacarla la próxima vez**: no buscando otro sistema con "tres fronteras", sino un trabajo previo que ya haya dicho, en esencia, que *un artefacto de assurance puede fallar porque no sabemos lo suficiente, porque su lenguaje de representación no permite expresar fielmente lo que sí sabemos, o porque el conocimiento correcto cambia después; que esos defectos son ortogonales; y que requieren mitigaciones distintas.*
+
 ### Relación con Nidus, ajustada
 
 Nidus **sí** enmarca su progreso como expansión de lo mecánicamente exigible, y afirmar lo contrario sería falso: su conjunto de obligaciones **crece monótonamente**, todo estado del artefacto satisface las obligaciones activas, y las fallas observadas se convierten en obligaciones nuevas mediante mapeos falla → causa raíz → obligación. También declara el límite: la verificación es sólida sólo respecto de las obligaciones actualmente modeladas, y no garantiza propiedades que no fueron modeladas.
