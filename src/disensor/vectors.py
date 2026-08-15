@@ -168,6 +168,17 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     _refuted(m)["verification"]["against"] = "external_source"
     out.append(("valid_refuted_verifiable_external_source", m, True, set()))
 
+    # The anyOf demands presence of text, link or hash; without a content floor
+    # its weakest member accepts a blank string, and presence without material
+    # reopens the hole of #5 through another door.
+    m = copy.deepcopy(diff)
+    _refuted(m)["evidence"] = {"link": ""}
+    out.append(("schema_refuted_verifiable_blank_link", m, False, {"schema"}))
+
+    m = copy.deepcopy(diff)
+    _refuted(m)["evidence"] = {"text": " " * 10}
+    out.append(("schema_refuted_verifiable_blank_text", m, False, {"schema"}))
+
     # v0.3 hardening: the minimized profile keeps free text out of the extension
     # space too, which the rules deliberately do not interpret.
     m = copy.deepcopy(mini)

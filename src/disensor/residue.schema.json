@@ -810,7 +810,7 @@
             "items": {
               "allOf": [
                 {
-                  "$comment": "A verifiable refutation closes a finding without touching the code: it demands material evidence, not merely the presence of the object, and a verifiable target.",
+                  "$comment": "A verifiable refutation closes a finding without touching the code: it demands material evidence, not merely the presence of the object, and a verifiable target. A blank string is presence, not material: text and link must carry a non-whitespace character.",
                   "if": {
                     "properties": {
                       "final_state": {
@@ -831,12 +831,22 @@
                           {
                             "required": [
                               "text"
-                            ]
+                            ],
+                            "properties": {
+                              "text": {
+                                "pattern": "\\S"
+                              }
+                            }
                           },
                           {
                             "required": [
                               "link"
-                            ]
+                            ],
+                            "properties": {
+                              "link": {
+                                "pattern": "\\S"
+                              }
+                            }
                           },
                           {
                             "required": [
