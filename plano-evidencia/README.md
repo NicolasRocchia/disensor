@@ -5,7 +5,7 @@ Worker de ingesta en Cloudflare (Workers mas D1) que recibe artefactos de residu
 ## Estado de verificacion
 
 Verificado en este repo:
-- Conformidad del port TypeScript contra los 22 vectores de `spec/vectors` (`npm run conformidad`): mismo veredicto y mismas etiquetas de regla que la implementacion de referencia en Python, por vector.
+- Conformidad del port TypeScript contra los 31 vectores de `spec/vectors` (`npm run conformidad`): mismo veredicto y mismas etiquetas de regla que la implementacion de referencia en Python, por vector.
 - Verificacion cruzada del recibo (`npx tsx scripts/recibo.test.ts`): hash y firma HMAC coinciden con valores calculados por una implementacion independiente en Python.
 - Typecheck estricto (`npm run typecheck`).
 
@@ -17,7 +17,7 @@ No verificado todavia (se estrena con `wrangler dev`): el handler HTTP contra D1
   - `201`: `{ "recibo": { "hash", "recibido_en", "firma" } }`
   - `200` con `repetido: true`: mismo evento, mismo contenido (idempotente).
   - `409`: mismo evento, otro contenido. Los recibos no se reemplazan; se devuelve el original.
-  - `422`: artefacto invalido, con la lista de errores del validador.
+  - `422`: artefacto invalido, con la lista de errores del validador. Tambien si el artefacto declara una version superada del esquema (espejo del G9 del gate): las versiones viejas se leen, no se emiten.
   - `401`: token invalido o revocado.
 - `GET /v1/salud`.
 

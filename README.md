@@ -14,7 +14,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 - `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.3.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
-- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G8), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
+- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G9), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
 - `docs/antecedentes.md`: dónde se ubica el método respecto de la literatura (residual doubt y defeaters, design rationale y su capture bottleneck, revisión adversarial multi-agente, governance runtimes, provenance de cadena de suministro), con el estado de verificación de cada referencia.
@@ -96,6 +96,7 @@ Por PR:
 - **G6, cobertura**: cada ruta cambiada está cubierta por una declaración cuya compuerta la política de alcance acepta para esa ruta, y que **califica** para ella, o sea que la ruta no cambió entre el commit revisado y el head. Una declaración rancia no cubre nada.
 - **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración.
 - **G8, la evidencia es de solo agregar**: un PR no puede modificar, borrar ni renombrar declaraciones que ya estaban, ni reutilizar un `event_id` existente.
+- **G9, lo nuevo declara la versión vigente**: una declaración que el PR agrega tiene que declarar `residue/v0.3`. Las versiones superadas se siguen leyendo para que la historia no se reescriba; esa legibilidad no es un permiso para seguir emitiendo bajo las reglas más débiles. El plano de evidencia aplica el mismo criterio en la ingesta.
 
 El gate **falla cerrado**: si no puede resolver el rango del PR, no da verde. Un control de cumplimiento que no puede decidir, no aprueba.
 
@@ -140,11 +141,11 @@ Límite explícito: leer la política de la base convierte un bypass de un paso 
 
 No corre modelos, no pide claves de API en CI, y ningún código viaja a ningún servicio: valida un JSON que ya está versionado en el repo. La orquestación del loop vive donde el equipo ya trabaja; el perfil `minimized` del artefacto está pensado para ambientes donde el texto de los hallazgos no puede salir del entorno.
 
-En el perfil `minimized`, R9 impide el texto libre en los campos que el protocolo define y el esquema exige además que todo valor bajo `extensions` sea opaco: un hash `sha256:`, un número, un booleano o contenedores de esos. El espacio de extensión no lo interpretan las reglas, que es justamente por qué el texto estacionado ahí saldría del entorno mientras el perfil afirma que nada sale. Queda un string libre fuera del alcance, `verification.detail`, cuya política se decide en la próxima tanda.
+En el perfil `minimized`, R9 impide el texto libre en los campos que el protocolo define y el esquema exige además que todo valor bajo `extensions` sea opaco —un hash `sha256:`, un número, un booleano o contenedores de esos— y que toda clave tenga forma de identificador: un nombre, no un mensaje. El espacio de extensión no lo interpretan las reglas, que es justamente por qué el texto estacionado ahí saldría del entorno mientras el perfil afirma que nada sale. Queda un string libre fuera del alcance, `verification.detail`, cuya política se decide en la próxima tanda.
 
 ## Conformidad entre implementaciones
 
-`spec/vectors/` contiene los vectores de conformidad: 22 artefactos con su veredicto esperado (válido o no, y las etiquetas de regla que deben dispararse). Toda implementación del validador tiene que pasarlos idénticos: la referencia en Python los corre en la suite (`tests/test_vectors.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m disensor.vectors spec/vectors`.
+`spec/vectors/` contiene los vectores de conformidad: 31 artefactos con su veredicto esperado (válido o no, y las etiquetas de regla que deben dispararse). Toda implementación del validador tiene que pasarlos idénticos: la referencia en Python los corre en la suite (`tests/test_vectors.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m disensor.vectors spec/vectors`.
 
 `plano-evidencia/` contiene el Worker de ingesta (Cloudflare Workers más D1) con el port TypeScript del validador y el recibo de integridad de solo agregado. Ver su README para el estado de verificación y el despliegue.
 
@@ -177,19 +178,23 @@ Migración desde v0.1: renombrar `.residuo/` a `.residue/`, las claves del confi
 
 Cuidado con la ambigüedad: esta sección habla de la versión **del esquema**; la siguiente habla de versiones **del paquete**. Son dos numeraciones distintas.
 
-La v0.3 no renombra ni agrega claves. Endurece tres puntos donde la garantía declarada era más fuerte que la implementada, y agrega un valor a un enum:
+La v0.3 no renombra ni agrega claves. Endurece los puntos donde la garantía declarada era más fuerte que la implementada —tres detectados antes de la ronda y dos que la propia ronda adversarial de v0.3 agregó—, y suma un valor a un enum:
 
 | Antes valía | Ahora se rechaza | Por qué |
 |---|---|---|
 | `refuted_verifiable` con `evidence: {}` | El objeto de evidencia tiene que traer `text`, `link` o `hash` | v0.2 exigía la presencia del objeto, no su contenido: se podía cerrar un hallazgo sin tocar el código declarando evidencia vacía ([#5](https://github.com/NicolasRocchia/disensor/issues/5)) |
 | `refuted_verifiable` con `verification.against: "none"` | `against` tiene que ser `repository`, `execution` o `external_source` | Refutar sin haber verificado nada es una contradicción, no una refutación ([#5](https://github.com/NicolasRocchia/disensor/issues/5)) |
 | Perfil `minimized` con texto libre en `extensions` | Todo valor bajo `extensions` tiene que ser opaco: hash `sha256:`, número, booleano, o contenedores de esos | El espacio de extensión no lo interpretan las reglas, así que el texto estacionado ahí salía del entorno mientras el perfil afirmaba que nada salía ([#8](https://github.com/NicolasRocchia/disensor/issues/8)) |
+| `refuted_verifiable` con evidencia presente pero en blanco (`link: ""`, `text` de puros espacios) | `text` y `link` tienen que traer al menos un carácter no blanco | La presencia sin contenido reabría el hueco del [#5](https://github.com/NicolasRocchia/disensor/issues/5) por la pata más débil del `anyOf`; lo cazó la propia ronda adversarial de v0.3 |
+| Perfil `minimized` con texto libre en las **claves** de `extensions` | Toda clave bajo un objeto opaco tiene forma de identificador (`[A-Za-z0-9._:-]`, máximo 128) | El valor opaco no alcanza si el mensaje viaja en el nombre: el [#8](https://github.com/NicolasRocchia/disensor/issues/8) cerraba los valores y dejaba las claves |
 
 Y `verification.against` acepta ahora **`external_source`**: literatura, especificaciones de terceros, advisories o documentación externa. En v0.2 una verificación contra una fuente externa no tenía categoría verdadera disponible y había que declararla como `repository` ([#7](https://github.com/NicolasRocchia/disensor/issues/7)).
 
-**Cómo migrar**: renombrar el campo `schema` a `residue/v0.3`. Si el artefacto ya satisface los tres invariantes, no hay nada más que hacer — ninguno de los artefactos, ejemplos ni vectores de este repositorio los violaba. El validador reconoce un artefacto v0.2 y explica qué endureció la v0.3 en lugar de limitarse a decir que el `const` falló.
+**Cómo migrar**: renombrar el campo `schema` a `residue/v0.3`. Si el artefacto ya satisface los invariantes de la tabla, no hay nada más que hacer — ninguno de los artefactos, ejemplos ni vectores de este repositorio los violaba. El validador reconoce un artefacto v0.2 y explica qué endureció la v0.3 en lugar de limitarse a decir que el `const` falló.
 
 **Por qué se subió el identificador en vez de endurecer v0.2 en el lugar**: no fue por compatibilidad, que no había ninguna que proteger. Fue porque el producto entero se apoya en que un identificador de esquema signifique una cosa; si v0.2 significara distinto según cuándo se lo lea, la herramienta se contradiría en su propio repositorio.
+
+El contrato v0.2 original queda congelado, byte a byte como se publicó, en `spec/residue.schema.v0.2.json`: el esquema vigente sigue leyendo v0.2, pero el documento al que ese identificador apunta ya no depende de una reconstrucción.
 
 ## Migración de v0.3 a v0.4 (versiones del paquete)
 
