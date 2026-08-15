@@ -3,27 +3,50 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag o SHA a construir y publicar (backfill). Obligatorio: un dispatch sin ref construiria la rama del momento, no el arbol del tag.'
+        required: true
 
 # Publica a PyPI via Trusted Publishing (OIDC): PyPI confia en la tripleta
 # (este repo, este workflow, el environment pypi) y no hay token en ninguna
-# maquina ni secreto en el repo. El publicador esta pineado por SHA al commit
-# del tag v1.9.0 y no a la rama release/v1, por el mismo motivo que el gate
-# en ci.yml: una referencia movil no es raiz de confianza para codigo que
-# sube artefactos a nombre del proyecto.
+# maquina ni secreto en el repo. Build y publish van en jobs separados a
+# proposito: el job que compila ejecuta codigo de terceros (el backend de
+# build y sus dependencias) y no debe portar la identidad OIDC que puede
+# impersonar al repo frente a PyPI. El publicador esta pineado por SHA al
+# commit del tag v1.9.0 y no a la rama release/v1, por el mismo motivo que
+# el gate en ci.yml: una referencia movil no es raiz de confianza para
+# codigo que sube artefactos a nombre del proyecto.
 permissions:
   contents: read
 
 jobs:
-  publicar:
+  construir:
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: python -m pip install build
       - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publicar:
+    needs: construir
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0  # v1.9.0
