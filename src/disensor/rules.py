@@ -1,4 +1,4 @@
-"""Validation rules for the residue artifact (schema v0.2).
+"""Validation rules for the residue artifact (schema v0.3).
 
 Two layers, in the spirit of section 12.2 of the protocol:
   1. JSON Schema: shape and conditional fields.
@@ -217,7 +217,7 @@ def validate_artifact(artifact: dict, schema: dict | None = None) -> list[str]:
             and artifact["esquema"].startswith("residuo/"):
         return [
             "[schema] artifact declares 'esquema: residuo/v0.1' (Spanish keys). "
-            "This disensor validates residue/v0.2, which renamed every key and enum "
+            "This disensor validates residue/v0.3, which renamed every key and enum "
             "to English. See the ES-EN glossary in the repository README to migrate."
         ]
     errors = schema_errors(artifact, schema)

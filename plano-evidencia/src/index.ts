@@ -21,6 +21,12 @@ export interface Env {
 
 const validar = compilarSchema(schema as object);
 
+// Espejo de CURRENT_SCHEMA en src/disensor/gate.py (G9). El esquema compartido
+// sigue leyendo versiones superadas para que la historia no se reescriba, pero
+// cada POST es una emision presente: el recibo atesta que el artefacto existe
+// ahora, asi que lo que entra declara la version vigente.
+const ESQUEMA_VIGENTE = "residue/v0.3";
+
 const enc = new TextEncoder();
 
 export function aHex(buf: ArrayBuffer): string {
@@ -77,6 +83,13 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
   const errores = validarArtefacto(artefacto, validar);
   if (errores.length > 0) return json({ error: "artefacto invalido", errores }, 422);
 
+  if (artefacto.schema !== ESQUEMA_VIGENTE) {
+    return json({
+      error: `el artefacto declara '${artefacto.schema}' y la version vigente es `
+        + `${ESQUEMA_VIGENTE}; las versiones superadas se leen, no se emiten`,
+    }, 422);
+  }
+
   const hash = await sha256Hex(crudo);
   const idEvento: string = artefacto.event.event_id;
 
@@ -119,7 +132,7 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/v1/salud") {
-      return json({ ok: true, schema: "residue/v0.2" });
+      return json({ ok: true, schema: ESQUEMA_VIGENTE });
     }
     if (req.method === "POST" && url.pathname === "/v1/artefactos") {
       try {

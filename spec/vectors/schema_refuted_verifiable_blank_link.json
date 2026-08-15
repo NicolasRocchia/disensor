@@ -1,5 +1,5 @@
 {
-  "name": "schema_abbreviated_path_on_protected_case",
+  "name": "schema_refuted_verifiable_blank_link",
   "expected": {
     "valid": false,
     "rules": [
@@ -19,11 +19,7 @@
       "gate": "diff",
       "criticality_level": "B",
       "abbreviated_path": {
-        "used": true,
-        "justification": "cambio trivial de una linea en un helper",
-        "protected_cases_touched": [
-          "data_migration"
-        ]
+        "used": false
       }
     },
     "actors": {
@@ -90,8 +86,7 @@
           "detail": "La validacion existe en el objeto de consulta compartido que este flujo reutiliza."
         },
         "evidence": {
-          "text": "El objeto de consulta compartido valida el rango antes de ejecutar; la exportacion lo reutiliza sin excepcion.",
-          "link": "src/consultas/RangoFechas.cs#L41-L58"
+          "link": ""
         }
       }
     ],

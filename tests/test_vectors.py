@@ -23,3 +23,19 @@ def test_vector(path):
     errors = validate_artifact(vector["artifact"])
     assert (not errors) == vector["expected"]["valid"], errors
     assert _labels(errors) == vector["expected"]["rules"], errors
+
+
+def test_packaged_schema_matches_the_spec():
+    """The distribution embeds its own copy of the schema; drift is silent.
+
+    The package validates against `src/disensor/residue.schema.json` while the
+    conformance vectors and every other implementation read `spec/`. Nothing
+    else notices if the two stop agreeing, and then the reference validator and
+    the specification it claims to implement are different contracts.
+    """
+    root = Path(__file__).resolve().parents[1]
+    with open(root / "spec" / "residue.schema.json", encoding="utf-8") as f:
+        spec = json.load(f)
+    with open(root / "src" / "disensor" / "residue.schema.json", encoding="utf-8") as f:
+        packaged = json.load(f)
+    assert spec == packaged, "spec/residue.schema.json and the packaged copy have drifted"

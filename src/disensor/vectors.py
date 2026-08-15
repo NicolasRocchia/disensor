@@ -1,4 +1,4 @@
-"""Conformance vectors of schema v0.2.
+"""Conformance vectors of schema v0.3.
 
 The vectors are the shared source of truth across implementations of the
 validator (the Python reference, the TypeScript one of the evidence plane,
@@ -150,6 +150,59 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     del m["residue"]["items"]
     out.append(("schema_empty_residue", m, False, {"schema"}))
 
+    # v0.3 hardening: a verifiable refutation closes a finding without touching
+    # the code, so it demands material evidence and a verifiable target. In v0.2
+    # the presence of the evidence object was enough and `none` was admitted.
+    def _refuted(artifact: dict) -> dict:
+        return next(h for h in artifact["findings"] if h["final_state"] == "refuted_verifiable")
+
+    m = copy.deepcopy(diff)
+    _refuted(m)["evidence"] = {}
+    out.append(("schema_refuted_verifiable_empty_evidence", m, False, {"schema"}))
+
+    m = copy.deepcopy(diff)
+    _refuted(m)["verification"] = {"against": "none"}
+    out.append(("schema_refuted_verifiable_against_none", m, False, {"schema"}))
+
+    m = copy.deepcopy(diff)
+    _refuted(m)["verification"]["against"] = "external_source"
+    out.append(("valid_refuted_verifiable_external_source", m, True, set()))
+
+    # The anyOf demands presence of text, link or hash; without a content floor
+    # its weakest member accepts a blank string, and presence without material
+    # reopens the hole of #5 through another door.
+    m = copy.deepcopy(diff)
+    _refuted(m)["evidence"] = {"link": ""}
+    out.append(("schema_refuted_verifiable_blank_link", m, False, {"schema"}))
+
+    m = copy.deepcopy(diff)
+    _refuted(m)["evidence"] = {"text": " " * 10}
+    out.append(("schema_refuted_verifiable_blank_text", m, False, {"schema"}))
+
+    # v0.3 hardening: the minimized profile keeps free text out of the extension
+    # space too, which the rules deliberately do not interpret.
+    m = copy.deepcopy(mini)
+    m["extensions"] = {"com.example.note": "texto libre que no deberia salir del entorno"}
+    out.append(("schema_minimized_extensions_clear_text", m, False, {"schema"}))
+
+    # Opaque values are not enough if the key itself carries the message: keys
+    # must be identifier-shaped, a name and not a sentence.
+    m = copy.deepcopy(mini)
+    m["extensions"] = {"nota del incidente en claro": True}
+    out.append(("schema_minimized_extensions_prose_key", m, False, {"schema"}))
+
+    m = copy.deepcopy(mini)
+    m["extensions"] = {
+        "com.example.digest": "sha256:" + "a" * 64,
+        "com.example.count": 3,
+        "com.example.nested": {"flag": True, "digests": ["sha256:" + "b" * 64]},
+    }
+    out.append(("valid_minimized_opaque_extensions", m, True, set()))
+
+    m = copy.deepcopy(diff)
+    m["extensions"] = {"com.example.note": "texto libre, legitimo en el perfil completo"}
+    out.append(("valid_full_extensions_free_text", m, True, set()))
+
     return out
 
 
@@ -179,7 +232,7 @@ def generate(target: Path) -> int:
             f.write("\n")
         index.append(name)
     with open(target / "index.json", "w", encoding="utf-8") as f:
-        json.dump({"schema": "residue/v0.2", "vectors": index}, f, ensure_ascii=False, indent=2)
+        json.dump({"schema": "residue/v0.3", "vectors": index}, f, ensure_ascii=False, indent=2)
         f.write("\n")
     print(f"{len(index)} vectors written to {target}")
     return 0

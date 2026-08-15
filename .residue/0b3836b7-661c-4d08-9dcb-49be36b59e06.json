@@ -1,0 +1,59 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "0b3836b7-661c-4d08-9dcb-49be36b59e06",
+    "created_at": "2026-08-15T10:57:52-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "a1e3c982d450c0d0186994a9e07245872cacb709",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "6243ed3f05041dd5ff13560d05b6ba492e230c83"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.4",
+        "session_id": "01a00555-c2d3-7691-a398-5d0f11f29183",
+        "prompt_hash": "sha256:0a8a7be042ec6905677c6a26297490f0200ce3ff44413d24f8a5ff025ddfe874",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "Micro-ronda sobre el bump de version 76ac5b7..a1e3c98 (paquete 0.5.0 a 0.6.0, release de transicion a residue/v0.3). El revisor barrio referencias de version en codigo, metadata, docs acopladas por test_docs y la plantilla de init, y no encontro ninguna sin mover: cero hallazgos. Dos observaciones temporales quedaron fuera de findings por no ser defectos del diff y estan en el checklist de release del PR: los pins @v0.6.0 documentados apuntan a un tag que recien existira al publicar, y la linea de Estado del README necesita retoque cuando 0.6.0 salga a PyPI. Nada quedo sin arbitrar dentro del rango."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}

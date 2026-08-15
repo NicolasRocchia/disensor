@@ -1,10 +1,8 @@
 {
-  "name": "schema_abbreviated_path_on_protected_case",
+  "name": "valid_refuted_verifiable_external_source",
   "expected": {
-    "valid": false,
-    "rules": [
-      "schema"
-    ]
+    "valid": true,
+    "rules": []
   },
   "artifact": {
     "schema": "residue/v0.3",
@@ -19,11 +17,7 @@
       "gate": "diff",
       "criticality_level": "B",
       "abbreviated_path": {
-        "used": true,
-        "justification": "cambio trivial de una linea en un helper",
-        "protected_cases_touched": [
-          "data_migration"
-        ]
+        "used": false
       }
     },
     "actors": {
@@ -86,7 +80,7 @@
         "description": "El revisor reporto que la exportacion no valida el rango de fechas de entrada.",
         "final_state": "refuted_verifiable",
         "verification": {
-          "against": "repository",
+          "against": "external_source",
           "detail": "La validacion existe en el objeto de consulta compartido que este flujo reutiliza."
         },
         "evidence": {

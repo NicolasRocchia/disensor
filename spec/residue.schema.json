@@ -1,69 +1,158 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.pelatech.com.ar/specs/residue/v0.2/residue.schema.json",
+  "$id": "https://www.pelatech.com.ar/specs/residue/v0.3/residue.schema.json",
   "title": "Residue declaration of an adversarial review event (controlled disagreement)",
   "description": "Artifact that an adversarial review event emits at the close of the cycle. It declares residue, not coverage (protocol, section 9): it lists what the cycle could not close by itself, or expressly declares its absence. Resolved and verified findings are not residue; their evidence is the diff. Provisional version v0.2, subject to ratification. v0.2 renames every key and enum from Spanish (residuo/v0.1) to English; the mapping is documented in the repository glossary. No structural semantics changed between v0.1 and v0.2.",
   "type": "object",
-  "required": ["schema", "profile", "event", "actors", "residue", "metrics"],
+  "required": [
+    "schema",
+    "profile",
+    "event",
+    "actors",
+    "residue",
+    "metrics"
+  ],
   "additionalProperties": false,
   "properties": {
     "schema": {
-      "const": "residue/v0.2",
-      "description": "Schema version identifier."
+      "enum": [
+        "residue/v0.2",
+        "residue/v0.3"
+      ],
+      "description": "Schema version identifier. v0.2 is still read so historical declarations stay valid: evidence is append-only and a record is never rewritten to claim it was produced under rules that did not exist yet. The v0.3 hardening below applies only to artifacts that declare v0.3, and the gate demands v0.3 from the declarations a PR adds (G9)."
     },
     "profile": {
-      "enum": ["full", "minimized"],
+      "enum": [
+        "full",
+        "minimized"
+      ],
       "description": "full: includes finding texts and evidence (internal use or SaaS with full trust). minimized: only classes, states, counts and hashes; no free text leaves the client environment. The leak prohibitions of the minimized profile are enforced by the structural validator (rule R9)."
     },
     "event": {
       "type": "object",
-      "required": ["event_id", "created_at", "repository", "head_commit", "gate", "criticality_level", "abbreviated_path"],
+      "required": [
+        "event_id",
+        "created_at",
+        "repository",
+        "head_commit",
+        "gate",
+        "criticality_level",
+        "abbreviated_path"
+      ],
       "additionalProperties": false,
       "properties": {
-        "event_id": { "type": "string", "format": "uuid" },
-        "created_at": { "type": "string", "format": "date-time" },
-        "repository": { "type": "string", "minLength": 1, "description": "URL or stable identifier of the repo. In the minimized profile it may be a hash." },
-        "pr": { "type": "string", "description": "Number or URL of the pull request, if the event closes over a PR." },
-        "base_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
-        "head_commit": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URL or stable identifier of the repo. In the minimized profile it may be a hash."
+        },
+        "pr": {
+          "type": "string",
+          "description": "Number or URL of the pull request, if the event closes over a PR."
+        },
+        "base_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
+        "head_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
         "gate": {
-          "enum": ["plan", "diff", "architecture"],
+          "enum": [
+            "plan",
+            "diff",
+            "architecture"
+          ],
           "description": "What was submitted to review: the plan before implementing, the diff before committing, or an architecture comparison."
         },
         "criticality_level": {
-          "enum": ["A", "B", "C"],
+          "enum": [
+            "A",
+            "B",
+            "C"
+          ],
           "description": "Protocol level (section 3.1). The level travels with the code, not with the original intent."
         },
         "abbreviated_path": {
           "type": "object",
-          "required": ["used"],
+          "required": [
+            "used"
+          ],
           "additionalProperties": false,
           "properties": {
-            "used": { "type": "boolean" },
-            "justification": { "type": "string", "minLength": 15, "description": "Required if used = true. One line with the justification recorded in the PR (section 3.2)." },
+            "used": {
+              "type": "boolean"
+            },
+            "justification": {
+              "type": "string",
+              "minLength": 15,
+              "description": "Required if used = true. One line with the justification recorded in the PR (section 3.2)."
+            },
             "protected_cases_touched": {
               "type": "array",
               "uniqueItems": true,
               "items": {
-                "enum": ["auth_authorization", "personal_data", "economic_calculation", "data_migration", "core_integration"]
+                "enum": [
+                  "auth_authorization",
+                  "personal_data",
+                  "economic_calculation",
+                  "data_migration",
+                  "core_integration"
+                ]
               },
               "description": "The five cases of section 3.2 that the change touches. If the list is not empty, the abbreviated path is not admitted: rule R3 of the validator enforces it and the if/then of this schema reinforces it."
             }
           },
           "allOf": [
             {
-              "if": { "properties": { "used": { "const": true } }, "required": ["used"] },
-              "then": { "required": ["justification"] }
+              "if": {
+                "properties": {
+                  "used": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "used"
+                ]
+              },
+              "then": {
+                "required": [
+                  "justification"
+                ]
+              }
             },
             {
               "if": {
                 "properties": {
-                  "used": { "const": true },
-                  "protected_cases_touched": { "type": "array", "minItems": 1 }
+                  "used": {
+                    "const": true
+                  },
+                  "protected_cases_touched": {
+                    "type": "array",
+                    "minItems": 1
+                  }
                 },
-                "required": ["used", "protected_cases_touched"]
+                "required": [
+                  "used",
+                  "protected_cases_touched"
+                ]
               },
-              "then": { "properties": { "used": { "const": false } } }
+              "then": {
+                "properties": {
+                  "used": {
+                    "const": false
+                  }
+                }
+              }
             }
           ]
         }
@@ -71,17 +160,31 @@
     },
     "actors": {
       "type": "object",
-      "required": ["generator", "reviewers", "human_arbiter"],
+      "required": [
+        "generator",
+        "reviewers",
+        "human_arbiter"
+      ],
       "additionalProperties": false,
       "properties": {
         "generator": {
           "type": "object",
-          "required": ["family", "model"],
+          "required": [
+            "family",
+            "model"
+          ],
           "additionalProperties": false,
           "properties": {
-            "family": { "$ref": "#/$defs/family" },
-            "model": { "type": "string", "minLength": 1 },
-            "version": { "type": "string" }
+            "family": {
+              "$ref": "#/$defs/family"
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string"
+            }
           }
         },
         "reviewers": {
@@ -89,25 +192,63 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["reviewer_id", "family", "model", "confinement"],
+            "required": [
+              "reviewer_id",
+              "family",
+              "model",
+              "confinement"
+            ],
             "additionalProperties": false,
             "properties": {
-              "reviewer_id": { "type": "string", "minLength": 1, "description": "Local identifier of the reviewer within the event (r1, r2...). Findings reference it in origin." },
-              "family": { "$ref": "#/$defs/family" },
-              "model": { "type": "string", "minLength": 1 },
-              "session_id": { "type": "string", "description": "Session identifier reported by the reviewer CLI, if any. Allows reconstructing the run." },
-              "prompt_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "Hash of the adversarial brief used. Anchors the run to a concrete version of the brief without exposing its text." },
+              "reviewer_id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Local identifier of the reviewer within the event (r1, r2...). Findings reference it in origin."
+              },
+              "family": {
+                "$ref": "#/$defs/family"
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1
+              },
+              "session_id": {
+                "type": "string",
+                "description": "Session identifier reported by the reviewer CLI, if any. Allows reconstructing the run."
+              },
+              "prompt_hash": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "description": "Hash of the adversarial brief used. Anchors the run to a concrete version of the brief without exposing its text."
+              },
               "confinement": {
                 "type": "object",
-                "required": ["mode", "verified"],
+                "required": [
+                  "mode",
+                  "verified"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "mode": {
-                    "enum": ["permissions", "sandbox", "read_only_by_instruction", "no_confinement"],
+                    "enum": [
+                      "permissions",
+                      "sandbox",
+                      "read_only_by_instruction",
+                      "no_confinement"
+                    ],
                     "description": "How it was guaranteed that the reviewer only reads. The protocol (section 10) demands permissions, not instructions; declaring the real mode makes the gap visible when it exists."
                   },
-                  "verified": { "type": "boolean", "description": "Whether it was verified after the run that the reviewer did not modify the repository." },
-                  "verification_method": { "enum": ["clean_git_status", "tree_hash", "other"] }
+                  "verified": {
+                    "type": "boolean",
+                    "description": "Whether it was verified after the run that the reviewer did not modify the repository."
+                  },
+                  "verification_method": {
+                    "enum": [
+                      "clean_git_status",
+                      "tree_hash",
+                      "other"
+                    ]
+                  }
                 }
               }
             }
@@ -116,20 +257,37 @@
         "third_review": {
           "type": "object",
           "description": "Additional independent review on high-risk changes (section 6): human or from another model family.",
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": false,
           "properties": {
-            "type": { "enum": ["human", "third_family_model"] },
-            "reference": { "type": "string" }
+            "type": {
+              "enum": [
+                "human",
+                "third_family_model"
+              ]
+            },
+            "reference": {
+              "type": "string"
+            }
           }
         },
         "human_arbiter": {
           "type": "object",
-          "required": ["present"],
+          "required": [
+            "present"
+          ],
           "additionalProperties": false,
           "properties": {
-            "present": { "type": "boolean", "description": "The developer enters at the end of the cycle, or earlier if the loop escalates. An event without a human arbiter present does not comply with the protocol." },
-            "id": { "type": "string", "description": "Identifier of the feature owner. Anonymizable (hash or alias) per organization policy." }
+            "present": {
+              "type": "boolean",
+              "description": "The developer enters at the end of the cycle, or earlier if the loop escalates. An event without a human arbiter present does not comply with the protocol."
+            },
+            "id": {
+              "type": "string",
+              "description": "Identifier of the feature owner. Anonymizable (hash or alias) per organization policy."
+            }
           }
         }
       }
@@ -137,15 +295,26 @@
     "findings": {
       "type": "array",
       "description": "All findings of the event with their final state. Required in the full profile (rule R10); in minimized it may be omitted and the metric counts stand.",
-      "items": { "$ref": "#/$defs/finding" }
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
     },
     "residue": {
       "type": "object",
       "description": "The heart of the declaration (section 6): what the cycle could not close by itself, in three classes, or the express declaration of absence. Common to the three classes: none was backed by execution; they rest on someone's judgment.",
       "additionalProperties": false,
       "oneOf": [
-        { "required": ["declared_absence", "declaration"] },
-        { "required": ["items"] }
+        {
+          "required": [
+            "declared_absence",
+            "declaration"
+          ]
+        },
+        {
+          "required": [
+            "items"
+          ]
+        }
       ],
       "properties": {
         "declared_absence": {
@@ -160,41 +329,75 @@
         "items": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/residue_item" }
+          "items": {
+            "$ref": "#/$defs/residue_item"
+          }
         }
       }
     },
     "metrics": {
       "type": "object",
       "description": "Aggregates for the calibration panel, defined in section 11 of the protocol. Present in both profiles: they contain no free text.",
-      "required": ["counts"],
+      "required": [
+        "counts"
+      ],
       "additionalProperties": false,
       "properties": {
         "counts": {
           "type": "object",
-          "required": ["total_findings", "valid", "false_positives", "escalated_open"],
+          "required": [
+            "total_findings",
+            "valid",
+            "false_positives",
+            "escalated_open"
+          ],
           "additionalProperties": false,
           "properties": {
-            "total_findings": { "type": "integer", "minimum": 0 },
+            "total_findings": {
+              "type": "integer",
+              "minimum": 0
+            },
             "valid": {
               "type": "object",
               "description": "Valid finding: it produced a change in plan or code, technical debt recorded with an identifier, or an owner decision that modifies scope, behavior or accepted risk (section 11). Discarding never counts as valid.",
-              "required": ["incorporated", "debt_recorded", "owner_decision"],
+              "required": [
+                "incorporated",
+                "debt_recorded",
+                "owner_decision"
+              ],
               "additionalProperties": false,
               "properties": {
-                "incorporated": { "type": "integer", "minimum": 0 },
-                "debt_recorded": { "type": "integer", "minimum": 0 },
-                "owner_decision": { "type": "integer", "minimum": 0 }
+                "incorporated": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "debt_recorded": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "owner_decision": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             },
             "false_positives": {
               "type": "object",
               "description": "Discards. With verifiable evidence: false positive. Interpretive: false positive that additionally goes to the residue.",
-              "required": ["refuted_verifiable", "refuted_interpretive"],
+              "required": [
+                "refuted_verifiable",
+                "refuted_interpretive"
+              ],
               "additionalProperties": false,
               "properties": {
-                "refuted_verifiable": { "type": "integer", "minimum": 0 },
-                "refuted_interpretive": { "type": "integer", "minimum": 0 }
+                "refuted_verifiable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "refuted_interpretive": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             },
             "escalated_open": {
@@ -213,8 +416,14 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "reviewers": { "type": "integer", "minimum": 0 },
-            "generator": { "type": "integer", "minimum": 0 }
+            "reviewers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "generator": {
+              "type": "integer",
+              "minimum": 0
+            }
           }
         }
       }
@@ -226,43 +435,107 @@
   },
   "$defs": {
     "family": {
-      "enum": ["anthropic", "openai", "google", "meta", "mistral", "other"],
+      "enum": [
+        "anthropic",
+        "openai",
+        "google",
+        "meta",
+        "mistral",
+        "other"
+      ],
       "description": "Model family. Decorrelation demands that each reviewer's family differ from the generator's (rule R4). Adding a family lowers the correlation, it does not eliminate it: that is why in Level A model diversity is never the only control."
     },
     "evidence": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "text": { "type": "string", "minLength": 10, "description": "Quote of code, contractual data or observable behavior. Full profile only." },
-        "link": { "type": "string", "description": "Stable reference (permalink to a line, test, log)." },
-        "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "Hash of the evidence. Only content admitted in the minimized profile." }
+        "text": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Quote of code, contractual data or observable behavior. Full profile only."
+        },
+        "link": {
+          "type": "string",
+          "description": "Stable reference (permalink to a line, test, log)."
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Hash of the evidence. Only content admitted in the minimized profile."
+        }
       }
     },
     "finding": {
       "type": "object",
-      "required": ["id", "origin", "severity", "final_state", "verification"],
+      "required": [
+        "id",
+        "origin",
+        "severity",
+        "final_state",
+        "verification"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^h[0-9]+$" },
-        "origin": { "type": "string", "minLength": 1, "description": "reviewer_id of the reviewer that produced it." },
-        "severity": { "enum": ["critical", "major", "minor", "info"] },
-        "title": { "type": "string", "minLength": 5, "description": "Full profile only." },
-        "description": { "type": "string", "description": "Full profile only." },
-        "location": { "type": "string", "description": "Path and affected lines. Full profile only." },
+        "id": {
+          "type": "string",
+          "pattern": "^h[0-9]+$"
+        },
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "description": "reviewer_id of the reviewer that produced it."
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "major",
+            "minor",
+            "info"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 5,
+          "description": "Full profile only."
+        },
+        "description": {
+          "type": "string",
+          "description": "Full profile only."
+        },
+        "location": {
+          "type": "string",
+          "description": "Path and affected lines. Full profile only."
+        },
         "final_state": {
-          "enum": ["incorporated", "debt_recorded", "owner_decision", "refuted_verifiable", "refuted_interpretive", "escalated_open"],
+          "enum": [
+            "incorporated",
+            "debt_recorded",
+            "owner_decision",
+            "refuted_verifiable",
+            "refuted_interpretive",
+            "escalated_open"
+          ],
           "description": "Terminal outcome of the finding at the close of the event. The first three are the three forms of a valid finding (section 11). The two refuted ones are false positives; the interpretive one additionally joins the residue. escalated_open joins the residue and counts in no numerator."
         },
         "verification": {
           "type": "object",
-          "required": ["against"],
+          "required": [
+            "against"
+          ],
           "additionalProperties": false,
           "properties": {
             "against": {
-              "enum": ["repository", "execution", "none"],
-              "description": "What the generator verified the finding against before accepting or refuting it (do not blindly trust the reviewer; decorrelation goes both ways)."
+              "enum": [
+                "repository",
+                "execution",
+                "external_source",
+                "none"
+              ],
+              "description": "What the generator checked the finding against before accepting or refuting it (do not blindly trust the reviewer; decorrelation goes both ways). repository: code, config, contracts. execution: running tests or the program. external_source: literature, third-party specifications, advisories or external documentation. none: no verification was performed."
             },
-            "detail": { "type": "string" }
+            "detail": {
+              "type": "string"
+            }
           }
         },
         "remedy_adjustment": {
@@ -272,83 +545,362 @@
         "fix_verification": {
           "type": "object",
           "description": "An incorporated finding does not close when the fix is applied but when the fix passed its own verification: a diff gate over that change or a specific test (section 6). Required in the diff gate for the incorporated state (rule R7).",
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "additionalProperties": false,
           "properties": {
-            "type": { "enum": ["diff_gate", "specific_test", "pending_in_diff_gate"] },
-            "reference": { "type": "string" }
+            "type": {
+              "enum": [
+                "diff_gate",
+                "specific_test",
+                "pending_in_diff_gate"
+              ]
+            },
+            "reference": {
+              "type": "string"
+            }
           }
         },
-        "debt_id": { "type": "string", "description": "Required if final_state = debt_recorded: identifier in the technical debt system." },
-        "risk_record": { "type": "string", "description": "Required if final_state = owner_decision: record of the accepted risk or the scope change." },
-        "evidence": { "$ref": "#/$defs/evidence" }
+        "debt_id": {
+          "type": "string",
+          "description": "Required if final_state = debt_recorded: identifier in the technical debt system."
+        },
+        "risk_record": {
+          "type": "string",
+          "description": "Required if final_state = owner_decision: record of the accepted risk or the scope change."
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "final_state": { "const": "debt_recorded" } }, "required": ["final_state"] },
-          "then": { "required": ["debt_id"] }
+          "if": {
+            "properties": {
+              "final_state": {
+                "const": "debt_recorded"
+              }
+            },
+            "required": [
+              "final_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "debt_id"
+            ]
+          }
         },
         {
-          "if": { "properties": { "final_state": { "const": "owner_decision" } }, "required": ["final_state"] },
-          "then": { "required": ["risk_record"] }
+          "if": {
+            "properties": {
+              "final_state": {
+                "const": "owner_decision"
+              }
+            },
+            "required": [
+              "final_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "risk_record"
+            ]
+          }
         },
         {
-          "if": { "properties": { "final_state": { "const": "refuted_verifiable" } }, "required": ["final_state"] },
-          "then": { "required": ["evidence"] }
+          "if": {
+            "properties": {
+              "final_state": {
+                "const": "refuted_verifiable"
+              }
+            },
+            "required": [
+              "final_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence"
+            ]
+          }
         }
       ]
     },
     "residue_item": {
       "type": "object",
-      "required": ["id", "class", "requires_human_attention"],
+      "required": [
+        "id",
+        "class",
+        "requires_human_attention"
+      ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^r[0-9]+$" },
+        "id": {
+          "type": "string",
+          "pattern": "^r[0-9]+$"
+        },
         "class": {
-          "enum": ["escalation_without_decision", "principal_refutation", "execution_gap"],
+          "enum": [
+            "escalation_without_decision",
+            "principal_refutation",
+            "execution_gap"
+          ],
           "description": "The three classes of section 6: findings escalated without a decision, findings the principal model refuted, and behavior that execution could not arbitrate."
         },
-        "finding_ref": { "type": "string", "pattern": "^h[0-9]+$", "description": "Originating finding, if applicable. execution_gap items may not be born from a finding." },
+        "finding_ref": {
+          "type": "string",
+          "pattern": "^h[0-9]+$",
+          "description": "Originating finding, if applicable. execution_gap items may not be born from a finding."
+        },
         "requires_human_attention": {
           "type": "boolean",
           "description": "true at minimum for every interpretive refutation: it is the one that asks for human attention (section 6)."
         },
         "refutation_type": {
-          "enum": ["verifiable", "interpretive"],
+          "enum": [
+            "verifiable",
+            "interpretive"
+          ],
           "description": "Required if class = principal_refutation. Verifiable: quote of code, contractual data or observable behavior. Interpretive: domain or architecture judgment. Both are declared so the human reviewer can decline to take them at face value."
         },
-        "description": { "type": "string", "description": "Full profile only." },
-        "evidence": { "$ref": "#/$defs/evidence" },
+        "description": {
+          "type": "string",
+          "description": "Full profile only."
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        },
         "gap_reason": {
-          "enum": ["environment_not_reproducible", "third_party_no_test_environment", "other"],
+          "enum": [
+            "environment_not_reproducible",
+            "third_party_no_test_environment",
+            "other"
+          ],
           "description": "Required if class = execution_gap."
         },
         "lead_acceptance": {
           "type": "object",
           "description": "In Level A, an execution gap blocks the merge until a technical lead accepts it in writing (section 7). Rule R5 enforces it.",
-          "required": ["lead", "date", "record"],
+          "required": [
+            "lead",
+            "date",
+            "record"
+          ],
           "additionalProperties": false,
           "properties": {
-            "lead": { "type": "string" },
-            "date": { "type": "string", "format": "date-time" },
-            "record": { "type": "string", "description": "Link or identifier of the written record of the acceptance." }
+            "lead": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "record": {
+              "type": "string",
+              "description": "Link or identifier of the written record of the acceptance."
+            }
           }
         }
       },
       "allOf": [
         {
-          "if": { "properties": { "class": { "const": "principal_refutation" } }, "required": ["class"] },
-          "then": { "required": ["refutation_type"] }
+          "if": {
+            "properties": {
+              "class": {
+                "const": "principal_refutation"
+              }
+            },
+            "required": [
+              "class"
+            ]
+          },
+          "then": {
+            "required": [
+              "refutation_type"
+            ]
+          }
         },
         {
-          "if": { "properties": { "class": { "const": "execution_gap" } }, "required": ["class"] },
-          "then": { "required": ["gap_reason"] }
+          "if": {
+            "properties": {
+              "class": {
+                "const": "execution_gap"
+              }
+            },
+            "required": [
+              "class"
+            ]
+          },
+          "then": {
+            "required": [
+              "gap_reason"
+            ]
+          }
         },
         {
-          "if": { "properties": { "refutation_type": { "const": "interpretive" } }, "required": ["refutation_type"] },
-          "then": { "properties": { "requires_human_attention": { "const": true } } }
+          "if": {
+            "properties": {
+              "refutation_type": {
+                "const": "interpretive"
+              }
+            },
+            "required": [
+              "refutation_type"
+            ]
+          },
+          "then": {
+            "properties": {
+              "requires_human_attention": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "opaque_value": {
+      "description": "A value carrying no clear text: a sha256 hash, a number, a boolean, null, or a container of such values. Used by the minimized profile to keep the extension space opaque. Object keys must be identifier-shaped (letters, digits, dot, underscore, colon, hyphen; no whitespace): a key is a name, not a message. That bounds the leak channel without eliminating it -- an identifier can still smuggle words -- and the schema declares form, not content.",
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/opaque_value"
+          }
+        },
+        {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/opaque_value"
+          }
         }
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "$comment": "v0.3 hardening. Conditioned on the declared version so that reading a historical v0.2 declaration never requires rewriting it: what a PR may ADD is governed by the gate.",
+      "if": {
+        "properties": {
+          "schema": {
+            "const": "residue/v0.3"
+          }
+        },
+        "required": [
+          "schema"
+        ]
+      },
+      "then": {
+        "properties": {
+          "findings": {
+            "items": {
+              "allOf": [
+                {
+                  "$comment": "A verifiable refutation closes a finding without touching the code: it demands material evidence, not merely the presence of the object, and a verifiable target. A blank string is presence, not material: text and link must carry a non-whitespace character.",
+                  "if": {
+                    "properties": {
+                      "final_state": {
+                        "const": "refuted_verifiable"
+                      }
+                    },
+                    "required": [
+                      "final_state"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "evidence"
+                    ],
+                    "properties": {
+                      "evidence": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "text"
+                            ],
+                            "properties": {
+                              "text": {
+                                "pattern": "\\S"
+                              }
+                            }
+                          },
+                          {
+                            "required": [
+                              "link"
+                            ],
+                            "properties": {
+                              "link": {
+                                "pattern": "\\S"
+                              }
+                            }
+                          },
+                          {
+                            "required": [
+                              "hash"
+                            ]
+                          }
+                        ]
+                      },
+                      "verification": {
+                        "properties": {
+                          "against": {
+                            "enum": [
+                              "repository",
+                              "execution",
+                              "external_source"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "$comment": "R9 keeps free text out of the fields the protocol defines; this keeps it out of the extension space, which the rules deliberately do not interpret.",
+      "if": {
+        "properties": {
+          "schema": {
+            "const": "residue/v0.3"
+          },
+          "profile": {
+            "const": "minimized"
+          }
+        },
+        "required": [
+          "schema",
+          "profile"
+        ]
+      },
+      "then": {
+        "properties": {
+          "extensions": {
+            "$ref": "#/$defs/opaque_value"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -203,7 +203,7 @@ def test_full_profile_still_demands_the_list_exists(schema, diff):
 def test_v01_artifact_gets_migration_hint(schema):
     old = {"esquema": "residuo/v0.1", "perfil": "completo"}
     errors = validate_artifact(old, schema)
-    assert len(errors) == 1 and "residue/v0.2" in errors[0] and "glossary" in errors[0]
+    assert len(errors) == 1 and "residue/v0.3" in errors[0] and "glossary" in errors[0]
 
 
 def test_config_merges_with_default():
