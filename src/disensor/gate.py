@@ -24,6 +24,9 @@ Per PR:
       where each artifact qualifies for its own path and nobody ever saw the
       combined tree. So one artifact must qualify for every changed ordinary path.
   G8: evidence is append-only, and event ids are unique against history.
+  G9: a declaration the PR adds states the current schema version. Superseded
+      versions stay readable so history is never rewritten; that readability is
+      not a way to keep emitting under the older, weaker rules.
 
 The honest limit inherited from the protocol has not moved: the machine detects
 the empty field and the generic marker, not the false declaration.
@@ -56,6 +59,8 @@ DEFAULT_CONFIG = {
 V01_CONFIG_KEYS = {"nivel_criticidad", "nivel_A_habilitado"}
 
 KNOWN_CONFIG_KEYS = {"criticality_level", "level_A_enabled", "gate"}
+CURRENT_SCHEMA = "residue/v0.3"
+
 KNOWN_GATE_KEYS = {"required", "level_A_accepted_confinement", "warn_unverified_confinement", "scope"}
 
 
@@ -539,6 +544,19 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
             errors_by_file[path] = [f"invalid JSON: {exc}"]
             continue
         artifact = Artifact(path=path, data=data, errors=validate_artifact(data, schema))
+        # G9: the schema keeps reading superseded versions so that historical
+        # declarations stay valid without being rewritten (evidence is
+        # append-only). That readability must not become a way to keep emitting
+        # under the older, weaker rules: what a PR ADDS declares the current
+        # version. Same shape as G6, where a past declaration stays valid and
+        # stops being sufficient.
+        declared_version = data.get("schema") if isinstance(data, dict) else None
+        if not artifact.errors and declared_version != CURRENT_SCHEMA:
+            artifact.errors.append(
+                f"[G9] the declaration this PR adds states '{declared_version}' and the current "
+                f"schema is {CURRENT_SCHEMA}. Superseded versions are still read so history is "
+                f"never rewritten, but new evidence is emitted under the rules in force."
+            )
         artifacts.append(artifact)
         if artifact.errors:
             errors_by_file[path] = artifact.errors

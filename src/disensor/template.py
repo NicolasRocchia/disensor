@@ -27,7 +27,7 @@ def template(gate: str, level: str, profile: str, cwd: Path) -> dict:
         ["merge-base", "HEAD", "origin/master"], cwd
     )
     a: dict = {
-        "schema": "residue/v0.2",
+        "schema": "residue/v0.3",
         "profile": profile,
         "event": {
             "event_id": str(uuid.uuid4()),

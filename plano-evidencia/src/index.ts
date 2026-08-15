@@ -119,7 +119,7 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (req.method === "GET" && url.pathname === "/v1/salud") {
-      return json({ ok: true, schema: "residue/v0.2" });
+      return json({ ok: true, schema: "residue/v0.3" });
     }
     if (req.method === "POST" && url.pathname === "/v1/artefactos") {
       try {

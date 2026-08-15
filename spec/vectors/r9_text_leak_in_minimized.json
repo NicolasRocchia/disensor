@@ -7,7 +7,7 @@
     ]
   },
   "artifact": {
-    "schema": "residue/v0.2",
+    "schema": "residue/v0.3",
     "profile": "minimized",
     "event": {
       "event_id": "7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f",

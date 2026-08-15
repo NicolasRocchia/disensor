@@ -78,8 +78,11 @@ info), `title`, `description`, `location` (full profile only), and:
 
 - `verification.against`: what the generator checked the finding against
   before accepting or refuting it: `repository` (code, config, contracts),
-  `execution` (running tests or the program), or `none`. Do not take the
-  reviewer's word: verify, then decide.
+  `execution` (running tests or the program), `external_source` (literature,
+  third-party specifications, advisories, external documentation), or `none`.
+  Do not take the reviewer's word: verify, then decide. Pick the class the
+  verification actually had. If none of them is true of what you did, that is
+  a defect of this vocabulary and it should be reported, not approximated.
 - `final_state`, the terminal outcome. Decision table:
   - `incorporated`: the finding changed the plan or the code. In the diff
     gate you MUST add `fix_verification` with type `diff_gate` or
@@ -89,8 +92,15 @@ info), `title`, `description`, `location` (full profile only), and:
   - `debt_recorded`: valid, deferred; requires `debt_id` (schema).
   - `owner_decision`: valid, the owner changed scope, behavior or accepted
     risk; requires `risk_record` (schema).
-  - `refuted_verifiable`: false positive with proof; requires `evidence`
-    (text quote, link, or hash).
+  - `refuted_verifiable`: false positive with proof. This is the state that
+    closes a finding **without touching the code**, so it is the one that
+    deserves the most resistance from you. It requires `evidence` carrying
+    material content (`text`, `link` or `hash`; the empty object does not
+    count) and a `verification.against` other than `none`: refuting something
+    without having checked anything is a contradiction, not a refutation.
+    Note what the evidence does and does not establish. "The test passed" can
+    be fully verifiable while "therefore the defect does not exist" is not
+    deduced from it; when that is the case, say so in `verification.detail`.
   - `refuted_interpretive`: false positive by judgment; it MUST also appear
     as a residue item (R1) with `requires_human_attention: true` (R8).
   - `escalated_open`: no decision yet; it MUST also appear as a residue
@@ -126,6 +136,12 @@ length. Count, do not estimate.
 No free text anywhere (R9): no titles, descriptions or locations in
 findings; no descriptions in items; evidence only as `hash`; `repository`
 as a hash or opaque identifier, never a URL.
+
+`extensions` is not exempt. In the full profile it takes anything; in the
+minimized one every value must be opaque (a `sha256:` hash, a number, a
+boolean, or containers of those). The extension space is deliberately not
+interpreted by the rules, which is exactly why free text parked there would
+leave the environment while the profile claims nothing does.
 
 ## Quick map of validator labels
 

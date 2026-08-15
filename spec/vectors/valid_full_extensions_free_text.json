@@ -1,10 +1,8 @@
 {
-  "name": "schema_abbreviated_path_on_protected_case",
+  "name": "valid_full_extensions_free_text",
   "expected": {
-    "valid": false,
-    "rules": [
-      "schema"
-    ]
+    "valid": true,
+    "rules": []
   },
   "artifact": {
     "schema": "residue/v0.3",
@@ -19,11 +17,7 @@
       "gate": "diff",
       "criticality_level": "B",
       "abbreviated_path": {
-        "used": true,
-        "justification": "cambio trivial de una linea en un helper",
-        "protected_cases_touched": [
-          "data_migration"
-        ]
+        "used": false
       }
     },
     "actors": {
@@ -140,6 +134,9 @@
         "escalated_open": 1
       },
       "extra_time_sec": 2400
+    },
+    "extensions": {
+      "com.example.note": "texto libre, legitimo en el perfil completo"
     }
   }
 }

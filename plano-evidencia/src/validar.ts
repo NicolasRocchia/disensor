@@ -1,5 +1,5 @@
 /**
- * TypeScript port of the residue artifact validator (schema v0.2).
+ * TypeScript port of the residue artifact validator (schema v0.3).
  *
  * Mirror of src/disensor/rules.py (the Python reference implementation).
  * Parity is not ensured by reading the code: it is ensured by running the
@@ -225,7 +225,7 @@ export function validarArtefacto(a: Artifact, validar: ValidateFunction): string
       && typeof a.esquema === "string" && a.esquema.startsWith("residuo/")) {
     return [
       "[schema] artifact declares 'esquema: residuo/v0.1' (Spanish keys). "
-      + "This validator checks residue/v0.2, which renamed every key and enum "
+      + "This validator checks residue/v0.3, which renamed every key and enum "
       + "to English. See the ES-EN glossary in the repository README to migrate.",
     ];
   }

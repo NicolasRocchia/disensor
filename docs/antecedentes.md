@@ -455,7 +455,7 @@ Esa contradicción semántica se corrige barato y conviene hacerlo antes que cua
 
 No resuelve Goodhart. Evita que el artefacto se contradiga a sí mismo, que es distinto y es prerrequisito.
 
-El endurecimiento va bajo residue/v0.3 y no retroactivamente sobre v0.2: un artefacto válido bajo un identificador de esquema no debería volverse inválido bajo ese mismo identificador. Para una herramienta construida sobre provenance y reproducibilidad, la disciplina se aplica primero a sí misma. Reproducción, alcance en los cuatro consumidores del contrato y criterios de aceptación en el [issue #5](https://github.com/NicolasRocchia/disensor/issues/5).
+**Corregido en residue/v0.3**, bajo un identificador nuevo y no redefiniendo v0.2 en el lugar: un artefacto válido bajo un identificador de esquema no debería volverse inválido bajo ese mismo identificador. La razón no fue compatibilidad — no hay usuarios y ninguno de los 32 artefactos del repositorio violaba los invariantes propuestos — sino que el producto entero se apoya en que un identificador de esquema signifique una cosa, y esa disciplina se aplica primero a sí misma. Reproducción y criterios de aceptación en el [issue #5](https://github.com/NicolasRocchia/disensor/issues/5).
 
 **El problema conceptual de fondo es más profundo, y Assurance 2.0 ya tiene la distinción para nombrarlo**: separar *lo medido* de *lo útil*. Que se haya observado algo y que de esa observación se siga la conclusión son dos pasos distintos.
 
