@@ -1,0 +1,59 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "5aa346e1-0944-479d-92a3-2aa53749be3b",
+    "created_at": "2026-08-15T11:46:34-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "958cfc1f46d2a4130ff398fc26590a873186ae68",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "25a34dd5ea172726dea430ad9c3b56976f97d724"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.4",
+        "session_id": "01a00555-c2d3-7691-a398-5d0f11f29183",
+        "prompt_hash": "sha256:f62fc0f20d0e50e227bf940ed3e8e12166d5e69ce9b6faa60158ea73eb8048ab",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "Micro-ronda post-incidente sobre 25a34dd..958cfc1: el publicador de release.yml sube de v1.9.0 a v1.14.2 (dc37677, pineado por SHA) porque la primera corrida real fallo al publicar — el wheel de 0.6.0 era correcto (Metadata-Version 2.4 con Name y Version presentes, verificado descargando el artefacto del run 31890550087) y el twine embebido en v1.9.0 solo lee hasta 2.3. El revisor verifico contra los action.yml y requirements de ambos SHAs upstream que v1.14.2 trae Twine 7 y corrige el problema de raiz, que el diff no toca nada mas, y que el unico cambio de comportamiento relevante son las attestations PEP 740 activadas por defecto, que se aceptan deliberadamente. Cero hallazgos. Queda sin arbitrar por ejecucion lo mismo que declaro el evento d0545d00: la corrida real de publicacion, que es justamente el paso siguiente."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
