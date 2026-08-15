@@ -14,7 +14,7 @@ on:
 # proposito: el job que compila ejecuta codigo de terceros (el backend de
 # build y sus dependencias) y no debe portar la identidad OIDC que puede
 # impersonar al repo frente a PyPI. El publicador esta pineado por SHA al
-# commit del tag v1.9.0 y no a la rama release/v1, por el mismo motivo que
+# commit del tag v1.14.2 y no a la rama release/v1, por el mismo motivo que
 # el gate en ci.yml: una referencia movil no es raiz de confianza para
 # codigo que sube artefactos a nombre del proyecto.
 permissions:
@@ -49,4 +49,4 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@ec4db0b4ddc65acdf4bff5fa45ac92d78b56bdf0  # v1.9.0
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
