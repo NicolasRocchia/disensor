@@ -1,0 +1,59 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "42a2e6f1-81e6-4bfd-b4ce-0f84d4bce046",
+    "created_at": "2026-08-15T10:06:07-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "76ac5b78d2ec22f1a8e281392a8cbe63a0188ac4",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "6243ed3f05041dd5ff13560d05b6ba492e230c83"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.4",
+        "session_id": "01a00555-c2d3-7691-a398-5d0f11f29183",
+        "prompt_hash": "sha256:0191fe80ebe1222a9103415b0e1de6c9590864a8d85c1007d93c6b88839691c4",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "Micro-ronda sobre el agregado documental 0c26aa6..76ac5b7: un parrafo en la seccion de actores de la guia que declara la delegacion interna de un actor como invisible al contrato, con responsabilidad del principal por la salida delegada y el matiz de que R4 decorrelaciona principales declarados. El revisor lo ataco contra R4, confinement, R9/minimized, G9 y el limite honesto del protocolo, y no encontro hallazgos: el parrafo no sobredeclara garantias del validador ni habilita el bypass retorico que nombra. El diff es documental, sin comportamiento ejecutable que arbitrar; el residuo del evento aa7ed92e sobre el handler HTTP del plano sigue vigente en ese evento y no se hereda aca."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
