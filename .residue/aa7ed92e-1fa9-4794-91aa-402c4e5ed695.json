@@ -1,0 +1,115 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "aa7ed92e-1fa9-4794-91aa-402c4e5ed695",
+    "created_at": "2026-08-15T09:46:22-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "0c26aa68ce0ee395d805a19bf9dcb53600da9309",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "6243ed3f05041dd5ff13560d05b6ba492e230c83"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.4",
+        "session_id": "01a00555-c2d3-7691-a398-5d0f11f29183",
+        "prompt_hash": "sha256:c407224a8e848dc0fd73e5f19dd56266ece1e2d4df38092dd703ac8e5fd819f2",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La ingesta del plano de evidencia aceptaba emisiones nuevas bajo residue/v0.2",
+      "location": "plano-evidencia/src/index.ts (ingestar, POST /v1/artefactos)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado leyendo el handler: validarArtefacto valida contra el esquema compartido, que lee v0.2 por diseno, y el handler persistia sin chequear vigencia, mientras /v1/salud anunciaba v0.3. G9 existia solo en el gate de CI. Cada POST es una emision presente (el recibo atesta que el artefacto existe ahora), asi que la legibilidad de versiones superadas no alcanza como permiso de emision."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "dc9c461: rechazo 422 espejo de G9 en la ingesta; confirmado por el revisor releyendo 787e7b3..0c26aa6 en la misma sesion (ronda de confirmacion)"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La guia empaquetada y el metadata del paquete seguian declarando residue/v0.2",
+      "location": "src/disensor/GUIDE.md:1, pyproject.toml:8, tests/test_guide.py:22",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura: el cuerpo de la guia ya describia las reglas de v0.3, pero el encabezado decia v0.2, el test fijaba ese texto viejo como esperado y la descripcion del paquete tambien lo repetia."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "c3a16a6: guia, test y metadata a v0.3; confirmado por el revisor releyendo 787e7b3..0c26aa6 en la misma sesion"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Los README declaraban 22 vectores de conformidad cuando el indice tenia 28",
+      "location": "README.md:147, plano-evidencia/README.md:8, spec/vectors/index.json",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido contando el indice: 28 vectores al recibir el hallazgo, 31 despues de los endurecimientos de esta ronda; ambos README decian 22. El conteo publicado quedo en 31 y la conformidad TS corre los 31 con cero divergencias."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "0c26aa6: conteos actualizados a 31; confirmado por el revisor releyendo 787e7b3..0c26aa6 en la misma sesion"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "third_party_no_test_environment",
+        "requires_human_attention": true,
+        "description": "El handler HTTP del plano de evidencia contra D1 real sigue sin ejecutarse, incluido el rechazo nuevo de versiones superadas que esta ronda agrego: el nucleo con riesgo de divergencia esta blindado por los 31 vectores de conformidad, pero el pegamento HTTP se estrena contra la plataforma real con wrangler dev y nadie en esta ronda pudo arbitrarlo por ejecucion. El revisor tampoco pudo correr conformidad ni typecheck TS en su entorno (tsx y tsc fuera de PATH, sin permiso de instalacion) ni la suite Python completa (permisos del tmp de Windows); el generador si ejecuto las tres: 199 tests en verde, 31 vectores conformes y typecheck limpio."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 3,
+      "valid": {
+        "incorporated": 3,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
