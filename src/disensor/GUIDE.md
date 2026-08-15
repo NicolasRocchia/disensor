@@ -70,6 +70,20 @@ paths. By default everything demands `diff`.
 - `human_arbiter.present`: must be true; an event without a human arbiter
   does not comply with the protocol (R0).
 
+Delegation inside an actor is invisible to this contract, on purpose. A
+generator or a reviewer may fan out into agents, subagents, scripts or any
+other internal tooling: the artifact declares principals, not processes, and
+the principal answers for the delegated output as if it were its own work.
+No rule inspects how an actor produced what it signed, and none should; the
+confinement verification over the working tree already covers whatever the
+actor's internal processes did there, and `extensions` is the place to
+volunteer internal delegation when disclosing it matters. One honest nuance
+comes with this: R4 decorrelates the declared principals. An actor that
+internally leans on the same family as its counterpart keeps the declaration
+formally true while weakening the statistical decorrelation, and the machine
+cannot see that. It belongs to the protocol's honest limit: the gate reads
+declarations; human sampling reads reality.
+
 ## Findings
 
 One entry per point the reviewer raised. Fields: `id` (h1, h2...), `origin`
