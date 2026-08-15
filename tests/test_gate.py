@@ -553,6 +553,20 @@ def test_diff_artifact_with_wrong_base_commit_fails(repo, capsys):
     assert "[G5]" in out(capsys)
 
 
+def test_new_artifact_declaring_a_superseded_schema_fails(repo, capsys):
+    """G9: a valid v0.2 artifact is readable history, not an emission permit."""
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/app.py", "code")
+    code = repo.commit("feat")
+    path = repo.artifact("diff", head=code, base=base)
+    data = json.loads((repo.path / path).read_text(encoding="utf-8"))
+    data["schema"] = "residue/v0.2"
+    repo.write(path, json.dumps(data, ensure_ascii=False))
+    head = repo.commit("docs(residue)")
+    assert repo.run(base, head) == 1
+    assert "[G9]" in out(capsys)
+
+
 def test_abbreviated_base_commit_is_accepted(repo, capsys):
     base = repo.git("rev-parse", "HEAD")
     repo.write("src/app.py", "code")
