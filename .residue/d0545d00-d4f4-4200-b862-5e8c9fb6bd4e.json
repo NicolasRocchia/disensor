@@ -1,0 +1,99 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "d0545d00-d4f4-4200-b862-5e8c9fb6bd4e",
+    "created_at": "2026-08-15T11:34:44-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "9de63184ad80aa35364a64e7f12a2d4f8a8814a8",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "65784e39255621675d448c5b856080a1fe18f8c7"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.4",
+        "session_id": "01a00555-c2d3-7691-a398-5d0f11f29183",
+        "prompt_hash": "sha256:4df7ebd14ccb3d3be8e7fc9a140e5ffc97caccc57bca5a0a6a03b81efc3c0307",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El backfill por workflow_dispatch construia la rama del momento, no el arbol del tag",
+      "location": ".github/workflows/release.yml (trigger workflow_dispatch, paso checkout)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "external_source",
+        "detail": "Verificado contra la semantica documentada de GitHub Actions: en workflow_dispatch el checkout usa el ref del run (rama elegida, main por defecto) y no un tag, asi que el backfill planeado de 0.6.0 habria construido main-del-momento. El uso previsto inmediato era exactamente ese backfill: camino realista, no hipotetico."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "9de6318: input ref obligatorio en el dispatch y usado por el checkout; confirmado por el revisor releyendo df593f6..9de6318 en la misma sesion"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El job que compilaba portaba la identidad OIDC que puede impersonar al repo ante PyPI",
+      "location": ".github/workflows/release.yml (job unico con id-token: write ejecutando python -m build)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "external_source",
+        "detail": "Verificado contra el modelo de seguridad de Trusted Publishing de PyPI y la guia de PyPA: el codigo del backend de build y sus dependencias transitivas corren en el build, y no deben ejecutar en un job que puede emitir el token OIDC del repo. El patron recomendado separa build y publish pasando artefactos. El revisor califico ambos hallazgos como medium en su propia escala; se declaran major porque el primero fallaba en el uso previsto inmediato y el segundo expone la identidad de publicacion a codigo de terceros."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "9de6318: build y publish en jobs separados con permisos minimos, dist/ como artefacto; confirmado por el revisor releyendo df593f6..9de6318 en la misma sesion"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "release.yml no se ejecuto nunca: todo el analisis fue estatico (el YAML y la semantica documentada de Actions y de Trusted Publishing), porque la primera corrida real es la publicacion de 0.6.0, posterior a este merge. Quedan sin arbitrar por ejecucion: que el environment pypi se cree en la primera corrida (hoy no existe y nace sin reglas de proteccion, verificado por API), que el intercambio OIDC contra el publisher configurado funcione, y el desacople entre el ref del run y el ref construido en un dispatch, que solo se vuelve relevante si en el futuro se acotan los refs desplegables del environment. El operador dispara y observa la primera corrida."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
