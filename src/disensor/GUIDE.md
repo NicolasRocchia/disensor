@@ -1,4 +1,4 @@
-# How to fill a residue declaration (residue/v0.2)
+# How to fill a residue declaration (residue/v0.3)
 
 This guide is the single source of truth for filling the artifact that
 `disensor new` creates under `.residue/`. It ships inside the package:
@@ -95,8 +95,9 @@ info), `title`, `description`, `location` (full profile only), and:
   - `refuted_verifiable`: false positive with proof. This is the state that
     closes a finding **without touching the code**, so it is the one that
     deserves the most resistance from you. It requires `evidence` carrying
-    material content (`text`, `link` or `hash`; the empty object does not
-    count) and a `verification.against` other than `none`: refuting something
+    material content (`text`, `link` or `hash`; neither the empty object nor
+    a blank string counts) and a `verification.against` other than `none`:
+    refuting something
     without having checked anything is a contradiction, not a refutation.
     Note what the evidence does and does not establish. "The test passed" can
     be fully verifiable while "therefore the defect does not exist" is not
@@ -139,9 +140,10 @@ as a hash or opaque identifier, never a URL.
 
 `extensions` is not exempt. In the full profile it takes anything; in the
 minimized one every value must be opaque (a `sha256:` hash, a number, a
-boolean, or containers of those). The extension space is deliberately not
-interpreted by the rules, which is exactly why free text parked there would
-leave the environment while the profile claims nothing does.
+boolean, or containers of those) and every key must be identifier-shaped:
+a name, not a message. The extension space is deliberately not interpreted
+by the rules, which is exactly why free text parked there would leave the
+environment while the profile claims nothing does.
 
 ## Quick map of validator labels
 
