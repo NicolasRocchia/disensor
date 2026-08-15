@@ -185,6 +185,12 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     m["extensions"] = {"com.example.note": "texto libre que no deberia salir del entorno"}
     out.append(("schema_minimized_extensions_clear_text", m, False, {"schema"}))
 
+    # Opaque values are not enough if the key itself carries the message: keys
+    # must be identifier-shaped, a name and not a sentence.
+    m = copy.deepcopy(mini)
+    m["extensions"] = {"nota del incidente en claro": True}
+    out.append(("schema_minimized_extensions_prose_key", m, False, {"schema"}))
+
     m = copy.deepcopy(mini)
     m["extensions"] = {
         "com.example.digest": "sha256:" + "a" * 64,

@@ -761,7 +761,7 @@
       ]
     },
     "opaque_value": {
-      "description": "A value carrying no clear text: a sha256 hash, a number, a boolean, null, or a container of such values. Used by the minimized profile to keep the extension space opaque.",
+      "description": "A value carrying no clear text: a sha256 hash, a number, a boolean, null, or a container of such values. Used by the minimized profile to keep the extension space opaque. Object keys must be identifier-shaped (letters, digits, dot, underscore, colon, hyphen; no whitespace): a key is a name, not a message. That bounds the leak channel without eliminating it -- an identifier can still smuggle words -- and the schema declares form, not content.",
       "anyOf": [
         {
           "type": "string",
@@ -784,6 +784,9 @@
         },
         {
           "type": "object",
+          "propertyNames": {
+            "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+          },
           "additionalProperties": {
             "$ref": "#/$defs/opaque_value"
           }

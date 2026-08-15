@@ -29,6 +29,7 @@
     "schema_refuted_verifiable_blank_link",
     "schema_refuted_verifiable_blank_text",
     "schema_minimized_extensions_clear_text",
+    "schema_minimized_extensions_prose_key",
     "valid_minimized_opaque_extensions",
     "valid_full_extensions_free_text"
   ]
