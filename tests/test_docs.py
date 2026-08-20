@@ -88,3 +88,50 @@ def test_no_em_dashes_in_the_documents():
         if EM_DASH in text:
             offenders[name] = text.count(EM_DASH)
     assert not offenders, f"guiones largos encontrados: {offenders}"
+
+
+def test_the_schema_does_not_contradict_its_own_id():
+    """El esquema decia ser v0.2 en la descripcion de un archivo cuyo $id es v0.3.
+
+    No es una errata cualquiera: el proyecto argumenta, en el README y en
+    docs/antecedentes.md, que un identificador de esquema tiene que significar
+    una cosa, y por eso la v0.3 salio bajo identificador nuevo en vez de
+    redefinir la v0.2 en el lugar. Un archivo que se identifica como v0.3 y se
+    describe como v0.2 contradice esa disciplina donde se la sostiene.
+    """
+    import json
+
+    for ruta in (ROOT / "spec" / "residue.schema.json",
+                 ROOT / "src" / "disensor" / "residue.schema.json"):
+        s = json.loads(ruta.read_text(encoding="utf-8"))
+        version = re.search(r"/residue/(v[0-9.]+)/", s["$id"]).group(1)
+        declaradas = set(re.findall(r"\bv[0-9]+\.[0-9]+\b", s.get("description", "")))
+        provisional = re.search(r"Provisional version (v[0-9.]+)", s.get("description", ""))
+        assert provisional, f"{ruta.name}: la descripcion no dice cual es la version provisional"
+        assert provisional.group(1) == version, (
+            f"{ruta.name}: el $id dice {version} y la descripcion dice {provisional.group(1)}"
+        )
+        assert declaradas, "sin versiones mencionadas, el test no esta mirando nada"
+
+
+def test_the_gate_help_names_every_implemented_check():
+    """La ayuda ofrecia G1 a G8 con nueve implementados, y el que faltaba es G9.
+
+    G9 es justamente el que exige residue/v0.3 a las declaraciones que un PR
+    agrega. Una ayuda que no lo nombra esconde el chequeo que hace cumplir la
+    version del contrato.
+    """
+    import re as _re
+
+    gate_src = (ROOT / "src" / "disensor" / "gate.py").read_text(encoding="utf-8")
+    implementados = sorted({int(n) for n in _re.findall(r"\[G([0-9])\]", gate_src)})
+    assert implementados, "no se detecto ningun chequeo G en gate.py"
+
+    cli_src = (ROOT / "src" / "disensor" / "cli.py").read_text(encoding="utf-8")
+    rango = _re.search(r"policy G([0-9]) to G([0-9])", cli_src)
+    assert rango, "la ayuda del subcomando gate ya no declara un rango de chequeos"
+    desde, hasta = int(rango.group(1)), int(rango.group(2))
+    assert [desde, hasta] == [implementados[0], implementados[-1]], (
+        f"la ayuda dice G{desde} a G{hasta} y gate.py implementa "
+        f"G{implementados[0]} a G{implementados[-1]}"
+    )
