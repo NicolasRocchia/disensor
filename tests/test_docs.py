@@ -28,6 +28,36 @@ def test_documented_action_version_matches_the_package():
             )
 
 
+NUL = chr(0)
+
+
+def split_ls_files(output: str) -> list[str]:
+    """Corta la salida de `git ls-files -z` por NUL.
+
+    Separada del test para poder probarla con una salida armada. `git ls-files`
+    sin `-z` separa por salto de linea y entrecomilla los nombres raros, y
+    `.split()` ademas corta en los espacios: un archivo llamado `mi nota.md` se
+    partia en dos rutas inexistentes, las dos se saltaban en silencio, y el
+    archivo que si violaba la regla nunca se abria. El test pasaba justo cuando
+    tenia que fallar.
+    """
+    return [name for name in output.split(NUL) if name]
+
+
+def tracked_markdown() -> list[str]:
+    out = subprocess.run(
+        ["git", "ls-files", "-z", "--", "*.md"],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    ).stdout
+    return split_ls_files(out)
+
+
+def test_a_name_with_spaces_stays_one_path():
+    assert split_ls_files("README.md" + NUL + "docs/mi nota.md" + NUL) == [
+        "README.md", "docs/mi nota.md",
+    ]
+
+
 EM_DASH = "\u2014"
 
 
@@ -44,9 +74,12 @@ def test_no_em_dashes_in_the_documents():
     regla de estilo sería reescribir un registro histórico, que es exactamente
     lo que la herramienta existe para impedir.
     """
-    tracked = subprocess.run(
-        ["git", "ls-files", "*.md"], cwd=ROOT, capture_output=True, text=True, check=True
-    ).stdout.split()
+    # -z y corte por NUL: `git ls-files` separa por salto de línea y entrecomilla
+    # los nombres raros, y `.split()` además corta en los espacios. Un archivo
+    # llamado `mi nota.md` se partía en dos rutas inexistentes, las dos se
+    # saltaban en silencio, y el archivo que sí tenía el guión largo nunca se
+    # abría: el test pasaba justo cuando tenía que fallar.
+    tracked = tracked_markdown()
     offenders = {}
     for name in tracked:
         if name.startswith(".residue/"):
