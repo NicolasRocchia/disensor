@@ -6,8 +6,10 @@ one the tool installs. That is cheap to catch and expensive to notice by hand.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from disensor import __version__
@@ -90,48 +92,76 @@ def test_no_em_dashes_in_the_documents():
     assert not offenders, f"guiones largos encontrados: {offenders}"
 
 
-def test_the_schema_does_not_contradict_its_own_id():
-    """El esquema decia ser v0.2 en la descripcion de un archivo cuyo $id es v0.3.
+def implemented_checks() -> list[int]:
+    """Los chequeos G que gate.py implementa de verdad, no los que dice implementar."""
+    src = (ROOT / "src" / "disensor" / "gate.py").read_text(encoding="utf-8")
+    # \d+ y no \d: con un solo digito, un G10 quedaba invisible.
+    return sorted({int(n) for n in re.findall(r"\[G(\d+)\]", src)})
 
-    No es una errata cualquiera: el proyecto argumenta, en el README y en
-    docs/antecedentes.md, que un identificador de esquema tiene que significar
-    una cosa, y por eso la v0.3 salio bajo identificador nuevo en vez de
-    redefinir la v0.2 en el lugar. Un archivo que se identifica como v0.3 y se
-    describe como v0.2 contradice esa disciplina donde se la sostiene.
+
+def cli_help(*argv: str) -> str:
+    """La ayuda que ve un usuario, ejercitando la interfaz y no leyendo el fuente.
+
+    El test anterior leia cli.py como texto y por eso daba verde sobre una ayuda
+    que el usuario nunca ve: `help=` solo aparece en el listado de
+    `disensor --help`, mientras `disensor gate --help` muestra `description`.
+    Corregir el primero y afirmar que se arreglo el segundo era falso, y el test
+    lo confirmaba igual.
     """
-    import json
-
-    for ruta in (ROOT / "spec" / "residue.schema.json",
-                 ROOT / "src" / "disensor" / "residue.schema.json"):
-        s = json.loads(ruta.read_text(encoding="utf-8"))
-        version = re.search(r"/residue/(v[0-9.]+)/", s["$id"]).group(1)
-        declaradas = set(re.findall(r"\bv[0-9]+\.[0-9]+\b", s.get("description", "")))
-        provisional = re.search(r"Provisional version (v[0-9.]+)", s.get("description", ""))
-        assert provisional, f"{ruta.name}: la descripcion no dice cual es la version provisional"
-        assert provisional.group(1) == version, (
-            f"{ruta.name}: el $id dice {version} y la descripcion dice {provisional.group(1)}"
-        )
-        assert declaradas, "sin versiones mencionadas, el test no esta mirando nada"
+    out = subprocess.run(
+        [sys.executable, "-m", "disensor", *argv, "--help"],
+        cwd=ROOT, capture_output=True, text=True,
+        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+    )
+    return out.stdout
 
 
 def test_the_gate_help_names_every_implemented_check():
-    """La ayuda ofrecia G1 a G8 con nueve implementados, y el que faltaba es G9.
+    """G9 es el que exige residue/v0.3 a las declaraciones que un PR agrega.
 
-    G9 es justamente el que exige residue/v0.3 a las declaraciones que un PR
-    agrega. Una ayuda que no lo nombra esconde el chequeo que hace cumplir la
-    version del contrato.
+    Una ayuda que no lo nombra esconde el chequeo que hace cumplir la version
+    del contrato.
     """
-    import re as _re
-
-    gate_src = (ROOT / "src" / "disensor" / "gate.py").read_text(encoding="utf-8")
-    implementados = sorted({int(n) for n in _re.findall(r"\[G([0-9])\]", gate_src)})
-    assert implementados, "no se detecto ningun chequeo G en gate.py"
-
-    cli_src = (ROOT / "src" / "disensor" / "cli.py").read_text(encoding="utf-8")
-    rango = _re.search(r"policy G([0-9]) to G([0-9])", cli_src)
-    assert rango, "la ayuda del subcomando gate ya no declara un rango de chequeos"
-    desde, hasta = int(rango.group(1)), int(rango.group(2))
-    assert [desde, hasta] == [implementados[0], implementados[-1]], (
-        f"la ayuda dice G{desde} a G{hasta} y gate.py implementa "
-        f"G{implementados[0]} a G{implementados[-1]}"
+    checks = implemented_checks()
+    assert checks, "no se detecto ningun chequeo G en gate.py"
+    assert checks == list(range(checks[0], checks[-1] + 1)), (
+        f"los chequeos implementados no son contiguos: {checks}. Un rango en la ayuda "
+        "no puede describirlos con honestidad"
     )
+    for texto, donde in ((cli_help("gate"), "disensor gate --help"),
+                         (cli_help(), "disensor --help")):
+        rango = re.search(r"G(\d+)\s*(?:to|a)\s*G(\d+)", texto.replace("\n", " "))
+        assert rango, f"{donde} no declara un rango de chequeos"
+        assert [int(rango.group(1)), int(rango.group(2))] == [checks[0], checks[-1]], (
+            f"{donde} dice G{rango.group(1)} a G{rango.group(2)} y gate.py implementa "
+            f"G{checks[0]} a G{checks[-1]}"
+        )
+
+
+def test_the_schema_declares_the_version_the_tool_enforces():
+    """El $id, la descripcion y lo que el gate exige tienen que decir lo mismo.
+
+    El test anterior comparaba el $id contra la descripcion del mismo archivo, o
+    sea derivaba la expectativa del valor que debia proteger: bajar los dos a
+    v0.2 a la vez lo dejaba pasar. La referencia ahora es CURRENT_SCHEMA, que es
+    lo que el gate exige de verdad a las declaraciones nuevas.
+    """
+    import json
+
+    from disensor.gate import CURRENT_SCHEMA
+
+    esperada = CURRENT_SCHEMA.split("/")[-1]
+    for ruta in (ROOT / "spec" / "residue.schema.json",
+                 ROOT / "src" / "disensor" / "residue.schema.json"):
+        s = json.loads(ruta.read_text(encoding="utf-8"))
+        assert f"/residue/{esperada}/" in s["$id"], (
+            f"{ruta.name}: el $id es {s['$id']} y el gate exige {CURRENT_SCHEMA}"
+        )
+        provisional = re.search(r"Provisional version (v[0-9.]+)", s.get("description", ""))
+        assert provisional, f"{ruta.name}: la descripcion no dice cual es la version provisional"
+        assert provisional.group(1) == esperada, (
+            f"{ruta.name}: la descripcion dice {provisional.group(1)} y el gate exige {esperada}"
+        )
+        assert CURRENT_SCHEMA in s["properties"]["schema"]["enum"], (
+            f"{ruta.name}: el enum de schema no admite {CURRENT_SCHEMA}"
+        )
