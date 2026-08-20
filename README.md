@@ -141,7 +141,7 @@ Límite explícito: leer la política de la base convierte un bypass de un paso 
 
 No corre modelos, no pide claves de API en CI, y ningún código viaja a ningún servicio: valida un JSON que ya está versionado en el repo. La orquestación del loop vive donde el equipo ya trabaja; el perfil `minimized` del artefacto está pensado para ambientes donde el texto de los hallazgos no puede salir del entorno.
 
-En el perfil `minimized`, R9 impide el texto libre en los campos que el protocolo define y el esquema exige además que todo valor bajo `extensions` sea opaco —un hash `sha256:`, un número, un booleano o contenedores de esos— y que toda clave tenga forma de identificador: un nombre, no un mensaje. El espacio de extensión no lo interpretan las reglas, que es justamente por qué el texto estacionado ahí saldría del entorno mientras el perfil afirma que nada sale. Queda un string libre fuera del alcance, `verification.detail`, cuya política se decide en la próxima tanda.
+En el perfil `minimized`, R9 impide el texto libre en los campos que el protocolo define y el esquema exige además que todo valor bajo `extensions` sea opaco (un hash `sha256:`, un número, un booleano o contenedores de esos) y que toda clave tenga forma de identificador: un nombre, no un mensaje. El espacio de extensión no lo interpretan las reglas, que es justamente por qué el texto estacionado ahí saldría del entorno mientras el perfil afirma que nada sale. Queda un string libre fuera del alcance, `verification.detail`, cuya política se decide en la próxima tanda.
 
 ## Conformidad entre implementaciones
 
@@ -178,7 +178,7 @@ Migración desde v0.1: renombrar `.residuo/` a `.residue/`, las claves del confi
 
 Cuidado con la ambigüedad: esta sección habla de la versión **del esquema**; la siguiente habla de versiones **del paquete**. Son dos numeraciones distintas.
 
-La v0.3 no renombra ni agrega claves. Endurece los puntos donde la garantía declarada era más fuerte que la implementada —tres detectados antes de la ronda y dos que la propia ronda adversarial de v0.3 agregó—, y suma un valor a un enum:
+La v0.3 no renombra ni agrega claves. Endurece los puntos donde la garantía declarada era más fuerte que la implementada (tres detectados antes de la ronda y dos que la propia ronda adversarial de v0.3 agregó), y suma un valor a un enum:
 
 | Antes valía | Ahora se rechaza | Por qué |
 |---|---|---|
@@ -190,7 +190,7 @@ La v0.3 no renombra ni agrega claves. Endurece los puntos donde la garantía dec
 
 Y `verification.against` acepta ahora **`external_source`**: literatura, especificaciones de terceros, advisories o documentación externa. En v0.2 una verificación contra una fuente externa no tenía categoría verdadera disponible y había que declararla como `repository` ([#7](https://github.com/NicolasRocchia/disensor/issues/7)).
 
-**Cómo migrar**: renombrar el campo `schema` a `residue/v0.3`. Si el artefacto ya satisface los invariantes de la tabla, no hay nada más que hacer — ninguno de los artefactos, ejemplos ni vectores de este repositorio los violaba. El validador reconoce un artefacto v0.2 y explica qué endureció la v0.3 en lugar de limitarse a decir que el `const` falló.
+**Cómo migrar**: renombrar el campo `schema` a `residue/v0.3`. Si el artefacto ya satisface los invariantes de la tabla, no hay nada más que hacer: ninguno de los artefactos, ejemplos ni vectores de este repositorio los violaba. El validador reconoce un artefacto v0.2 y explica qué endureció la v0.3 en lugar de limitarse a decir que el `const` falló.
 
 **Por qué se subió el identificador en vez de endurecer v0.2 en el lugar**: no fue por compatibilidad, que no había ninguna que proteger. Fue porque el producto entero se apoya en que un identificador de esquema signifique una cosa; si v0.2 significara distinto según cuándo se lo lea, la herramienta se contradiría en su propio repositorio.
 

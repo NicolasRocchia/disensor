@@ -30,7 +30,7 @@ El caso que produjo esta nota, en `docs/antecedentes.md`: buscar por "revisión 
 
 **Advertencia que no hay que perder**: formular el claim de manera falsable mejora la búsqueda de refutaciones; **no convierte la ausencia de refutación en evidencia de novedad**. Una búsqueda sin antecedentes deja el claim sin refutar en esa búsqueda, y nada más. Sin esa advertencia, una técnica útil de red team se convierte en un verificador de originalidad, que es justo lo que no es.
 
-Esto es documentación operativa y todavía **no** está en la consigna empaquetada. La incorporación natural sería condicional — activarse sólo cuando lo sometido hace un claim de novedad, no exigir revisión bibliográfica en cada diff — y conviene esperar a que produzca mejores hallazgos en más de una ronda antes de moverla ahí. Cuando se mueva, `prompt_hash` registra desde qué versión el revisor recibió la instrucción, que es exactamente para lo que sirve el campo.
+Esto es documentación operativa y todavía **no** está en la consigna empaquetada. La incorporación natural sería condicional: activarse sólo cuando lo sometido hace un claim de novedad, en vez de exigir revisión bibliográfica en cada diff. Conviene esperar a que produzca mejores hallazgos en más de una ronda antes de moverla ahí. Cuando se mueva, `prompt_hash` registra desde qué versión el revisor recibió la instrucción, que es exactamente para lo que sirve el campo.
 
 ## Qué escribe init para Claude Code
 

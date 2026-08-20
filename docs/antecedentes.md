@@ -83,7 +83,7 @@ Formulación defendible: **R4 es un diseño plausible con sustento convergente e
 | [Software Delegation Contracts: Measuring Reviewability in AI Coding-Agent Work](https://arxiv.org/abs/2606.17099) (jun 2026) | 64 corridas de agentes sobre un entorno instrumentado con defectos sembrados, tres condiciones (prompt tipo issue, contrato explícito, contrato con evidence bundle), 192 revisiones ciegas a condición. | Verificado |
 | [Trust Without Trusting: A Recomputable Trust Protocol for Autonomous Agents](https://arxiv.org/abs/2605.06738) | Propone que el cumplimiento no dependa de creerle a quien aplica la regla, sino que pueda ser **recomputado por terceros** desde evidencia anclada: convertir "¿aplicó correctamente sus propias reglas?" de afirmación en hecho recomputable. | Verificado (sin leer entero) |
 
-**Nidus es el antecedente más cercano en principio de diseño**, y define lo que este proyecto **no puede reclamar**. Su tesis es literalmente la de disensor: los invariantes de ingeniería no se sostienen como comportamiento aprendido, y el assurance exige enforcement por un mecanismo **externo al proponente**. Más todavía, declara entre sus contribuciones la *governance theater prevention*: que la evidencia de cumplimiento no pueda fabricarse dentro del camino de mutación que gobierna — o sea, ataca deliberadamente una versión del mismo problema de Goodhart que se discute abajo.
+**Nidus es el antecedente más cercano en principio de diseño**, y define lo que este proyecto **no puede reclamar**. Su tesis es literalmente la de disensor: los invariantes de ingeniería no se sostienen como comportamiento aprendido, y el assurance exige enforcement por un mecanismo **externo al proponente**. Más todavía, declara entre sus contribuciones la *governance theater prevention*: que la evidencia de cumplimiento no pueda fabricarse dentro del camino de mutación que gobierna: ataca deliberadamente una versión del mismo problema de Goodhart que se discute abajo.
 
 Consecuencia directa para el paper: **no escribir nada parecido a "no existen mecanismos externos de gobernanza para coding agents".** Sería falso y verificablemente falso.
 
@@ -123,9 +123,9 @@ La contribución no es ninguno de los componentes por separado. Es la intersecci
 
 Tres formulaciones que **no** se pueden usar, cada una invalidada por trabajo verificado arriba:
 
-- ~~"introduce la revisión de código adversarial con IA"~~ — Adversarial Review, Refute-or-Promote, adversarial-review.
-- ~~"introduce gobernanza para coding agents"~~ — Nidus.
-- ~~"introduce el desacuerdo estructurado"~~ — Adversarial Review, Structured Disagreement.
+- ~~"introduce la revisión de código adversarial con IA"~~: Adversarial Review, Refute-or-Promote, adversarial-review.
+- ~~"introduce gobernanza para coding agents"~~: Nidus.
+- ~~"introduce el desacuerdo estructurado"~~: Adversarial Review, Structured Disagreement.
 
 La formulación defendible es más estrecha, y el *to our knowledge* no es cortesía sino requisito, porque no se hizo todavía una búsqueda bibliográfica sistemática:
 
@@ -151,7 +151,7 @@ Las tres tuvieron un caso real en el primer uso autorreferencial del formato, y 
 
 ### Frontera epistémica
 
-Lo importante es que **no es una métrica escalar**. La tentación de decir "17 de 24 propiedades verificables = 71 %" lleva directo al Goodhart de la sección anterior: se mejora el ratio agregando propiedades triviales de verificar. Lo que sirve no es el conteo sino el mapa, y el mapa necesita tres columnas: qué estado tiene hoy la propiedad, **cuál es su raíz de confianza**, y cuál es su **techo** — hasta dónde podría llegar, incluso en el mejor caso.
+Lo importante es que **no es una métrica escalar**. La tentación de decir "17 de 24 propiedades verificables = 71 %" lleva directo al Goodhart de la sección anterior: se mejora el ratio agregando propiedades triviales de verificar. Lo que sirve no es el conteo sino el mapa, y el mapa necesita tres columnas: qué estado tiene hoy la propiedad, **cuál es su raíz de confianza**, y cuál es su **techo**, hasta dónde podría llegar, incluso en el mejor caso.
 
 | Propiedad | Estado hoy | Raíz de confianza | Techo |
 |---|---|---|---|
@@ -164,7 +164,7 @@ Lo importante es que **no es una métrica escalar**. La tentación de decir "17 
 | El modelo servido era el declarado | Declarado | el proveedor | Parcialmente movible (ver abajo) |
 | El revisor razonó en profundidad | Juicio | revisor / humano | No mecanizable |
 | La refutación es intelectualmente correcta | Juicio | revisor / humano | No mecanizable plenamente |
-| No existen riesgos sin declarar | Mundo abierto | — | **No verificable en principio** |
+| No existen riesgos sin declarar | Mundo abierto | ninguna | **No verificable en principio** |
 
 El progreso del protocolo no se enuncia entonces como "subió a 73 %", sino como una transición nominal: *v0.6 movió esta propiedad de declarada a verificada mecánicamente, con esta raíz de confianza.* Eso es auditable y difícil de maquillar agregando quince propiedades triviales.
 
@@ -220,7 +220,7 @@ Responder a un caso de insuficiencia semántica endureciendo reglas no sólo no 
 
 > disensor no debería forzar a una declaración conforme a hacer una afirmación materialmente falsa cuando el evento subyacente se conoce con más precisión que la que el vocabulario permite.
 
-No implica aceptar texto libre para todo — la interoperabilidad necesita vocabulario común. Implica que un caso como #7 se trata como **deuda del protocolo, no como error del declarante**.
+No implica aceptar texto libre para todo: la interoperabilidad necesita vocabulario común. Implica que un caso como #7 se trata como **deuda del protocolo, no como error del declarante**.
 
 ### Frontera temporal
 
@@ -247,13 +247,13 @@ Sometido el marco a una ronda con la pregunta específica *¿alguien ya distingu
 
 **Frontera epistémica: antecedida.** FPF hace exactamente eso, y Assurance 2.0 y Nidus también.
 
-**Frontera temporal: antecedida.** FPF vuelve a hacerlo — su tesis es que *cuán justificado está algo* y *hasta cuándo sigue válida esa justificación* son dimensiones independientes. Sumado a toda la línea de living/continuous assurance, "los artefactos de assurance deben evolucionar" no tiene novedad alguna. Lo que el issue #6 propone es más específico — preservar T₀ y emitir conocimiento T₁ que lo referencia, en vez de actualizar el evento retrospectivamente, más cerca de una historia epistemológica de solo agregar que de un documento vivo — pero eso no alcanza para reclamar novedad sin más búsqueda.
+**Frontera temporal: antecedida.** FPF vuelve a hacerlo: su tesis es que *cuán justificado está algo* y *hasta cuándo sigue válida esa justificación* son dimensiones independientes. Sumado a toda la línea de living/continuous assurance, "los artefactos de assurance deben evolucionar" no tiene novedad alguna. Lo que el issue #6 propone es más específico (preservar T₀ y emitir conocimiento T₁ que lo referencia, en vez de actualizar el evento retrospectivamente, más cerca de una historia epistemológica de solo agregar que de un documento vivo), pero eso no alcanza para reclamar novedad sin más búsqueda.
 
 **Frontera representacional: no encontré la misma formulación**, y los dos candidatos que parecían matarla no lo hacen.
 
 La dimensión *Formality* de FPF (informal, estructurada, empírica, formal) mide **cuán rigurosamente está expresada y sustentada** una afirmación, no si el vocabulario puede representar el fenómeno. Un artefacto podría ser perfectamente formal y contener `against: repository` cuando lo verdadero era `external_source`: formalidad excelente, representación falsa.
 
-El *semantic gap* de SACO es la ausencia reconocida de información **semánticamente requerida** para interpretar un elemento de contexto — una limitación epistémica persistente, explícitamente no un indicador de error ni un placeholder. Sigue siendo *falta conocimiento dentro de una representación capaz de alojarlo*. El caso #7 es lo contrario: el conocimiento existe y es preciso ("verifiqué contra un paper externo"), y lo que falta es la **categoría capaz de decirlo**.
+El *semantic gap* de SACO es la ausencia reconocida de información **semánticamente requerida** para interpretar un elemento de contexto, una limitación epistémica persistente, explícitamente no un indicador de error ni un placeholder. Sigue siendo *falta conocimiento dentro de una representación capaz de alojarlo*. El caso #7 es lo contrario: el conocimiento existe y es preciso ("verifiqué contra un paper externo"), y lo que falta es la **categoría capaz de decirlo**.
 
 La distinción que sale de ahí es más defendible que llamar a ambas cosas incompletitud semántica:
 
@@ -264,11 +264,11 @@ Y explica por qué #7 fue invisible al validador. El checker de completitud de A
 
 > **#5 es un fallo *dentro* del lenguaje. #7 es un fallo *del* lenguaje.**
 
-**Lo que sí podría ser contribución, entonces, no es ninguna frontera por separado**: es tratarlas como **ortogonales y con mitigaciones incompatibles**. Ante una deficiencia epistémica corresponde más evidencia, más provenance, más enforcement. Ante una deficiencia representacional eso mismo es contraproducente — más restricciones sobre un vocabulario insuficiente aumentan la presión para elegir una categoría falsa — y la respuesta correcta es casi opuesta: ampliar o corregir el modelo. Ante una deficiencia temporal no corresponde ninguna de las dos, sino preservar T₀ y relacionarlo con evidencia nueva. No encontré en FPF, SACO, CLARISSA, Nidus ni en la línea de evolución de assurance cases una taxonomía que derive esas tres clases de error y sus respuestas incompatibles.
+**Lo que sí podría ser contribución, entonces, no es ninguna frontera por separado**: es tratarlas como **ortogonales y con mitigaciones incompatibles**. Ante una deficiencia epistémica corresponde más evidencia, más provenance, más enforcement. Ante una deficiencia representacional eso mismo es contraproducente (más restricciones sobre un vocabulario insuficiente aumentan la presión para elegir una categoría falsa), y la respuesta correcta es casi opuesta: ampliar o corregir el modelo. Ante una deficiencia temporal no corresponde ninguna de las dos, sino preservar T₀ y relacionarlo con evidencia nueva. No encontré en FPF, SACO, CLARISSA, Nidus ni en la línea de evolución de assurance cases una taxonomía que derive esas tres clases de error y sus respuestas incompatibles.
 
 **Dos cautelas.** *Adecuación representacional* no debe reclamarse como invención: es terminología vieja de representación del conocimiento, y la literatura de assurance ya discute expresividad y formalización. Lo potencialmente nuevo es tratar la adecuación representacional **del propio artefacto de assurance** como frontera distinta de la fuerza epistémica de sus afirmaciones. Y el marco todavía no debería promoverse a claim principal: pasa de observación interna a **hipótesis conceptual que merece revisión bibliográfica dedicada**, y nada más.
 
-**Un dato metodológico a favor**: el marco no nació top-down. Los tres casos fallaron primero — podíamos decirlo pero verificábamos demasiado poco (#5); sabíamos exactamente qué ocurrió pero no podíamos decirlo fielmente (#7); podíamos decirlo y justificarlo en T₀ pero faltaba representar lo aprendido en T₁ (#6) — y la clasificación apareció después. Eso no prueba que sea universal, pero evita que parezca una taxonomía inventada para llenar tres casilleros.
+**Un dato metodológico a favor**: el marco no nació top-down. Los tres casos fallaron primero: podíamos decirlo pero verificábamos demasiado poco (#5); sabíamos exactamente qué ocurrió pero no podíamos decirlo fielmente (#7); podíamos decirlo y justificarlo en T₀ pero faltaba representar lo aprendido en T₁ (#6). La clasificación apareció después. Eso no prueba que sea universal, pero evita que parezca una taxonomía inventada para llenar tres casilleros.
 
 **Dónde atacarla la próxima vez**: no buscando otro sistema con "tres fronteras", sino un trabajo previo que ya haya dicho, en esencia, que *un artefacto de assurance puede fallar porque no sabemos lo suficiente, porque su lenguaje de representación no permite expresar fielmente lo que sí sabemos, o porque el conocimiento correcto cambia después; que esos defectos son ortogonales; y que requieren mitigaciones distintas.*
 
@@ -282,7 +282,7 @@ La contribución potencial, entonces, es estrecha y enunciable así: **hacer exp
 
 ### La salida a la contradicción con "residuo, no cobertura"
 
-Hay una objeción obvia: mover la fila "no existen riesgos sin declarar" hacia arriba obligaría a declarar que corrió SAST, que corrió el fuzzer, que hay 95 % de cobertura — y eso reconstruye el artefacto de cobertura que el proyecto rechazó.
+Hay una objeción obvia: mover la fila "no existen riesgos sin declarar" hacia arriba obligaría a declarar que corrió SAST, que corrió el fuzzer, que hay 95 % de cobertura, y eso reconstruye el artefacto de cobertura que el proyecto rechazó.
 
 La salida es no intentar nunca mover esa fila. Queda marcada de forma permanente como **afirmación de mundo abierto, no verificable en principio**, y eso es parte de la filosofía del protocolo, no una carencia a resolver.
 
@@ -345,7 +345,7 @@ Sigue:   PROVIDER_ASSERTED que E haya servido realmente M.
 
 Es evidencia real y vale la pena, pero no es lo que parecía prometer.
 
-**Por eso no debería ser el default.** Hoy el gate no necesita claves de API, no corre modelos y no manda código a ningún servicio: trabaja sobre evidencia ya versionada. Perder esa propiedad — que es justamente la que hace la herramienta adoptable en entornos restringidos, los mismos del perfil minimizado — a cambio de poder demostrar que se llamó a un endpoint pidiendo cierto modelo, es mal negocio. La forma correcta es **verificación offline de evidencia por default, ejecución atestiguada como perfil opcional** para organizaciones que quieran pagar ese costo.
+**Por eso no debería ser el default.** Hoy el gate no necesita claves de API, no corre modelos y no manda código a ningún servicio: trabaja sobre evidencia ya versionada. Perder esa propiedad, que es justamente la que hace la herramienta adoptable en entornos restringidos, los mismos del perfil minimizado, a cambio de poder demostrar que se llamó a un endpoint pidiendo cierto modelo, es mal negocio. La forma correcta es **verificación offline de evidencia por default, ejecución atestiguada como perfil opcional** para organizaciones que quieran pagar ese costo.
 
 La ventaja de modelar la escala desde ahora es que el modelo conceptual no tiene que cambiar cuando el campo avance. Si algún día los proveedores soportan proof-of-inference, el runner guarda `provider_response`, `model_commitment` e `inference_proof`, y disensor los valida. La misma propiedad avanza sin rediseñar el artefacto:
 
@@ -424,7 +424,7 @@ De todo lo anterior sale la pregunta que probablemente sea la más interesante d
 
 Y sale también la dirección de evolución, que no es la obvia. **La evolución natural de disensor no es hacer cada vez más obligatorio el JSON.** Es aumentar la parte del artefacto que puede verificarse independientemente y reducir la que necesita ser creída, moviendo propiedades nominales entre las clases de la frontera de assurance.
 
-Trust Without Trusting marca el horizonte: *declarado → verificado externamente → recomputable de forma independiente*. Hoy el artefacto mezcla esas clases sin distinguirlas en su propia estructura, y hacer la distinción explícita en el esquema — registrar no sólo qué se afirma sino con qué raíz de confianza — sería el paso concreto más barato en esa dirección. No requiere criptografía nueva ni cambiar el flujo: requiere admitir en el esquema que no todas las afirmaciones del artefacto tienen el mismo estatus.
+Trust Without Trusting marca el horizonte: *declarado → verificado externamente → recomputable de forma independiente*. Hoy el artefacto mezcla esas clases sin distinguirlas en su propia estructura, y hacer la distinción explícita en el esquema (registrar no sólo qué se afirma sino con qué raíz de confianza) sería el paso concreto más barato en esa dirección. No requiere criptografía nueva ni cambiar el flujo: requiere admitir en el esquema que no todas las afirmaciones del artefacto tienen el mismo estatus.
 
 ### La restricción de producto
 
@@ -436,7 +436,7 @@ De contrastar el protocolo contra sus vecinos salen tres direcciones, y el orden
 
 ### P1: el assurance de las refutaciones
 
-**Aquí se toma la decisión con consecuencias**: `refuted_verifiable` significa que este hallazgo no requiere modificar el código. Es el estado terminal donde una declaración falsa tiene más efecto y menos resistencia, y es más importante que la identidad del revisor — una identidad perfectamente atestiguada no arregla que un modelo criptográficamente identificado haya producido una refutación equivocada.
+**Aquí se toma la decisión con consecuencias**: `refuted_verifiable` significa que este hallazgo no requiere modificar el código. Es el estado terminal donde una declaración falsa tiene más efecto y menos resistencia, y es más importante que la identidad del revisor: una identidad perfectamente atestiguada no arregla que un modelo criptográficamente identificado haya producido una refutación equivocada.
 
 **Defecto verificado en la implementación de referencia.** El esquema exige `evidence` para `refuted_verifiable` (`$defs/finding/allOf[2]`), pero `$defs/evidence` no declara `minProperties`, `required` ni `anyOf`, y ninguna regla liga ese estado con `verification.against`. Reproducción, partiendo de `spec/examples/example_2_diff_gate.json` y mutando su hallazgo `h3`:
 
@@ -450,12 +450,12 @@ De contrastar el protocolo contra sus vecinos salen tres direcciones, y el orden
 
 Esa contradicción semántica se corrige barato y conviene hacerlo antes que cualquier arquitectura nueva. Son **dos invariantes independientes**, y conviene tratarlos como dos criterios de aceptación separados porque evitan clases distintas de declaración cosmética:
 
-- **A, evidencia material**: `evidence` con al menos una de `text`, `link` o `hash`. Con `anyOf` sobre `required`, no con `minProperties: 1` — si el objeto gana metadata más adelante (`kind`, `source`), un `{"kind": "repository_fact"}` satisfaría la cardinalidad sin aportar evidencia.
+- **A, evidencia material**: `evidence` con al menos una de `text`, `link` o `hash`. Con `anyOf` sobre `required`, no con `minProperties: 1`: si el objeto gana metadata más adelante (`kind`, `source`), un `{"kind": "repository_fact"}` satisfaría la cardinalidad sin aportar evidencia.
 - **B, blanco verificable**: `verification.against ∈ {repository, execution}`, excluyendo `none`.
 
 No resuelve Goodhart. Evita que el artefacto se contradiga a sí mismo, que es distinto y es prerrequisito.
 
-**Corregido en residue/v0.3**, bajo un identificador nuevo y no redefiniendo v0.2 en el lugar: un artefacto válido bajo un identificador de esquema no debería volverse inválido bajo ese mismo identificador. La razón no fue compatibilidad — no hay usuarios y ninguno de los 32 artefactos del repositorio violaba los invariantes propuestos — sino que el producto entero se apoya en que un identificador de esquema signifique una cosa, y esa disciplina se aplica primero a sí misma. Reproducción y criterios de aceptación en el [issue #5](https://github.com/NicolasRocchia/disensor/issues/5).
+**Corregido en residue/v0.3**, bajo un identificador nuevo y no redefiniendo v0.2 en el lugar: un artefacto válido bajo un identificador de esquema no debería volverse inválido bajo ese mismo identificador. La razón no fue compatibilidad (no hay usuarios y ninguno de los 32 artefactos del repositorio violaba los invariantes propuestos), sino que el producto entero se apoya en que un identificador de esquema signifique una cosa, y esa disciplina se aplica primero a sí misma. Reproducción y criterios de aceptación en el [issue #5](https://github.com/NicolasRocchia/disensor/issues/5).
 
 **El problema conceptual de fondo es más profundo, y Assurance 2.0 ya tiene la distinción para nombrarlo**: separar *lo medido* de *lo útil*. Que se haya observado algo y que de esa observación se siga la conclusión son dos pasos distintos.
 
@@ -464,7 +464,7 @@ MEDIDO:  corrimos el test de concurrencia 100 veces sobre el commit abc123 y pas
 ÚTIL:    por lo tanto la race condition no existe.
 ```
 
-Lo primero puede ser mecánicamente verificable hasta el último detalle: qué test, qué commit, qué iteraciones, qué exit code, qué hash del reporte. Lo segundo no se deduce de lo primero — un test que pasa es evidencia de una observación, no refutación de una afirmación universal.
+Lo primero puede ser mecánicamente verificable hasta el último detalle: qué test, qué commit, qué iteraciones, qué exit code, qué hash del reporte. Lo segundo no se deduce de lo primero: un test que pasa es evidencia de una observación, no refutación de una afirmación universal.
 
 De ahí que una escala unidimensional no alcance. Son **dos dimensiones independientes**:
 
@@ -478,7 +478,7 @@ De ahí que una escala unidimensional no alcance. Son **dos dimensiones independ
 
 No forman una escala total, y el ejemplo de la race condition es justamente el cruce incómodo: evidencia `runner_attested` con inferencia `empirical`. Alta provenance, inferencia débil.
 
-Eso revela un problema de naming en el contrato actual: **`refuted_verifiable` fusiona dos afirmaciones distintas** — que la evidencia es verificable y que la refutación lo es. No cambiar el nombre hoy, pero sí redefinir formalmente qué significa, y considerar para residue/v1 descomponerlo en lugar de seguir metiendo semántica adentro del enum.
+Eso revela un problema de naming en el contrato actual: **`refuted_verifiable` fusiona dos afirmaciones distintas**: que la evidencia es verificable y que la refutación lo es. No cambiar el nombre hoy, pero sí redefinir formalmente qué significa, y considerar para residue/v1 descomponerlo en lugar de seguir metiendo semántica adentro del enum.
 
 **Cómo avanzar sin romper la propiedad de no ejecutar nada.** disensor no debería empezar a correr tests declarados desde el JSON: dejar que un artefacto diga qué comando ejecutar abre una superficie de seguridad nueva. Pero puede **consumir attestations** producidas por el CI que ya corre. Existe el predicado [Test Result de in-toto](https://github.com/in-toto/attestation/tree/main/spec/predicates) ("a generic schema to express results of any type of tests"), el de Vulnerability, y el bundle de SLSA Source incluye code review para el commit revisado. El circuito sería:
 
@@ -500,7 +500,7 @@ disensor hoy tiene `desacuerdo → residuo → historia`, y nada más. Falta: *�
 
 La respuesta no es copiar Nidus y convertir cada residuo en regla. Hay una versión propia, y la diferencia importa: el motor de Nidus es *falla → restricción*; el de disensor sería **historial de incertidumbre → resultado observado → calibración de qué evidencias merecían confianza → endurecimiento de la frontera**.
 
-El artefacto histórico no se toca — eso rompería G8. Se emite otro, que lo referencia:
+El artefacto histórico no se toca: eso rompería G8. Se emite otro, que lo referencia:
 
 ```
 outcome
@@ -511,15 +511,15 @@ outcome
   evidence:     ...
 ```
 
-Con eso aparece una medición que hoy es imposible. No sólo "4 refutaciones verificables", sino cuántas de ellas se invalidaron después — y, mucho más interesante, **desagregado por clase de evidencia**: qué proporción de las refutaciones basadas en prosa del repositorio terminó invalidada, contra las basadas en un test atestiguado por CI. Ahí la escala de assurance deja de ser filosófica y se vuelve calibrable.
+Con eso aparece una medición que hoy es imposible. No sólo "4 refutaciones verificables", sino cuántas de ellas se invalidaron después y, mucho más interesante, **desagregado por clase de evidencia**: qué proporción de las refutaciones basadas en prosa del repositorio terminó invalidada, contra las basadas en un test atestiguado por CI. Ahí la escala de assurance deja de ser filosófica y se vuelve calibrable.
 
-Cuidado con la interpretación, y es una asimetría real: *que no haya aparecido un bug nunca demuestra que la refutación fuera correcta* — sigue siendo mundo abierto. Pero `refutation_invalidated` sí es una observación positiva fuerte. La asimetría no invalida la medición; la limita a una dirección.
+Cuidado con la interpretación, y es una asimetría real: *que no haya aparecido un bug nunca demuestra que la refutación fuera correcta*: sigue siendo mundo abierto. Pero `refutation_invalidated` sí es una observación positiva fuerte. La asimetría no invalida la medición; la limita a una dirección.
 
 De ahí sale un **non-goal que conviene fijar antes que el diseño**: con 500 refutaciones verificables y 12 posteriormente invalidadas no se puede afirmar "precisión 97,6 %". Las otras 488 son *unknown*, no true negatives. Inventar ese denominador produciría exactamente el sello de calidad que el protocolo existe para no emitir. Lo afirmable es "observamos 12 refutaciones contradichas después", y comparar entre ellas qué clase de evidencia las sostenía. Eso es interesante sin inventar denominadores.
 
 Dos cosas más que esto habilita:
 
-- **El aprendizaje no debe forzarse a ser regla.** Un outcome puede producir una regla nueva, un requisito de evidencia más fuerte para cierta clase, un cambio de criticidad, una modificación del brief adversarial, una política organizacional — o simplemente una lección no mecanizable. Obligar a que todo aprendizaje se cristalice en regla es la misma trampa de Goodhart un nivel más arriba.
+- **El aprendizaje no debe forzarse a ser regla.** Un outcome puede producir una regla nueva, un requisito de evidencia más fuerte para cierta clase, un cambio de criticidad, una modificación del brief adversarial, una política organizacional, o simplemente una lección no mecanizable. Obligar a que todo aprendizaje se cristalice en regla es la misma trampa de Goodhart un nivel más arriba.
 - **El residuo como índice de incidentes.** Cuando aparece un defecto en producción, se puede preguntar si hubo antes una objeción relacionada. Si la hubo, ese bug no era desconocido: hubo una señal adversarial previa que se descartó. Como dato de proceso es potente, y es un uso del artefacto que no estaba en su diseño original.
 - **El outcome necesita su propia provenance.** Sin eso el problema sólo se muda a "el agente dice que aquella refutación resultó incorrecta". Un outcome declarado, uno ligado a un issue, una regresión atestiguada por CI y uno atestiguado por un incidente no valen lo mismo, y la tabla de estado / raíz de confianza / techo aplica igual acá.
 
@@ -533,7 +533,7 @@ Y responde parcialmente a Goodhart, sin eliminarlo. Hoy el agente puede aprender
 
 La ronda que produjo este documento se cerró con su propia declaración (evento `aabede1f`), y de aplicarse el formato a sí mismo salieron tres observaciones sobre el protocolo, en orden creciente de interés:
 
-1. **Refutada**: que el modelo no supiera clasificar un hallazgo sobre el propio protocolo descubierto durante una ronda documental. El contrato lo resuelve — `event.gate` describe *qué se sometió a revisión* y no dónde está el hallazgo, `repository` incluye contratos, y `debt_recorded` significa válido pero diferido. El dominio del hallazgo no tiene que coincidir con la modalidad de la revisión, y esa separación ya estaba en el diseño; sólo no se había puesto a prueba.
+1. **Refutada**: que el modelo no supiera clasificar un hallazgo sobre el propio protocolo descubierto durante una ronda documental. El contrato lo resuelve: `event.gate` describe *qué se sometió a revisión* y no dónde está el hallazgo, `repository` incluye contratos, y `debt_recorded` significa válido pero diferido. El dominio del hallazgo no tiene que coincidir con la modalidad de la revisión, y esa separación ya estaba en el diseño; sólo no se había puesto a prueba.
 2. **Diferida sin decidir**: el artefacto no distingue un hallazgo *en* el diff de uno descubierto *al verificar* el diff contra un contrato existente. Un campo tipo `relation_to_submission` lo expresaría, pero con un caso no hay cómo saber si aporta o sólo suma ceremonia.
 3. **Confirmada, y es la de fondo**: `verification.against` no puede representar evidencia externa. Su vocabulario (`repository` = código, config, contratos; `execution` = correr tests o el programa; `none`) está diseñado para software, y dos hallazgos de esa misma ronda se resolvieron verificando contra papers. Ninguna de las tres opciones era verdadera, así que ambos quedaron declarados como `repository` mientras su `detail` dice "verificado contra el paper" ([issue #7](https://github.com/NicolasRocchia/disensor/issues/7)).
 
