@@ -1,0 +1,83 @@
+{
+ "schema": "residue/v0.3",
+ "profile": "full",
+ "event": {
+  "event_id": "a8b2c95c-394e-4d92-a91c-67c18d6b10fe",
+  "created_at": "2026-08-20T15:03:34-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "bb311d1296c451dcad62f10d3c4847d4683bc155",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  },
+  "base_commit": "8b6030bb75f141fe7e4d79b7359f27ca8f915126"
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "openai",
+    "model": "codex-cli",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    },
+    "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "critical",
+   "title": "El test que hace cumplir la regla editorial se podia esquivar con un nombre de archivo con espacios",
+   "description": "La enumeracion usaba `git ls-files` sin `-z` y cortaba con `.split()`, que separa tambien por espacios. Un markdown rastreado llamado `mi nota.md` se partia en dos rutas inexistentes, las dos se saltaban en silencio, y el archivo que si tenia el guion largo nunca se abria: el test pasaba justo cuando tenia que fallar. Es el mismo hueco que ya se habia corregido en gitctx.py para el gate, cometido de nuevo en el test nuevo.",
+   "location": "tests/test_docs.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido con la salida de `git ls-files` simulada: con `.split()` el nombre con espacio se partia en tres fragmentos; con corte por NUL queda como una sola ruta y el archivo se abre."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_a_name_with_spaces_stays_one_path"
+   }
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "execution_gap",
+    "requires_human_attention": true,
+    "gap_reason": "environment_not_reproducible",
+    "description": "El revisor no pudo repetir de forma independiente el build, el `twine check` ni la inspeccion del PKG-INFO: no tenia `build` disponible en sus interpretes. Lo declaro explicitamente y marco como no valida la unica medicion que alcanzo a imprimir, en vez de darla por buena. La verificacion de que la pagina de PyPI queda sin guiones largos quedo apoyada solo en la corrida del generador."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 1,
+   "valid": {
+    "incorporated": 1,
+    "debt_recorded": 0,
+    "owner_decision": 0
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 0
+  }
+ }
+}
