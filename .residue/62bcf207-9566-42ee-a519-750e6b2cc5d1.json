@@ -1,0 +1,117 @@
+{
+ "schema": "residue/v0.3",
+ "profile": "full",
+ "event": {
+  "event_id": "62bcf207-9566-42ee-a519-750e6b2cc5d1",
+  "created_at": "2026-08-20T16:42:38-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "1cfe759fa3cd51817b3774505f7596b8d76c4891",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  },
+  "base_commit": "08e3845b1113aa3c49cc1655801d20c04e080c74"
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "openai",
+    "model": "codex-cli",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    },
+    "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "major",
+   "title": "La correccion de la ayuda arreglaba un texto que el usuario no ve donde decia verlo",
+   "description": "El commit anterior cambio el `help=` del subparser, que solo aparece en el listado de `disensor --help`. Lo que muestra `disensor gate --help` es `description`, que no existia, asi que esa interfaz seguia sin decir nada de los chequeos. Y el test daba verde igual porque leia cli.py como texto en vez de ejercitar la interfaz.",
+   "location": "src/disensor/cli.py, tests/test_docs.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido corriendo `disensor gate --help`: la salida solo enumeraba opciones, sin mencionar los chequeos. Se agrego `description` al subparser y ahora los declara."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_the_gate_help_names_every_implemented_check"
+   }
+  },
+  {
+   "id": "h2",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El test del esquema derivaba la expectativa del mismo valor que debia proteger",
+   "description": "Comparaba el `$id` contra la descripcion del propio archivo, asi que bajar los dos a v0.2 al mismo tiempo lo dejaba pasar, contradiciendo el contrato vigente sin que nada lo detectara. Un test que se compara consigo mismo no protege nada.",
+   "location": "tests/test_docs.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido con la mutacion simultanea de `$id` y descripcion a v0.2: el test viejo pasaba. Con CURRENT_SCHEMA como referencia, falla."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_the_schema_declares_the_version_the_tool_enforces"
+   }
+  },
+  {
+   "id": "h3",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "El test de la ayuda solo comparaba los extremos del rango y con un digito",
+   "description": "Seguia pasando al eliminar todas las etiquetas de un chequeo intermedio y al agregar un G10, que el regex de un solo digito ignoraba.",
+   "location": "tests/test_docs.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido agregando un G10 a gate.py: el test viejo pasaba. Ahora el regex acepta dos digitos y ademas se exige que los chequeos sean contiguos, porque un rango no puede describir con honestidad un conjunto con huecos."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_the_gate_help_names_every_implemented_check"
+   }
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "execution_gap",
+    "requires_human_attention": true,
+    "gap_reason": "other",
+    "description": "El revisor no ejecuto el workflow alojado ni comprobo por red que el SHA del pin sea el de la version publicada: lo verifico solo contra el repositorio local, donde ese commit tiene el tag v0.6.1 y su pyproject declara esa version. La correspondencia entre ese SHA y lo que GitHub sirve como Action queda sin ejecutar, que es justamente la clase de gap que el issue #18 registra como patron del piloto."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 3,
+   "valid": {
+    "incorporated": 3,
+    "debt_recorded": 0,
+    "owner_decision": 0
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 0
+  }
+ }
+}
