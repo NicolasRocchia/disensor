@@ -26,7 +26,7 @@
         "full",
         "minimized"
       ],
-      "description": "full: includes finding texts and evidence (internal use or SaaS with full trust). minimized: R9 strips the free text it covers (finding titles, descriptions and locations; evidence text and link; residue item descriptions; a clear repository URL) and the extension space stays opaque. It narrows the leak channel, it does not close it: the fields R9 does not reach still admit free prose, and an identifier-shaped key can still carry a message. Treat it as a reduction of surface, not as a guarantee that nothing leaves."
+      "description": "full: includes finding texts and evidence (internal use or SaaS with full trust). minimized: R9 strips the free text it covers (finding titles, descriptions and locations; evidence text and link; residue item descriptions; and a `repository` that starts with `http`) and the extension space stays opaque. It narrows the leak channel, it does not close it: the fields R9 does not reach still admit free prose, and an identifier-shaped key can still carry a message. Treat it as a reduction of surface, not as a guarantee that nothing leaves."
     },
     "event": {
       "type": "object",

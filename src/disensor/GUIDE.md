@@ -150,7 +150,9 @@ length. Count, do not estimate.
 
 R9 strips the free text it covers: no titles, descriptions or locations in
 findings; no descriptions in items; evidence only as `hash`; and it rejects a
-`repository` that looks like a clear URL.
+`repository` that starts with `http`. Note the literal: that check does not
+catch `HTTPS://`, `ssh://`, `git://` or `git@host:repo`, all of which are clear
+locators that pass today.
 
 **It narrows the leak channel; it does not close it.** R9 does not reach every
 string in the artifact: `residue.declaration`, `event.pr`, `verification.detail`,

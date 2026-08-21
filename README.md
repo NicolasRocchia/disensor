@@ -215,7 +215,7 @@ is meant for environments where the text of the findings cannot leave.
 
 In the `minimized` profile, R9 strips the finding fields the protocol defines,
 `text` and `link` from every piece of evidence, the residue item `description`,
-and a clear repository URL. The schema also requires every value under
+and a `repository` that starts with `http`. The schema also requires every value under
 `extensions` to be opaque (a `sha256:` hash, a number, a boolean, `null`, or
 containers of those) and every key to have the shape of an identifier: a name,
 not a message.
