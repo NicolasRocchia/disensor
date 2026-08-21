@@ -36,9 +36,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Los pares sujetos a sincronia. La guia entra cuando exista su version
-# castellana; hasta entonces este es el unico par.
-PARES = [(ROOT / "README.md", ROOT / "README.es.md")]
+# Los pares sujetos a sincronia.
+PARES = [
+    (ROOT / "README.md", ROOT / "README.es.md"),
+    (ROOT / "src" / "disensor" / "GUIDE.md", ROOT / "src" / "disensor" / "GUIDE.es.md"),
+]
 
 CERCA = re.compile(r"^```(\w*)")
 TITULO = re.compile(r"^## +(.+?)\s*$")

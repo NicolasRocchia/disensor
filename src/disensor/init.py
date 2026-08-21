@@ -31,17 +31,18 @@ CLAUDE_HEADING = "## disensor: residue declaration at event close"
 
 CLAUDE_SECTION = f"""{CLAUDE_HEADING}
 
-Before closing a plan or a diff, run the round and then declare it:
+Before closing a plan, a diff or an architecture decision, run the round and
+then declare it:
 
-1. `disensor prompt --gate <plan|diff>` prints the adversarial brief. Hand it,
-   with the plan or the diff, to a reviewer from ANOTHER model family (Codex,
-   Gemini, whatever is at hand: a free tier is enough). Same family as the
+1. `disensor prompt --gate <plan|diff|architecture>` prints the adversarial
+   brief. Hand it, with the material under review, to a reviewer from ANOTHER
+   model family (Codex, Gemini, whatever is at hand: a free tier is enough). Same family as the
    generator does not count, and rule R4 rejects the declaration if you try.
 2. Verify every finding against the actual code before accepting it. The
    reviewer is decorrelated, not right.
-3. `disensor new --gate <plan|diff> --level <A|B|C>` creates the template
-   under `.residue/`. Its `prompt_hash` is
-   `disensor prompt --gate <plan|diff> --hash`.
+3. `disensor new --gate <plan|diff|architecture> --level <A|B|C>` creates the
+   template under `.residue/`. Its `prompt_hash` is
+   `disensor prompt --gate <plan|diff|architecture> --hash`.
 4. Fill it following the disensor skill (`.claude/skills/disensor/SKILL.md`;
    the same guide is available as `disensor guide`). Do not invent findings
    or states: the artifact declares what happened, not what should have
@@ -191,7 +192,7 @@ def main_init(args) -> int:
     for line in report:
         print(line)
     print(
-        "\nNext: `disensor prompt --gate <plan|diff>` prints the brief to hand to a "
+        "\nNext: `disensor prompt --gate <plan|diff|architecture>` prints the brief to "
         "reviewer from ANOTHER model family (rule R4; a free tier is enough). Then "
         "`disensor new` creates the declaration, the skill or `disensor guide` explains "
         "every field, and `disensor validate` checks it before committing."

@@ -3,20 +3,29 @@
 This guide is the single source of truth for filling the artifact that
 `disensor new` creates under `.residue/`. It ships inside the package:
 `disensor guide` prints it for any coding agent, and `disensor init` installs
-it as a Claude Code skill. The validator (`disensor validate`) and the CI gate
-enforce everything described here; filling the artifact correctly the first
-time is cheaper than iterating against their errors.
+it as a Claude Code skill.
+
+The validator (`disensor validate`) enforces much of what is described here,
+but not all of it: where a validator rule exists, this guide names it, and what
+is not named is the method's obligation that nobody checks for you. The CI gate adds
+its own checks, G1 to G9: some read the artifact you are filling (its level,
+its confinement, whether its reviewed commit belongs to the pull request) and
+some read the pull request as a whole (coverage, integration witness,
+append-only evidence). They are documented in the reference, not here.
+Filling the artifact correctly the first time is cheaper than iterating against
+their errors.
 
 ## The round, and then the declaration
 
-1. `disensor prompt --gate <plan|diff>` prints the adversarial brief. Hand it,
-   together with the plan or the diff, to a reviewer from ANOTHER model family.
+1. `disensor prompt --gate <plan|diff|architecture>` prints the adversarial brief. Hand it,
+   together with the material under review, to a reviewer from ANOTHER model
+   family.
    A free tier is enough. Same family as the generator does not count, and rule
    R4 rejects the declaration if you try.
 2. Verify every finding against the actual code before accepting it. The
    reviewer is decorrelated, not right, and an unverified finding is not a
    finding.
-3. `disensor new --gate <plan|diff> --level <A|B|C>` creates the template,
+3. `disensor new --gate <plan|diff|architecture> --level <A|B|C>` creates the template,
    prefilled with what git knows (repository, commits, timestamp, uuid).
 4. Fill in every `FILL_IN` marker and the findings of the round. The template
    does not validate while markers remain: that is intentional.
@@ -58,7 +67,7 @@ paths. By default everything demands `diff`.
   method, not an option.
 - `reviewers[].prompt_hash`: hash of the adversarial brief given to the
   reviewer. If you used the packaged brief, it is
-  `disensor prompt --gate <plan|diff> --hash`, and anyone can recompute that
+  `disensor prompt --gate <plan|diff|architecture> --hash`, and anyone can recompute that
   value from the same version to check what you actually asked for. If you
   wrote or edited your own brief, hash the file you really used with
   `disensor hash <brief-file>`. Either way, paste the full `sha256:...`.
@@ -100,8 +109,8 @@ info), `title`, `description`, `location` (full profile only), and:
 - `final_state`, the terminal outcome. Decision table:
   - `incorporated`: the finding changed the plan or the code. In the diff
     gate you MUST add `fix_verification` with type `diff_gate` or
-    `specific_test` (R7); `pending_in_diff_gate` is only legal in the plan
-    gate. If the reviewer's remedy was wrong and you fixed it, record
+    `specific_test` (R7); `pending_in_diff_gate` is not legal there. R7 fires
+    only in the diff gate, so plan and architecture both accept it. If the reviewer's remedy was wrong and you fixed it, record
     `remedy_adjustment`.
   - `debt_recorded`: valid, deferred; requires `debt_id` (schema).
   - `owner_decision`: valid, the owner changed scope, behavior or accepted
@@ -110,7 +119,7 @@ info), `title`, `description`, `location` (full profile only), and:
     closes a finding **without touching the code**, so it is the one that
     deserves the most resistance from you. It requires `evidence` carrying
     material content (`text`, `link` or `hash`; neither the empty object nor
-    a blank string counts) and a `verification.against` other than `none`:
+    a blank string counts, and `text` needs at least 10 characters) and a `verification.against` other than `none`:
     refuting something
     without having checked anything is a contradiction, not a refutation.
     Note what the evidence does and does not establish. "The test passed" can
@@ -137,7 +146,8 @@ Either `items` or the express absence, never an empty field.
     technical lead accepts it in writing (`lead_acceptance`, R5).
 - Absence: `"declared_absence": true` plus `declaration`, minimum 30
   characters of concrete text. Generic markers (none, n/a, all resolved,
-  ninguno, todo resuelto...) are rejected by R2 in any language.
+  ninguno, todo resuelto...) are rejected by R2. Its list is closed and covers
+  English and Spanish: an equivalent marker in another language gets through.
 
 ## Metrics
 
@@ -145,6 +155,12 @@ Either `items` or the express absence, never an empty field.
 `valid.*` and `false_positives.*` bucket equals the number of findings in
 that state, `escalated_open` likewise, `total_findings` equals the list
 length. Count, do not estimate.
+
+The rules catch less than that sentence suggests. R6 compares only when the
+findings list is non-empty, and in the full profile R10 checks `total_findings`
+against an empty list but not the buckets. So `findings: []` with a bucket set
+to one passes both. Getting the counts right is on you; the validator catches
+some mismatches, not all of them.
 
 ## Minimized profile
 
