@@ -107,7 +107,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.6.2
+      - uses: NicolasRocchia/disensor@v0.6.3
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -344,7 +344,9 @@ it says.
 
 ## Status
 
-v0.6.2, on **residue/v0.3**. Releases are published to PyPI via Trusted
+v0.6.3, on **residue/v0.3**. The long-form documentation is bilingual from this
+version: `README.md` is the English one that PyPI renders, `README.es.md` is the
+Spanish, and the filling guide ships in both. Releases are published to PyPI via Trusted
 Publishing (OIDC, `release.yml`): no tokens on any machine. v0.4 rewrote the
 gate so that it derives the PR scope from git (see "What the gate enforces") and
 v0.5 ships the packaged adversarial brief with a reproducible hash; the move to
