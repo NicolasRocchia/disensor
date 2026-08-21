@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from pathlib import Path
 
 from disensor.cli import build_parser
 from disensor.guide import guide_text
@@ -34,3 +35,32 @@ def test_hash_of_text(capsys):
     out = run(capsys, "hash", "--text", "consigna adversarial v3").strip()
     expected = hashlib.sha256("consigna adversarial v3".encode("utf-8")).hexdigest()
     assert out == f"sha256:{expected}"
+
+
+def test_no_packaged_instruction_offers_an_incomplete_gate_list():
+    """`architecture` es una compuerta publica: ofrecer solo <plan|diff> la esconde.
+
+    Ya habia un test con esta intencion, pero cubria un solo lugar: el pie de
+    ayuda de `validate` (test_cli_errors). La guia, las instrucciones que `init`
+    escribe en el CLAUDE.md del usuario y el mensaje de ayuda de `hash` seguian
+    ofreciendo dos de las tres, y por eso la omision sobrevivio a ese test.
+
+    Se chequea la forma incompleta y no la completa: enumerar donde tiene que
+    aparecer la lista entera obliga a actualizar el test cada vez que se agrega
+    una mencion, y un test que hay que actualizar para que siga pasando termina
+    actualizandose sin leerlo.
+    """
+    from disensor import init as modulo_init
+    from disensor import guide as modulo_guide
+
+    fuentes = {
+        "la guia empaquetada": guide_text(),
+        "las instrucciones que instala init": modulo_init.CLAUDE_SECTION,
+        "el modulo guide.py": Path(modulo_guide.__file__).read_text(encoding="utf-8"),
+        "el modulo init.py": Path(modulo_init.__file__).read_text(encoding="utf-8"),
+    }
+    ofensores = {n: t.count("<plan|diff>") for n, t in fuentes.items() if "<plan|diff>" in t}
+    assert not ofensores, (
+        f"ofrecen solo dos de las tres compuertas: {ofensores}. "
+        "La CLI acepta architecture y tiene su consigna empaquetada."
+    )
