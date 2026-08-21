@@ -22,4 +22,4 @@ disensor = "disensor.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-disensor = ["residue.schema.json", "GUIDE.md", "prompts/*.md"]
+disensor = ["residue.schema.json", "GUIDE.md", "GUIDE.es.md", "prompts/*.md"]
