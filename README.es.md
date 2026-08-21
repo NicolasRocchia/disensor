@@ -2,7 +2,7 @@
 
 Revisión adversarial de planes y código, con el residuo declarado.
 
-*This document is also available [in English](README.md).*
+*This document is also available [in English](https://github.com/NicolasRocchia/disensor/blob/main/README.md).*
 
 Declaración de residuo de revisión adversarial, con validación y gate de CI. Implementación de referencia del artefacto definido a partir del método de **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo hallazgo quedó resuelto, refutado con evidencia o escalado a un humano.
 
@@ -86,7 +86,7 @@ El gate valida las declaraciones que **el PR agrega**, aplica la política y pub
 
 ## Qué hace cumplir el gate
 
-Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, evidencia material obligatoria en refutaciones verificables (`text`, `link` o `hash`) contra un blanco verificable (`verification.against` distinto de `none`), atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado sin fugas de texto.
+Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, evidencia material obligatoria en refutaciones verificables (`text`, `link` o `hash`) contra un blanco verificable (`verification.against` distinto de `none`), atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado con el texto libre que R9 cubre removido.
 
 Por artefacto, contra el PR: nivel igual al declarado del repositorio (G2), Nivel A bloqueado mientras la gobernanza no esté validada (G3), política de confinamiento del revisor por nivel (G4), y pertenencia al PR del commit revisado (G5), que para la compuerta de diff exige además `base_commit`, porque una revisión de diff identifica el par (base revisada, head revisada) y no un head suelto.
 
@@ -141,7 +141,9 @@ Límite explícito: leer la política de la base convierte un bypass de un paso 
 
 No corre modelos, no pide claves de API en CI, y ningún código viaja a ningún servicio: valida un JSON que ya está versionado en el repo. La orquestación del loop vive donde el equipo ya trabaja; el perfil `minimized` del artefacto está pensado para ambientes donde el texto de los hallazgos no puede salir del entorno.
 
-En el perfil `minimized`, R9 impide el texto libre en los campos que el protocolo define y el esquema exige además que todo valor bajo `extensions` sea opaco (un hash `sha256:`, un número, un booleano o contenedores de esos) y que toda clave tenga forma de identificador: un nombre, no un mensaje. El espacio de extensión no lo interpretan las reglas, que es justamente por qué el texto estacionado ahí saldría del entorno mientras el perfil afirma que nada sale. Queda un string libre fuera del alcance, `verification.detail`, cuya política se decide en la próxima tanda.
+En el perfil `minimized`, R9 remueve los campos del hallazgo que el protocolo define, el `text` y el `link` de toda evidencia, la `description` del ítem de residuo y la URL en claro del repositorio. El esquema exige además que todo valor bajo `extensions` sea opaco (un hash `sha256:`, un número, un booleano, `null` o contenedores de esos) y que toda clave tenga forma de identificador: un nombre, no un mensaje.
+
+**El perfil angosta el canal de fuga; no lo cierra.** R9 no alcanza a `residue.declaration`, `abbreviated_path.justification`, `session_id`, `third_review.reference`, `remedy_adjustment`, `fix_verification.reference`, `risk_record` ni `verification.detail`, que siguen admitiendo prosa libre. El propio esquema lo dice del espacio de extensión: una clave con forma de identificador todavía puede contrabandear palabras. `minimized` es una reducción de superficie, no la garantía de que no sale nada.
 
 ## Conformidad entre implementaciones
 
@@ -162,7 +164,7 @@ La terminología del paper es en español; el contrato (claves y enums del esque
 | perfil completo / minimizado | profile full / minimized |
 | actores: generador, revisores, árbitro humano | actors: generator, reviewers, human_arbiter |
 | familia (de modelo) | family |
-| confinamiento (permisos, sandbox, solo lectura por instrucción) | confinement (permissions, sandbox, read_only_by_instruction) |
+| confinamiento (permisos, sandbox, solo lectura por instrucción, sin confinamiento) | confinement (permissions, sandbox, read_only_by_instruction, no_confinement) |
 | consigna (hash de la consigna adversarial) | prompt_hash |
 | estado final: incorporado, deuda registrada, decisión del dueño, refutado verificable, refutado interpretativo, escalado abierto | final_state: incorporated, debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open |
 | clases de residuo: escalado sin decisión, refutación del principal, gap de ejecución | residue classes: escalation_without_decision, principal_refutation, execution_gap |
@@ -190,7 +192,7 @@ La v0.3 no renombra ni agrega claves. Endurece los puntos donde la garantía dec
 
 Y `verification.against` acepta ahora **`external_source`**: literatura, especificaciones de terceros, advisories o documentación externa. En v0.2 una verificación contra una fuente externa no tenía categoría verdadera disponible y había que declararla como `repository` ([#7](https://github.com/NicolasRocchia/disensor/issues/7)).
 
-**Cómo migrar**: renombrar el campo `schema` a `residue/v0.3`. Si el artefacto ya satisface los invariantes de la tabla, no hay nada más que hacer: ninguno de los artefactos, ejemplos ni vectores de este repositorio los violaba. El validador reconoce un artefacto v0.2 y explica qué endureció la v0.3 en lugar de limitarse a decir que el `const` falló.
+**Cómo migrar**: poner el campo `schema` en `residue/v0.3` (la clave se conserva; cambia su valor). Si el artefacto ya satisface los invariantes de la tabla, no hay nada más que hacer: ningún fixture de este repositorio que fuera válido bajo v0.2 necesitó corrección. Los vectores de conformidad sí incluyen artefactos que los violan, a propósito, como casos negativos. El validador reconoce un artefacto v0.2 y explica qué endureció la v0.3 en lugar de limitarse a decir que el `const` falló.
 
 **Por qué se subió el identificador en vez de endurecer v0.2 en el lugar**: no fue por compatibilidad, que no había ninguna que proteger. Fue porque el producto entero se apoya en que un identificador de esquema signifique una cosa; si v0.2 significara distinto según cuándo se lo lea, la herramienta se contradiría en su propio repositorio.
 

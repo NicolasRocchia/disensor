@@ -2,7 +2,7 @@
 
 Adversarial plan & code review with a declared residue.
 
-*Este documento también está [en español](README.es.md).*
+*Este documento también está [en español](https://github.com/NicolasRocchia/disensor/blob/main/README.es.md).*
 
 Residue declaration of adversarial review, with validation and a CI gate.
 Reference implementation of the artifact defined by the **controlled
@@ -11,7 +11,7 @@ the generator verifies every finding, and the cycle ends when each finding has
 been resolved, refuted with evidence, or escalated to a human.
 
 The artifact this repo defines and enforces records how each review event ended:
-the findings with their terminal state, and the **residue** — what the cycle
+the findings with their terminal state, and the **residue**: what the cycle
 could not close by itself and rests on someone's judgement. The declaration
 lists residue, not coverage: it aims the human reviewer's scrutiny instead of
 reading as a seal of quality.
@@ -27,7 +27,7 @@ paper is in Spanish; the glossary at the end maps its terminology to the schema.
 - `spec/examples/`: three example artifacts, including a real anonymised event and the minimized profile with no free text.
 - `src/disensor/`: Python package with the validator (rules R0 to R10), the CI gate (checks G1 to G9), the PR comment rendering, artifact and repository scaffolding (`init`), and the packaged filling guide (`GUIDE.md`).
 - `action.yml`: composite GitHub Action, ready to use.
-- `docs/integracion-claude-code.md` (Spanish only): how the real flow — Claude Code plus a reviewer from another family — emits the artifact at the close of each event.
+- `docs/integracion-claude-code.md` (Spanish only): how the real flow (Claude Code plus a reviewer from another family) emits the artifact at the close of each event.
 - `docs/antecedentes.md` (Spanish only): where the method sits relative to the literature (residual doubt and defeaters, design rationale and its capture bottleneck, multi-agent adversarial review, governance runtimes, supply chain provenance), with the verification status of each reference.
 
 ## Quick start
@@ -125,7 +125,7 @@ material evidence in verifiable refutations (`text`, `link` or `hash`) against a
 verifiable target (`verification.against` other than `none`), mandatory human
 attention in interpretive refutations, a fix verified before closing a finding
 in a diff gate, rejection of generic markers (in English and in Spanish), and a
-minimized profile with no text leaks.
+minimized profile with the free text R9 covers stripped.
 
 Per artifact, against the PR: level equal to the repository's declared one (G2),
 Level A blocked while governance is not validated (G3), reviewer confinement
@@ -213,14 +213,20 @@ service: it validates a JSON that is already versioned in the repo. Orchestratin
 the loop lives where the team already works; the artifact's `minimized` profile
 is meant for environments where the text of the findings cannot leave.
 
-In the `minimized` profile, R9 forbids free text in the fields the protocol
-defines, and the schema also requires every value under `extensions` to be
-opaque (a `sha256:` hash, a number, a boolean, or containers of those) and every
-key to have the shape of an identifier: a name, not a message. The extension
-space is not interpreted by the rules, which is exactly why text parked there
-would leave the environment while the profile claims nothing leaves. One free
-string remains out of scope, `verification.detail`, whose policy is decided in
-the next batch.
+In the `minimized` profile, R9 strips the finding fields the protocol defines,
+`text` and `link` from every piece of evidence, the residue item `description`,
+and a clear repository URL. The schema also requires every value under
+`extensions` to be opaque (a `sha256:` hash, a number, a boolean, `null`, or
+containers of those) and every key to have the shape of an identifier: a name,
+not a message.
+
+**The profile narrows the leak channel; it does not close it.** R9 does not
+reach `residue.declaration`, `abbreviated_path.justification`, `session_id`,
+`third_review.reference`, `remedy_adjustment`, `fix_verification.reference`,
+`risk_record` or `verification.detail`, all of which still admit free prose. The
+schema says as much about the extension space: an identifier-shaped key can
+still smuggle words. Treat `minimized` as a reduction of surface, not as a
+guarantee that nothing leaves.
 
 ## Conformance between implementations
 
@@ -237,7 +243,7 @@ its README for verification status and deployment.
 
 ## Glossary EN-ES
 
-The contract — schema keys and enums, CLI — has been English since v0.2. The
+The contract (schema keys and enums, CLI) has been English since v0.2. The
 method paper is in Spanish, so this maps the contract you read here to the
 terminology you will find there:
 
@@ -250,7 +256,7 @@ terminology you will find there:
 | profile full / minimized | perfil completo / minimizado |
 | actors: generator, reviewers, human_arbiter | actores: generador, revisores, árbitro humano |
 | family | familia (de modelo) |
-| confinement (permissions, sandbox, read_only_by_instruction) | confinamiento (permisos, sandbox, solo lectura por instrucción) |
+| confinement (permissions, sandbox, read_only_by_instruction, no_confinement) | confinamiento (permisos, sandbox, solo lectura por instrucción, sin confinamiento) |
 | prompt_hash | consigna (hash de la consigna adversarial) |
 | final_state: incorporated, debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open | estado final: incorporado, deuda registrada, decisión del dueño, refutado verificable, refutado interpretativo, escalado abierto |
 | residue classes: escalation_without_decision, principal_refutation, execution_gap | clases de residuo: escalado sin decisión, refutación del principal, gap de ejecución |
@@ -289,9 +295,11 @@ verification against an external source had no truthful category available and
 had to be declared as `repository`
 ([#7](https://github.com/NicolasRocchia/disensor/issues/7)).
 
-**How to migrate**: rename the `schema` field to `residue/v0.3`. If the artifact
-already satisfies the invariants in the table, there is nothing else to do: none
-of this repository's artifacts, examples or vectors violated them. The validator
+**How to migrate**: set the `schema` field to `residue/v0.3` (the key stays; its value changes). If the artifact
+already satisfies the invariants in the table, there is nothing else to do: no
+fixture of this repository that was valid under v0.2 needed correcting. The
+conformance vectors do include artifacts that violate them, on purpose, as
+negative cases. The validator
 recognises a v0.2 artifact and explains what v0.3 hardened instead of merely
 saying the `const` failed.
 
