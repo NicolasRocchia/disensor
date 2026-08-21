@@ -33,7 +33,7 @@ def main_hash(args) -> int:
             print(f"cannot read {args.file}: {exc.strerror or exc}")
             print(
                 "If you used the packaged brief, its hash is "
-                "`disensor prompt --gate <plan|diff> --hash`."
+                "`disensor prompt --gate <plan|diff|architecture> --hash`."
             )
             return 1
     print("sha256:" + hashlib.sha256(data).hexdigest())

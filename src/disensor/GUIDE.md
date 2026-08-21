@@ -5,16 +5,19 @@ This guide is the single source of truth for filling the artifact that
 `disensor guide` prints it for any coding agent, and `disensor init` installs
 it as a Claude Code skill.
 
-The validator (`disensor validate`) and the CI gate enforce much of what is
-described here, but not all of it: where a rule exists, this guide names it.
-What is not named is the method's obligation and nobody checks it for you.
+The validator (`disensor validate`) enforces much of what is described here,
+but not all of it: where a validator rule exists, this guide names it, and what
+is not named is the method's obligation that nobody checks for you. The CI gate
+runs its own checks (G1 to G9) over the pull request rather than over the
+artifact you are filling; they are documented in the reference, not here.
 Filling the artifact correctly the first time is cheaper than iterating against
 their errors.
 
 ## The round, and then the declaration
 
 1. `disensor prompt --gate <plan|diff|architecture>` prints the adversarial brief. Hand it,
-   together with the plan or the diff, to a reviewer from ANOTHER model family.
+   together with the material under review, to a reviewer from ANOTHER model
+   family.
    A free tier is enough. Same family as the generator does not count, and rule
    R4 rejects the declaration if you try.
 2. Verify every finding against the actual code before accepting it. The
@@ -151,9 +154,11 @@ Either `items` or the express absence, never an empty field.
 that state, `escalated_open` likewise, `total_findings` equals the list
 length. Count, do not estimate.
 
-In the `minimized` profile the findings list may be absent. Then the counts
-stand on their own and R6 has nothing to compare them against, which is one more
-reason to count instead of estimating.
+The rules catch less than that sentence suggests. R6 compares only when the
+findings list is non-empty, and in the full profile R10 checks `total_findings`
+against an empty list but not the buckets. So `findings: []` with a bucket set
+to one passes both. Getting the counts right is on you; the validator catches
+some mismatches, not all of them.
 
 ## Minimized profile
 

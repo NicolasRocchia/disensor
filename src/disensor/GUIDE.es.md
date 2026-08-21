@@ -10,17 +10,19 @@ Esta es la traducción castellana de la guía para llenar el artefacto que
 inglesa, que es la que `disensor guide` imprime y la que `disensor init`
 instala como skill de Claude Code.
 
-El validador (`disensor validate`) y el gate de CI hacen cumplir buena parte de
-lo que está descrito acá, pero no todo: donde hay una regla, esta guía la
-nombra. Lo que no se nombra es obligación del método y nadie lo verifica por
-vos. Llenar el artefacto bien la primera vez sale más barato que iterar contra
+El validador (`disensor validate`) hace cumplir buena parte de lo que está
+descrito acá, pero no todo: donde hay una regla del validador, esta guía la
+nombra, y lo que no se nombra es obligación del método que nadie verifica por
+vos. El gate de CI corre sus propios chequeos (G1 a G9) sobre el pull request y
+no sobre el artefacto que estás llenando; están documentados en la referencia,
+no acá. Llenar el artefacto bien la primera vez sale más barato que iterar contra
 sus errores.
 
 ## La ronda, y después la declaración
 
 1. `disensor prompt --gate <plan|diff|architecture>` imprime la consigna adversarial.
-   Entregásela, junto con el plan o el diff, a un revisor de OTRA familia de
-   modelo. Con un plan gratuito alcanza. La misma familia que el generador no
+   Entregásela, junto con el material bajo revisión, a un revisor de OTRA familia
+   de modelo. Con un plan gratuito alcanza. La misma familia que el generador no
    cuenta, y la regla R4 rechaza la declaración si lo intentás.
 2. Verificá cada hallazgo contra el código real antes de aceptarlo. El revisor
    está decorrelacionado, no acertado, y un hallazgo sin verificar no es un
@@ -157,9 +159,11 @@ de `valid.*` y de `false_positives.*` es igual a la cantidad de hallazgos en ese
 estado, `escalated_open` lo mismo, y `total_findings` es el largo de la lista.
 Contá, no estimes.
 
-En el perfil `minimized` la lista de hallazgos puede faltar. Ahí los conteos
-quedan solos y R6 no tiene contra qué compararlos, que es una razón más para
-contar en vez de estimar.
+Las reglas atrapan menos de lo que esa frase sugiere. R6 compara solo cuando la
+lista de hallazgos no está vacía, y en el perfil completo R10 chequea
+`total_findings` contra una lista vacía pero no los baldes. Así que
+`findings: []` con un balde en uno pasa las dos. Que los conteos estén bien es
+tu responsabilidad; el validador atrapa algunas discrepancias, no todas.
 
 ## Perfil minimizado
 
