@@ -1,0 +1,101 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "a6d86ab0-4adb-452f-b814-30663db65dc5",
+    "created_at": "2026-08-21T17:20:00-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "7fcb48b42202955aec6e58686c513456c1b1b01d",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "4ef6cb733ac85425ae7f2cc28a9c69874062d9e7"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-code"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "prompt_hash": "sha256:eea05d8644c5d7f52c167ea4d5c952946e383bb10380daec395338c24f515c6e",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La guia decia que los chequeos G no leen el artefacto, y es falso",
+      "description": "Una correccion anterior escribio que el gate corre G1 a G9 sobre el pull request y no sobre el artefacto que se esta llenando. gate.py clasifica G2 a G5 como controles por artefacto, y la referencia ya lo decia asi. La frase le hacia creer a quien llena el artefacto que sus campos no pueden hacer fallar el CI.",
+      "location": "src/disensor/GUIDE.md, src/disensor/GUIDE.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "gate.py enumera G2 a G5 bajo el encabezado 'Per artifact' y su ejecucion inspecciona campos del artefacto para G2, G3, G4, G5, G8 y G9."
+      },
+      "final_state": "owner_decision",
+      "risk_record": "La correccion se aplico en 7fcb48b y viaja sin una ronda de verificacion independiente. El dueno acepta ese riesgo en lugar de continuar el ciclo: fueron cinco pasadas sobre esta rama con hallazgos decrecientes (8, 3, 3) y cada correccion mueve el head, asi que verificar la ultima correccion exige siempre una pasada mas. El riesgo aceptado es una imprecision de documentacion en una frase que ya fue reescrita dos veces y cuya version actual se verifico contra gate.py al escribirla. Queda como el punto que un muestreo humano deberia mirar primero si revisa esta rama."
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El test nuevo promete mas de lo que chequea",
+      "description": "Se llama 'ningun texto empaquetado ofrece dos de las tres compuertas' pero recorre una lista cerrada de cuatro fuentes y busca un literal exacto. Quedan afuera GUIDE.es.md, la ayuda de cli.py y la descripcion del esquema, todos empaquetados. Y admite variantes como 'plan or diff' o '{plan,diff}' que son la misma omision escrita distinto.",
+      "location": "tests/test_guide.py",
+      "verification": {
+        "against": "repository",
+        "detail": "La coleccion de fuentes esta escrita a mano en el test y la condicion es una sola comparacion de subcadena."
+      },
+      "final_state": "debt_recorded",
+      "debt_id": "test-compuertas-cobertura-cerrada"
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La definicion de generator sigue diciendo 'el plan o el diff'",
+      "description": "La seccion de actores define al generador como quien produjo el plan o el diff, dejando afuera la compuerta architecture, que es publica y que este mismo trabajo termino de exponer en el resto de la guia.",
+      "location": "src/disensor/GUIDE.md, src/disensor/GUIDE.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "El enum event.gate del esquema tiene tres valores y brief.GATES incluye architecture."
+      },
+      "final_state": "debt_recorded",
+      "debt_id": "guide-generator-tercera-compuerta"
+    }
+  ],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "Ningun hallazgo de esta ronda quedo escalado sin decision, ninguno fue refutado por el generador y ninguno encontro comportamiento que la ejecucion no pudiera arbitrar. El unico punto que descansa sobre el juicio de alguien esta registrado como decision del dueno en h1, con su registro de riesgo, y por definicion del esquema esa clase no es residuo: hay alguien nombrado que decidio y el registro dice que acepto."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 3,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 2,
+        "owner_decision": 1
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
