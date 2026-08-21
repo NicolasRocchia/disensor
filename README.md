@@ -221,12 +221,13 @@ containers of those) and every key to have the shape of an identifier: a name,
 not a message.
 
 **The profile narrows the leak channel; it does not close it.** R9 does not
-reach `residue.declaration`, `abbreviated_path.justification`, `session_id`,
-`third_review.reference`, `remedy_adjustment`, `fix_verification.reference`,
-`risk_record` or `verification.detail`, all of which still admit free prose. The
-schema says as much about the extension space: an identifier-shaped key can
-still smuggle words. Treat `minimized` as a reduction of surface, not as a
-guarantee that nothing leaves.
+reach every string in the artifact. `residue.declaration`, `event.pr`,
+`verification.detail`, `human_arbiter.id` and `lead_acceptance` are some of the
+fields that still admit free prose, and the list is not meant to be exhaustive:
+read the schema for the current surface. Note that a hashed `repository` does
+not help if `event.pr` carries the URL. The schema says as much about the
+extension space: an identifier-shaped key can still carry a message. Treat
+`minimized` as a reduction of surface, not as a guarantee that nothing leaves.
 
 ## Conformance between implementations
 
@@ -285,7 +286,7 @@ and two that v0.3's own adversarial round added), and adds one value to an enum:
 |---|---|---|
 | `refuted_verifiable` with `evidence: {}` | The evidence object has to carry `text`, `link` or `hash` | v0.2 required the object to be present, not its content: a finding could be closed without touching the code by declaring empty evidence ([#5](https://github.com/NicolasRocchia/disensor/issues/5)) |
 | `refuted_verifiable` with `verification.against: "none"` | `against` has to be `repository`, `execution` or `external_source` | Refuting without having verified anything is a contradiction, not a refutation ([#5](https://github.com/NicolasRocchia/disensor/issues/5)) |
-| `minimized` profile with free text in `extensions` | Every value under `extensions` has to be opaque: `sha256:` hash, number, boolean, or containers of those | The extension space is not interpreted by the rules, so text parked there left the environment while the profile claimed nothing left ([#8](https://github.com/NicolasRocchia/disensor/issues/8)) |
+| `minimized` profile with free text in `extensions` | Every value under `extensions` has to be opaque: `sha256:` hash, number, boolean, `null`, or containers of those | The extension space is not interpreted by the rules, so text parked there left the environment while the profile claimed nothing left ([#8](https://github.com/NicolasRocchia/disensor/issues/8)) |
 | `refuted_verifiable` with evidence present but blank (`link: ""`, `text` of pure whitespace) | `text` and `link` have to carry at least one non-blank character | Presence without content reopened the [#5](https://github.com/NicolasRocchia/disensor/issues/5) hole through the weakest leg of the `anyOf`; v0.3's own adversarial round caught it |
 | `minimized` profile with free text in the **keys** of `extensions` | Every key under an opaque object has the shape of an identifier (`[A-Za-z0-9._:-]`, at most 128) | An opaque value is not enough if the message travels in the name: [#8](https://github.com/NicolasRocchia/disensor/issues/8) closed the values and left the keys |
 
