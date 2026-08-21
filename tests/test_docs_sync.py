@@ -6,11 +6,20 @@ clase de garantia inflada que esta herramienta existe para no emitir.
 
 Lo que si se puede verificar:
 
-- La FORMA: cuantas secciones hay y que bloques de codigo cuelgan de cada una.
-  Comparar solo la cantidad de secciones deja pasar un renombre, un reordenamiento
-  o un agregar-uno-borrar-otro, que son divergencias reales.
+- La FORMA: cuantas secciones hay y que bloques de codigo cuelgan de cada una,
+  en orden. Detecta que se agregue o se borre una seccion, y que un bloque de
+  codigo cambie de seccion o de lenguaje.
+
+  NO detecta un renombre ni un reordenamiento entre secciones de la misma
+  forma, y no puede: los titulos estan en idiomas distintos, asi que un titulo
+  renombrado es indistinguible de uno traducido. La mayoria de las secciones de
+  estos documentos no tienen bloques, o sea que su forma es () y son
+  intercambiables para este chequeo. Es un limite del metodo, no un bug: entre
+  idiomas no hay nada mas que comparar sin traducir, y traducir seria adivinar.
 - Los BLOQUES QUE NO SON PROSA (json, yaml): son contrato y tienen que ser
-  identicos byte a byte entre los dos idiomas.
+  identicos entre los dos idiomas, despues de normalizar el fin de linea. No es
+  byte a byte: CRLF y LF equivalentes pasan, y no se comparan los delimitadores
+  del fence.
 - Los COMANDOS de los bloques bash, sin sus comentarios: los comentarios son
   prosa y tienen que diferir; los comandos son lo que el lector copia y pega.
 
@@ -34,15 +43,23 @@ PARES = [(ROOT / "README.md", ROOT / "README.es.md")]
 CERCA = re.compile(r"^```(\w*)")
 TITULO = re.compile(r"^## +(.+?)\s*$")
 # Heuristica, no un parser de shell: un comentario abre al principio de la linea
-# o despues de un espacio. NO entiende comillas, asi que un `#` adentro de un
-# string se comeria junto con lo que sigue. Es suficiente para estos documentos
-# y `test_la_heuristica_del_comentario_es_segura_para_estos_documentos` verifica
-# esa cota en lugar de darla por sentada.
+# o despues de un espacio. NO entiende comillas ni heredocs, asi que un `#` que
+# no sea comentario se come junto con lo que sigue. Es suficiente para estos
+# documentos; el alcance real de la guarda esta explicado en
+# `test_la_heuristica_del_comentario_es_segura_para_estos_documentos`.
 COMENTARIO = re.compile(r"(?:^|\s)#.*$")
 
 
 def _recorrer(texto: str):
-    """Emite ('titulo', t) y ('bloque', lenguaje, contenido) en orden de lectura."""
+    """Emite ('titulo', t) y ('bloque', lenguaje, contenido) en orden de lectura.
+
+    Reconoce solo el fence de tres backticks en columna cero, que es el unico
+    que usan estos documentos. NO maneja fences de cuatro backticks conteniendo
+    uno de tres, ni `~~~`, ni fences indentados, y un fence sin cerrar se come
+    el resto del archivo sin avisar. Es un lector de estos README, no un parser
+    de Markdown; si algun dia hacen falta esas formas, hay que reemplazarlo por
+    uno de verdad en lugar de estirar este.
+    """
     lineas = texto.splitlines()
     i = 0
     while i < len(lineas):
@@ -66,7 +83,10 @@ def _recorrer(texto: str):
 def forma(texto: str) -> list[tuple[str, ...]]:
     """Por seccion, en orden: los lenguajes de los bloques que contiene.
 
-    Es lo comparable entre idiomas: los titulos difieren, la estructura no.
+    Es lo comparable entre idiomas: los titulos difieren, la estructura no. Con
+    el costo de que dos secciones sin bloques son indistinguibles entre si, y
+    la mayoria de estos documentos lo son. Ver el limite en el docstring del
+    modulo.
     """
     secciones: list[list[str]] = [[]]
     for evento in _recorrer(texto):
@@ -105,7 +125,10 @@ def test_los_pares_tienen_la_misma_forma():
 
 def test_los_bloques_que_no_son_prosa_son_identicos():
     """json y yaml son contrato: un ejemplo de config o de workflow que diverge
-    entre idiomas le da a la mitad de los lectores algo que no funciona."""
+    entre idiomas le da a la mitad de los lectores algo que no funciona.
+
+    Compara el contenido despues de normalizar el fin de linea, no los bytes
+    crudos."""
     for a, b in PARES:
         ta, tb = a.read_text(encoding="utf-8"), b.read_text(encoding="utf-8")
         for lenguaje in ("json", "yaml"):
@@ -125,10 +148,17 @@ def test_los_pares_documentan_los_mismos_comandos():
 
 
 def test_la_heuristica_del_comentario_es_segura_para_estos_documentos():
-    """El stripper no parsea comillas. Mientras ningun comando documentado lleve
-    una, la heuristica no puede mutilar nada. Si algun dia hace falta un comando
-    con comillas, este test falla y obliga a mejorar el stripper en vez de
-    dejarlo dando verdes falsos en silencio."""
+    """El stripper no parsea shell: corta desde el primer # precedido por espacio.
+
+    Esta guarda prohibe comillas, que es el caso mas comun de un # que no es
+    comentario. NO cubre todos: un heredoc sin comillas cuyo cuerpo lleve un #
+    tambien se mutila, y esta guarda lo dejaria pasar. Y es mas estricta de lo
+    necesario en la otra direccion: rechaza un comando con comillas aunque no
+    tenga ningun #.
+
+    Se acepta por lo que cuesta la alternativa, que es parsear shell. Cuando
+    algun documento necesite un comando que esta guarda rechace, el test falla
+    y obliga a decidir en vez de dejar la heuristica dando verdes en silencio."""
     for par in PARES:
         for ruta in par:
             for bloque in bloques(ruta.read_text(encoding="utf-8"), "bash"):
@@ -144,8 +174,11 @@ def test_la_forma_ignora_los_encabezados_adentro_de_un_fence():
     assert forma(texto) == [(), ("bash",), ()]
 
 
-def test_la_forma_distingue_un_reordenamiento():
-    """La version anterior comparaba solo la cantidad de secciones y esto pasaba."""
+def test_la_forma_distingue_que_un_bloque_cambie_de_seccion():
+    """La version anterior comparaba solo la cantidad de secciones y esto pasaba.
+
+    Ojo con el alcance: distingue que un BLOQUE se mueva, no que se reordenen
+    dos secciones sin bloques. Ver el limite explicado arriba."""
     uno = "## A\n\n```bash\nx\n```\n\n## B\n"
     otro = "## A\n\n## B\n\n```bash\nx\n```\n"
     assert forma(uno) != forma(otro)
