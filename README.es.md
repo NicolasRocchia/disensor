@@ -49,7 +49,7 @@ disensor init --no-workflow          # config, CLAUDE.md y skill; sin tocar .git
 disensor prompt --gate diff          # la consigna, al revisor de otra familia
 disensor new --gate diff --level B   # y llenás la declaración con lo que pasó
 disensor validate .residue/<id>.json
-disensor gate --no-comment --base <sha-base> --head HEAD
+disensor gate --no-comment --base <base-sha> --head HEAD
 ```
 
 Recién cuando quieras que **haga cumplir**, corré `disensor init` completo (que escribe el workflow) y aplicá los requisitos de despliegue de más abajo. Antes de eso es una herramienta que te dice cómo te iría; después es un control que bloquea.
