@@ -2,7 +2,7 @@
 # (o dejar que `disensor init` lo escriba solo).
 #
 # Antes de que este workflow signifique algo, ver "Requisitos de despliegue" en
-# el README: required check estricto, CODEOWNERS sobre este archivo y sobre la
+# README.es.md: required check estricto, CODEOWNERS sobre este archivo y sobre la
 # configuracion, y ruleset definido fuera del repositorio auditado. Y reemplazar
 # el tag de abajo por el SHA al que apunta: un tag se puede mover, asi que no es
 # raiz de confianza para el codigo que decide si un merge se permite.
