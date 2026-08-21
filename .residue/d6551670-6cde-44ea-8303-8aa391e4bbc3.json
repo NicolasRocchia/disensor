@@ -1,0 +1,265 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+    "created_at": "2026-08-21T15:47:16-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "4ef6cb733ac85425ae7f2cc28a9c69874062d9e7"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-code"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "session_id": "01a02565-82df-7452-b25e-ccd955010357",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "Cinco guiones largos en el README traducido",
+      "description": "El repo prohibe el guion largo en todo Markdown versionado y lo hace cumplir en CI desde 885ca0e. El README ingles traia cinco.",
+      "location": "README.md",
+      "verification": {
+        "against": "execution",
+        "detail": "Se corrio pytest y test_no_em_dashes_in_the_documents fallo con README.md: 5. La suite habia dado verde antes porque el archivo todavia no estaba trackeado y ese test recorre git ls-files."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_docs.py::test_no_em_dashes_in_the_documents"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "La garantia del perfil minimized es falsa y la traduccion la propago",
+      "description": "Los dos README afirmaban que en el perfil minimized no sale texto libre. R9 no alcanza a residue.declaration ni a varios otros campos, y hay un vector marcado valido con prosa castellana adentro de un artefacto minimizado.",
+      "location": "README.md, README.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "R9 en rules.py solo cubre MINIMIZED_FORBIDDEN_TEXT_FIELDS, evidence.text y link, la description del item, y un repository que empiece con http. spec/vectors/valid_minimized_declared_absence.json declara valid con una declaration en prosa."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Segunda pasada del mismo revisor sobre el arbol corregido, sesion 01a0258a-7975-7062-9bef-e1dcf46664d5."
+      },
+      "remedy_adjustment": "El revisor no propuso remedio. La primera correccion se limito a los README y dejo la misma afirmacion en el esquema, en su copia empaquetada y en GUIDE.md, que son las piezas que se instalan en la maquina del usuario. La segunda pasada lo detecto y se corrigio en los cuatro lugares."
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El enum de valores opacos omitia null",
+      "description": "Los README enumeraban hash, numero, booleano y contenedores. El esquema acepta ademas null.",
+      "location": "README.md, README.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "spec/residue.schema.json declara type null entre las alternativas del valor opaco."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Segunda pasada sobre el arbol corregido, sesion 01a0258a-7975-7062-9bef-e1dcf46664d5."
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La fila de confinamiento del glosario omitia no_confinement",
+      "description": "El glosario presenta terminos del contrato y listaba tres de los cuatro modos del enum.",
+      "location": "README.md, README.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "El enum confinement.mode del esquema tiene cuatro valores."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Segunda pasada sobre el arbol corregido, sesion 01a0258a-7975-7062-9bef-e1dcf46664d5."
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La instruccion de migracion pedia renombrar la clave schema",
+      "description": "Pedia literalmente lo contrario de lo que hay que hacer: la clave se conserva y lo que cambia es su valor.",
+      "location": "README.md, README.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "El esquema exige la clave schema y restringe su valor por enum."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Segunda pasada sobre el arbol corregido, sesion 01a0258a-7975-7062-9bef-e1dcf46664d5."
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La afirmacion sobre los vectores era falsa como estaba redactada",
+      "description": "Decia que ningun vector del repositorio violaba los invariantes nuevos de v0.3. Hay vectores que los violan a proposito, como casos negativos.",
+      "location": "README.md, README.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "spec/vectors/schema_refuted_verifiable_empty_evidence.json declara valid false."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Segunda pasada sobre el arbol corregido, sesion 01a0258a-7975-7062-9bef-e1dcf46664d5."
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El enlace entre idiomas no funciona desde PyPI",
+      "description": "El selector de idioma usaba un destino relativo. PyPI renderiza README.md y resuelve los relativos contra PyPI, que no sirve archivos del repositorio.",
+      "location": "README.md, README.es.md",
+      "verification": {
+        "against": "repository",
+        "detail": "pyproject.toml declara readme igual a README.md, asi que ese documento se publica fuera del contexto del repo."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Segunda pasada sobre el arbol corregido, sesion 01a0258a-7975-7062-9bef-e1dcf46664d5."
+      }
+    },
+    {
+      "id": "h8",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El workflow generado por init apuntaba a una seccion que ya no existe",
+      "description": "Al invertir el README, el comentario que init escribe en el workflow del usuario seguia mandando a Requisitos de despliegue, titulo que quedo solo en README.es.md.",
+      "location": "src/disensor/init.py, docs/ejemplo-workflow.yml",
+      "verification": {
+        "against": "repository",
+        "detail": "El README principal pasa a tener Deployment requirements; el titulo castellano vive ahora en README.es.md."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Segunda pasada sobre el arbol corregido, sesion 01a0258a-7975-7062-9bef-e1dcf46664d5."
+      }
+    },
+    {
+      "id": "h9",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La rama no agregaba la declaracion que exige su propio gate",
+      "description": "El diff no traia ningun artefacto en .residue/ y el scope por defecto del repositorio exige compuerta diff para toda ruta.",
+      "location": ".residue/",
+      "verification": {
+        "against": "repository",
+        "detail": "disensor.config.json declara el gate como requerido y no define scope, asi que rige el default de todo a diff."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Esta misma declaracion, que el gate valida sobre el arbol de la rama."
+      }
+    },
+    {
+      "id": "h10",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La guia sigue existiendo solo en ingles",
+      "description": "La decision del duenio es que toda la documentacion larga sea bilingue. GUIDE.md viaja en el paquete, la imprime disensor guide y la instala init como skill, asi que su version castellana es un cambio de CLI y no solo de documentacion.",
+      "location": "src/disensor/GUIDE.md",
+      "verification": {
+        "against": "repository",
+        "detail": "pyproject.toml la declara en package-data y guide.py la carga por nombre fijo. No existe GUIDE.es.md ni seleccion de idioma en la CLI."
+      },
+      "final_state": "debt_recorded",
+      "debt_id": "bilingue-guide"
+    },
+    {
+      "id": "h11",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El sitio hermano publicara idiomas cruzados cuando salga el proximo tag",
+      "description": "disensor-web baja README.md declarandolo castellano y reutiliza el mismo cuerpo en los dos locales. Con el README invertido, la pagina espaniola quedaria en ingles y la inglesa afirmaria que su cuerpo esta en castellano.",
+      "location": "repositorio hermano NicolasRocchia/disensor-web, scripts/traer-docs.mjs",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado en el clon local del sitio: DOCUMENTOS declara idioma es para README.md y componer envuelve el mismo cuerpo para los dos locales. Los desacoples de poda solo emiten aviso, no cortan el build."
+      },
+      "final_state": "owner_decision",
+      "risk_record": "El duenio acepta el riesgo con una condicion de secuencia: la adaptacion del sitio se hace ANTES de publicar el tag que incluya estos cambios. Mientras no haya tag nuevo el sitio sigue bajando v0.6.2 y no se entera. Si se publicara un tag antes de adaptar el sitio, las cuatro paginas de documentacion quedarian con el idioma cruzado hasta el despliegue siguiente."
+    },
+    {
+      "id": "h12",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El git mv no habria preservado el historial del documento castellano",
+      "description": "El revisor afirmo que, al seguir existiendo README.md, git registra README.es.md como archivo nuevo y git log --follow devuelve solo el commit de la rama.",
+      "location": "README.es.md",
+      "verification": {
+        "against": "execution",
+        "detail": "Se corrio git log --oneline --follow sobre README.es.md y devuelve la cadena completa hacia atras. El stat del diff si lo muestra como archivo nuevo, porque README.md cambio demasiado para la deteccion de similitud, pero --follow resuelve el rename y es lo que importa para blame."
+      },
+      "final_state": "refuted_verifiable",
+      "evidence": {
+        "text": "git log --oneline --follow -- README.es.md devuelve 9693f3d, 182efd4, 26c3683, 885ca0e, df593f6."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "principal_refutation",
+        "finding_ref": "h12",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "El generador refuto que el git mv perdiera el historial, con la salida de git log --follow. La refutacion es del principal sobre el revisor y queda registrada para que un humano pueda no darla por buena: el revisor observaba el stat del diff, que efectivamente muestra README.es.md como archivo nuevo. Las dos observaciones son ciertas sobre cosas distintas, y la que decide es cual de las dos usa quien busca el historial."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 12,
+      "valid": {
+        "incorporated": 9,
+        "debt_recorded": 1,
+        "owner_decision": 1
+      },
+      "false_positives": {
+        "refuted_verifiable": 1,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
