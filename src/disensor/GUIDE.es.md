@@ -13,9 +13,11 @@ instala como skill de Claude Code.
 El validador (`disensor validate`) hace cumplir buena parte de lo que está
 descrito acá, pero no todo: donde hay una regla del validador, esta guía la
 nombra, y lo que no se nombra es obligación del método que nadie verifica por
-vos. El gate de CI corre sus propios chequeos (G1 a G9) sobre el pull request y
-no sobre el artefacto que estás llenando; están documentados en la referencia,
-no acá. Llenar el artefacto bien la primera vez sale más barato que iterar contra
+vos. El gate de CI agrega sus propios chequeos, G1 a G9: algunos leen el artefacto
+que estás llenando (su nivel, su confinamiento, si el commit revisado pertenece
+al pull request) y otros leen el pull request entero (cobertura, testigo de
+integración, evidencia de solo agregar). Están documentados en la referencia, no
+acá. Llenar el artefacto bien la primera vez sale más barato que iterar contra
 sus errores.
 
 ## La ronda, y después la declaración

@@ -7,9 +7,11 @@ it as a Claude Code skill.
 
 The validator (`disensor validate`) enforces much of what is described here,
 but not all of it: where a validator rule exists, this guide names it, and what
-is not named is the method's obligation that nobody checks for you. The CI gate
-runs its own checks (G1 to G9) over the pull request rather than over the
-artifact you are filling; they are documented in the reference, not here.
+is not named is the method's obligation that nobody checks for you. The CI gate adds
+its own checks, G1 to G9: some read the artifact you are filling (its level,
+its confinement, whether its reviewed commit belongs to the pull request) and
+some read the pull request as a whole (coverage, integration witness,
+append-only evidence). They are documented in the reference, not here.
 Filling the artifact correctly the first time is cheaper than iterating against
 their errors.
 
