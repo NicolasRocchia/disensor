@@ -1,0 +1,101 @@
+{
+  "schema": "residue/v0.3",
+  "profile": "full",
+  "event": {
+    "event_id": "f5647611-e7dd-48f4-9416-6d8e04eabcd5",
+    "created_at": "2026-08-21T16:12:50-03:00",
+    "repository": "https://github.com/NicolasRocchia/disensor.git",
+    "head_commit": "aa233e9629a1e8fb220dce78ded0f0ca3a242f3e",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "4ef6cb733ac85425ae7f2cc28a9c69874062d9e7"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-code"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "prompt_hash": "sha256:9aa2ea7bf8407f6d74ef891a3df5bd3b2819f4b156f1432b603b7c3fd005799d",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La calificacion por version de extensions no llego a toda la documentacion",
+      "description": "El esquema ya dice que la opacidad de extensions rige solo con schema residue/v0.3 y profile minimized. Los dos README y la guia siguen afirmando sin calificar que todo perfil minimizado la exige, y el validador todavia acepta artefactos v0.2.",
+      "location": "README.md, README.es.md, src/disensor/GUIDE.md",
+      "verification": {
+        "against": "repository",
+        "detail": "El if/then del esquema condiciona la opacidad a las dos constantes. G9 obliga a que toda declaracion nueva sea v0.3, asi que el hueco solo alcanza a artefactos historicos, pero la contradiccion documental existe."
+      },
+      "final_state": "debt_recorded",
+      "debt_id": "extensions-calificar-version-en-docs"
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El docstring del gate promete detectar cualquier seccion, y solo reconoce H2",
+      "description": "TITULO solo matchea lineas que empiezan con dos almohadillas. Agregar una subseccion H3, otro nivel ATX o un encabezado Setext en uno solo de los README no altera la forma y pasa.",
+      "location": "tests/test_docs_sync.py",
+      "verification": {
+        "against": "repository",
+        "detail": "El regex TITULO es '^## +(.+?)\\\\s*$'. La comparacion de forma se construye contando solo esos encabezados."
+      },
+      "final_state": "debt_recorded",
+      "debt_id": "gate-sync-decir-seccion-h2"
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El docstring dice que los comentarios tienen que diferir y nada lo verifica",
+      "description": "El modulo afirma que los comentarios de los bloques de comando son prosa y tienen que diferir entre idiomas. El extractor los elimina antes de comparar, asi que dos bloques con comentarios identicos pasan igual.",
+      "location": "tests/test_docs_sync.py",
+      "verification": {
+        "against": "repository",
+        "detail": "comandos() aplica COMENTARIO.sub antes de acumular, y el test solo compara la lista resultante."
+      },
+      "final_state": "debt_recorded",
+      "debt_id": "gate-sync-comentarios-no-verificados"
+    }
+  ],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "Ningun hallazgo de esta ronda quedo escalado sin decision, ni fue refutado por el generador, ni encontro un comportamiento que la ejecucion no pudiera arbitrar. Los tres se aceptaron como validos y se difirieron con su identificador de deuda: son precisiones de redaccion sobre limites que ya estan declarados, no defectos de comportamiento. El generador no le discutio nada al revisor en esta ronda, asi que no hay refutacion del principal que un humano tenga que auditar."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 3,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 3,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
