@@ -186,7 +186,10 @@ def rule_errors(a: dict) -> list[str]:
         if i.get("refutation_type") == "interpretive" and not i.get("requires_human_attention"):
             error("R8", f"item {i['id']}: interpretive refutation with requires_human_attention=false")
 
-    # R9: the minimized profile admits no free text.
+    # R9: the minimized profile strips the free text listed below. It narrows
+    # the leak channel; it does not close it: the fields this rule does not
+    # reach still admit free prose. The documents say so; this comment used to
+    # claim the opposite.
     if profile == "minimized":
         for h in findings:
             for field in MINIMIZED_FORBIDDEN_TEXT_FIELDS & h.keys():
