@@ -190,7 +190,8 @@ export function erroresReglas(a: Artifact): string[] {
     }
   }
 
-  // R9: the minimized profile admits no free text.
+  // R9: the minimized profile strips the free text listed below. It narrows
+  // the leak channel; it does not close it (same wording as the reference).
   if (profile === "minimized") {
     for (const h of findings) {
       for (const field of MINIMIZED_FORBIDDEN_TEXT_FIELDS) {

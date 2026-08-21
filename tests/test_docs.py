@@ -15,7 +15,18 @@ from pathlib import Path
 from disensor import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCS = [ROOT / "README.md", ROOT / "docs" / "ejemplo-workflow.yml"]
+# Todo documento que publique el pin de la Action tiene que publicar el mismo.
+# `README.es.md` entra acá desde que la documentación es bilingüe: si quedara
+# afuera, el castellano se atrasaria en el pin sin que nada lo note, que es
+# exactamente el fallo que este test existe para cazar.
+#
+# La guía NO entra: no documenta un pin ni deberia, y el test exige al menos uno
+# por archivo.
+DOCS = [
+    ROOT / "README.md",
+    ROOT / "README.es.md",
+    ROOT / "docs" / "ejemplo-workflow.yml",
+]
 
 PIN = re.compile(r"NicolasRocchia/disensor@v([0-9]+\.[0-9]+\.[0-9]+)")
 

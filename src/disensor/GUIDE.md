@@ -148,16 +148,24 @@ length. Count, do not estimate.
 
 ## Minimized profile
 
-No free text anywhere (R9): no titles, descriptions or locations in
-findings; no descriptions in items; evidence only as `hash`; `repository`
-as a hash or opaque identifier, never a URL.
+R9 strips the free text it covers: no titles, descriptions or locations in
+findings; no descriptions in items; evidence only as `hash`; and it rejects a
+`repository` that starts with `http`. Note the literal: that check does not
+catch `HTTPS://`, `ssh://`, `git://` or `git@host:repo`, all of which are clear
+locators that pass today.
+
+**It narrows the leak channel; it does not close it.** R9 does not reach every
+string in the artifact: `residue.declaration`, `event.pr`, `verification.detail`,
+`human_arbiter.id` and `lead_acceptance`, among others, still admit free prose.
+Treat `minimized` as a reduction of surface, not as a guarantee that nothing
+leaves the environment.
 
 `extensions` is not exempt. In the full profile it takes anything; in the
 minimized one every value must be opaque (a `sha256:` hash, a number, a
-boolean, or containers of those) and every key must be identifier-shaped:
+boolean, `null`, or containers of those) and every key must be identifier-shaped:
 a name, not a message. The extension space is deliberately not interpreted
-by the rules, which is exactly why free text parked there would leave the
-environment while the profile claims nothing does.
+by the rules, which is exactly why free text parked there leaves the
+environment as readily as anywhere else the profile does not reach.
 
 ## Quick map of validator labels
 

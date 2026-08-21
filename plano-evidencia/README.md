@@ -41,4 +41,4 @@ INSERT INTO tokens (hash_token, org_id, creado_en) VALUES ('<sha256_del_token>',
 
 ## Que no hace, a proposito
 
-No corre modelos, no ve codigo, no acepta texto fuera del artefacto. El perfil minimizado del esquema existe para que un regulado use esto sin que un solo texto libre salga de su entorno, y las metricas viajan igual.
+No corre modelos, no ve codigo, no acepta texto fuera del artefacto. El perfil minimizado del esquema existe para angostar lo que sale del entorno de un regulado: R9 remueve el texto libre que cubre, pero no alcanza a todo string del artefacto (ver "Que no hace" en el README de la herramienta). Es una reduccion de superficie, no la garantia de que no sale nada. Las metricas viajan igual.
