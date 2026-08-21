@@ -5,23 +5,27 @@
 > skill. Si las dos difieren, manda la inglesa: dos guías normativas harían que
 > el mismo evento se llenara distinto según el idioma del repositorio.
 
-Esta guía es la fuente única para llenar el artefacto que `disensor new` crea
-bajo `.residue/`. Viaja adentro del paquete: `disensor guide` la imprime para
-cualquier agente de código, y `disensor init` la instala como skill de Claude
-Code. El validador (`disensor validate`) y el gate de CI hacen cumplir todo lo
-que está descrito acá; llenar el artefacto bien la primera vez sale más barato
-que iterar contra sus errores.
+Esta es la traducción castellana de la guía para llenar el artefacto que
+`disensor new` crea bajo `.residue/`. Viaja adentro del paquete junto a la
+inglesa, que es la que `disensor guide` imprime y la que `disensor init`
+instala como skill de Claude Code.
+
+El validador (`disensor validate`) y el gate de CI hacen cumplir buena parte de
+lo que está descrito acá, pero no todo: donde hay una regla, esta guía la
+nombra. Lo que no se nombra es obligación del método y nadie lo verifica por
+vos. Llenar el artefacto bien la primera vez sale más barato que iterar contra
+sus errores.
 
 ## La ronda, y después la declaración
 
-1. `disensor prompt --gate <plan|diff>` imprime la consigna adversarial.
+1. `disensor prompt --gate <plan|diff|architecture>` imprime la consigna adversarial.
    Entregásela, junto con el plan o el diff, a un revisor de OTRA familia de
    modelo. Con un plan gratuito alcanza. La misma familia que el generador no
    cuenta, y la regla R4 rechaza la declaración si lo intentás.
 2. Verificá cada hallazgo contra el código real antes de aceptarlo. El revisor
    está decorrelacionado, no acertado, y un hallazgo sin verificar no es un
    hallazgo.
-3. `disensor new --gate <plan|diff> --level <A|B|C>` crea la plantilla,
+3. `disensor new --gate <plan|diff|architecture> --level <A|B|C>` crea la plantilla,
    prellenada con lo que git sabe (repositorio, commits, fecha, uuid).
 4. Completá cada marcador `FILL_IN` y los hallazgos de la ronda. La plantilla no
    valida mientras queden marcadores: es a propósito.
@@ -63,7 +67,7 @@ Por defecto todo exige `diff`.
   punto del método, no una opción.
 - `reviewers[].prompt_hash`: el hash de la consigna adversarial que recibió el
   revisor. Si usaste la empaquetada, es
-  `disensor prompt --gate <plan|diff> --hash`, y cualquiera puede recomputar ese
+  `disensor prompt --gate <plan|diff|architecture> --hash`, y cualquiera puede recomputar ese
   valor desde la misma versión para ver qué pediste realmente. Si escribiste o
   editaste la tuya, hasheá el archivo que usaste de verdad con
   `disensor hash <brief-file>`. En cualquiera de los dos casos, pegá el
@@ -106,8 +110,8 @@ info), `title`, `description`, `location` (solo en el perfil completo), y:
 - `final_state`, el resultado terminal. Tabla de decisión:
   - `incorporated`: el hallazgo cambió el plan o el código. En la compuerta de
     diff TENÉS que agregar `fix_verification` de tipo `diff_gate` o
-    `specific_test` (R7); `pending_in_diff_gate` solo es legal en la compuerta
-    de plan. Si el remedio que propuso el revisor estaba mal y vos lo
+    `specific_test` (R7); `pending_in_diff_gate` no es legal ahí. R7 dispara
+    solo en la compuerta de diff, así que plan y architecture lo aceptan. Si el remedio que propuso el revisor estaba mal y vos lo
     corregiste, registrá `remedy_adjustment`.
   - `debt_recorded`: válido, diferido; requiere `debt_id` (esquema).
   - `owner_decision`: válido, el dueño cambió el alcance, el comportamiento o
@@ -115,7 +119,8 @@ info), `title`, `description`, `location` (solo en el perfil completo), y:
   - `refuted_verifiable`: falso positivo con prueba. Es el estado que cierra un
     hallazgo **sin tocar el código**, así que es el que más resistencia merece
     de tu parte. Requiere `evidence` con contenido material (`text`, `link` o
-    `hash`; ni el objeto vacío ni un string en blanco cuentan) y un
+    `hash`; ni el objeto vacío ni un string en blanco cuentan, y `text` necesita
+    al menos 10 caracteres) y un
     `verification.against` distinto de `none`: refutar algo sin haber verificado
     nada es una contradicción, no una refutación. Anotá qué establece la
     evidencia y qué no. "El test pasó" puede ser plenamente verificable mientras
@@ -142,7 +147,8 @@ El corazón de la declaración: lo que el ciclo no pudo cerrar por sí mismo. O
     referente técnico lo acepte por escrito (`lead_acceptance`, R5).
 - Ausencia: `"declared_absence": true` más `declaration`, mínimo 30 caracteres
   de texto concreto. Los marcadores genéricos (none, n/a, all resolved,
-  ninguno, todo resuelto...) los rechaza R2 en cualquier idioma.
+  ninguno, todo resuelto...) los rechaza R2. Su lista es cerrada y cubre inglés
+  y castellano: un marcador equivalente en otro idioma pasa.
 
 ## Métricas
 
@@ -150,6 +156,10 @@ El corazón de la declaración: lo que el ciclo no pudo cerrar por sí mismo. O
 de `valid.*` y de `false_positives.*` es igual a la cantidad de hallazgos en ese
 estado, `escalated_open` lo mismo, y `total_findings` es el largo de la lista.
 Contá, no estimes.
+
+En el perfil `minimized` la lista de hallazgos puede faltar. Ahí los conteos
+quedan solos y R6 no tiene contra qué compararlos, que es una razón más para
+contar en vez de estimar.
 
 ## Perfil minimizado
 
