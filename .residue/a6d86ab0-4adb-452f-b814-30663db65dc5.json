@@ -11,7 +11,7 @@
     "abbreviated_path": {
       "used": false
     },
-    "base_commit": "4ef6cb733ac85425ae7f2cc28a9c69874062d9e7"
+    "base_commit": "d9bc699028c392ccf4c1408f361e5181a9ca993d"
   },
   "actors": {
     "generator": {
@@ -97,5 +97,8 @@
       },
       "escalated_open": 0
     }
+  },
+  "extensions": {
+    "review_range": "El revisor computo el diff contra un main local desactualizado, anterior al merge del PR 22, asi que vio un superconjunto del rango de este PR: todo lo que se mergea aca fue revisado, y ademas lo que ya estaba mergeado. La base declarada es la real del PR. Lo detecto G5 en CI, no la corrida local, que uso la misma base equivocada que la declaracion."
   }
 }
