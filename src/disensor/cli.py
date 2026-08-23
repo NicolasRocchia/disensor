@@ -122,6 +122,8 @@ def build_parser() -> argparse.ArgumentParser:
     prompt.set_defaults(func=main_prompt)
 
     guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
+    guide.add_argument("--lang", "--idioma", choices=["en", "es"], default="en",
+                       help="Language of the guide. The English text is the normative one.")
     guide.set_defaults(func=main_guide)
 
     hash_ = sub.add_parser("hash", help="Compute the sha256:<hex> value for prompt_hash from a file or text.")

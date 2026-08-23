@@ -45,6 +45,7 @@ disensor validate .residue/<id>.json   # schema + rules R0 to R10
 disensor gate --no-comment             # what CI will run, locally
 
 disensor guide                         # the filling guide, for any agent or human
+disensor guide --lang es               # the same guide in Spanish
 disensor prompt --gate diff --hash     # the sha256: of the packaged brief, which is what prompt_hash wants
 disensor hash consigna.md              # or the hash of yours, if you wrote it
 ```

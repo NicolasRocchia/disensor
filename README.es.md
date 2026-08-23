@@ -34,6 +34,7 @@ disensor validate .residue/<id>.json   # schema + reglas R0 a R10
 disensor gate --no-comment             # lo que va a correr CI, en local
 
 disensor guide                         # la guía de llenado, para cualquier agente o humano
+disensor guide --lang es               # la misma guía, en castellano
 disensor prompt --gate diff --hash     # el sha256: de la consigna empaquetada, que es lo que pide prompt_hash
 disensor hash consigna.md              # o el de la tuya, si la escribiste vos
 ```

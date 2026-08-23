@@ -55,6 +55,7 @@ def test_no_packaged_instruction_offers_an_incomplete_gate_list():
 
     fuentes = {
         "la guia empaquetada": guide_text(),
+        "la guia empaquetada en castellano": guide_text("es"),
         "las instrucciones que instala init": modulo_init.CLAUDE_SECTION,
         "el modulo guide.py": Path(modulo_guide.__file__).read_text(encoding="utf-8"),
         "el modulo init.py": Path(modulo_init.__file__).read_text(encoding="utf-8"),
@@ -64,3 +65,48 @@ def test_no_packaged_instruction_offers_an_incomplete_gate_list():
         f"ofrecen solo dos de las tres compuertas: {ofensores}. "
         "La CLI acepta architecture y tiene su consigna empaquetada."
     )
+
+
+def test_the_spanish_guide_is_reachable_and_is_not_the_english_one(capsys):
+    """El paquete publicaba GUIDE.es.md sin que ningun comando la sirviera.
+
+    El Estado de los dos README prometia que la guia viaja en los dos idiomas, y
+    era cierto solo en el sentido de que el archivo ocupaba lugar en el wheel:
+    texto que afirma algo que el codigo no cumple, la misma clase de defecto de
+    los issues 19 y 20.
+    """
+    es = run(capsys, "guide", "--lang", "es")
+    en = run(capsys, "guide")
+    assert es == guide_text("es")
+    assert en == guide_text()
+    assert es != en, "las dos guias no pueden ser el mismo texto"
+
+
+def test_guide_rejects_a_language_it_does_not_ship():
+    import pytest
+
+    with pytest.raises(ValueError, match="unknown guide language"):
+        guide_text("pt")
+
+
+def test_the_two_guides_stay_structurally_in_sync():
+    """Lo que una maquina puede verificar entre dos idiomas, y nada mas.
+
+    Ninguna maquina decide si dos textos en idiomas distintos significan lo
+    mismo, y prometerlo seria la clase de garantia inflada que esta herramienta
+    existe para no emitir. Lo verificable: misma cantidad de secciones, las
+    mismas etiquetas de reglas R, y la misma version del esquema. Un cambio de
+    fondo que toque solo una guia casi siempre mueve alguna de esas tres cosas;
+    una traduccion fiel no mueve ninguna.
+    """
+    import re
+
+    from disensor.gate import CURRENT_SCHEMA
+
+    en = guide_text()
+    es = guide_text("es")
+    assert en.count("\n## ") == es.count("\n## "), "distinta cantidad de secciones"
+    assert set(re.findall(r"\bR\d+\b", en)) == set(re.findall(r"\bR\d+\b", es)), (
+        "las guias no mencionan las mismas reglas"
+    )
+    assert CURRENT_SCHEMA in en and CURRENT_SCHEMA in es
