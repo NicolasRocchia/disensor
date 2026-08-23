@@ -1,0 +1,154 @@
+{
+ "schema": "residue/v0.3",
+ "profile": "full",
+ "event": {
+  "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+  "created_at": "2026-08-23T18:59:06-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "4c667da0142fad120e4aa6e32b1c7073f673f2c2",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  },
+  "base_commit": "fedc9f915e4f54a803b7ad32aff323c50e4996ac"
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "openai",
+    "model": "codex-cli",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    },
+    "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "major",
+   "title": "La guia castellana se corrompia o reventaba segun el encoding de la consola",
+   "description": "main_guide usaba print(). En Windows stdout puede ser CP1252, asi que quien capturaba la salida como UTF-8 veia los acentos corrompidos, y con PYTHONIOENCODING=ascii el castellano terminaba exit 1 con UnicodeEncodeError y sin guia, mientras el ingles, ASCII puro, salia bien. El test nuevo pasaba igual porque capsys sustituye stdout por un stream de texto y nunca cruza la frontera real de encoding: cuarta vez en la serie que un test verifica el sustituto y no el comportamiento.",
+   "location": "src/disensor/guide.py, tests/test_guide.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido con PYTHONIOENCODING=ascii: castellano exit 1, ingles exit 0. Con la salida en bytes por sys.stdout.buffer, ambos exit 0 y bytes identicos a la guia."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_guide.py::test_the_spanish_guide_survives_a_hostile_console_encoding"
+   }
+  },
+  {
+   "id": "h2",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El pin nuevo del auto-gate era el objeto tag, no el commit",
+   "description": "git rev-parse v0.6.3 devuelve el objeto tag cuando el tag es anotado, y ese SHA fue el pineado: parecia un commit inmutable y resolvia en varias superficies de GitHub, pero raw.githubusercontent ya devolvia 404 y hay antecedente documentado de tag-object SHAs rotos por un cambio interno. Si el resolver vuelve a exigir commits, el required check falla antes de ejecutar el gate y bloquea todos los PR. El propio gate resuelve ^{commit} exactamente por esto, y el pin se hizo a mano sin hacerlo.",
+   "location": ".github/workflows/ci.yml",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "git cat-file -t sobre el SHA pineado devolvio 'tag'; el commit pelado de v0.6.3 es otro objeto. Verificado ademas contra la documentacion de GitHub y el antecedente."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_the_self_gate_pin_is_a_commit_not_a_tag_object"
+   }
+  },
+  {
+   "id": "h3",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "El gate de sincronia entre guias dejaba pasar divergencias contractuales",
+   "description": "Cambiar owner_decision por owner-decision solo en la guia castellana mantenia secciones, etiquetas R y version del esquema: la guarda nueva y la existente daban verde. Ademas el docstring sobreprometia con un 'casi siempre'.",
+   "location": "tests/test_guide.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido con la mutacion en memoria: ambas guardas daban verde."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_guide.py::test_the_two_guides_stay_structurally_in_sync"
+   }
+  },
+  {
+   "id": "h4",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "El bump atribuia a la 0.6.4 la documentacion bilingue de la 0.6.3",
+   "description": "Al sustituir la version en el Estado quedo 'desde esta version' senalando a la 0.6.4, cuando el tag y el wheel de la 0.6.3 ya publicaban ambas guias. Los dos gates documentales pasaban porque los dos idiomas repetian el mismo error, que es el limite declarado del metodo: verifica que digan lo mismo, no que sea cierto.",
+   "location": "README.md, README.es.md",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Cotejado contra el contenido del tag v0.6.3 y la pagina de PyPI de esa version."
+   },
+   "fix_verification": {
+    "type": "diff_gate",
+    "reference": "README.md y README.es.md, revisados en esta misma ronda"
+   }
+  },
+  {
+   "id": "h5",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "release.yml admite workflow_dispatch con un SHA sin tag",
+   "description": "Hipotesis no verificada del revisor: si se despachara la publicacion de un HEAD antes de crear el tag, PyPI tendria la version pero disensor init generaria una Action inexistente. Falta decidir si el dispatch queda reservado a backfills cuyo tag ya existe, y esa es una regla operativa del dueno, no un arreglo de codigo.",
+   "location": ".github/workflows/release.yml",
+   "final_state": "escalated_open",
+   "verification": {
+    "against": "repository",
+    "detail": "El trigger existe y la ventana es real; no se ejecuto la ruta ni se definio la regla operativa que la cierra."
+   }
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "escalation_without_decision",
+    "finding_ref": "h5",
+    "requires_human_attention": true,
+    "description": "La regla operativa del dispatch de release.yml (reservarlo a backfills con tag existente, o cerrarlo) quedo sin decidir al cierre del evento."
+   },
+   {
+    "id": "r2",
+    "class": "execution_gap",
+    "requires_human_attention": true,
+    "gap_reason": "environment_not_reproducible",
+    "description": "El revisor no ejecuto el workflow alojado (la resolucion del tag-object se verifico contra objetos git, documentacion y superficies HTTP), no construyo el wheel 0.6.4, y corrio la suite con Python 3.14 en lugar de la matriz 3.10/3.12 del CI."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 5,
+   "valid": {
+    "incorporated": 4,
+    "debt_recorded": 0,
+    "owner_decision": 0
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 1
+  }
+ }
+}
