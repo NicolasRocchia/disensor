@@ -45,6 +45,7 @@ disensor validate .residue/<id>.json   # schema + rules R0 to R10
 disensor gate --no-comment             # what CI will run, locally
 
 disensor guide                         # the filling guide, for any agent or human
+disensor guide --lang es               # the same guide in Spanish
 disensor prompt --gate diff --hash     # the sha256: of the packaged brief, which is what prompt_hash wants
 disensor hash consigna.md              # or the hash of yours, if you wrote it
 ```
@@ -107,7 +108,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.6.3
+      - uses: NicolasRocchia/disensor@v0.6.4
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -344,9 +345,11 @@ it says.
 
 ## Status
 
-v0.6.3, on **residue/v0.3**. The long-form documentation is bilingual from this
-version: `README.md` is the English one that PyPI renders, `README.es.md` is the
-Spanish, and the filling guide ships in both. Releases are published to PyPI via Trusted
+v0.6.4, on **residue/v0.3**. The long-form documentation is bilingual
+since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
+is the Spanish, and the filling guide ships in both languages. This version
+makes the packaged Spanish guide reachable with `disensor guide --lang es`.
+Releases are published to PyPI via Trusted
 Publishing (OIDC, `release.yml`): no tokens on any machine. v0.4 rewrote the
 gate so that it derives the PR scope from git (see "What the gate enforces") and
 v0.5 ships the packaged adversarial brief with a reproducible hash; the move to

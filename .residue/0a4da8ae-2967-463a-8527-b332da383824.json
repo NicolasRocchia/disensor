@@ -1,0 +1,148 @@
+{
+ "schema": "residue/v0.3",
+ "profile": "full",
+ "event": {
+  "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+  "created_at": "2026-08-23T20:29:46-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "748feb7b01329c58a82a757890452360506eda60",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  },
+  "base_commit": "fedc9f915e4f54a803b7ad32aff323c50e4996ac"
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "google",
+    "model": "antigravity-gemini-3.1-pro",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    },
+    "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El chequeo del pin dependia de la profundidad del clon que lo corria",
+   "description": "Incidente que abrio la micro-ronda: cat-file con check=True moria con 128 en el clon superficial del CI, donde el commit pineado no existe, y pasaba solo en clones completos. Quinta variante de la familia 'el test verifica el entorno que lo aloja'. El revisor verifico el arreglo y encontro que traia su propio agujero (h2).",
+   "location": "tests/test_docs.py, .github/workflows/ci.yml",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido en CI (job tests rojo) y cerrado con fetch-depth 0 mas el skip."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_the_self_gate_pin_is_a_commit_not_a_tag_object"
+   }
+  },
+  {
+   "id": "h2",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El skip ante cualquier error enmascaraba un SHA roto en un clon completo",
+   "description": "El primer remedio skipeaba ante cualquier falla de cat-file, asi que un pin con un typo en un clon COMPLETO tambien skipeaba y llegaba verde a main: el remedio escondia el incidente justo donde el chequeo importa.",
+   "location": "tests/test_docs.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido por el generador antes de aceptarlo: SHA con typo daba skip. Con la superficialidad preguntada via rev-parse --is-shallow-repository, el typo da fallo."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_the_self_gate_pin_is_a_commit_not_a_tag_object"
+   }
+  },
+  {
+   "id": "h3",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "El skip adentro del bucle abortaba la verificacion de pines siguientes",
+   "description": "pytest.skip lanza y corta la funcion entera: con mas de un pin, la falta del primer objeto dejaba sin verificar a los demas.",
+   "location": "tests/test_docs.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado por lectura y semantica de pytest; el skip quedo antes del bucle."
+   },
+   "fix_verification": {
+    "type": "diff_gate",
+    "reference": "tests/test_docs.py, revisado en la pasada siguiente de esta misma ronda"
+   }
+  },
+  {
+   "id": "h4",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "fetch-depth 0 encarece toda la matriz del job de tests",
+   "description": "Cada runner de la matriz descarga el historial completo para satisfacer un unico chequeo. El revisor propuso como alternativa el fetch bajo demanda del SHA pineado.",
+   "location": ".github/workflows/ci.yml",
+   "final_state": "owner_decision",
+   "verification": {
+    "against": "repository",
+    "detail": "Costo real y acotado: el repositorio es chico y la matriz son dos runners."
+   },
+   "risk_record": "Se acepta el costo del clon completo para que el chequeo del pin corra siempre en CI. La alternativa del fetch bajo demanda queda anotada en esta declaracion como candidata si el costo crece; exige verificar que origin este configurado de forma predecible."
+  },
+  {
+   "id": "h5",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El skip por superficialidad era bypasseable editando ci.yml en el mismo PR",
+   "description": "La invariante 'el CI clona completo' vive en ci.yml, que es parte del codigo bajo prueba: un PR podia meter un pin roto y borrar el fetch-depth 0 en el mismo commit, el clon quedaba superficial, el test skipeaba creyendose en la maquina de un colaborador y el pin roto pasaba en verde. El mecanismo se degradaba con gracia bajo una condicion que el atacante controla. Nota del revisor que queda registrada: quitar la variable CI desde el propio workflow del PR sigue siendo posible y es el limite estructural de GitHub Actions, la frontera de plataforma que los requisitos de despliegue del README ya declaran.",
+   "location": "tests/test_docs.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Verificado en un clon superficial real: sin CI skipea, con CI=true falla con el mensaje que apunta a ci.yml, y el clon completo con el estado real pasa."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_docs.py::test_the_self_gate_pin_is_a_commit_not_a_tag_object"
+   }
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "execution_gap",
+    "requires_human_attention": true,
+    "gap_reason": "environment_not_reproducible",
+    "description": "El revisor no pudo ejercitar runners reales de GitHub Actions: el bypass de h5 se verifico por lectura y en un clon superficial local con CI simulada, no en el pipeline alojado. La primera corrida real del job con fetch-depth 0 es el push de esta rama."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 5,
+   "valid": {
+    "incorporated": 4,
+    "debt_recorded": 0,
+    "owner_decision": 1
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 0
+  }
+ }
+}

@@ -13,6 +13,11 @@ jobs:
         python-version: ['3.10', '3.12']
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Historia completa: la suite verifica que el SHA pineado del
+          # auto-gate sea un objeto commit, y en un clon superficial ese
+          # ancestro de main directamente no existe en el object store.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -50,4 +55,4 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@08e3845b1113aa3c49cc1655801d20c04e080c74  # v0.6.1
+      - uses: NicolasRocchia/disensor@fedc9f915e4f54a803b7ad32aff323c50e4996ac  # v0.6.3
