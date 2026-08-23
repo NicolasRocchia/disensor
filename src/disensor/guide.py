@@ -11,6 +11,7 @@ expects in `prompt_hash`, so nobody hashes the adversarial brief by hand.
 from __future__ import annotations
 
 import hashlib
+import sys
 from importlib import resources
 from pathlib import Path
 
@@ -26,7 +27,19 @@ def guide_text(lang: str = "en") -> str:
 
 
 def main_guide(args) -> int:
-    print(guide_text(getattr(args, "lang", "en")), end="")
+    # Bytes UTF-8 por el buffer, no print(): la guia castellana tiene acentos y
+    # el encoding de la consola no es nuestro. En Windows, stdout puede ser
+    # CP1252 (la salida llega corrompida a quien la capture como UTF-8) o algo
+    # peor via PYTHONIOENCODING, donde print() directamente revienta con
+    # UnicodeEncodeError y el subcomando termina 1 sin guia. Mismo patron que
+    # main_prompt en brief.py, y por el mismo motivo.
+    data = guide_text(getattr(args, "lang", "en")).encode("utf-8")
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is None:  # stdout sustituido, como hace pytest al capturar
+        sys.stdout.write(data.decode("utf-8"))
+    else:
+        buffer.write(data)
+        buffer.flush()
     return 0
 
 
