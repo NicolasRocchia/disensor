@@ -211,6 +211,20 @@ def test_the_self_gate_pin_is_a_commit_not_a_tag_object():
         cwd=ROOT, capture_output=True, text=True, check=True,
     ).stdout.strip() == "true"
     if shallow:
+        # En CI el skip seria un bypass, no una cortesia: la invariante "el CI
+        # clona completo" vive en ci.yml, que es parte del codigo bajo prueba, y
+        # un PR puede meter un pin roto Y borrar el fetch-depth 0 en el mismo
+        # commit. El clon queda superficial, el test creeria que es la maquina
+        # de un colaborador, y el pin roto llegaria verde a main (ataque
+        # concreto de la micro-ronda de Antigravity). GitHub Actions define
+        # CI=true siempre: aca superficial significa contrato del workflow roto
+        # o intento de esquivar el chequeo, y las dos cosas son fallo.
+        if os.environ.get("CI"):
+            pytest.fail(
+                "clon superficial dentro de CI: el job de tests tiene que clonar con "
+                "fetch-depth 0 para que el chequeo del pin corra. Si esta linea "
+                "desaparecio de ci.yml, eso es exactamente lo que hay que revisar"
+            )
         pytest.skip("clon superficial: los objetos pineados pueden no estar; el CI clona completo")
 
     for sha in shas:
