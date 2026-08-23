@@ -345,9 +345,11 @@ it says.
 
 ## Status
 
-v0.6.4, on **residue/v0.3**. The long-form documentation is bilingual from this
-version: `README.md` is the English one that PyPI renders, `README.es.md` is the
-Spanish, and the filling guide ships in both. Releases are published to PyPI via Trusted
+v0.6.4, on **residue/v0.3**. The long-form documentation is bilingual
+since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
+is the Spanish, and the filling guide ships in both languages. This version
+makes the packaged Spanish guide reachable with `disensor guide --lang es`.
+Releases are published to PyPI via Trusted
 Publishing (OIDC, `release.yml`): no tokens on any machine. v0.4 rewrote the
 gate so that it derives the PR scope from git (see "What the gate enforces") and
 v0.5 ships the packaged adversarial brief with a reproducible hash; the move to
