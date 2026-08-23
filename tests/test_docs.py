@@ -176,3 +176,29 @@ def test_the_schema_declares_the_version_the_tool_enforces():
         assert CURRENT_SCHEMA in s["properties"]["schema"]["enum"], (
             f"{ruta.name}: el enum de schema no admite {CURRENT_SCHEMA}"
         )
+
+
+def test_the_self_gate_pin_is_a_commit_not_a_tag_object():
+    """El SHA pineado en ci.yml tiene que ser un commit pelado.
+
+    `git rev-parse v0.6.3` devuelve el OBJETO TAG cuando el tag es anotado, no
+    el commit, y ese SHA es exactamente el que se pineo en una ronda: parecia
+    inmutable y correcto, resolvia en varias superficies de GitHub, y ya hay
+    antecedente documentado de que los tag-object SHA se rompieron por un cambio
+    interno. Si el resolver vuelve a exigir commits, el required check falla
+    antes de ejecutar el gate y bloquea todos los PR. La ironia quedo declarada:
+    el propio gate resuelve `^{commit}` por este mismo motivo, y el pin se hizo
+    a mano sin hacerlo.
+    """
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    shas = re.findall(r"NicolasRocchia/disensor@([0-9a-f]{40})", ci)
+    assert shas, "el auto-gate ya no esta pineado por SHA"
+    for sha in shas:
+        tipo = subprocess.run(
+            ["git", "cat-file", "-t", sha],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        assert tipo == "commit", (
+            f"el pin {sha[:12]} es un objeto '{tipo}', no un commit: "
+            "rev-parse sobre un tag anotado devuelve el tag, hace falta ^{commit}"
+        )
