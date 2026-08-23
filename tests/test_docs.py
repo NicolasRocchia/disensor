@@ -190,14 +190,26 @@ def test_the_self_gate_pin_is_a_commit_not_a_tag_object():
     el propio gate resuelve `^{commit}` por este mismo motivo, y el pin se hizo
     a mano sin hacerlo.
     """
+    import pytest
+
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     shas = re.findall(r"NicolasRocchia/disensor@([0-9a-f]{40})", ci)
     assert shas, "el auto-gate ya no esta pineado por SHA"
     for sha in shas:
-        tipo = subprocess.run(
+        # check=False y skip explicito: en un clon superficial el objeto pineado
+        # no existe y cat-file termina 128. La primera version usaba check=True
+        # y funcionaba solo en clones completos: el CI, que clona superficial,
+        # la tumbo. Quinta variante de la familia "el test verifica el entorno
+        # que lo aloja". El CI ahora clona completo (fetch-depth 0), asi que
+        # ahi el chequeo corre siempre; el skip es para el clon de un
+        # colaborador, con el motivo a la vista en vez de un traceback.
+        r = subprocess.run(
             ["git", "cat-file", "-t", sha],
-            cwd=ROOT, capture_output=True, text=True, check=True,
-        ).stdout.strip()
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        if r.returncode != 0:
+            pytest.skip(f"clon sin el objeto {sha[:12]} (superficial): no se puede verificar aca")
+        tipo = r.stdout.strip()
         assert tipo == "commit", (
             f"el pin {sha[:12]} es un objeto '{tipo}', no un commit: "
             "rev-parse sobre un tag anotado devuelve el tag, hace falta ^{commit}"
