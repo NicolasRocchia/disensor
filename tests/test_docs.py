@@ -195,20 +195,32 @@ def test_the_self_gate_pin_is_a_commit_not_a_tag_object():
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     shas = re.findall(r"NicolasRocchia/disensor@([0-9a-f]{40})", ci)
     assert shas, "el auto-gate ya no esta pineado por SHA"
+
+    # La superficialidad se pregunta, no se infiere de una falla. La version
+    # anterior skipeaba ante CUALQUIER error de cat-file, asi que un SHA con un
+    # typo en un clon COMPLETO tambien skipeaba y el pin roto llegaba verde a
+    # main: el remedio escondia el incidente justo donde el chequeo importa
+    # (hallazgo de la micro-ronda de Antigravity). Con la pregunta explicita,
+    # en el clon superficial de un colaborador se skipea una sola vez y con el
+    # motivo a la vista, y en un clon completo (el CI clona con fetch-depth 0)
+    # un objeto ausente es lo que es: un pin roto, y el test falla. El skip vive
+    # ANTES del bucle ademas para no abortar la verificacion de los pines
+    # siguientes si algun dia hay mas de uno.
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    ).stdout.strip() == "true"
+    if shallow:
+        pytest.skip("clon superficial: los objetos pineados pueden no estar; el CI clona completo")
+
     for sha in shas:
-        # check=False y skip explicito: en un clon superficial el objeto pineado
-        # no existe y cat-file termina 128. La primera version usaba check=True
-        # y funcionaba solo en clones completos: el CI, que clona superficial,
-        # la tumbo. Quinta variante de la familia "el test verifica el entorno
-        # que lo aloja". El CI ahora clona completo (fetch-depth 0), asi que
-        # ahi el chequeo corre siempre; el skip es para el clon de un
-        # colaborador, con el motivo a la vista en vez de un traceback.
         r = subprocess.run(
             ["git", "cat-file", "-t", sha],
             cwd=ROOT, capture_output=True, text=True, check=False,
         )
-        if r.returncode != 0:
-            pytest.skip(f"clon sin el objeto {sha[:12]} (superficial): no se puede verificar aca")
+        assert r.returncode == 0, (
+            f"el SHA pineado {sha[:12]} no existe en este repositorio completo: pin roto"
+        )
         tipo = r.stdout.strip()
         assert tipo == "commit", (
             f"el pin {sha[:12]} es un objeto '{tipo}', no un commit: "
