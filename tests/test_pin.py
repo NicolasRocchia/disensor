@@ -21,8 +21,22 @@ TAG_OBJECT = "aaaa1111" + "0" * 32
 
 
 def fake_runner(returncode: int, stdout: str = "", stderr: str = ""):
+    """A substitute that VALIDATES the call contract instead of dropping it.
+
+    The first version accepted and ignored **kwargs, so production could lose
+    `text=True` or the timeout and every test would stay green while the real
+    command crashed or hung (finding of the 0.7.0 round: asserting over the
+    mock instead of the behavior). Now the substitute fails loudly if the
+    call stops looking like the one production must make.
+    """
     def run(cmd, **kwargs):
         assert cmd[:2] == ["git", "ls-remote"]
+        assert kwargs.get("capture_output") is True, "production reads r.stdout"
+        assert kwargs.get("text") is True, "production parses stdout as str"
+        assert kwargs.get("timeout"), "ls-remote without a timeout hangs forever"
+        assert kwargs.get("env", {}).get("GIT_TERMINAL_PROMPT") == "0", (
+            "git must never stop to ask for credentials"
+        )
         return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr=stderr)
     return run
 
@@ -56,6 +70,22 @@ def test_a_malformed_sha_is_rejected():
         resolve_tag_commit("0.6.5", runner=fake_runner(0, out))
 
 
+def test_a_hung_remote_becomes_a_pin_error_not_a_hang():
+    def hangs(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 0))
+
+    with pytest.raises(PinError, match="did not answer"):
+        resolve_tag_commit("0.6.5", runner=hangs)
+
+
+def test_git_not_installed_becomes_a_pin_error_not_a_traceback():
+    def no_git(cmd, **kwargs):
+        raise FileNotFoundError("git")
+
+    with pytest.raises(PinError, match="could not run git"):
+        resolve_tag_commit("0.6.5", runner=no_git)
+
+
 def test_pin_text_rewrites_tag_sha_and_existing_comment_alike():
     text = (
         "      - uses: NicolasRocchia/disensor@v0.6.4\n"
@@ -77,6 +107,26 @@ def test_pin_text_leaves_crlf_line_endings_alone():
 
 def test_pin_text_does_not_touch_other_actions():
     text = "      - uses: actions/checkout@v4\n"
+    assert pin_text(text, COMMIT, "0.6.5") == (text, 0)
+
+
+def test_pin_text_keeps_the_closing_quote_of_a_quoted_uses():
+    """A quoted `uses:` is valid YAML and the first regex swallowed its quote.
+
+    The result was `uses: "...@sha  # v...` with the string never closed:
+    invalid YAML, CI broken by the very tool that exists to protect it
+    (finding of the 0.7.0 round). The comment must land OUTSIDE the quote,
+    where YAML still reads it as a comment and the ref stays clean.
+    """
+    for quote in ('"', "'"):
+        text = f"      - uses: {quote}NicolasRocchia/disensor@v0.6.5{quote}\n"
+        new, matches = pin_text(text, COMMIT, "0.6.5")
+        assert matches == 1
+        assert f"uses: {quote}NicolasRocchia/disensor@{COMMIT}{quote}  # v0.6.5\n" in new
+
+
+def test_pin_text_leaves_a_line_it_does_not_understand_alone():
+    text = "      - uses: NicolasRocchia/disensor@v0.6.5 extra-garbage\n"
     assert pin_text(text, COMMIT, "0.6.5") == (text, 0)
 
 
@@ -118,6 +168,10 @@ def test_main_pin_accepts_the_version_with_leading_v(workflow_repo, monkeypatch)
     monkeypatch.setattr("disensor.pin.resolve_tag_commit", fake)
     assert run_pin(workflow_repo, monkeypatch, "v0.6.5") == 0
     assert seen["version"] == "0.6.5"
+    # The claim is about the file, not about the mock (finding of the 0.7.0
+    # round): the stripped version has to reach the disk.
+    text = (workflow_repo / ".github" / "workflows" / "disensor.yml").read_bytes().decode()
+    assert f"NicolasRocchia/disensor@{COMMIT}  # v0.6.5" in text
 
 
 def test_main_pin_without_any_workflow_fails_with_direction(tmp_path, monkeypatch, capsys):

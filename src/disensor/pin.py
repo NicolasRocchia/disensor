@@ -11,6 +11,7 @@ place, so neither trap is reachable.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -19,10 +20,20 @@ from . import __version__
 
 ACTION_REPOSITORY = "https://github.com/NicolasRocchia/disensor"
 
-# The `uses:` reference plus an optional trailing comment. `[^\r\n]` and not
-# `.` in the comment so a CRLF file keeps its `\r` outside the match and the
-# rewrite does not change line endings.
-USES = re.compile(r"NicolasRocchia/disensor@[^\s#]+(?:[ \t]+#[^\r\n]*)?")
+# One `uses:` reference per line: the ref, its closing quote when YAML quotes
+# the value, and whatever trailing comment was there. The ref excludes quotes
+# so a quoted `uses: "...@v0.6.5"` keeps its closing quote (the first version
+# of this regex swallowed it and produced invalid YAML, finding of the 0.7.0
+# round); the version comment always lands OUTSIDE the quote, where YAML
+# still reads it as a comment. The lookahead anchors to the end of line
+# without capturing `\r`, so a CRLF file keeps its line endings. A line with
+# anything else after the reference does not match and is left alone: not
+# understanding a line is a reason not to touch it.
+USES = re.compile(
+    r"(?P<pre>NicolasRocchia/disensor@)(?P<ref>[^\s#\"']+)(?P<quote>[\"']?)"
+    r"(?P<tail>[ \t]*(?:#[^\r\n]*)?)(?=\r?$)",
+    re.MULTILINE,
+)
 SHA40 = re.compile(r"[0-9a-f]{40}")
 
 
@@ -40,10 +51,29 @@ def resolve_tag_commit(version: str, runner=subprocess.run) -> str:
     exactly the wrong thing to pin.
     """
     tag = f"refs/tags/v{version}"
-    r = runner(
-        ["git", "ls-remote", ACTION_REPOSITORY, tag, tag + "^{}"],
-        capture_output=True, text=True, check=False,
-    )
+    try:
+        r = runner(
+            ["git", "ls-remote", ACTION_REPOSITORY, tag, tag + "^{}"],
+            capture_output=True, text=True, check=False,
+            # A blackholed network hangs ls-remote forever and a hung init is
+            # worse than a tag pin; and git must never stop to ask a human
+            # for credentials on a public repository (both findings of the
+            # 0.7.0 round).
+            timeout=30,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise PinError(
+            f"git ls-remote did not answer within {exc.timeout:.0f}s. Nothing "
+            "was modified; retry with network access."
+        ) from exc
+    except OSError as exc:
+        # git not installed (FileNotFoundError) or not runnable: the same
+        # graceful path as no network, not a traceback.
+        raise PinError(
+            f"could not run git ({exc}). Nothing was modified; install git "
+            "and retry."
+        ) from exc
     if r.returncode != 0:
         raise PinError(
             "could not ask the repository for the tag (git ls-remote failed: "
@@ -68,7 +98,10 @@ def resolve_tag_commit(version: str, runner=subprocess.run) -> str:
 
 def pin_text(text: str, sha: str, version: str) -> tuple[str, int]:
     """Rewrite every `uses:` reference to the Action; returns (text, matches)."""
-    return USES.subn(f"NicolasRocchia/disensor@{sha}  # v{version}", text)
+    return USES.subn(
+        lambda m: f"{m.group('pre')}{sha}{m.group('quote')}  # v{version}",
+        text,
+    )
 
 
 def main_pin(args) -> int:
