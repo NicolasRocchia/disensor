@@ -114,7 +114,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.6.4
+      - uses: NicolasRocchia/disensor@v0.6.5
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -351,7 +351,7 @@ it says.
 
 ## Status
 
-v0.6.4, on **residue/v0.3**. The long-form documentation is bilingual
+v0.6.5, on **residue/v0.3**. This version completes the PyPI listing: badges, keywords, classifiers and sidebar links. The long-form documentation is bilingual
 since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
 is the Spanish, and the filling guide ships in both languages. This version
 makes the packaged Spanish guide reachable with `disensor guide --lang es`.
