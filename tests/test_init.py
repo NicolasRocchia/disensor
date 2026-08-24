@@ -10,6 +10,24 @@ import pytest
 from disensor import __version__
 from disensor.cli import build_parser
 from disensor.init import CLAUDE_HEADING
+from disensor.pin import PinError
+
+PINNED_SHA = "693f9f5b" + "0" * 32
+
+
+@pytest.fixture(autouse=True)
+def offline_resolution(monkeypatch):
+    """init resolves the tag over the network; the suite must not.
+
+    Offline (resolution fails) is the default here so every scaffolding test
+    keeps meaning what it meant before init learned to pin. The test of the
+    resolved path re-patches inside its own body.
+    """
+
+    def offline(version, runner=None):
+        raise PinError("offline test environment.")
+
+    monkeypatch.setattr("disensor.init.resolve_tag_commit", offline)
 
 
 def run_init(tmp_path, monkeypatch, *extra: str) -> None:
@@ -36,6 +54,25 @@ def test_init_scaffolds_everything(repo, monkeypatch):
     workflow = (repo / ".github" / "workflows" / "disensor.yml").read_text(encoding="utf-8")
     assert f"NicolasRocchia/disensor@v{__version__}" in workflow
     assert "fetch-depth: 0" in workflow
+
+
+def test_init_pins_the_workflow_by_sha_when_it_can_resolve(repo, monkeypatch, capsys):
+    monkeypatch.setattr(
+        "disensor.init.resolve_tag_commit", lambda version, runner=None: PINNED_SHA
+    )
+    run_init(repo, monkeypatch)
+    workflow = (repo / ".github" / "workflows" / "disensor.yml").read_text(encoding="utf-8")
+    assert f"NicolasRocchia/disensor@{PINNED_SHA}  # v{__version__}" in workflow
+    assert "@v" + __version__ + "\n" not in workflow  # no tag reference survives
+    assert f"pinned to {PINNED_SHA}" in capsys.readouterr().out
+
+
+def test_init_without_network_keeps_the_tag_and_says_what_is_missing(repo, monkeypatch, capsys):
+    run_init(repo, monkeypatch)  # the autouse fixture already makes resolution fail
+    workflow = (repo / ".github" / "workflows" / "disensor.yml").read_text(encoding="utf-8")
+    assert f"NicolasRocchia/disensor@v{__version__}" in workflow
+    out = capsys.readouterr().out
+    assert "disensor pin" in out and "offline test environment" in out
 
 
 def test_init_is_idempotent(repo, monkeypatch):

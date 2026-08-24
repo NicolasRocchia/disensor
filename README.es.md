@@ -33,6 +33,7 @@ El paquete se instala una vez (global); cada repositorio se inicializa una vez:
 pip install disensor        # o pipx install disensor, recomendado para CLIs
 
 disensor init               # en la raíz del repo: config, CLAUDE.md, skill de llenado y workflow de CI
+disensor pin                # la Action del workflow, congelada al SHA de commit del tag de la release
 
 disensor prompt --gate diff            # la consigna adversarial, para pegarle al revisor de otra familia
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
@@ -86,7 +87,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.6.5
+      - uses: NicolasRocchia/disensor@v0.7.0
 ```
 
 El gate valida las declaraciones que **el PR agrega**, aplica la política y publica el resultado como comentario (se actualiza en el lugar en cada push). Todo lo que decide sale de objetos de git en el rango `merge-base..head`, nunca del working tree: en un evento `pull_request` el checkout deja el merge commit sintético mientras `head.sha` apunta al head real, así que leer del disco clasificaría un árbol y validaría otro.
@@ -139,7 +140,7 @@ Esto es requisito, no sugerencia. El gate corre dentro del workflow que audita, 
 - **Required check estricto** (o merge queue) sobre `pull_request`, para que el check tenga que corresponder al último head.
 - **CODEOWNERS** sobre la ruta efectiva de configuración (puede no llamarse `disensor.config.json` si se usa `--config`) y sobre `.github/workflows/`.
 - **Ruleset o required workflow de organización**, definido fuera del repositorio auditado.
-- **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza. `disensor init` escribe el tag de la versión instalada por comodidad, y el propio workflow generado avisa que hay que reemplazarlo por el SHA al que ese tag apunta. La documentación de este repo también usa el tag, porque documenta qué versión corresponde; el SHA lo pone quien despliega.
+- **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza. `disensor init` resuelve el tag de la versión instalada al commit al que apunta y escribe el workflow ya congelado; sin red al momento del init el tag queda y `disensor pin` termina el trabajo. El comando resuelve los tags anotados al commit que envuelven, nunca al objeto tag, que es la trampa clásica de hacerlo a mano. La documentación de este repo sigue usando el tag, porque documenta qué versión corresponde; el SHA congelado lo produce quien despliega.
 - **Bootstrap**: el primer PR que agrega el config y el workflow no puede convertirse a sí mismo en raíz de confianza. La activación inicial es un paso administrativo, previo a que el gate signifique algo.
 
 Límite explícito: leer la política de la base convierte un bypass de un paso en uno de dos, no lo elimina. Quien pueda mergear una relajación la usa en el PR siguiente. Y nada de esto protege contra un workflow modificado, salteado o sustituido. Eso solo lo resuelve la plataforma.
@@ -227,7 +228,7 @@ El esquema del artefacto no cambia y las declaraciones ya versionadas siguen sie
 
 ## Estado
 
-v0.6.5, sobre **residue/v0.3**. Esta versión completa la ficha de PyPI: badges, keywords, classifiers y links de la barra lateral. Desde la v0.6.3 la documentación larga es bilingüe: `README.md` es el inglés que renderiza PyPI, `README.es.md` es el castellano, y la guía de llenado viaja en los dos idiomas. Esta versión vuelve alcanzable la guía castellana empaquetada, con `disensor guide --lang es`. Las releases se publican a PyPI vía Trusted Publishing (OIDC, `release.yml`): sin tokens en ninguna máquina. La v0.4 reescribió el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate") y la v0.5 entrega la consigna adversarial empaquetada con hash reproducible; el paso a residue/v0.3 endurece tres puntos del artefacto, cerrando los issues [#5](https://github.com/NicolasRocchia/disensor/issues/5), [#7](https://github.com/NicolasRocchia/disensor/issues/7) y [#8](https://github.com/NicolasRocchia/disensor/issues/8). Ver "Migración de v0.2 a v0.3". Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes).
+v0.7.0, sobre **residue/v0.3**. Esta versión agrega `disensor pin`: la Action congelada al SHA de commit de su tag de release por comando, y `disensor init` deja el workflow ya pineado de nacimiento cuando puede resolver el tag. La versión anterior completó la ficha de PyPI: badges, keywords, classifiers y links de la barra lateral. Desde la v0.6.3 la documentación larga es bilingüe: `README.md` es el inglés que renderiza PyPI, `README.es.md` es el castellano, y la guía de llenado viaja en los dos idiomas. Esta versión vuelve alcanzable la guía castellana empaquetada, con `disensor guide --lang es`. Las releases se publican a PyPI vía Trusted Publishing (OIDC, `release.yml`): sin tokens en ninguna máquina. La v0.4 reescribió el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate") y la v0.5 entrega la consigna adversarial empaquetada con hash reproducible; el paso a residue/v0.3 endurece tres puntos del artefacto, cerrando los issues [#5](https://github.com/NicolasRocchia/disensor/issues/5), [#7](https://github.com/NicolasRocchia/disensor/issues/7) y [#8](https://github.com/NicolasRocchia/disensor/issues/8). Ver "Migración de v0.2 a v0.3". Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes).
 
 ## Licencia
 

@@ -15,6 +15,7 @@ from .brief import GATES, main_prompt
 from .gate import main_gate
 from .guide import main_guide, main_hash
 from .init import main_init
+from .pin import main_pin
 from .rules import load_schema, validate_artifact
 from .template import main_new
 
@@ -120,6 +121,23 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Write the brief to a file, keeping the bytes the hash is computed over. "
                              "Safer than shell redirection, which on some shells re-encodes the output.")
     prompt.set_defaults(func=main_prompt)
+
+    pin = sub.add_parser(
+        "pin",
+        help="Pin the gate Action to the commit SHA of its release tag, rewriting the workflows in place.",
+        description=(
+            "Asks the canonical repository which commit the release tag points at and "
+            "rewrites every .github/workflows/ file that uses the Action to that SHA. "
+            "A tag can be moved, so it is not a root of trust for the code that decides "
+            "whether a merge is allowed; the commit SHA is. Annotated tags are resolved "
+            "to the commit they wrap, never to the tag object."
+        ),
+    )
+    pin.add_argument(
+        "version", nargs="?", default=None,
+        help="Release to pin, with or without the leading v (default: the installed version).",
+    )
+    pin.set_defaults(func=main_pin)
 
     guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
     guide.add_argument("--lang", "--idioma", choices=["en", "es"], default="en",
