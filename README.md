@@ -115,7 +115,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.6.5
+      - uses: NicolasRocchia/disensor@v0.7.0
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -352,7 +352,7 @@ it says.
 
 ## Status
 
-v0.6.5, on **residue/v0.3**. This version completes the PyPI listing: badges, keywords, classifiers and sidebar links. The long-form documentation is bilingual
+v0.7.0, on **residue/v0.3**. This version adds `disensor pin`: the Action frozen to the commit SHA of its release tag by command, and `disensor init` now leaves the workflow born pinned when it can resolve the tag. The previous version completed the PyPI listing: badges, keywords, classifiers and sidebar links. The long-form documentation is bilingual
 since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
 is the Spanish, and the filling guide ships in both languages. This version
 makes the packaged Spanish guide reachable with `disensor guide --lang es`.
