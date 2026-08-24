@@ -1,0 +1,145 @@
+{
+ "schema": "residue/v0.3",
+ "profile": "full",
+ "event": {
+  "event_id": "a97a0737-54fc-4ebb-a857-5ed67c7660ef",
+  "created_at": "2026-08-24T17:43:46-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "e19dd7fec6fce84a70ba6bf8b5942d8abe3d5dd0",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  },
+  "base_commit": "693f9f5f346817de3824b318ece148cfbda84ecf"
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "google",
+    "model": "antigravity-gemini-3.1-pro",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    },
+    "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+   },
+   {
+    "reviewer_id": "r2",
+    "family": "openai",
+    "model": "antigravity-gpt-oss-120b",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    },
+    "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "major",
+   "title": "El regex del pin se comia la comilla de cierre de un uses entrecomillado",
+   "description": "Un `uses: \"NicolasRocchia/disensor@v0.6.5\"` es YAML valido y el token [^\\s#]+ absorbia la comilla de cierre: el reemplazo dejaba el string sin cerrar y el comando rompia el CI que existe para proteger. El regex ahora captura la comilla y el comentario de version cae afuera de ella; una linea que no se entiende no se toca.",
+   "location": "src/disensor/pin.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "Reproducido por el generador con el repro exacto del revisor antes de aceptar (la comilla desaparecia), y re-ejecutado por r2 en la segunda pasada con probe.py: comilla preservada y comentario fuera, en dobles y simples."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_pin.py::test_pin_text_keeps_the_closing_quote_of_a_quoted_uses"
+   }
+  },
+  {
+   "id": "h2",
+   "origin": "r1",
+   "severity": "major",
+   "title": "ls-remote sin timeout colgaba para siempre con la red en blackhole",
+   "description": "En entornos donde el trafico saliente se descarta en silencio, git ls-remote bloquea indefinidamente y derrota el fallback graceful de init. Ahora timeout=30, GIT_TERMINAL_PROMPT=0 para que git nunca se detenga a pedir credenciales, y TimeoutExpired se traduce a PinError.",
+   "location": "src/disensor/pin.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado por lectura del codigo por ambos revisores y por el generador; r2 confirmo timeout y env en la llamada y el except correspondiente."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_pin.py::test_a_hung_remote_becomes_a_pin_error_not_a_hang"
+   }
+  },
+  {
+   "id": "h3",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "git ausente producia un traceback en vez del camino graceful",
+   "description": "subprocess.run lanza FileNotFoundError si el binario no existe y nada lo capturaba: init moria con traceback en vez de caer al fallback del tag. OSError ahora se traduce a PinError.",
+   "location": "src/disensor/pin.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "execution",
+    "detail": "r1 demostro el FileNotFoundError con un binario inexistente; r2 verifico el except OSError y el test que fija el mensaje."
+   },
+   "fix_verification": {
+    "type": "specific_test",
+    "reference": "tests/test_pin.py::test_git_not_installed_becomes_a_pin_error_not_a_traceback"
+   }
+  },
+  {
+   "id": "h4",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "El fake del runner tiraba los kwargs y un test afirmaba sobre el mock",
+   "description": "fake_runner ignoraba **kwargs: production podia perder text= o el timeout con los tests en verde. Y el test de la version con v adelante afirmaba sobre el mock sin mirar el disco. Novena aparicion de la familia 'el test verifica el sustituto'. El fake ahora valida el contrato de la llamada (capture_output, text, timeout, GIT_TERMINAL_PROMPT) y el test afirma sobre el archivo.",
+   "location": "tests/test_pin.py",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado por lectura por el generador y por r2 en la segunda pasada, lineas de las aserciones citadas en su informe."
+   },
+   "fix_verification": {
+    "type": "diff_gate",
+    "reference": "Commit e19dd7f revisado en la segunda pasada por r2 (familia openai): fake_runner validador y aserciones sobre el archivo, con la suite completa en 234 passed."
+   }
+  }
+ ],
+ "residue": {
+  "items": [
+   {
+    "id": "r1",
+    "class": "execution_gap",
+    "requires_human_attention": false,
+    "gap_reason": "environment_not_reproducible",
+    "description": "La via de red real de ls-remote se ejercito contra GitHub (dogfood del pin de ci.yml y consultas directas de r1), pero ningun revisor pudo ejercitar configuraciones exoticas de credenciales o SSH en Windows, donde git podria comportarse distinto ante el timeout. Gap declarado por r1 en su informe."
+   }
+  ]
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 4,
+   "valid": {
+    "incorporated": 4,
+    "debt_recorded": 0,
+    "owner_decision": 0
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 0
+  }
+ }
+}
