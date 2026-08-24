@@ -1,0 +1,76 @@
+{
+ "schema": "residue/v0.3",
+ "profile": "full",
+ "event": {
+  "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+  "created_at": "2026-08-24T13:50:07-03:00",
+  "repository": "https://github.com/NicolasRocchia/disensor.git",
+  "head_commit": "ab91f56703ec11e606ba5c97d5341d1409e1f46a",
+  "gate": "diff",
+  "criticality_level": "B",
+  "abbreviated_path": {
+   "used": false
+  },
+  "base_commit": "45c70fe7ef353c6dac8e121e332251ee6ff2e946"
+ },
+ "actors": {
+  "generator": {
+   "family": "anthropic",
+   "model": "claude-code"
+  },
+  "reviewers": [
+   {
+    "reviewer_id": "r1",
+    "family": "google",
+    "model": "antigravity-gemini-3.1-pro",
+    "confinement": {
+     "mode": "read_only_by_instruction",
+     "verified": true,
+     "verification_method": "clean_git_status"
+    },
+    "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+   }
+  ],
+  "human_arbiter": {
+   "present": true
+  }
+ },
+ "findings": [
+  {
+   "id": "h1",
+   "origin": "r1",
+   "severity": "minor",
+   "title": "El link del badge de licencia era relativo y en PyPI daba 404",
+   "description": "El README es el long_description del paquete y PyPI lo renderiza sin reescribir links relativos como hace GitHub: (LICENSE) resolvia a pypi.org/project/disensor/LICENSE, que no existe. Unico link relativo de los dos README; los otros cuatro badges ya eran absolutos.",
+   "location": "README.md, README.es.md",
+   "final_state": "incorporated",
+   "verification": {
+    "against": "repository",
+    "detail": "Verificado con grep: el link relativo existia en la linea 6 de ambos README y era el unico. El comportamiento de PyPI (no reescribe links relativos del long_description) es el documentado por las guias de empaquetado que el revisor cito."
+   },
+   "fix_verification": {
+    "type": "diff_gate",
+    "reference": "Commit ab91f56: el link pasa a la URL absoluta del repo. Re-verificado con el mismo grep: cero links relativos en ambos README, y los 13 tests de docs y sincronia bilingue en verde."
+   }
+  }
+ ],
+ "residue": {
+  "declared_absence": true,
+  "declaration": "Sin escalation_without_decision: el unico hallazgo se incorporo sin desacuerdo. Sin principal_refutation: no se refuto ningun hallazgo del revisor. Sin execution_gap: el revisor ejecuto la suite completa (216 tests en verde), verifico por HTTP que las cuatro URLs de project.urls responden 200, valido los classifiers contra la lista oficial de PyPI, confirmo contra la API de Zenodo que el DOI es el de concepto, y verifico que el SHA pineado del auto-gate es el objeto commit del tag v0.6.4."
+ },
+ "metrics": {
+  "counts": {
+   "total_findings": 1,
+   "valid": {
+    "incorporated": 1,
+    "debt_recorded": 0,
+    "owner_decision": 0
+   },
+   "false_positives": {
+    "refuted_verifiable": 0,
+    "refuted_interpretive": 0
+   },
+   "escalated_open": 0
+  }
+ }
+}
