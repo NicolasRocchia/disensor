@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/disensor)](https://pypi.org/project/disensor/)
 [![CI](https://github.com/NicolasRocchia/disensor/actions/workflows/ci.yml/badge.svg)](https://github.com/NicolasRocchia/disensor/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/pypi/pyversions/disensor)](https://pypi.org/project/disensor/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/NicolasRocchia/disensor/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21633495.svg)](https://doi.org/10.5281/zenodo.21633495)
 
 Revisión adversarial de planes y código, con el residuo declarado.
