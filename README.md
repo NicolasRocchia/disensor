@@ -44,6 +44,7 @@ The package is installed once (globally); each repository is initialised once:
 pip install disensor        # or pipx install disensor, recommended for CLIs
 
 disensor init               # at the repo root: config, CLAUDE.md, filling skill and CI workflow
+disensor pin                # the gate Action, frozen to the commit SHA of the release tag
 
 disensor prompt --gate diff            # the adversarial brief, to hand to a reviewer from another family
 disensor new --gate diff --level B     # template prefilled in .residue/
@@ -205,7 +206,7 @@ to resolve:
 - **Strict required check** (or merge queue) on `pull_request`, so that the check has to correspond to the latest head.
 - **CODEOWNERS** over the effective configuration path (it may not be called `disensor.config.json` if `--config` is used) and over `.github/workflows/`.
 - **Organisation ruleset or required workflow**, defined outside the audited repository.
-- **Pin the Action by SHA**, not by tag: a tag is movable and is not a root of trust. `disensor init` writes the tag of the installed version for convenience, and the generated workflow itself warns that it has to be replaced by the SHA that tag points at. This repository's documentation also uses the tag, because it documents which version corresponds; the SHA is put there by whoever deploys.
+- **Pin the Action by SHA**, not by tag: a tag is movable and is not a root of trust. `disensor init` resolves the tag of the installed version to the commit it points at and writes the workflow already frozen; without network at init time the tag stays and `disensor pin` finishes the job. The command resolves annotated tags to the commit they wrap, never to the tag object, which is the classic trap of doing it by hand. This repository's documentation still uses the tag, because it documents which version corresponds; the frozen SHA is produced by whoever deploys.
 - **Bootstrap**: the first PR that adds the config and the workflow cannot make itself the root of trust. Initial activation is an administrative step, prior to the gate meaning anything.
 
 Explicit limit: reading the policy from the base turns a one-step bypass into a

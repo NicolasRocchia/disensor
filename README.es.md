@@ -33,6 +33,7 @@ El paquete se instala una vez (global); cada repositorio se inicializa una vez:
 pip install disensor        # o pipx install disensor, recomendado para CLIs
 
 disensor init               # en la raíz del repo: config, CLAUDE.md, skill de llenado y workflow de CI
+disensor pin                # la Action del workflow, congelada al SHA de commit del tag de la release
 
 disensor prompt --gate diff            # la consigna adversarial, para pegarle al revisor de otra familia
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
@@ -139,7 +140,7 @@ Esto es requisito, no sugerencia. El gate corre dentro del workflow que audita, 
 - **Required check estricto** (o merge queue) sobre `pull_request`, para que el check tenga que corresponder al último head.
 - **CODEOWNERS** sobre la ruta efectiva de configuración (puede no llamarse `disensor.config.json` si se usa `--config`) y sobre `.github/workflows/`.
 - **Ruleset o required workflow de organización**, definido fuera del repositorio auditado.
-- **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza. `disensor init` escribe el tag de la versión instalada por comodidad, y el propio workflow generado avisa que hay que reemplazarlo por el SHA al que ese tag apunta. La documentación de este repo también usa el tag, porque documenta qué versión corresponde; el SHA lo pone quien despliega.
+- **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza. `disensor init` resuelve el tag de la versión instalada al commit al que apunta y escribe el workflow ya congelado; sin red al momento del init el tag queda y `disensor pin` termina el trabajo. El comando resuelve los tags anotados al commit que envuelven, nunca al objeto tag, que es la trampa clásica de hacerlo a mano. La documentación de este repo sigue usando el tag, porque documenta qué versión corresponde; el SHA congelado lo produce quien despliega.
 - **Bootstrap**: el primer PR que agrega el config y el workflow no puede convertirse a sí mismo en raíz de confianza. La activación inicial es un paso administrativo, previo a que el gate signifique algo.
 
 Límite explícito: leer la política de la base convierte un bypass de un paso en uno de dos, no lo elimina. Quien pueda mergear una relajación la usa en el PR siguiente. Y nada de esto protege contra un workflow modificado, salteado o sustituido. Eso solo lo resuelve la plataforma.
