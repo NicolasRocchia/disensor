@@ -1,5 +1,11 @@
 # disensor
 
+[![PyPI](https://img.shields.io/pypi/v/disensor)](https://pypi.org/project/disensor/)
+[![CI](https://github.com/NicolasRocchia/disensor/actions/workflows/ci.yml/badge.svg)](https://github.com/NicolasRocchia/disensor/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/pypi/pyversions/disensor)](https://pypi.org/project/disensor/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/NicolasRocchia/disensor/blob/main/LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21633495.svg)](https://doi.org/10.5281/zenodo.21633495)
+
 Adversarial plan & code review with a declared residue.
 
 *Este documento también está [en español](https://github.com/NicolasRocchia/disensor/blob/main/README.es.md).*
@@ -108,7 +114,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.6.4
+      - uses: NicolasRocchia/disensor@v0.6.5
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -345,7 +351,7 @@ it says.
 
 ## Status
 
-v0.6.4, on **residue/v0.3**. The long-form documentation is bilingual
+v0.6.5, on **residue/v0.3**. This version completes the PyPI listing: badges, keywords, classifiers and sidebar links. The long-form documentation is bilingual
 since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
 is the Spanish, and the filling guide ships in both languages. This version
 makes the packaged Spanish guide reachable with `disensor guide --lang es`.

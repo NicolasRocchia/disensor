@@ -4,13 +4,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "disensor"
-version = "0.6.4"
+version = "0.6.5"
 description = "Adversarial plan & code review with a declared residue. Emits, validates and CI-enforces residue declarations (residue/v0.3 schema)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Nicolas Rocchia", email = "nicolasrocchia@gmail.com" }]
 dependencies = ["jsonschema>=4.18"]
+keywords = ["code review", "adversarial review", "ci", "github action", "llm", "ai", "residue declaration", "software quality"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.urls]
+Homepage = "https://disensor.dev"
+Repository = "https://github.com/NicolasRocchia/disensor"
+Issues = "https://github.com/NicolasRocchia/disensor/issues"
+Paper = "https://doi.org/10.5281/zenodo.21633495"
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
