@@ -151,6 +151,17 @@ def validate_command(command) -> list[str]:
     return errors
 
 
+def has_material_channel(command, stdin: str | None) -> bool:
+    """Whether this recipe actually hands the package to the reviewer.
+
+    A command with neither `{pack}` nor `stdin: pack` runs the reviewer with
+    nothing to review, and a reviewer given nothing can still exit zero and
+    write something. The round would then certify a review that never looked at
+    the material.
+    """
+    return stdin == "pack" or "{pack}" in list(command or [])
+
+
 def _is_known_placeholder(arg: str) -> bool:
     return arg in PLACEHOLDERS or arg == "{model}"
 
@@ -216,6 +227,13 @@ def build_entry(
         raise ReviewerError(
             f"{command[0]!r} is not on PATH. An entry that cannot run is worse than no entry: "
             "the chain would fall through to the next reviewer for the wrong reason"
+        )
+    canal = stdin or (CATALOG.get(reviewer_id, {}).get("stdin") if from_catalog else None)
+    if not has_material_channel(command, canal):
+        raise ReviewerError(
+            "this recipe never hands the package to the reviewer: it needs {pack} in the "
+            "command, or --stdin pack. Without one of them the reviewer runs with nothing to "
+            "review and can still return a report"
         )
     receta = CATALOG.get(reviewer_id) if from_catalog else None
     entry = {

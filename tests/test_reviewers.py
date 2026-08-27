@@ -70,6 +70,7 @@ def test_an_entry_built_by_the_assistant_is_always_unverified():
     """
     entry = build_entry(
         "propio", "other", "modelo", [sys.executable, "-c", "pass"], from_catalog=False,
+        stdin="pack",
     )
     assert entry["hardening"] == "unverified"
     assert entry["source"] == "assistant"
@@ -92,14 +93,15 @@ def test_an_executable_not_on_path_is_refused():
 
 def test_the_entry_records_the_executable_and_its_hash():
     """Si el binario cambia, el consentimiento y el endurecimiento dejan de valer."""
-    entry = build_entry("propio", "other", "m", [sys.executable, "-c", "pass"], from_catalog=False)
+    entry = build_entry("propio", "other", "m", [sys.executable, "-c", "pass"],
+                        from_catalog=False, stdin="pack")
     assert Path(entry["executable"]).is_absolute()
     assert entry["executable_hash"].startswith("sha256:")
 
 
 def test_what_the_owner_reads_says_where_the_material_goes():
     entry = build_entry("propio", "other", "m", [sys.executable, "-c", "pass"],
-                        from_catalog=False, egress="cloud", provider="AlgunProveedor")
+                        from_catalog=False, stdin="pack", egress="cloud", provider="AlgunProveedor")
     texto = describe(entry)
     assert "LEAVES this machine" in texto and "AlgunProveedor" in texto
     assert entry["command"][0] in texto or "python" in texto.lower()
@@ -112,7 +114,7 @@ def test_an_entry_outside_the_catalog_needs_the_owner(capsys, registro_aislado):
     puede inducirlo a proponer un ejecutable cualquiera. Validar la forma no
     prueba que un binario sea seguro."""
     code = correr("add", "raro", "--family", "other", "--model", "m",
-                  "--command", sys.executable, "-c", "pass")
+                  "--stdin", "pack", "--command", sys.executable, "-c", "pass")
     salida = capsys.readouterr().out
     assert code == 2
     assert "decision for the owner" in salida
@@ -121,7 +123,7 @@ def test_an_entry_outside_the_catalog_needs_the_owner(capsys, registro_aislado):
 
 def test_with_approval_it_is_registered(capsys, registro_aislado):
     code = correr("add", "raro", "--family", "other", "--model", "m", "--yes",
-                  "--command", sys.executable, "-c", "pass")
+                  "--stdin", "pack", "--command", sys.executable, "-c", "pass")
     assert code == 0
     data = json.loads(registro_aislado.read_text(encoding="utf-8"))
     assert data["reviewers"][0]["id"] == "raro"
@@ -139,17 +141,17 @@ def test_a_cloud_reviewer_needs_confirmation_even_from_the_catalog(capsys, regis
 
 def test_a_duplicate_id_is_refused(capsys, registro_aislado):
     correr("add", "raro", "--family", "other", "--model", "m", "--yes",
-           "--command", sys.executable, "-c", "pass")
+           "--stdin", "pack", "--command", sys.executable, "-c", "pass")
     capsys.readouterr()
     code = correr("add", "raro", "--family", "other", "--model", "m", "--yes",
-                  "--command", sys.executable, "-c", "pass")
+                  "--stdin", "pack", "--command", sys.executable, "-c", "pass")
     assert code == 1
     assert "already registered" in capsys.readouterr().out
 
 
 def test_list_and_remove(capsys, registro_aislado):
     correr("add", "raro", "--family", "other", "--model", "m", "--yes",
-           "--command", sys.executable, "-c", "pass")
+           "--stdin", "pack", "--command", sys.executable, "-c", "pass")
     capsys.readouterr()
     correr("list")
     assert "raro" in capsys.readouterr().out
@@ -225,3 +227,17 @@ def test_a_repeated_flag_is_a_normal_command():
     repetirse es un placeholder, porque el runner no sabria cual llenar."""
     assert validate_command(["tool", "-c", "uno", "-c", "dos", "{pack}"]) == []
     assert validate_command(["tool", "{pack}", "{pack}"])
+
+
+def test_a_recipe_without_a_material_channel_is_refused():
+    """Un revisor al que no se le entrega nada puede salir con codigo 0 y
+    escribir algo igual: la ronda certificaria una revision que nunca miro el
+    material."""
+    from disensor.reviewers import has_material_channel
+
+    assert not has_material_channel(["tool", "--flag"], None)
+    assert has_material_channel(["tool", "{pack}"], None)
+    assert has_material_channel(["tool"], "pack")
+
+    with pytest.raises(ReviewerError, match="never hands the package"):
+        build_entry("mudo", "other", "m", [sys.executable, "-c", "pass"], from_catalog=False)
