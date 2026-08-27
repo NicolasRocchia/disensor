@@ -60,6 +60,12 @@ CATALOG: dict[str, dict] = {
             "--ignore-user-config",
             "--ignore-rules",
             "-c", "project_doc_max_bytes=0",
+            # El runner corre al revisor desde un directorio propio, fuera del
+            # repositorio, y ese directorio no es un repo git. La version
+            # instalada hoy no se queja (se probo), pero el flag existe porque
+            # alguna si lo hace: ponerlo no cuesta nada y evita que la unica
+            # receta verificada del catalogo deje de arrancar por una version.
+            "--skip-git-repo-check",
         ],
         "stdin": "pack",
         "hardening": "verified",

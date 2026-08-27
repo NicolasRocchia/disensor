@@ -200,3 +200,30 @@ def test_the_cli_reports_a_mismatch_without_a_traceback(repo: Path, informe: Pat
     args = build_parser().parse_args(["new", "--gate", "diff", "--round", str(archivo)])
     assert args.func(args) == 1
     assert "new:" in capsys.readouterr().out
+
+
+def test_a_diff_round_cannot_be_declared_as_a_plan(repo: Path, informe: Path):
+    """Reetiquetar la compuerta haria que la declaracion cubriera algo que
+    nadie reviso: el artefacto identifica la revision que ocurrio."""
+    r = resultado_de(repo, informe)
+    assert r["gate"] == "diff"
+    with pytest.raises(RoundMismatch, match="diff gate and this declaration says plan"):
+        from_round(r, "plan", "B", "full", repo)
+
+
+def test_a_result_from_another_repository_is_refused(repo: Path, informe: Path, monkeypatch):
+    """Forks y clones comparten OID: que coincida el commit no alcanza."""
+    git(repo, "remote", "add", "origin", "https://github.com/mio/repo.git")
+    r = resultado_de(repo, informe)
+    r["repository"] = "github.com/ajeno/repo"
+    with pytest.raises(RoundMismatch, match="was run in"):
+        from_round(r, "diff", "B", "full", repo)
+
+
+def test_the_same_repository_written_differently_is_accepted(repo: Path, informe: Path):
+    """ssh y https son la misma identidad escrita distinto."""
+    git(repo, "remote", "add", "origin", "git@github.com:mio/repo.git")
+    r = resultado_de(repo, informe)
+    r["repository"] = "https://github.com/mio/repo"
+    a = from_round(r, "diff", "B", "full", repo)
+    assert a["event"]["repository"] == "https://github.com/mio/repo"

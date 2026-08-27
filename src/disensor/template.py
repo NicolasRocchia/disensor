@@ -132,6 +132,30 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
             "nothing to declare about it"
         )
 
+    # La compuerta declarada tiene que ser la que se corrio. Sin esto, una ronda
+    # de diff se podia declarar como plan: el artefacto decia `gate: plan` con
+    # el revisor y el hash de una ronda que miro un rango de git, y servia donde
+    # la politica acepta compuerta de plan sin que nadie hubiera visto un plan.
+    if resultado.get("gate") and resultado["gate"] != gate:
+        raise RoundMismatch(
+            f"the round was a {resultado['gate']} gate and this declaration says {gate}. "
+            "The artifact identifies the review that happened, and relabelling it would make "
+            "it cover something nobody reviewed"
+        )
+
+    # Y el repositorio, porque forks y clones comparten OID todo el tiempo: sin
+    # comparar la identidad, un resultado producido en otro repositorio pasaba
+    # solo por coincidir el commit, y la declaracion copiaba la identidad ajena.
+    esperado = resultado.get("repository")
+    if esperado:
+        actual = _repository_identity(cwd)
+        if actual and not _same_repository(esperado, actual):
+            raise RoundMismatch(
+                f"the round was run in {esperado} and this is {actual}. Commit ids are shared "
+                "between forks and clones, so matching HEAD is not enough to say it is the "
+                "same repository"
+            )
+
     head_actual = _git(["rev-parse", "HEAD"], cwd)
     if anclas.get("head_oid") and head_actual and anclas["head_oid"] != head_actual:
         raise RoundMismatch(
@@ -247,3 +271,27 @@ def _fallback_from(resultado: dict) -> dict:
         "code": codigo,
         "detail": f"the better reviewers were tried first and failed: {motivo}",
     }
+
+
+def _repository_identity(cwd: Path) -> str:
+    """The same canonical form the runner records, so the two can be compared."""
+    url = _git(["config", "--get", "remote.origin.url"], cwd)
+    if not url:
+        return ""
+    limpio = url.replace("git@", "").replace("ssh://", "")
+    limpio = limpio.replace("https://", "").replace("http://", "")
+    return limpio.removesuffix(".git").rstrip("/")
+
+
+def _same_repository(uno: str, otro: str) -> bool:
+    """Two spellings of the same identity, or two different repositories.
+
+    `git@host:owner/name` and `https://host/owner/name` are the same place, so
+    the comparison is on the parts and not on the string.
+    """
+    def partes(valor: str) -> tuple:
+        normal = valor.replace(":", "/").replace("\\", "/")
+        return tuple(p for p in normal.split("/") if p)
+
+    a, b = partes(uno), partes(otro)
+    return a == b or a[-2:] == b[-2:] if len(a) >= 2 and len(b) >= 2 else a == b
