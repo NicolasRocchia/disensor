@@ -286,6 +286,8 @@ def main_reviewer(args) -> int:
             return _add(args)
         if accion == "remove":
             return _remove(args)
+        if accion == "consent":
+            return _consent(args)
     except ReviewerError as exc:
         print(f"reviewer: {exc}")
         return 1
@@ -408,4 +410,46 @@ def _remove(args) -> int:
     data["reviewers"] = quedan
     save_registry(data)
     print(f"removed {args.id}")
+    return 0
+
+
+def _consent(args) -> int:
+    """Authorise, or withdraw, sending THIS repository's material to a reviewer."""
+    from . import gitctx
+
+    data = load_registry()
+    entry = next((r for r in data["reviewers"] if r["id"] == args.id), None)
+    if entry is None:
+        print(f"reviewer: {args.id} is not registered")
+        return 1
+
+    repositorio = gitctx.canonical_repository(Path.cwd()) or str(Path.cwd())
+    clave = consent_key(entry, repositorio)
+    consents = set(data.get("consents", []))
+
+    if args.revoke:
+        if clave not in consents:
+            print(f"reviewer: there was no consent for {args.id} in {repositorio}")
+            return 1
+        consents.discard(clave)
+        data["consents"] = sorted(consents)
+        save_registry(data)
+        print(f"withdrawn: {args.id} can no longer receive the material of {repositorio}")
+        return 0
+
+    if entry.get("egress") == "local":
+        print(f"{args.id} runs locally: nothing leaves the machine, so there is nothing to authorise")
+        return 0
+
+    print(describe(entry))
+    print(f"\n  repository: {repositorio}\n")
+    consents.add(clave)
+    data["consents"] = sorted(consents)
+    save_registry(data)
+    print(
+        f"authorised: the material of {repositorio} may be sent to "
+        f"{entry.get('provider') or 'this reviewer'}.\n"
+        "This covers this repository, this recipe and these executable bytes. Another project, "
+        "a changed command or a replaced binary needs its own authorisation."
+    )
     return 0

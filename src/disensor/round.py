@@ -38,7 +38,13 @@ from . import gitctx
 from .brief import brief_hash
 from .gate import GateFailure, classify_requirement, resolve_context
 from .pack import pack_hash, pack_text
-from .reviewers import CATALOG, ReviewerError, executable_fingerprint, load_registry
+from .reviewers import (
+    CATALOG,
+    ReviewerError,
+    executable_fingerprint,
+    has_consent,
+    load_registry,
+)
 
 RESULT_VERSION = "disensor/round-result/v1"
 
@@ -360,6 +366,21 @@ def _round(args, repo: Path) -> int:
         # como una revision cross-family.
         report = None
         for numero, (entry, independence) in enumerate(chain, start=1):
+            # El consentimiento es por repositorio, receta y bytes: haberlo dado
+            # alguna vez en otro proyecto no autoriza mandar ESTE codigo afuera.
+            # Sin esto, el material de un repositorio privado salia por una
+            # autorizacion concedida en uno publico.
+            if not has_consent(entry, repository):
+                attempts.append({
+                    "id": entry["id"],
+                    "outcome": "no_consent",
+                    "independence": independence,
+                    "detail": (
+                        f"sending the material of {repository} to {entry.get('provider') or 'a third party'} "
+                        f"was not authorised. Run: disensor reviewer consent {entry['id']}"
+                    ),
+                })
+                continue
             candidato = Path(tmp) / f"report-{numero}-{entry['id']}.md"
             paquete = pack_text(
                 args.gate,
@@ -397,7 +418,16 @@ def _round(args, repo: Path) -> int:
             return TREE_MODIFIED
 
         if usado is None:
-            print("round: every registered reviewer failed. See the attempts in the result.")
+            sin_permiso = [a for a in attempts if a["outcome"] == "no_consent"]
+            if sin_permiso:
+                print(
+                    "round: no reviewer ran because sending this repository's material was not "
+                    "authorised. Authorise the one you want with `disensor reviewer consent "
+                    f"{sin_permiso[0]['id']}`, or register a local reviewer, whose material "
+                    "never leaves the machine."
+                )
+            else:
+                print("round: every registered reviewer failed. See the attempts in the result.")
             _emit(args, _result(
                 args, repository, base, head, merge_base, target_tip,
                 paquete, None, None, attempts,

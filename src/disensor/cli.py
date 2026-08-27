@@ -245,6 +245,19 @@ def build_parser() -> argparse.ArgumentParser:
                            "Placeholders: {pack}, {report}.")
     radd.set_defaults(func=main_reviewer)
 
+    rcon = racc.add_parser(
+        "consent",
+        help="Authorise sending this repository's material to a registered cloud reviewer.",
+        description=(
+            "Consent is scoped: it covers this repository, this recipe and these executable "
+            "bytes. Authorising one project does not authorise the next one, and a changed "
+            "command or a replaced binary invalidates it."
+        ),
+    )
+    rcon.add_argument("id")
+    rcon.add_argument("--revoke", action="store_true", help="Withdraw a consent already given.")
+    rcon.set_defaults(func=main_reviewer)
+
     rrm = racc.add_parser("remove", help="Remove a registered reviewer.")
     rrm.add_argument("id")
     rrm.set_defaults(func=main_reviewer)

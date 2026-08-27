@@ -229,9 +229,10 @@ def test_a_report_inside_the_repository_is_refused(repo: Path, monkeypatch, tmp_
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
     from disensor.cli import build_parser
 
-    monkeypatch.setattr(ronda, "load_registry", lambda: {"reviewers": [
-        entrada("x", "openai", revisor_falso(tmp_path, "x", ESCRIBE_Y_SALE_BIEN))
-    ]})
+    monkeypatch.setattr(ronda, "load_registry", lambda: {"reviewers": [dict(
+        entrada("x", "openai", revisor_falso(tmp_path, "x", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]})
     args = build_parser().parse_args([
         "round", "--gate", "diff", "--generator-family", "anthropic",
         "--base", "main", "--head", "HEAD", "--repository", str(repo),
@@ -251,9 +252,12 @@ def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
     git(repo, "add", "-A")
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
     head = git(repo, "rev-parse", "HEAD")
-    registro = {"reviewers": [
-        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN))
-    ]}
+    # egress local: un script de prueba no manda nada a ningun lado, y un
+    # egreso desconocido exigiria consentimiento, que es lo correcto.
+    registro = {"reviewers": [dict(
+        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
     assert correr(repo, registro, monkeypatch, tmp_path) == OK
     assert git(repo, "status", "--porcelain") == "", "el arbol tiene que quedar como estaba"
 
@@ -295,3 +299,39 @@ def test_level_a_refuses_a_reviewer_that_does_not_meet_the_floor(
     ]}
     assert correr(repo, registro, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
     assert "Level A demands" in capsys.readouterr().out
+
+
+def test_a_cloud_reviewer_without_consent_for_this_repository_is_skipped(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """El material de un repositorio privado no sale por una autorizacion dada
+    en otro proyecto. Una funcion de seguridad que existe y no se invoca es peor
+    que no tenerla: se lee como si estuviera cubriendo algo."""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {
+        "reviewers": [dict(
+            entrada("nube", "openai", revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)),
+            egress="cloud", provider="AlgunProveedor",
+        )],
+        "consents": [],
+    }
+    monkeypatch.setattr(ronda, "load_registry", lambda: registro)
+    assert correr(repo, registro, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
+    salida = capsys.readouterr().out
+    assert "was not authorised" in salida
+    assert "disensor reviewer consent" in salida
+
+
+def test_a_local_reviewer_needs_no_consent(repo: Path, monkeypatch, tmp_path):
+    """Si nada sale de la maquina, no hay nada que autorizar."""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {"reviewers": [dict(
+        entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    monkeypatch.setattr(ronda, "load_registry", lambda: registro)
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
