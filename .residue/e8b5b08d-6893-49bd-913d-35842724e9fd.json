@@ -1,0 +1,120 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "e8b5b08d-6893-49bd-913d-35842724e9fd",
+    "created_at": "2026-08-27T19:48:07-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "95b99c3a967e77776637ad5825b57961d496c27d",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "d55f19292eb8d79a914c5c4459ab84f2b574d270"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5-codex",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Las banderas del par CLAUDE.md/skill se contradecian y ganaba el orden de rama",
+      "description": "--only-skill entro como bandera independiente, asi que convivia con --no-skill y --no-claude y la contradiccion se resolvia por el orden de los if: `init --only-skill --no-skill` escribia la skill que --no-skill promete saltear. Una bandera que dice no escribir algo y lo escribe igual viola el contrato del CLI. Las tres pasan a un grupo mutuamente excluyente.",
+      "location": "src/disensor/cli.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido por el generador antes de aceptarlo: `init --only-skill --no-skill` y `--only-skill --no-claude` en repositorios descartables escribian la skill en los dos casos."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_init.py::test_contradictory_flags_are_refused_instead_of_resolved_by_branch_order"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "--only-skill no valia en el camino de migracion, que es donde mas hace falta",
+      "description": "main_init despachaba a upgrade antes de mirar --only-skill, y upgrade solo consultaba --no-claude y --no-skill: `init --upgrade --only-skill` actualizaba igual el bloque de CLAUDE.md que la bandera promete no tocar. El camino de migracion es justamente el que usa quien ya tenia disensor instalado y ahora opera con otro agente, que es el caso que motivo el issue.",
+      "location": "src/disensor/init.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor lo reprodujo con la instalacion 0.7 de los tests: el comando imprimio 'upgraded CLAUDE.md' y la comparacion dio claude_changed=True. El generador lo confirmo leyendo el despacho de main_init."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_upgrade.py::test_upgrade_with_only_skill_leaves_claude_md_untouched"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Una invocacion rechazada por contradictoria dejaba un archivo versionado",
+      "description": "La validacion de --claude-global con --only-skill corria despues de _write_config, asi que el comando devolvia 1 dejando un disensor.config.json nuevo y sin informarlo. Quien trata un exit 1 como 'no hizo nada' se encontraba con un archivo que no pidio. Ahora la contradiccion se contesta antes de tocar el disco y en los dos caminos.",
+      "location": "src/disensor/init.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor lo reprodujo en un directorio temporal: retorno 1 con disensor.config.json existente y CLAUDE.md ausente."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_upgrade.py::test_a_rejected_invocation_writes_nothing"
+      }
+    }
+  ],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "No quedo residuo. Los tres hallazgos se incorporaron con su prueba, ninguno se refuto ni se transfirio, y la tercera pasada de compuerta diff sobre el rango completo no encontro hallazgos ni declaro hipotesis sin verificar. De las brechas que el revisor declaro, la unica que tocaba este cambio era no haber probado un wheel instalado: el generador la cerro despues, construyendo el wheel y corriendo `guide`, `guide --runbook` e `init --only-skill` desde un entorno limpio. Las otras dos (el smoke pago de endurecimiento y el indice de vectores) no tocan los caminos modificados."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 3,
+      "valid": {
+        "incorporated": 3,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:179ea7dd3acd786fee12ab15ab7bde1e62d126637a0ee201fa328a0b708c895e",
+      "report_hash": "sha256:359d789a3c9eb283237f68427ce6f712a70446c87e664c34b428d5eeb5446c50",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
