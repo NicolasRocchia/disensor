@@ -121,7 +121,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.9.1
+      - uses: NicolasRocchia/disensor@v0.9.2
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -442,7 +442,14 @@ it says.
 
 ## Status
 
-v0.9.1, on **residue/v0.4**. This version orchestrates the round: `disensor round` packages the material, runs a reviewer registered on your machine, captures the report and anchors the result to the commits it actually reviewed, and `disensor new --round` builds the declaration from it. Any assistant with a command line can be the reviewer; the packaged catalogue is a shortcut, not a list of what is allowed. residue/v0.4 makes a round without a second model family declarable as the degraded mode it is, instead of impossible to declare at all, and each schema version is now validated under its own rules. `disensor init --upgrade` brings an older installation up to this procedure without touching anything you edited. The previous version added `disensor pin`, which freezes the Action to the commit SHA of its release tag. The long-form documentation is bilingual
+v0.9.2, on **residue/v0.4**. This version makes `disensor guide` hand over the
+event runbook as well as the artifact filling guide, so an agent that is not
+Claude Code gets from one command the same material the Claude Code skill
+carries, which is what the documentation had been promising since the round
+became orchestrated ([#30](https://github.com/NicolasRocchia/disensor/issues/30)).
+`--runbook` and `--filling` ask for one of the two, and `init --only-skill`
+writes that runbook without the `CLAUDE.md` section, for a repository whose
+agent is another one. The previous version orchestrates the round: `disensor round` packages the material, runs a reviewer registered on your machine, captures the report and anchors the result to the commits it actually reviewed, and `disensor new --round` builds the declaration from it. Any assistant with a command line can be the reviewer; the packaged catalogue is a shortcut, not a list of what is allowed. residue/v0.4 makes a round without a second model family declarable as the degraded mode it is, instead of impossible to declare at all, and each schema version is now validated under its own rules. `disensor init --upgrade` brings an older installation up to this procedure without touching anything you edited. The previous version added `disensor pin`, which freezes the Action to the commit SHA of its release tag. The long-form documentation is bilingual
 since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
 is the Spanish, and the filling guide ships in both languages. This version
 makes the packaged Spanish guide reachable with `disensor guide --lang es`.
