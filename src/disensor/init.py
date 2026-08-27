@@ -262,8 +262,27 @@ def _write_workflow(root: Path, report: list[str]) -> None:
     report.append(f"created {rel} (pinned to {sha}, the commit of tag v{__version__})")
 
 
+def _incompatible(args) -> str | None:
+    """La contradiccion se contesta antes de escribir nada.
+
+    Estaba despues de `_write_config`, asi que una invocacion rechazada dejaba
+    un `disensor.config.json` versionado y ni siquiera lo informaba: quien
+    trata el exit 1 como "no hizo nada" se encontraba con un archivo nuevo.
+    """
+    if args.claude_global and getattr(args, "only_skill", False):
+        return (
+            "init: --claude-global writes the CLAUDE.md section in your home, and --only-skill "
+            "asks for no CLAUDE.md section. Pick one"
+        )
+    return None
+
+
 def main_init(args) -> int:
     root = Path.cwd()
+    choque = _incompatible(args)
+    if choque:
+        print(choque)
+        return 1
     if getattr(args, "upgrade", False) or getattr(args, "show", False):
         return upgrade(root, args)
     report: list[str] = []
@@ -273,12 +292,6 @@ def main_init(args) -> int:
 
     _write_config(root, args.level, report)
 
-    if args.claude_global and getattr(args, "only_skill", False):
-        print(
-            "init: --claude-global writes the CLAUDE.md section in your home, and --only-skill "
-            "asks for no CLAUDE.md section. Pick one"
-        )
-        return 1
     if args.claude_global:
         home = Path.home()
         _write_claude(
@@ -405,7 +418,13 @@ def upgrade(root: Path, args) -> int:
         print(SKILL_FRONTMATTER + RUNBOOK)
         return 0
 
-    if not args.no_claude:
+    if getattr(args, "only_skill", False):
+        # El camino de migracion es justamente el que usa quien ya tenia una
+        # instalacion vieja y ahora opera con otro agente: si aca se toca
+        # CLAUDE.md, la bandera no cumple donde mas hace falta.
+        report.append("skipped CLAUDE.md (--only-skill)")
+        peor = max(peor, _upgrade_skill(root, report))
+    elif not args.no_claude:
         peor = max(peor, _upgrade_claude(root / "CLAUDE.md", CLAUDE_SECTION, "CLAUDE.md", report))
         if not args.no_skill:
             peor = max(peor, _upgrade_skill(root, report))
