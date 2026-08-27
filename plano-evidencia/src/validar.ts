@@ -1,5 +1,5 @@
 /**
- * TypeScript port of the residue artifact validator (schema v0.3).
+ * TypeScript port of the residue artifact validator (schema v0.2 and v0.3).
  *
  * Mirror of src/disensor/rules.py (the Python reference implementation).
  * Parity is not ensured by reading the code: it is ensured by running the
@@ -221,7 +221,34 @@ export function erroresReglas(a: Artifact): string[] {
  * Validates a complete artifact. If the schema fails, rules are not evaluated
  * (same semantics as the reference): they would operate over an unguaranteed shape.
  */
+export const SCHEMA_FILES: Record<string, string> = {
+  "residue/v0.2": "residue.schema.v0.2.json",
+  "residue/v0.3": "residue.schema.v0.3.json",
+};
+
+/**
+ * The versions whose RULES this port implements.
+ *
+ * The JSON Schema of a newer version may well load here, but validating with it
+ * while running v0.3 rules would return "valid" without ever having checked the
+ * rules that version added. A stated limit beats a verdict that does not hold.
+ */
+export const SUPPORTED = new Set(Object.keys(SCHEMA_FILES));
+
+export function versionOf(a: Artifact): string | null {
+  if (a === null || typeof a !== "object" || Array.isArray(a)) return null;
+  return typeof a.schema === "string" ? a.schema : null;
+}
+
 export function validarArtefacto(a: Artifact, validar: ValidateFunction): string[] {
+  const version = versionOf(a);
+  if (version !== null && !SUPPORTED.has(version)) {
+    return [
+      `[schema] artifact declares '${version}'. This TypeScript port implements the rules of `
+      + `${[...SUPPORTED].join(", ")}. Validating it here would report a verdict without having `
+      + "run the rules that version added: use the reference implementation.",
+    ];
+  }
   if (a !== null && typeof a === "object" && !Array.isArray(a)
       && typeof a.esquema === "string" && a.esquema.startsWith("residuo/")) {
     return [

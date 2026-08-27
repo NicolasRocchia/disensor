@@ -5,20 +5,32 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compilarSchema, validarArtefacto, etiquetas } from "../src/validar.js";
+import { compilarSchema, validarArtefacto, etiquetas, versionOf, SCHEMA_FILES } from "../src/validar.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
-const schema = JSON.parse(readFileSync(join(root, "spec", "residue.schema.json"), "utf-8"));
 const vectorsDir = join(root, "spec", "vectors");
 
-const validar = compilarSchema(schema);
+// Uno por version, elegido por lo que el artefacto declara. `residue.schema.json`
+// es la version corriente y cambia en cada release: aplicarselo a un vector de
+// otra version lo juzga con reglas que no son las suyas.
+const validadores = new Map(
+  Object.entries(SCHEMA_FILES).map(([version, archivo]) => [
+    version,
+    compilarSchema(JSON.parse(readFileSync(join(root, "spec", archivo), "utf-8"))),
+  ]),
+);
+const desconocida = compilarSchema(
+  JSON.parse(readFileSync(join(root, "spec", "residue.schema.json"), "utf-8")),
+);
 let run = 0;
 let divergences = 0;
 
 for (const name of readdirSync(vectorsDir).sort()) {
   if (!name.endsWith(".json") || name === "index.json") continue;
   const vector = JSON.parse(readFileSync(join(vectorsDir, name), "utf-8"));
+  const version = versionOf(vector.artifact);
+  const validar = (version !== null && validadores.get(version)) || desconocida;
   const errores = validarArtefacto(vector.artifact, validar);
   const valid = errores.length === 0;
   const tags = etiquetas(errores);
