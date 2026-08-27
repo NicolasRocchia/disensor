@@ -17,6 +17,7 @@ from .guide import main_guide, main_hash
 from .init import main_init
 from .pack import main_pack
 from .pin import main_pin
+from .reviewers import main_reviewer
 from .rules import load_schema, validate_artifact
 from .template import main_new
 
@@ -162,6 +163,45 @@ def build_parser() -> argparse.ArgumentParser:
     pack.add_argument("--output", "--salida", metavar="FILE",
                       help="Write the package to a file, keeping the bytes its hash is computed over.")
     pack.set_defaults(func=main_pack)
+
+    reviewer = sub.add_parser(
+        "reviewer",
+        help="Register and list the reviewers this machine can run.",
+        description=(
+            "The reviewers live on the machine, never in the repository: an entry is "
+            "executable code, and a pull request that could add one would run commands on "
+            "the machine of whoever reviews it. The assistant discovers and proposes; an "
+            "entry outside the packaged catalogue needs the owner to approve it."
+        ),
+    )
+    racc = reviewer.add_subparsers(dest="reviewer_action", required=True)
+
+    rsug = racc.add_parser("suggest", help="Which catalogued reviewers this machine has (offline).")
+    rsug.set_defaults(func=main_reviewer)
+
+    rlist = racc.add_parser("list", help="Reviewers already registered.")
+    rlist.set_defaults(func=main_reviewer)
+
+    radd = racc.add_parser("add", help="Register a reviewer.")
+    radd.add_argument("id")
+    radd.add_argument("--family", choices=["anthropic", "openai", "google", "meta", "mistral", "other"])
+    radd.add_argument("--model")
+    radd.add_argument("--stdin", choices=["pack"], default=None,
+                      help="Pass the package on standard input instead of as an argument.")
+    radd.add_argument("--egress", choices=["local", "cloud", "unknown"], default="unknown")
+    radd.add_argument("--yes", action="store_true",
+                      help="Approve exactly what the command prints before writing it.")
+    # REMAINDER y no nargs=+: el argv de un revisor esta lleno de cosas que
+    # parecen flags nuestros (-c, --model), y argparse las reclamaria para si.
+    # Todo lo que sigue a --command es del revisor.
+    radd.add_argument("--command", nargs=argparse.REMAINDER,
+                      help="argv of the reviewer, everything after this flag. "
+                           "Placeholders: {pack}, {report}.")
+    radd.set_defaults(func=main_reviewer)
+
+    rrm = racc.add_parser("remove", help="Remove a registered reviewer.")
+    rrm.add_argument("id")
+    rrm.set_defaults(func=main_reviewer)
 
     guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
     guide.add_argument("--lang", "--idioma", choices=["en", "es"], default="en",
