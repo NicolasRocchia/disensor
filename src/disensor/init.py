@@ -47,7 +47,7 @@ impact bar, run the round with `disensor round` and declare it with
 `disensor new --round`. The full procedure, including what every exit code
 means and when to stop and ask, is the disensor skill
 (`.claude/skills/disensor/SKILL.md`); any other agent gets the same text from
-`disensor guide`.
+`disensor guide`, which prints the runbook and the filling guide.
 
 Two rules that do not depend on remembering the rest: the material is never
 pasted between models by hand, and a tree that changed during a round is not
@@ -283,6 +283,13 @@ def main_init(args) -> int:
         )
         if not args.no_skill:
             _write_skill(home, "~/.claude/skills/disensor/SKILL.md (global)", report)
+    elif getattr(args, "only_skill", False):
+        # La seccion de CLAUDE.md le habla a Claude Code. Un repositorio cuyo
+        # agente es otro quiere el runbook igual, y hasta ahora no habia forma
+        # de pedirlo: --no-claude saltea las dos y --no-skill deja justo la que
+        # no le sirve.
+        report.append("skipped CLAUDE.md (--only-skill)")
+        _write_skill(root, ".claude/skills/disensor/SKILL.md", report)
     elif not args.no_claude:
         _write_claude(root / "CLAUDE.md", CLAUDE_SECTION, "CLAUDE.md", report)
         if not args.no_skill:

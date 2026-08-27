@@ -69,7 +69,7 @@ Recién cuando quieras que **haga cumplir**, corré `disensor init` completo (qu
 
 Los subcomandos y flags de la v0.1 en español (`nuevo`, `validar`, `--compuerta`, `--nivel`, `--directorio`, `--sin-comentario`) siguen funcionando como alias.
 
-`disensor init` escribe, en forma idempotente, el `disensor.config.json` (el nivel viaja con el código, en un archivo versionado), la sección de cierre de evento en `CLAUDE.md`, la skill de Claude Code con la guía completa de llenado (`.claude/skills/disensor/SKILL.md`, cargada a demanda al cerrar cada ronda) y el workflow del gate; lo que ya existe se respeta y se informa. El principio es que después de `pip install disensor` y `disensor init` el usuario no toque nada a mano: Claude sabe cuándo (CLAUDE.md) y cómo (la skill), cualquier otro agente recibe lo mismo con `disensor guide`, y el CI hace cumplir el resultado. Config resultante:
+`disensor init` escribe, en forma idempotente, el `disensor.config.json` (el nivel viaja con el código, en un archivo versionado), la sección de cierre de evento en `CLAUDE.md`, la skill de Claude Code con el runbook del evento (`.claude/skills/disensor/SKILL.md`, cargada a demanda al cerrar cada ronda) y el workflow del gate; lo que ya existe se respeta y se informa. El principio es que después de `pip install disensor` y `disensor init` el usuario no toque nada a mano: Claude sabe cuándo (CLAUDE.md) y cómo (la skill), cualquier otro agente recibe lo mismo de `disensor guide`, que imprime ese runbook y la guía de llenado, y el CI hace cumplir el resultado. Config resultante:
 
 ```json
 {

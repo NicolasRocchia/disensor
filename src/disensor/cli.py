@@ -78,6 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--level", "--nivel", choices=["A", "B", "C"], default="B")
     init.add_argument("--no-claude", action="store_true", help="Do not touch CLAUDE.md nor the skill.")
     init.add_argument("--no-skill", action="store_true", help="Write the CLAUDE.md section but not the skill.")
+    init.add_argument("--only-skill", action="store_true",
+                      help="Write the skill but not the CLAUDE.md section, for a repository whose "
+                           "agent is not Claude Code.")
     init.add_argument("--claude-global", action="store_true",
                       help="Write the Claude Code section and skill to ~/.claude instead of the repo.")
     init.add_argument("--no-workflow", action="store_true", help="Do not write the CI workflow.")
@@ -262,9 +265,18 @@ def build_parser() -> argparse.ArgumentParser:
     rrm.add_argument("id")
     rrm.set_defaults(func=main_reviewer)
 
-    guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
+    guide = sub.add_parser(
+        "guide",
+        help="Print the event runbook and the artifact filling guide (for any coding agent or human).",
+    )
     guide.add_argument("--lang", "--idioma", choices=["en", "es"], default="en",
-                       help="Language of the guide. The English text is the normative one.")
+                       help="Language of the filling guide. The English text is the normative one; "
+                            "the runbook is English only.")
+    parte = guide.add_mutually_exclusive_group()
+    parte.add_argument("--runbook", action="store_true",
+                       help="Only the event runbook: the same text init installs as a Claude Code skill.")
+    parte.add_argument("--filling", "--llenado", action="store_true",
+                       help="Only the artifact filling guide.")
     guide.set_defaults(func=main_guide)
 
     hash_ = sub.add_parser("hash", help="Compute the sha256:<hex> value for prompt_hash from a file or text.")

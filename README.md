@@ -91,12 +91,13 @@ The Spanish v0.1 subcommands and flags (`nuevo`, `validar`, `--compuerta`,
 
 `disensor init` writes, idempotently, the `disensor.config.json` (the level
 travels with the code, in a versioned file), the event-close section in
-`CLAUDE.md`, the Claude Code skill with the full filling guide
+`CLAUDE.md`, the Claude Code skill with the event runbook
 (`.claude/skills/disensor/SKILL.md`, loaded on demand at the close of each
 round) and the gate workflow; whatever already exists is respected and reported.
 The principle is that after `pip install disensor` and `disensor init` the user
 touches nothing by hand: Claude knows when (CLAUDE.md) and how (the skill), any
-other agent gets the same with `disensor guide`, and CI enforces the result.
+other agent gets the same from `disensor guide`, which prints that runbook and
+the filling guide, and CI enforces the result.
 Resulting config:
 
 ```json

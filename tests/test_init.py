@@ -145,3 +145,22 @@ def test_init_warns_on_v01_config(repo, monkeypatch, capsys):
     run_init(repo, monkeypatch)
     out = capsys.readouterr().out
     assert "WARNING" in out and "criticality_level" in out
+
+
+def test_only_skill_writes_the_runbook_without_touching_claude_md(tmp_path, monkeypatch, capsys):
+    """La seccion de CLAUDE.md le habla a Claude Code.
+
+    Un repositorio cuyo agente es otro quiere el runbook igual, y no habia como
+    pedirlo: --no-claude saltea las dos y --no-skill deja justo la que no le
+    sirve. Nota del issue #30, del mismo hallazgo.
+    """
+    from disensor.cli import build_parser
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.chdir(repo)
+    args = build_parser().parse_args(["init", "--only-skill", "--no-workflow"])
+    assert args.func(args) == 0
+    assert (repo / ".claude" / "skills" / "disensor" / "SKILL.md").is_file()
+    assert not (repo / "CLAUDE.md").exists()
+    assert "skipped CLAUDE.md" in capsys.readouterr().out

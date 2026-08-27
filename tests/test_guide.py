@@ -20,7 +20,8 @@ def run(capsys, *argv: str) -> str:
 
 
 def test_guide_prints_packaged_text(capsys):
-    out = run(capsys, "guide")
+    # --filling: desde el issue #30, `guide` a secas entrega tambien el runbook.
+    out = run(capsys, "guide", "--filling")
     assert out == guide_text()
     from disensor.rules import CURRENT
 
@@ -79,8 +80,8 @@ def test_the_spanish_guide_is_reachable_and_is_not_the_english_one(capsys):
     texto que afirma algo que el codigo no cumple, la misma clase de defecto de
     los issues 19 y 20.
     """
-    es = run(capsys, "guide", "--lang", "es")
-    en = run(capsys, "guide")
+    es = run(capsys, "guide", "--lang", "es", "--filling")
+    en = run(capsys, "guide", "--filling")
     assert es == guide_text("es")
     assert en == guide_text()
     assert es != en, "las dos guias no pueden ser el mismo texto"
@@ -164,10 +165,50 @@ def test_the_spanish_guide_survives_a_hostile_console_encoding(tmp_path):
     }
     for lang in ("en", "es"):
         r = subprocess.run(
-            [sys.executable, "-m", "disensor", "guide", "--lang", lang],
+            [sys.executable, "-m", "disensor", "guide", "--lang", lang, "--filling"],
             cwd=ROOT, capture_output=True, env=env,
         )
         assert r.returncode == 0, f"guide --lang {lang} termino {r.returncode}: {r.stderr[:200]!r}"
         assert r.stdout.decode("utf-8") == guide_text(lang), (
             f"la salida de --lang {lang} no es la guia empaquetada byte a byte"
         )
+
+
+def test_guide_hands_over_the_runbook_too(capsys):
+    """La reproduccion del issue #30.
+
+    El README y el CLAUDE.md que escribe `init` prometen que un agente que no
+    es Claude Code recibe con este comando lo mismo que Claude recibe por la
+    skill. Cuando la skill paso a ser el runbook del evento, `guide` siguio
+    imprimiendo solo la guia de llenado: el agente nunca recibia el
+    procedimiento de la ronda, ni los codigos de salida, ni cuando frenar.
+    """
+    salida = run(capsys, "guide")
+    assert "disensor round" in salida
+    assert "# Running a review event" in salida
+    assert "# How to fill a residue declaration" in salida
+
+
+def test_the_runbook_printed_is_the_one_installed():
+    """Una fuente, no una copia: si se edita el runbook, se mueven los dos."""
+    from disensor.guide import runbook_text
+    from disensor.init import RUNBOOK
+
+    assert runbook_text() == RUNBOOK
+
+
+def test_each_part_can_be_asked_for_alone(capsys):
+    solo_runbook = run(capsys, "guide", "--runbook")
+    assert solo_runbook.startswith("# Running a review event")
+    assert "# How to fill a residue declaration" not in solo_runbook
+
+    solo_llenado = run(capsys, "guide", "--filling")
+    assert solo_llenado.startswith("# How to fill a residue declaration")
+    assert "# Running a review event" not in solo_llenado
+
+
+def test_the_spanish_guide_says_the_runbook_is_english_only(capsys):
+    """No se simula una traduccion que no existe."""
+    salida = run(capsys, "guide", "--lang", "es")
+    assert salida.startswith("> Nota")
+    assert "# Running a review event" in salida
