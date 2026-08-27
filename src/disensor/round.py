@@ -267,6 +267,15 @@ def _report_destination(args, repo: Path) -> Path:
     """
     if args.report:
         destino = Path(args.report).expanduser()
+        # Un destino que ya existe no se pisa. La ronda escribe una sola vez y
+        # lo que hubiera ahi es de otro: perderlo en silencio para dejar un
+        # informe es exactamente lo que una herramienta que promete no tocar
+        # nada no puede hacer.
+        if destino.exists():
+            raise RoundError(
+                f"--report {destino} already exists. The round does not overwrite: move it, "
+                "delete it, or point somewhere else"
+            )
         if _inside(destino, repo):
             raise RoundError(
                 f"--report {destino} is inside the repository under review. The report has to "

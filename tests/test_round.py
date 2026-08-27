@@ -457,3 +457,20 @@ sys.exit(0)
     assert "El contenido que el revisor tiene que ver." in informe.read_text(encoding="utf-8"), (
         "el segundo revisor de la cadena tiene que recibir el material igual que el primero"
     )
+
+
+def test_an_existing_report_destination_is_not_overwritten(repo: Path, monkeypatch, tmp_path, capsys):
+    """Lo que haya en ese archivo es de otro: perderlo en silencio para dejar un
+    informe es lo que una herramienta que promete no tocar nada no puede hacer."""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    ocupado = tmp_path / "informe.md"
+    ocupado.write_text("algo importante que ya estaba", encoding="utf-8")
+    registro = {"reviewers": [dict(
+        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    assert correr(repo, registro, monkeypatch, tmp_path) == 1
+    assert "already exists" in capsys.readouterr().out
+    assert ocupado.read_text(encoding="utf-8") == "algo importante que ya estaba"
