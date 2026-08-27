@@ -55,4 +55,4 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@528b87a5ea922d9c1fcf2263792af6c87fada912  # v0.9.1
+      - uses: NicolasRocchia/disensor@d755f8309b762324f3d02099bf936b7a702c5e09  # v0.9.2
