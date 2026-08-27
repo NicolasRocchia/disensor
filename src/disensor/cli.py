@@ -15,6 +15,7 @@ from .brief import GATES, main_prompt
 from .gate import main_gate
 from .guide import main_guide, main_hash
 from .init import main_init
+from .pack import main_pack
 from .pin import main_pin
 from .rules import load_schema, validate_artifact
 from .template import main_new
@@ -138,6 +139,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Release to pin, with or without the leading v (default: the installed version).",
     )
     pin.set_defaults(func=main_pin)
+
+    pack = sub.add_parser(
+        "pack",
+        help="Print the full package for the reviewer: confinement, material and the brief.",
+        description=(
+            "The operational package of a round: the confinement rules, which repository and "
+            "which material, where the report goes, and the packaged brief verbatim. A diff "
+            "gate takes --base and --head; a plan or architecture gate takes --material, "
+            "because that material usually does not live in the git range."
+        ),
+    )
+    pack.add_argument("--gate", "--compuerta", choices=list(GATES), default="diff")
+    pack.add_argument("--base", default=None, help="Base of the range (a diff gate needs it).")
+    pack.add_argument("--head", "--cabeza", default=None, help="Head of the range (a diff gate needs it).")
+    pack.add_argument("--material", default=None,
+                      help="File with the plan or decision under review, or - for standard input.")
+    pack.add_argument("--branch", default=None, help="Branch name, for the reviewer's context.")
+    pack.add_argument("--report", default=None,
+                      help="Absolute path, outside the repository, where the reviewer must write.")
+    pack.add_argument("--repository", default=None, help="Repository path (defaults to the working directory).")
+    pack.add_argument("--output", "--salida", metavar="FILE",
+                      help="Write the package to a file, keeping the bytes its hash is computed over.")
+    pack.set_defaults(func=main_pack)
 
     guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
     guide.add_argument("--lang", "--idioma", choices=["en", "es"], default="en",

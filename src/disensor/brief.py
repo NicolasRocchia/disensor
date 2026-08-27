@@ -59,18 +59,20 @@ def brief_hash(gate: str) -> str:
     return "sha256:" + hashlib.sha256(brief_text(gate).encode("utf-8")).hexdigest()
 
 
-def main_prompt(args) -> int:
-    if args.hash:
-        print(brief_hash(args.gate))
-        return 0
-    data = brief_text(args.gate).encode("utf-8")
-    if args.output:
+def emit(data: bytes, output: str | None, note: str = "") -> int:
+    """Write bytes to a file or to stdout, without the platform rewriting them.
+
+    Shared with `disensor pack`: a package whose bytes are re-encoded on the way
+    out does not hash to the value the declaration records, and the whole point
+    of the hash is that a third party can recompute it.
+    """
+    if output:
         # The only way to promise the saved file hashes to the canonical value.
         # Shell redirection is not ours to control: Windows PowerShell 5.1 sends
         # `>` through Out-File and writes UTF-16LE, so the file cannot match the
         # UTF-8 hash no matter how carefully the process writes its stdout.
-        Path(args.output).write_bytes(data)
-        print(f"written to {args.output} ({brief_hash(args.gate)})")
+        Path(output).write_bytes(data)
+        print(f"written to {output}{f' ({note})' if note else ''}")
         return 0
     # Bytes rather than text so that a plain pipe or a POSIX redirect keeps the
     # exact content, without the platform rewriting line endings.
@@ -81,3 +83,10 @@ def main_prompt(args) -> int:
         buffer.write(data)
         buffer.flush()
     return 0
+
+
+def main_prompt(args) -> int:
+    if args.hash:
+        print(brief_hash(args.gate))
+        return 0
+    return emit(brief_text(args.gate).encode("utf-8"), args.output, brief_hash(args.gate))
