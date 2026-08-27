@@ -145,3 +145,50 @@ def test_init_warns_on_v01_config(repo, monkeypatch, capsys):
     run_init(repo, monkeypatch)
     out = capsys.readouterr().out
     assert "WARNING" in out and "criticality_level" in out
+
+
+def test_only_skill_writes_the_runbook_without_touching_claude_md(tmp_path, monkeypatch, capsys):
+    """La seccion de CLAUDE.md le habla a Claude Code.
+
+    Un repositorio cuyo agente es otro quiere el runbook igual, y no habia como
+    pedirlo: --no-claude saltea las dos y --no-skill deja justo la que no le
+    sirve. Nota del issue #30, del mismo hallazgo.
+    """
+    from disensor.cli import build_parser
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.chdir(repo)
+    args = build_parser().parse_args(["init", "--only-skill", "--no-workflow"])
+    assert args.func(args) == 0
+    assert (repo / ".claude" / "skills" / "disensor" / "SKILL.md").is_file()
+    assert not (repo / "CLAUDE.md").exists()
+    assert "skipped CLAUDE.md" in capsys.readouterr().out
+
+
+def test_contradictory_flags_are_refused_instead_of_resolved_by_branch_order(tmp_path, monkeypatch):
+    """Una bandera que promete no escribir algo no puede escribirlo igual.
+
+    Los tres dicen cual del par CLAUDE.md/skill se escribe. Cuando convivian,
+    `--only-skill --no-skill` escribia la skill que --no-skill prometia saltear.
+    """
+    import pytest
+    from disensor.cli import build_parser
+
+    for combo in (["--only-skill", "--no-skill"], ["--only-skill", "--no-claude"],
+                  ["--no-claude", "--no-skill"]):
+        with pytest.raises(SystemExit) as exc:
+            build_parser().parse_args(["init", *combo])
+        assert exc.value.code == 2
+
+
+def test_global_and_only_skill_do_not_pretend_to_agree(tmp_path, monkeypatch, capsys):
+    """--claude-global escribe la seccion en el home; --only-skill pide que no haya."""
+    from disensor.cli import build_parser
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.chdir(repo)
+    args = build_parser().parse_args(["init", "--claude-global", "--only-skill", "--no-workflow"])
+    assert args.func(args) == 1
+    assert "Pick one" in capsys.readouterr().out

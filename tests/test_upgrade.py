@@ -157,3 +157,31 @@ def test_the_pinned_gate_is_warned_about_when_it_is_older(repo: Path, monkeypatc
     correr(repo, monkeypatch, "--upgrade")
     salida = capsys.readouterr().out
     assert "WARNING" in salida and "disensor pin" in salida
+
+
+def test_upgrade_with_only_skill_leaves_claude_md_untouched(repo: Path, monkeypatch, capsys):
+    """El camino de migracion es el que usa quien ya tenia una instalacion vieja.
+
+    Si ahi se toca CLAUDE.md, la bandera no cumple justo donde hace falta: el
+    repositorio que migra para operar con un agente que no es Claude Code.
+    """
+    instalacion_vieja(repo)
+    antes = (repo / "CLAUDE.md").read_bytes()
+    correr(repo, monkeypatch, "--upgrade", "--only-skill", "--no-workflow")
+    assert (repo / "CLAUDE.md").read_bytes() == antes
+    assert "skipped CLAUDE.md" in capsys.readouterr().out
+
+
+def test_a_rejected_invocation_writes_nothing(tmp_path, monkeypatch, capsys):
+    """Un comando rechazado por contradictorio no puede dejar estado.
+
+    La validacion estaba despues de escribir el config: quien trata el exit 1
+    como 'no hizo nada' se encontraba con un archivo versionado nuevo.
+    """
+    limpio = tmp_path / "limpio"
+    limpio.mkdir()
+    monkeypatch.chdir(limpio)
+    args = build_parser().parse_args(["init", "--claude-global", "--only-skill", "--no-workflow"])
+    assert args.func(args) == 1
+    assert list(limpio.iterdir()) == [], "una invocacion rechazada dejo archivos"
+    assert "Pick one" in capsys.readouterr().out
