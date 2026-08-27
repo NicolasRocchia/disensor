@@ -89,6 +89,10 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--gate", "--compuerta", choices=["plan", "diff", "architecture"], default="diff")
     new.add_argument("--level", "--nivel", choices=["A", "B", "C"], default="B")
     new.add_argument("--profile", "--perfil", choices=["full", "minimized"], default="full")
+    new.add_argument("--round", metavar="RESULT",
+                     help="Result of `disensor round` (or - for standard input): prefills what "
+                          "the runner observed and anchors the declaration to the commits it "
+                          "actually reviewed.")
     new.set_defaults(func=main_new)
 
     validate = sub.add_parser("validate", aliases=["validar"],
