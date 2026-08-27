@@ -37,7 +37,7 @@ from pathlib import Path
 from . import gitctx
 from .brief import brief_hash
 from .gate import GateFailure, classify_requirement, resolve_context
-from .pack import pack_hash, pack_text
+from .pack import pack_hash, pack_text, read_material
 from .reviewers import (
     CATALOG,
     ReviewerError,
@@ -345,15 +345,15 @@ def _round(args, repo: Path) -> int:
         )
 
     # --- El paquete y el destino del informe ---------------------------------
-    material = None
-    if args.material:
-        material = args.material
+    # Se lee UNA vez, aca, y se reparte: el paquete se arma una vez por intento
+    # y volver a leer `-` devolveria vacio del segundo en adelante.
+    material_text = read_material(args.material) if args.material else None
     package = pack_text(
         args.gate,
         repository=str(repo),
         base=merge_base or None,
         head=head or None,
-        material=material,
+        material_text=material_text,
         branch=_branch(repo),
         report=None,
     )
@@ -430,7 +430,7 @@ def _round(args, repo: Path) -> int:
                 repository=str(repo),
                 base=merge_base or None,
                 head=head or None,
-                material=material,
+                material_text=material_text,
                 branch=_branch(repo),
                 report=str(candidato),
             )

@@ -416,3 +416,44 @@ def test_catalog_hardening_needs_the_binary_bound_and_matching(tmp_path: Path):
     atado = dict(base, executable=sys.executable,
                  executable_hash=executable_fingerprint(sys.executable))
     assert effective_hardening(atado) == "verified"
+
+
+def test_a_plan_round_from_stdin_reaches_every_reviewer(repo: Path, monkeypatch, tmp_path, capsys):
+    """El paquete se arma una vez por intento, y stdin se lee una sola vez.
+
+    Sin leerlo por adelantado, del segundo intento en adelante el revisor
+    recibia un paquete sin material y podia devolver un informe perfectamente
+    formado sobre nada: una ronda de plan quedaba registrada como exitosa sin
+    que el revisor hubiera visto el plan.
+    """
+    from disensor.cli import build_parser
+
+    ECO_DEL_PAQUETE = """import sys
+from pathlib import Path
+Path(sys.argv[1]).write_bytes(sys.stdin.buffer.read())
+sys.exit(0)
+"""
+    primero = dict(
+        entrada("cae", "openai", revisor_falso(tmp_path, "cae", SALE_BIEN_SIN_ESCRIBIR)),
+        egress="local",
+    )
+    segundo = dict(
+        entrada("eco", "google", revisor_falso(tmp_path, "eco", ECO_DEL_PAQUETE), stdin="pack"),
+        egress="local",
+    )
+    monkeypatch.setattr(ronda, "load_registry", lambda: {"reviewers": [primero, segundo]})
+
+    material = "# Mi plan\n\nEl contenido que el revisor tiene que ver.\n"
+    monkeypatch.setattr("sys.stdin", type("E", (), {"read": staticmethod(lambda: material)})())
+
+    informe = tmp_path / "informe-plan.md"
+    args = build_parser().parse_args([
+        "round", "--gate", "plan", "--generator-family", "anthropic",
+        "--material", "-", "--repository", str(repo),
+        "--report", str(informe), "--result", str(tmp_path / "r.json"),
+    ])
+    monkeypatch.chdir(repo)
+    assert args.func(args) == OK
+    assert "El contenido que el revisor tiene que ver." in informe.read_text(encoding="utf-8"), (
+        "el segundo revisor de la cadena tiene que recibir el material igual que el primero"
+    )
