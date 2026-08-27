@@ -38,7 +38,7 @@ from . import gitctx
 from .brief import brief_hash
 from .gate import GateFailure, classify_requirement, resolve_context
 from .pack import pack_hash, pack_text
-from .reviewers import ReviewerError, load_registry
+from .reviewers import ReviewerError, executable_fingerprint, load_registry
 
 RESULT_VERSION = "disensor/round-result/v1"
 
@@ -120,6 +120,24 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     if not executable:
         return {"id": entry["id"], "outcome": "not_found", "detail": "executable not on PATH"}
 
+    # El binario que corre tiene que ser el que el dueño aprobo. La entrada
+    # guarda su hash justamente para eso, y no compararlo lo volvia decorativo:
+    # un ejecutable actualizado o reemplazado despues del registro corria igual
+    # y seguia saliendo declarado como `verified`, atando la prueba hostil a
+    # unos bytes que ya no eran los que se ejecutaban.
+    esperado = entry.get("executable_hash")
+    if esperado:
+        actual = executable_fingerprint(executable)
+        if actual != esperado:
+            return {
+                "id": entry["id"],
+                "outcome": "executable_changed",
+                "detail": (
+                    "the executable is not the one that was approved. Re-register the reviewer "
+                    "so its hardening and the consent to send material are decided again"
+                ),
+            }
+
     argv = [executable]
     for arg in entry["command"][1:]:
         if arg == "{report}":
@@ -174,6 +192,33 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     if report.stat().st_size == 0:
         return {"id": entry["id"], "outcome": "empty_report", "detail": "the report is empty"}
     return {"id": entry["id"], "outcome": "ok", "exit_code": 0}
+
+
+def _inside(path: Path, repo: Path) -> bool:
+    try:
+        path.resolve().relative_to(repo.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _report_destination(args, repo: Path) -> Path:
+    """Where the report goes, never inside the repository under review.
+
+    A file written into the reviewed tree dirties exactly what the round is
+    measuring, and the default used to do it. Refusing an explicit in-repo path
+    matters as much: the caller would get a result claiming the tree was
+    untouched while their own flag was the thing touching it.
+    """
+    if args.report:
+        destino = Path(args.report).expanduser()
+        if _inside(destino, repo):
+            raise RoundError(
+                f"--report {destino} is inside the repository under review. The report has to "
+                "live outside it: written in, it dirties the very tree the round measures"
+            )
+        return destino
+    return Path(tempfile.gettempdir()) / f"disensor-report-{args.gate}.md"
 
 
 def main_round(args) -> int:
@@ -281,6 +326,15 @@ def _round(args, repo: Path) -> int:
                 usado = (entry, independence)
                 break
 
+        # El informe se copia a su destino ANTES del ultimo chequeo del arbol.
+        # Al reves, una ronda exitosa escribia despues de haber medido y el
+        # resultado declaraba tree_unchanged sobre un arbol que el propio runner
+        # acababa de ensuciar.
+        destino = _report_destination(args, repo)
+        if usado is not None:
+            destino.parent.mkdir(parents=True, exist_ok=True)
+            destino.write_bytes(report.read_bytes())
+
         despues = tree_state(repo)
         if despues != antes:
             print(
@@ -295,19 +349,17 @@ def _round(args, repo: Path) -> int:
             _emit(args, _result(
                 args, repository, base, head, merge_base, target_tip,
                 paquete, None, None, attempts,
-            ))
+            ), repo)
             return CHAIN_EXHAUSTED
 
         entry, independence = usado
-        destino = Path(args.report) if args.report else Path.cwd() / f"round-report-{args.gate}.md"
-        destino.write_bytes(report.read_bytes())
         resultado = _result(
             args, repository, base, head, merge_base, target_tip,
             paquete, entry, independence, attempts, report_path=destino,
             report_digest=file_hash(destino),
         )
 
-    _emit(args, resultado)
+    _emit(args, resultado, repo)
     print(
         f"round: reviewed by {entry['id']} ({entry['family']}, {independence}, "
         f"hardening {entry.get('hardening', 'unverified')}). Report at {destino}"
@@ -396,8 +448,13 @@ def _result(
     }
 
 
-def _emit(args, resultado: dict) -> None:
+def _emit(args, resultado: dict, repo: Path | None = None) -> None:
     data = (json.dumps(resultado, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    if args.result and repo is not None and _inside(Path(args.result), repo):
+        raise RoundError(
+            f"--result {args.result} is inside the repository under review: writing it there "
+            "dirties the tree the round just measured. Use a path outside, or a pipe"
+        )
     if args.result:
         Path(args.result).write_bytes(data)
     else:

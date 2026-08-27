@@ -19,7 +19,7 @@ from .pack import main_pack
 from .pin import main_pin
 from .reviewers import main_reviewer
 from .round import main_round
-from .rules import load_schema, validate_artifact
+from .rules import validate_artifact
 from .template import main_new
 
 
@@ -34,7 +34,10 @@ actually happened in the round, not a file to commit as it comes."""
 
 
 def main_validate(args) -> int:
-    schema = load_schema()
+    # Sin esquema fijo: cada declaracion se valida contra la version que
+    # declara. Cargar uno solo aca hacia que una declaracion historica valida
+    # fuera rechazada por no tener campos que su version no conocia, que es
+    # justo lo contrario de lo que el versionado promete.
     failed = False
     invalid_artifact = False
     for path in args.files:
@@ -49,7 +52,7 @@ def main_validate(args) -> int:
             print(f"{path}: not valid JSON ({exc})")
             failed = True
             continue
-        errors = validate_artifact(artifact, schema)
+        errors = validate_artifact(artifact)
         print(f"{path}: {'VALID' if not errors else 'INVALID'}")
         for msg in errors:
             print(f"  {msg}")
