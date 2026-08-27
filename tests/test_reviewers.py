@@ -241,3 +241,22 @@ def test_a_recipe_without_a_material_channel_is_refused():
 
     with pytest.raises(ReviewerError, match="never hands the package"):
         build_entry("mudo", "other", "m", [sys.executable, "-c", "pass"], from_catalog=False)
+
+
+@pytest.mark.parametrize("malo", ["x/../../target", "a/b", "..", "/abs", "C:x", "Mayus", ""])
+def test_an_id_that_can_traverse_a_path_is_refused(malo):
+    """El id nombra un archivo dentro del directorio privado de cada intento.
+
+    Con `x/../../target`, el informe del revisor cae fuera de ese directorio:
+    metadato del registro derrotando al confinamiento del runner.
+    """
+    with pytest.raises(ReviewerError, match="invalid reviewer id"):
+        build_entry(malo, "other", "m", [sys.executable, "-c", "pass"],
+                    from_catalog=False, stdin="pack")
+
+
+def test_the_ids_we_ship_are_valid():
+    from disensor.reviewers import validate_id
+
+    for identificador in CATALOG:
+        validate_id(identificador)

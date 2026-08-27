@@ -234,7 +234,7 @@ def test_a_dirty_tree_stops_the_round(repo: Path, monkeypatch, tmp_path, capsys)
     (repo / "sucio.txt").write_text("sin commitear", encoding="utf-8")
     code = correr(repo, {"reviewers": []}, monkeypatch, tmp_path)
     assert code == 1
-    assert "not clean" in capsys.readouterr().out
+    assert "not clean" in capsys.readouterr().err
 
 
 def test_without_reviewers_the_chain_is_exhausted(repo: Path, monkeypatch, tmp_path, capsys):
@@ -243,7 +243,7 @@ def test_without_reviewers_the_chain_is_exhausted(repo: Path, monkeypatch, tmp_p
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
     code = correr(repo, {"reviewers": []}, monkeypatch, tmp_path)
     assert code == CHAIN_EXHAUSTED
-    assert "no reviewer registered" in capsys.readouterr().out
+    assert "no reviewer registered" in capsys.readouterr().err
 
 
 def test_a_report_inside_the_repository_is_refused(repo: Path, monkeypatch, tmp_path, capsys):
@@ -265,7 +265,7 @@ def test_a_report_inside_the_repository_is_refused(repo: Path, monkeypatch, tmp_
     ])
     monkeypatch.chdir(repo)
     assert args.func(args) == 1
-    assert "inside the repository" in capsys.readouterr().out
+    assert "inside the repository" in capsys.readouterr().err
 
 
 def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
@@ -329,7 +329,7 @@ def test_level_a_refuses_a_reviewer_that_does_not_meet_the_floor(
         entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN))
     ]}
     assert correr(repo, registro, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
-    assert "Level A demands" in capsys.readouterr().out
+    assert "Level A demands" in capsys.readouterr().err
 
 
 def test_a_cloud_reviewer_without_consent_for_this_repository_is_skipped(
@@ -350,7 +350,7 @@ def test_a_cloud_reviewer_without_consent_for_this_repository_is_skipped(
     }
     monkeypatch.setattr(ronda, "load_registry", lambda: registro)
     assert correr(repo, registro, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
-    salida = capsys.readouterr().out
+    salida = capsys.readouterr().err
     assert "was not authorised" in salida
     assert "disensor reviewer consent" in salida
 
@@ -472,5 +472,34 @@ def test_an_existing_report_destination_is_not_overwritten(repo: Path, monkeypat
         egress="local",
     )]}
     assert correr(repo, registro, monkeypatch, tmp_path) == 1
-    assert "already exists" in capsys.readouterr().out
+    assert "already exists" in capsys.readouterr().err
     assert ocupado.read_text(encoding="utf-8") == "algo importante que ya estaba"
+
+
+def test_without_result_stdout_is_json_and_nothing_else(repo: Path, monkeypatch, tmp_path, capsys):
+    """La ayuda del CLI ofrece el pipe: `round ... | disensor new --round -`.
+
+    Cualquier prosa en el mismo canal cae despues del JSON y `json.load` la
+    rechaza como extra data, asi que el camino que anunciamos no parsea.
+    """
+    (repo / "c.py").write_text("z = 3\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {"reviewers": [dict(
+        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    from disensor.cli import build_parser
+
+    monkeypatch.setattr(ronda, "load_registry", lambda: registro)
+    args = build_parser().parse_args([
+        "round", "--gate", "diff", "--generator-family", "anthropic",
+        "--base", "main", "--head", "HEAD", "--repository", str(repo),
+        "--report", str(tmp_path / "informe.md"),
+    ])
+    monkeypatch.chdir(repo)
+    assert args.func(args) == 0
+    salida = capsys.readouterr()
+    resultado = json.loads(salida.out)
+    assert resultado["declared"]["reviewer_id"] == "falso"
+    assert "round:" in salida.err

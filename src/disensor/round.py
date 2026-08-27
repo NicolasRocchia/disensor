@@ -292,12 +292,12 @@ def main_round(args) -> int:
     try:
         return _round(args, repo)
     except (RoundError, ReviewerError) as exc:
-        print(f"round: {exc}")
+        estado(f"round: {exc}")
         return ERROR
     except GateFailure as exc:
         # No poder decidir no es lo mismo que no hacer falta: contestar "no se
         # requiere ronda" aca seria el bypass mas barato del sistema.
-        print(f"round: could not decide whether a round is required: {exc}")
+        estado(f"round: could not decide whether a round is required: {exc}")
         return UNDECIDABLE
 
 
@@ -307,20 +307,20 @@ def _round(args, repo: Path) -> int:
         ctx = resolve_context(args.directory, args.config, args.base, args.head, repo)
         requirement = classify_requirement(ctx)
         if requirement.status == "not_required":
-            print(f"round: no review required ({requirement.reason})")
+            estado(f"round: no review required ({requirement.reason})")
             return NOT_REQUIRED
         if requirement.status == "blocked":
-            print(f"round: {requirement.reason}")
+            estado(f"round: {requirement.reason}")
             return UNDECIDABLE
         if args.check:
-            print(f"round: review required, gates {', '.join(requirement.accepted_gates)}")
+            estado(f"round: review required, gates {', '.join(requirement.accepted_gates)}")
             return OK
         # La compuerta pedida tiene que ser una de las que la politica admite
         # para estas rutas. Sin este chequeo se gastaba la corrida y el egreso
         # para producir un resultado que el gate iba a rechazar despues, con el
         # flujo ya dando exito.
         if args.gate not in requirement.accepted_gates:
-            print(
+            estado(
                 f"round: the policy admits {', '.join(requirement.accepted_gates)} for these "
                 f"paths, not {args.gate}. Running it would spend the reviewer on something the "
                 "gate is going to reject."
@@ -333,7 +333,7 @@ def _round(args, repo: Path) -> int:
         # Un plan o una decision de arquitectura no vive en el rango: el
         # disparador ahi es de quien conoce el impacto, y `round` orquesta.
         if args.check:
-            print(f"round: a {args.gate} gate is triggered by judgement, not by scope")
+            estado(f"round: a {args.gate} gate is triggered by judgement, not by scope")
             return OK
         if not args.material:
             raise RoundError(f"a {args.gate} gate needs --material")
@@ -390,14 +390,14 @@ def _round(args, repo: Path) -> int:
             if ind == "cross_family" and e.get("hardening") == "verified"
         ]
         if not chain:
-            print(
+            estado(
                 "round: Level A demands a cross-family reviewer with verified hardening, and "
                 "none of the registered ones qualifies. Declarable is not the same as "
                 "admissible at the level reserved for what cannot be undone."
             )
             return CHAIN_EXHAUSTED
     if not chain:
-        print(
+        estado(
             "round: no reviewer registered on this machine. Run `disensor reviewer suggest`; "
             "an assistant can register what it finds, and an entry outside the catalogue needs "
             "your approval."
@@ -462,7 +462,7 @@ def _round(args, repo: Path) -> int:
 
         despues = tree_state(repo)
         if despues != antes:
-            print(
+            estado(
                 "round: the working tree changed during the round. The declaration is not "
                 "written: a reviewer that writes is not a reviewer that only reads, and what "
                 "it touched has to be looked at before anything is declared."
@@ -472,14 +472,14 @@ def _round(args, repo: Path) -> int:
         if usado is None:
             sin_permiso = [a for a in attempts if a["outcome"] == "no_consent"]
             if sin_permiso:
-                print(
+                estado(
                     "round: no reviewer ran because sending this repository's material was not "
                     "authorised. Authorise the one you want with `disensor reviewer consent "
                     f"{sin_permiso[0]['id']}`, or register a local reviewer, whose material "
                     "never leaves the machine."
                 )
             else:
-                print("round: every registered reviewer failed. See the attempts in the result.")
+                estado("round: every registered reviewer failed. See the attempts in the result.")
             _emit(args, _result(
                 args, repository, base, head, merge_base, target_tip,
                 paquete, None, None, attempts,
@@ -494,18 +494,18 @@ def _round(args, repo: Path) -> int:
         )
 
     _emit(args, resultado, repo)
-    print(
+    estado(
         f"round: reviewed by {entry['id']} ({entry['family']}, {independence}, "
         f"hardening {entry.get('hardening', 'unverified')}). Report at {destino}"
     )
     if independence != "cross_family":
-        print(
+        estado(
             "round: DEGRADED MODE. No reviewer from another family was available, so the errors "
             "the reviewer shares with the generator were not covered. The declaration has to say "
             "so: independence, fallback_reason and a reviewer_correlation residue item."
         )
     if entry.get("hardening") != "verified":
-        print(
+        estado(
             "round: the adapter's hardening is not verified. The material under review may have "
             "addressed the reviewer before the brief did: declare a reviewer_hardening_gap item."
         )
@@ -565,6 +565,18 @@ def _result(
             "pack_hash": pack_hash(package),
         },
     }
+
+
+def estado(*args, **kwargs) -> None:
+    """Diagnostics go to stderr, always.
+
+    Without `--result` the structured result is written to stdout, and the CLI
+    help offers exactly that as a pipe. Any prose printed to the same channel
+    lands after the JSON and `json.load` rejects it as extra data: the
+    machine-readable path advertised in the help would not parse.
+    """
+    kwargs.setdefault("file", sys.stderr)
+    print(*args, **kwargs)
 
 
 def _emit(args, resultado: dict, repo: Path | None = None) -> None:

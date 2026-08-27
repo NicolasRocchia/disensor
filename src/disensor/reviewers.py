@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -151,6 +152,25 @@ def validate_command(command) -> list[str]:
     return errors
 
 
+ID_VALIDO = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+
+
+def validate_id(reviewer_id: str) -> None:
+    """The id is not free text: it names a file and keys a consent.
+
+    The runner builds each attempt's private report path out of it, so an id
+    like `x/../../target` resolves outside the temporary directory the attempt
+    was given and the reviewer writes wherever that lands. The same string also
+    goes into the registry, the consent key and the declaration.
+    """
+    if not ID_VALIDO.match(reviewer_id or ""):
+        raise ReviewerError(
+            f"invalid reviewer id {reviewer_id!r}: lowercase letters, digits, '.', '-' and '_', "
+            "starting with a letter or digit. The id names a file inside the round's private "
+            "directory, so anything that can traverse a path can escape it"
+        )
+
+
 def has_material_channel(command, stdin: str | None) -> bool:
     """Whether this recipe actually hands the package to the reviewer.
 
@@ -219,6 +239,7 @@ def build_entry(
     recipe whose neutralisation was tested. Anything the assistant assembled is
     `unverified`, and that travels all the way to the declaration.
     """
+    validate_id(reviewer_id)
     errors = validate_command(command)
     if errors:
         raise ReviewerError("; ".join(errors))
