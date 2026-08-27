@@ -503,3 +503,43 @@ def test_without_result_stdout_is_json_and_nothing_else(repo: Path, monkeypatch,
     resultado = json.loads(salida.out)
     assert resultado["declared"]["reviewer_id"] == "falso"
     assert "round:" in salida.err
+
+
+def test_a_nested_repository_argument_still_protects_the_whole_worktree(repo: Path, monkeypatch, tmp_path, capsys):
+    """`--repository <subdir>` no achica el arbol que hay que cuidar.
+
+    El resultado se escribe despues del ultimo git status: si cae dentro del
+    repo, el JSON sale afirmando tree_unchanged sobre un arbol que el propio
+    runner acaba de ensuciar.
+    """
+    from disensor.cli import build_parser
+
+    sub = repo / "sub"
+    sub.mkdir()
+    monkeypatch.setattr(ronda, "load_registry", lambda: {"reviewers": []})
+    args = build_parser().parse_args([
+        "round", "--gate", "diff", "--generator-family", "anthropic",
+        "--base", "main", "--head", "HEAD", "--repository", str(sub),
+        "--result", str(repo / "resultado.json"),
+        "--report", str(tmp_path / "informe.md"),
+    ])
+    monkeypatch.chdir(repo)
+    assert args.func(args) != 0
+    assert not (repo / "resultado.json").exists()
+
+
+def test_outside_a_git_repository_the_round_fails_without_blowing_up(monkeypatch, tmp_path, capsys):
+    """Normalizar a la raiz no puede convertir 'esto no es un repo' en un crash."""
+    from disensor.cli import build_parser
+
+    afuera = tmp_path / "no-es-repo"
+    afuera.mkdir()
+    monkeypatch.setattr(ronda, "load_registry", lambda: {"reviewers": []})
+    args = build_parser().parse_args([
+        "round", "--gate", "diff", "--generator-family", "anthropic",
+        "--base", "main", "--head", "HEAD", "--repository", str(afuera),
+        "--result", str(tmp_path / "r.json"), "--report", str(tmp_path / "i.md"),
+    ])
+    monkeypatch.chdir(afuera)
+    assert args.func(args) != 0
+    assert "round:" in capsys.readouterr().err

@@ -288,11 +288,25 @@ def _report_destination(args, repo: Path) -> Path:
 
 
 def main_round(args) -> int:
-    repo = Path(args.repository or Path.cwd())
+    # La raiz del worktree, no lo que vino por --repository. Un subdirectorio
+    # deja pasar un --result que cae en el repo pero fuera de ese subdirectorio:
+    # el archivo se crea despues del ultimo git status y el resultado sale
+    # diciendo tree_unchanged sobre un arbol que el propio runner acaba de
+    # ensuciar. Todo lo que contiene o mide el arbol se pregunta desde la raiz.
+    pedido = Path(args.repository or Path.cwd())
+    try:
+        repo = gitctx.repo_root(pedido)
+    except gitctx.GitError:
+        repo = pedido
     try:
         return _round(args, repo)
     except (RoundError, ReviewerError) as exc:
         estado(f"round: {exc}")
+        return ERROR
+    except gitctx.GitError as exc:
+        # Correr esto fuera de un repo, o con un rango que git no resuelve, es
+        # un error de uso corriente y merece una linea, no un traceback.
+        estado(f"round: git could not answer: {exc}")
         return ERROR
     except GateFailure as exc:
         # No poder decidir no es lo mismo que no hacer falta: contestar "no se
