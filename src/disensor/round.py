@@ -291,6 +291,10 @@ def _round(args, repo: Path) -> int:
     )
 
     registry = load_registry()
+    # Paquete de referencia para el resultado cuando ningun revisor contesta:
+    # el de cada intento se arma adentro del bucle, con su propia ruta de
+    # informe, asi que sin intento exitoso no hay uno del cual hablar.
+    paquete = package
     generator_family = args.generator_family
     generator_model = args.generator_model or ""
     chain = chain_for(registry, generator_family, generator_model)
@@ -308,22 +312,30 @@ def _round(args, repo: Path) -> int:
     # deja una carrera entre el chequeo de que no existe y su creacion, y un
     # informe dentro del repositorio ensuciaria el arbol que se esta midiendo.
     with tempfile.TemporaryDirectory(prefix="disensor-round-") as tmp:
-        report = Path(tmp) / "report.md"
-        paquete = pack_text(
-            args.gate,
-            repository=str(repo),
-            base=merge_base or None,
-            head=head or None,
-            material=material,
-            branch=_branch(repo),
-            report=str(report),
-        )
-        for entry, independence in chain:
-            intento = run_reviewer(entry, paquete, report, args.timeout)
+        # Un archivo POR INTENTO. Con una ruta compartida, un revisor que
+        # escribe y despues falla deja su informe ahi, y el siguiente que sale
+        # con codigo 0 sin escribir nada lo hereda: el resultado nombraria a
+        # este ultimo, con su familia y su independencia, y hashearia el texto
+        # del anterior. Un informe de la misma familia podia terminar figurando
+        # como una revision cross-family.
+        report = None
+        for numero, (entry, independence) in enumerate(chain, start=1):
+            candidato = Path(tmp) / f"report-{numero}-{entry['id']}.md"
+            paquete = pack_text(
+                args.gate,
+                repository=str(repo),
+                base=merge_base or None,
+                head=head or None,
+                material=material,
+                branch=_branch(repo),
+                report=str(candidato),
+            )
+            intento = run_reviewer(entry, paquete, candidato, args.timeout)
             intento["independence"] = independence
             attempts.append(intento)
             if intento["outcome"] == "ok":
                 usado = (entry, independence)
+                report = candidato
                 break
 
         # El informe se copia a su destino ANTES del ultimo chequeo del arbol.

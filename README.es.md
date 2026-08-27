@@ -18,7 +18,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 ## Qué hay acá
 
-- `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.3.
+- `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.4. Las versiones superadas conservan su propio recurso congelado al lado.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
 - `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G9), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
@@ -158,7 +158,7 @@ Por PR:
 - **G6, cobertura**: cada ruta cambiada está cubierta por una declaración cuya compuerta la política de alcance acepta para esa ruta, y que **califica** para ella, o sea que la ruta no cambió entre el commit revisado y el head. Una declaración rancia no cubre nada.
 - **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración.
 - **G8, la evidencia es de solo agregar**: un PR no puede modificar, borrar ni renombrar declaraciones que ya estaban, ni reutilizar un `event_id` existente.
-- **G9, lo nuevo declara la versión vigente**: una declaración que el PR agrega tiene que declarar `residue/v0.3`. Las versiones superadas se siguen leyendo para que la historia no se reescriba; esa legibilidad no es un permiso para seguir emitiendo bajo las reglas más débiles. El plano de evidencia aplica el mismo criterio en la ingesta.
+- **G9, lo nuevo declara la versión vigente**: una declaración que el PR agrega tiene que declarar `residue/v0.4`. Las versiones superadas se siguen leyendo para que la historia no se reescriba; esa legibilidad no es un permiso para seguir emitiendo bajo las reglas más débiles. El plano de evidencia aplica el mismo criterio en la ingesta.
 
 El gate **falla cerrado**: si no puede resolver el rango del PR, no da verde. Un control de cumplimiento que no puede decidir, no aprueba.
 
@@ -259,6 +259,34 @@ Y `verification.against` acepta ahora **`external_source`**: literatura, especif
 **Por qué se subió el identificador en vez de endurecer v0.2 en el lugar**: no fue por compatibilidad, que no había ninguna que proteger. Fue porque el producto entero se apoya en que un identificador de esquema signifique una cosa; si v0.2 significara distinto según cuándo se lo lea, la herramienta se contradiría en su propio repositorio.
 
 El contrato v0.2 original queda congelado, byte a byte como se publicó, en `spec/residue.schema.v0.2.json`: el esquema vigente sigue leyendo v0.2, pero el documento al que ese identificador apunta ya no depende de una reconstrucción.
+
+## Migración del esquema: residue/v0.3 a residue/v0.4
+
+Las declaraciones históricas no cambian. Cada versión tiene ahora su propio
+recurso congelado y se valida con sus propias reglas, así que una declaración
+v0.3 sigue validando igual que antes: leer registros viejos nunca fue un
+permiso para seguir emitiendo bajo reglas más débiles, y tampoco es un motivo
+para reescribirlos. Lo que cambia es lo que tiene que decir una declaración
+NUEVA.
+
+| Qué agrega v0.4 | Por qué |
+|---|---|
+| `reviewers[].independence` (obligatorio) | R4 exigía familia distinta y punto, así que una ronda sin segundo modelo no se podía declarar de ninguna manera, ni diciendo la verdad. Ahora la independencia se declara y la regla verifica que coincida con las familias declaradas: `cross_family` con dos revisores de la misma familia se rechaza, y declararse degradado teniendo otra familia también. |
+| `reviewers[].fallback_reason` | Obligatorio por debajo de `cross_family`. Un código enumerado, no prosa: el texto libre se vuelve boilerplate en el segundo evento, y ahí la cadena pasa a ser una excusa para ir siempre por el camino barato. |
+| `reviewers[].hardening` | `verified` cuando el revisor corrió por un adaptador cuya neutralización de las instrucciones del proyecto se probó contra un repositorio hostil. Se deriva, no se elige. |
+| Clases de residuo `reviewer_correlation` y `reviewer_hardening_gap` | Una por revisor degradado, nombrándolo. La correlación es lo que el revisor no podía ver; el endurecimiento es lo que el material revisado podía decirle. Riesgos distintos, ítems distintos. |
+
+**Cómo migrar**: nada, para lo que ya está escrito. Para lo que escribas de
+ahora en más, `disensor new` emite v0.4 y prellena estos campos desde la ronda;
+`disensor validate` te dice exactamente qué falta si escribís una a mano. El
+nivel A no admite independencia por debajo de `cross_family`: declarable no es
+lo mismo que admisible en el nivel que el protocolo reserva para lo que no se
+puede deshacer.
+
+**Un detalle del despliegue**: un CLI 0.9 emite v0.4, y un gate todavía pineado
+a una release anterior no conoce esa versión. `disensor init --upgrade` mueve
+el pin, o lo avisa antes de que generes una declaración que tu propio CI
+rechazaría.
 
 ## Migración de v0.3 a v0.4 (versiones del paquete)
 

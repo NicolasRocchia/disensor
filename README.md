@@ -29,7 +29,7 @@ paper is in Spanish; the glossary at the end maps its terminology to the schema.
 
 ## What is here
 
-- `spec/residue.schema.json`: the artifact schema (JSON Schema 2020-12), version residue/v0.3.
+- `spec/residue.schema.json`: the artifact schema (JSON Schema 2020-12), version residue/v0.4. Superseded versions keep their own frozen resource next to it.
 - `spec/examples/`: three example artifacts, including a real anonymised event and the minimized profile with no free text.
 - `src/disensor/`: Python package with the validator (rules R0 to R10), the CI gate (checks G1 to G9), the PR comment rendering, artifact and repository scaffolding (`init`), and the packaged filling guide (`GUIDE.md`).
 - `action.yml`: composite GitHub Action, ready to use.
@@ -201,7 +201,7 @@ Per PR:
 - **G6, coverage**: every changed path is covered by a declaration whose gate the scope policy accepts for that path, and which **qualifies** for it, meaning the path did not change between the reviewed commit and the head. A stale declaration covers nothing.
 - **G7, integration witness**: some declaration saw the complete final tree. Path-by-path coverage is not enough: two side branches reviewed separately and later merged cover every path between them while nobody reviewed the integration.
 - **G8, evidence is append-only**: a PR cannot modify, delete or rename declarations that were already there, nor reuse an existing `event_id`.
-- **G9, new declarations state the current version**: a declaration the PR adds has to declare `residue/v0.3`. Superseded versions are still read so that history is not rewritten; that readability is not a permit to keep emitting under the weaker rules. The evidence plane applies the same criterion at ingestion.
+- **G9, new declarations state the current version**: a declaration the PR adds has to declare `residue/v0.4`. Superseded versions are still read so that history is not rewritten; that readability is not a permit to keep emitting under the weaker rules. The evidence plane applies the same criterion at ingestion.
 
 The gate **fails closed**: if it cannot resolve the PR range, it does not go
 green. A compliance control that cannot decide does not approve.
@@ -375,6 +375,32 @@ own repository.
 The original v0.2 contract stays frozen, byte for byte as published, in
 `spec/residue.schema.v0.2.json`: the current schema still reads v0.2, but the
 document that identifier points at no longer depends on a reconstruction.
+
+## Schema migration: residue/v0.3 to residue/v0.4
+
+Historical declarations do not change. Each version now has its own frozen
+resource and is validated under its own rules, so a v0.3 declaration keeps
+validating exactly as it did: reading old records was never a permit to keep
+emitting under weaker rules, and it is not a reason to rewrite them either.
+What changes is what a NEW declaration has to say.
+
+| What v0.4 adds | Why |
+|---|---|
+| `reviewers[].independence` (required) | R4 used to demand a different model family, full stop, so a round without a second model could not be declared at all, even truthfully. Now independence is declared and the rule checks that it matches the families declared: `cross_family` with two reviewers of the same family is rejected, and so is claiming a degraded mode while actually having another family. |
+| `reviewers[].fallback_reason` | Required below `cross_family`. An enumerated code, not prose: free text becomes boilerplate on the second event, and then the chain is an excuse to always take the cheap path. |
+| `reviewers[].hardening` | `verified` when the reviewer ran through an adapter whose neutralisation of project instructions was tested against a hostile repository. It is derived, not chosen. |
+| Residue classes `reviewer_correlation` and `reviewer_hardening_gap` | One per degraded reviewer, naming it. Correlation is what the reviewer could not see; hardening is what the reviewed material could tell it. Different risks, different items. |
+
+**How to migrate**: nothing, for what is already written. For what you write
+from now on, `disensor new` emits v0.4 and prefills these fields from the round;
+`disensor validate` will tell you exactly what is missing if you write one by
+hand. Level A does not admit independence below `cross_family`: declarable is
+not the same as admissible at the level the protocol reserves for what cannot
+be undone.
+
+**One rollout detail**: a 0.9 CLI emits v0.4, and a gate still pinned to an
+older release does not know that version. `disensor init --upgrade` moves the
+pin, or says so before you generate a declaration your own CI would reject.
 
 ## Migrating from v0.3 to v0.4 (package versions)
 
