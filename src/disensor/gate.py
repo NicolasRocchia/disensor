@@ -42,7 +42,7 @@ from pathlib import Path, PurePosixPath
 
 from . import gitctx
 from .render import MARKER, render_comment
-from .rules import load_schema, validate_artifact
+from .rules import CURRENT, load_schema, validate_artifact
 from .scope import DEFAULT_SCOPE, ScopeError, accepts_for, floor_patterns, validate_scope
 
 DEFAULT_CONFIG = {
@@ -59,7 +59,9 @@ DEFAULT_CONFIG = {
 V01_CONFIG_KEYS = {"nivel_criticidad", "nivel_A_habilitado"}
 
 KNOWN_CONFIG_KEYS = {"criticality_level", "level_A_enabled", "gate"}
-CURRENT_SCHEMA = "residue/v0.3"
+# Una sola fuente: la version vigente la fija el validador, que es quien la
+# aplica. Dos constantes con el mismo nombre en dos modulos derivan sin aviso.
+CURRENT_SCHEMA = CURRENT
 
 KNOWN_GATE_KEYS = {"required", "level_A_accepted_confinement", "warn_unverified_confinement", "scope"}
 
@@ -333,10 +335,165 @@ def check_range_membership(a: Artifact, merge_base: str, head: str, repo_dir: Pa
     a.in_range = True
 
 
+@dataclass(frozen=True)
+class GateContext:
+    """Rango y política ya resueltos: lo que hay que mirar antes de decidir nada."""
+
+    root: Path
+    evidence_root: str
+    config_path: str
+    base_oid: str
+    head_oid: str
+    merge_base: str
+    config: dict
+    policy_note: str
+    status: dict
+    new_paths: list
+    mutations: list
+    ordinary: list
+
+
+@dataclass(frozen=True)
+class ReviewRequirement:
+    """Si este rango exige una declaración, y de qué compuerta.
+
+    Tres estados y no un booleano, porque "no hace falta una ronda" y "el PR
+    esta bien" son preguntas distintas: con `gate.required=false` y evidencia
+    historica modificada no hace falta ronda nueva, y el gate falla igual. Un
+    llamador que solo reciba si/no no puede distinguir "segui tranquilo" de
+    "hay un problema anterior a la ronda".
+    """
+
+    status: str  # "not_required" | "required" | "blocked"
+    code: str = ""  # gate_not_required | all_exempt | scope_demands | no_common_gate
+    accepted_gates: tuple = ()
+    reason: str = ""
+    demanding: tuple = ()
+    notes: tuple = ()
+
+
+def resolve_context(directory, config_path, base, head, repo_dir: Path) -> GateContext:
+    """Resuelve el rango y la politica del destino, o falla cerrado.
+
+    El orden importa y es el mismo que usa el gate: primero el rango, despues
+    la politica, porque la politica se lee de la punta del destino y no puede
+    depender del rango que ella misma va a juzgar.
+    """
+    repo_dir = Path(repo_dir)
+    root = gitctx.repo_root(repo_dir)
+    evidence_root = canonical_repo_path(directory, root, "--directory")
+    cfg_path = canonical_repo_path(config_path, root, "--config")
+
+    base, head = pr_range(base, head)
+    if not base or not head:
+        raise GateFailure(
+            "the PR range is missing. The gate runs on pull_request events, or with explicit "
+            "--base and --head. Without a range there is nothing to decide, and a control that "
+            "cannot decide does not pass."
+        )
+    base_oid = gitctx.resolve_commit(base, repo_dir)
+    head_oid = gitctx.resolve_commit(head, repo_dir)
+    try:
+        mb = gitctx.merge_base(base_oid, head_oid, repo_dir)
+    except gitctx.GitError as exc:
+        raise GateFailure(f"{exc}. Check out with fetch-depth: 0 so the whole range is available.") from exc
+
+    config, policy_note = load_config_at(base_oid, cfg_path, repo_dir)
+    status = gitctx.changed_status(mb, head_oid, repo_dir)
+    new_paths, mutations, ordinary = classify_changes(status, evidence_root, mb, head_oid, repo_dir)
+    return GateContext(
+        root=root,
+        evidence_root=evidence_root,
+        config_path=cfg_path,
+        base_oid=base_oid,
+        head_oid=head_oid,
+        merge_base=mb,
+        config=config,
+        policy_note=policy_note,
+        status=status,
+        new_paths=new_paths,
+        mutations=mutations,
+        ordinary=ordinary,
+    )
+
+
+def classify_requirement(ctx: GateContext) -> ReviewRequirement:
+    """Decide sobre un contexto ya resuelto. Sin git, sin disco: pura."""
+    # Las mutaciones de evidencia (G8) NO entran aca: son un defecto del PR
+    # ortogonal a la necesidad de ronda, el gate las reporta por su cuenta y
+    # sigue evaluando el resto. Quedan en el contexto para que `round` pueda
+    # advertir sin mezclar las dos preguntas.
+    if not ctx.config["gate"].get("required", True):
+        return ReviewRequirement(
+            status="not_required",
+            code="gate_not_required",
+            reason=(
+                "the policy at the tip of the target branch declares gate.required=false: "
+                "coverage is not demanded, not even for the floor"
+            ),
+        )
+
+    scope = ctx.config["gate"].get("scope", DEFAULT_SCOPE)
+    floor = floor_patterns(ctx.config_path, ctx.evidence_root)
+    accepts: dict = {}
+    notes: list = []
+    for path in ctx.ordinary:
+        allowed, rule = accepts_for(path, scope, floor)
+        accepts[path] = allowed
+        notes.append(f"`{path}`: {', '.join(allowed) if allowed else 'exempt'} (rule `{rule}`)")
+
+    demanding = [p for p in ctx.ordinary if accepts[p]]
+    if not demanding:
+        return ReviewRequirement(
+            status="not_required",
+            code="all_exempt",
+            reason="every changed path is exempt by a policy someone wrote in the target on purpose",
+            notes=tuple(notes),
+        )
+
+    # G7: una sola declaracion tiene que servir para todas las rutas, asi que
+    # la compuerta pedida es la interseccion y no la union. Sin interseccion no
+    # hay ronda posible que cubra el PR entero, y eso es un bloqueo de politica,
+    # no una ronda pendiente.
+    common = set(accepts[demanding[0]])
+    for path in demanding[1:]:
+        common &= set(accepts[path])
+    if not common:
+        return ReviewRequirement(
+            status="blocked",
+            code="no_common_gate",
+            reason=(
+                "[G7] the changed paths admit no gate in common, so no single declaration can "
+                "cover this PR. Split it, or widen the scope policy."
+            ),
+            demanding=tuple(demanding),
+            notes=tuple(notes),
+        )
+
+    return ReviewRequirement(
+        status="required",
+        code="scope_demands",
+        accepted_gates=tuple(sorted(common)),
+        demanding=tuple(demanding),
+        notes=tuple(notes),
+    )
+
+
+def review_requirement(directory, config_path, base, head, repo_dir: Path):
+    """Las dos capas juntas, que es lo que usa cualquiera fuera del gate."""
+    ctx = resolve_context(directory, config_path, base, head, repo_dir)
+    return ctx, classify_requirement(ctx)
+
+
 def evaluate_coverage(
     artifacts: list[Artifact], ordinary: list[str], config: dict, evidence_root: str, config_path: str,
 ) -> tuple[list[str], list[str], list[str]]:
-    """G1, G6 and G7: every path covered, and somebody saw the whole final tree."""
+    """G1, G6 and G7: every path covered, and somebody saw the whole final tree.
+
+    El alcance por ruta lo resuelve `accepts_for`, la misma funcion que usa
+    `classify_requirement`: la cobertura se evalua sobre exactamente las rutas
+    que la clasificacion declaro exigentes.
+    """
     errors: list[str] = []
     notes: list[str] = []
     scope = config["gate"].get("scope", DEFAULT_SCOPE)
@@ -470,32 +627,19 @@ def run_gate(directory: Path | str, config_path: Path | str, base: str | None,
 
 
 def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) -> int:
+    # El rango y la politica se resuelven con la misma funcion que usa
+    # `disensor round`: dos implementaciones de esta decision divergirian, y
+    # divergirian justo en los casos que importan (politica del destino,
+    # merge-base, required=false, compuerta comun).
+    ctx = resolve_context(directory, config_path, base, head, repo_dir)
     repo_dir = Path(repo_dir)
-    root = gitctx.repo_root(repo_dir)
-    evidence_root = canonical_repo_path(directory, root, "--directory")
-    cfg_path = canonical_repo_path(config_path, root, "--config")
-
-    # Fail closed, unconditionally: the range cannot depend on a policy that is
-    # located with the range itself.
-    base, head = pr_range(base, head)
-    if not base or not head:
-        raise GateFailure(
-            "the PR range is missing. The gate runs on pull_request events, or with explicit "
-            "--base and --head. Without a range there is nothing to decide, and a control that "
-            "cannot decide does not pass."
-        )
-    base_oid = gitctx.resolve_commit(base, repo_dir)
-    head_oid = gitctx.resolve_commit(head, repo_dir)
-    try:
-        mb = gitctx.merge_base(base_oid, head_oid, repo_dir)
-    except gitctx.GitError as exc:
-        raise GateFailure(f"{exc}. Check out with fetch-depth: 0 so the whole range is available.") from exc
-
-    config, policy_note = load_config_at(base_oid, cfg_path, repo_dir)
+    root, evidence_root, cfg_path = ctx.root, ctx.evidence_root, ctx.config_path
+    base_oid, head_oid, mb = ctx.base_oid, ctx.head_oid, ctx.merge_base
+    config, policy_note = ctx.config, ctx.policy_note
     gate_cfg = config["gate"]
-
-    status = gitctx.changed_status(mb, head_oid, repo_dir)
-    new_paths, mutations, ordinary = classify_changes(status, evidence_root, mb, head_oid, repo_dir)
+    status = ctx.status
+    new_paths, mutations, ordinary = ctx.new_paths, ctx.mutations, ctx.ordinary
+    requirement = classify_requirement(ctx)
 
     gate_errors: list[str] = []
     warnings: list[str] = []
@@ -535,7 +679,10 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         if isinstance(past_id, str) and past_id.strip():
             historical.add(event_key(past_id))
 
-    schema = load_schema()
+    # Sin schema fijo: cada declaracion se valida contra la version que declara.
+    # Pasar uno solo aca hacia que una declaracion historica se midiera con la
+    # forma vigente y fuera rechazada por no tener campos que su version no
+    # conocia, que es lo contrario de conservar la historia legible.
     artifacts: list[Artifact] = []
     for path in new_paths:
         try:
@@ -543,7 +690,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         except (json.JSONDecodeError, gitctx.GitError) as exc:
             errors_by_file[path] = [f"invalid JSON: {exc}"]
             continue
-        artifact = Artifact(path=path, data=data, errors=validate_artifact(data, schema))
+        artifact = Artifact(path=path, data=data, errors=validate_artifact(data))
         # G9: the schema keeps reading superseded versions so that historical
         # declarations stay valid without being rewritten (evidence is
         # append-only). That readability must not become a way to keep emitting

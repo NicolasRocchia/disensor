@@ -1,0 +1,399 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+    "created_at": "2026-08-27T15:34:10-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "7a94bc2ad6194c8f9ee01e272be4c5accdcd7fdf"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5-codex",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El informe de la ronda ensuciaba el arbol que la ronda mide",
+      "description": "El runner escribia el informe dentro del repositorio bajo revision y despues declaraba tree_unchanged sobre ese mismo arbol: la observacion se contradecia con el estado que dejaba. El informe pasa a un directorio temporal privado, y un --report o --result dentro del repo se rechaza.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo el runner: la ruta del informe salia de una base dentro del repo y el git status final corria despues de esa escritura."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_a_report_inside_the_repository_is_refused"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El binario aprobado no era necesariamente el que corria",
+      "description": "El registro guardaba el ejecutable y su hash, pero el runner ejecutaba lo que dijera la entrada sin recomputar nada. Cambiar el binario despues de que el dueño aprobo dejaba correr otro programa con la misma aprobacion. Ahora el hash se verifica antes de ejecutar.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido: entrada registrada, binario reemplazado, la ronda se niega a ejecutarlo."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_a_changed_executable_is_refused"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El informe de un revisor caido se le atribuia al siguiente",
+      "description": "Todos los intentos de la cadena escribian en la misma ruta. Si el primero fallaba dejando un archivo y el segundo salia con codigo 0 sin escribir, el runner hasheaba el informe del primero y lo declaraba como del segundo: identidad del revisor y contenido del informe se desacoplaban en silencio.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo el bucle de la cadena: la ruta del informe era fija y la deteccion de 'escribio' comparaba contra una ruta compartida entre intentos."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_a_failed_reviewers_report_is_not_attributed_to_the_next_one"
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La declaracion no verificaba la compuerta ni el repositorio de su ronda",
+      "description": "new --round tomaba los anclajes del resultado sin cotejar que la compuerta y el repositorio fueran los de la declaracion que estaba armando: una ronda de plan podia quedar declarada como diff, o el resultado de otro repositorio podia anclar esta.",
+      "location": "src/disensor/template.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo from_round: solo se comparaba result_version y presencia del revisor."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_new_round.py::test_a_diff_round_cannot_be_declared_as_a_plan"
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El consentimiento de egreso no tenia alcance",
+      "description": "Aprobar que el codigo saliera hacia un revisor en la nube quedaba registrado como un permiso global de la maquina: valia despues para cualquier repositorio, cualquier receta y cualquier material. La clave ahora ata repositorio canonico, receta y bytes del ejecutable.",
+      "location": "src/disensor/reviewers.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo la clave de consentimiento original, que no incorporaba ninguno de esos tres."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_reviewers.py::test_consent_is_scoped_to_the_repository_the_recipe_and_the_bytes"
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El piso de nivel A no se aplicaba al elegir revisor",
+      "description": "El nivel A exige endurecimiento verificado, pero la cadena podia entregar una entrada unverified igual: el minimo estaba documentado y no implementado.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo la seleccion de revisor, que no consultaba el nivel."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_level_a_refuses_a_reviewer_that_does_not_meet_the_floor"
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El consentimiento con alcance seguia sin aplicarse en la ronda",
+      "description": "La correccion anterior definia la clave pero el runner no la consultaba antes de ejecutar un revisor de egreso cloud: el codigo privado podia salir sin la autorizacion que el sistema decia exigir.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido con un revisor cloud sin consentimiento para el repositorio: antes corria, ahora se saltea."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_a_cloud_reviewer_without_consent_for_this_repository_is_skipped"
+      }
+    },
+    {
+      "id": "h8",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La compuerta pedida no se cotejaba contra la que la politica admite",
+      "description": "Si el scope del destino aceptaba solo plan y alguien corria una ronda de diff, se gastaba el revisor y el egreso para producir un resultado que el gate iba a rechazar despues, con el flujo ya habiendo dado exito.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo el paso cero: se resolvia el requerimiento pero no se intersectaba con la compuerta pedida."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "La pasada final de compuerta diff sobre el rango completo no encontro hallazgos."
+      }
+    },
+    {
+      "id": "h9",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El piso de nivel leia la configuracion del working tree, no la del destino",
+      "description": "El gate aplica la politica de la punta de la rama destino. El piso del runner la leia del working tree, asi que una rama podia bajarse el nivel a si misma para pasar su propio filtro.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado contra gate.py, que carga la config en el OID del destino; el runner usaba la del disco."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "La pasada final de compuerta diff sobre el rango completo no encontro hallazgos."
+      }
+    },
+    {
+      "id": "h10",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La clave del consentimiento no codificaba el argv sin ambiguedad",
+      "description": "Los argumentos se concatenaban para armar la clave, asi que dos recetas distintas podian producir la misma cadena y compartir una autorizacion que el dueño dio una sola vez. Ahora la clave codifica el argv en JSON.",
+      "location": "src/disensor/reviewers.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado construyendo dos argv distintos que colisionaban en la concatenacion original."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_reviewers.py::test_two_different_recipes_never_share_a_consent"
+      }
+    },
+    {
+      "id": "h11",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Un flag repetido se rechazaba como si fuera un placeholder repetido",
+      "description": "El conteo de placeholders miraba el comando entero en vez de contar por placeholder, asi que una receta legitima con el mismo flag dos veces no se podia registrar.",
+      "location": "src/disensor/reviewers.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido registrando una receta con un flag repetido, que era rechazada sin motivo."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_reviewers.py::test_a_repeated_flag_is_a_normal_command"
+      }
+    },
+    {
+      "id": "h12",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El endurecimiento heredado se podia forjar copiando el argv",
+      "description": "Una entrada armada por el asistente podia copiar el argv de una receta catalogada, declarar otra familia y quedar cross_family y verified a la vez, pasando el piso de nivel A sin haber venido nunca del catalogo. La prueba hostil se corrio contra una identidad concreta, no contra un argv.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo effective_hardening, que solo comparaba id y comando."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_an_assistant_entry_cannot_forge_catalogued_hardening"
+      }
+    },
+    {
+      "id": "h13",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El endurecimiento no exigia que el binario estuviera atado",
+      "description": "El registro es editable a mano: se podia dejar la identidad de la receta intacta, apuntar el ejecutable a otro programa y borrar su hash. Sin hash guardado no habia con que comparar y la entrada seguia saliendo verified.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo la derivacion del endurecimiento, que no consultaba executable_hash."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_catalog_hardening_needs_the_binary_bound_and_matching"
+      }
+    },
+    {
+      "id": "h14",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El material de stdin se perdia despues del primer intento",
+      "description": "El paquete se armaba una vez por intento y cada armado releia --material -. La primera lectura vacia stdin, asi que del segundo revisor en adelante llegaba un paquete sin material, y un revisor sin material puede devolver un informe perfectamente formado sobre nada.",
+      "location": "src/disensor/pack.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido con una ronda de plan desde stdin y una cadena de dos revisores: el segundo recibia el paquete vacio."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_a_plan_round_from_stdin_reaches_every_reviewer"
+      }
+    },
+    {
+      "id": "h15",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "--report pisaba un destino preexistente sin avisar",
+      "description": "La copia final escribia sobre lo que hubiera en esa ruta. Lo que hubiera ahi es de otro, y perderlo en silencio para dejar un informe es lo que una herramienta que promete no tocar nada no puede hacer.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo la copia final, un write_bytes directo sin chequeo de existencia."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_an_existing_report_destination_is_not_overwritten"
+      }
+    },
+    {
+      "id": "h16",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Una receta sin canal de entrega del material se podia registrar",
+      "description": "Un comando sin {pack} ni --stdin pack corre al revisor sin darle nada, y ese revisor puede salir con codigo 0 y escribir un informe igual: la ronda certificaria una revision que nunca miro el material, que es la unica cosa que la ronda dice haber hecho.",
+      "location": "src/disensor/reviewers.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo build_entry y validate_command, que validaban la forma del argv pero no que el material tuviera por donde llegar."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_reviewers.py::test_a_recipe_without_a_material_channel_is_refused"
+      }
+    },
+    {
+      "id": "h17",
+      "origin": "r1",
+      "severity": "critical",
+      "title": "El id del revisor podia escaparse del directorio privado del intento",
+      "description": "El runner arma la ruta del informe de cada intento interpolando el id, que entraba sin validar. Un id como x/../../destino resuelve fuera del temporal y el revisor escribe donde caiga: si cae dentro del repo el git status final lo detecta pero no lo deshace, y si cae afuera no lo ve nadie. Metadato del registro derrotando al confinamiento del propio runner.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado siguiendo el id positional desde el CLI hasta la interpolacion de la ruta, y aplicando resolucion normal de pathlib."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_reviewers.py::test_an_id_that_can_traverse_a_path_is_refused"
+      }
+    },
+    {
+      "id": "h18",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El resultado por pipe no era JSON parseable",
+      "description": "Sin --result el resultado sale por stdout, que es lo que la ayuda del CLI ofrece como pipe, pero los mensajes de estado caian en el mismo canal despues del JSON y json.load los rechaza como extra data: el camino machine-readable que anunciamos no parseaba. El diagnostico pasa a stderr.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido corriendo la ronda sin --result y pasando stdout por json.loads."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_without_result_stdout_is_json_and_nothing_else"
+      }
+    },
+    {
+      "id": "h19",
+      "origin": "r1",
+      "severity": "major",
+      "title": "--repository apuntando a un subdirectorio achicaba el arbol protegido",
+      "description": "La contencion se medía contra la ruta pedida en vez de la raiz del worktree, asi que un --result dentro del repo pero fuera de ese subdirectorio pasaba el chequeo. Como el resultado se escribe despues del ultimo git status, el JSON salia afirmando tree_unchanged sobre un arbol que el propio runner acababa de ensuciar.",
+      "location": "src/disensor/round.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor lo reprodujo llamando a _emit con una raiz temporal y un hijo como repo; el generador lo confirmo leyendo main_round."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_a_nested_repository_argument_still_protects_the_whole_worktree"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "environment_not_reproducible",
+        "description": "Ningun revisor en la nube distinto de Codex se ejercito end to end: el registro, la seleccion, el consentimiento y el subproceso quedaron cubiertos por la suite y por lectura, pero el egreso real hacia otros proveedores no se corrio. La prueba hostil del adaptador Codex si se ejecuto en vivo (DISENSOR_SMOKE=1, tres tests en verde) despues de que el revisor la señalara como brecha, asi que esa parte deja de ser residuo. Gap declarado por r1 en su informe final."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 19,
+      "valid": {
+        "incorporated": 19,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:e61d80a3cc50d51db9d90a66f2de874a7706f1df66e0b0130a844d60eb474f65",
+      "report_hash": "sha256:47ce22cc249952d823626ac9a14f1f8b4be68b39335f7fd4a16b1456437c34aa",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}

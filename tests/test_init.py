@@ -9,7 +9,7 @@ import pytest
 
 from disensor import __version__
 from disensor.cli import build_parser
-from disensor.init import CLAUDE_HEADING
+from disensor.init import BLOCK_VERSION, CLAUDE_HEADING
 from disensor.pin import PinError
 
 PINNED_SHA = "693f9f5b" + "0" * 32
@@ -47,10 +47,17 @@ def test_init_scaffolds_everything(repo, monkeypatch):
     config = json.loads((repo / "disensor.config.json").read_text(encoding="utf-8"))
     assert config == {"criticality_level": "B", "level_A_enabled": False}
     claude = (repo / "CLAUDE.md").read_text(encoding="utf-8")
-    assert CLAUDE_HEADING in claude and "disensor validate" in claude
+    # La seccion apunta al runbook en vez de duplicar los pasos: dos copias del
+    # procedimiento derivan, y la que el agente lee terminaria siendo la vieja.
+    assert CLAUDE_HEADING in claude and "disensor round" in claude
+    assert f"disensor:block v{BLOCK_VERSION}" in claude, "el bloque tiene que declarar su version"
     skill = (repo / ".claude" / "skills" / "disensor" / "SKILL.md").read_text(encoding="utf-8")
     assert skill.startswith("---\nname: disensor\n")
-    assert "final_state" in skill and "R4" in skill  # the full guide travels in the skill
+    # La skill es el runbook del evento, no el formulario: como se corre la
+    # ronda y que hacer con cada codigo de salida. La guia de llenado sigue
+    # estando a un `disensor guide` de distancia.
+    assert "disensor round" in skill and "disensor new --round" in skill
+    assert "exit code" in skill and "stop and ask" in skill
     workflow = (repo / ".github" / "workflows" / "disensor.yml").read_text(encoding="utf-8")
     assert f"NicolasRocchia/disensor@v{__version__}" in workflow
     assert "fetch-depth: 0" in workflow

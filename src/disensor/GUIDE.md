@@ -1,4 +1,4 @@
-# How to fill a residue declaration (residue/v0.3)
+# How to fill a residue declaration (residue/v0.4)
 
 This guide is the single source of truth for filling the artifact that
 `disensor new` creates under `.residue/`. It ships inside the package:
@@ -20,8 +20,9 @@ their errors.
 1. `disensor prompt --gate <plan|diff|architecture>` prints the adversarial brief. Hand it,
    together with the material under review, to a reviewer from ANOTHER model
    family.
-   A free tier is enough. Same family as the generator does not count, and rule
-   R4 rejects the declaration if you try.
+   A free tier is enough. Same family as the generator is a degraded mode: it
+   is declarable, with its independence recorded and its own residue item, but
+   it is not the same thing and the record has to say so.
 2. Verify every finding against the actual code before accepting it. The
    reviewer is decorrelated, not right, and an unverified finding is not a
    finding.
@@ -62,9 +63,22 @@ paths. By default everything demands `diff`.
 - `generator`: the assistant that produced the plan or diff. `family` is its
   model family (anthropic, openai, google, meta, mistral, other).
 - `reviewers[]`: the attacking assistants. Each needs `reviewer_id` (r1,
-  r2...), `family`, `model`, and `confinement`. Rule R4 rejects any reviewer
-  whose family equals the generator's: decorrelation is the point of the
-  method, not an option.
+  r2...), `family`, `model`, `confinement` and `independence`.
+- `reviewers[].independence`: `cross_family` when the reviewer comes from
+  another model family, which is what the method expects; below that,
+  `same_family_distinct_model` or `same_model_fresh_context`. Rule R4 no longer
+  demands a different family unconditionally: it demands that what you declare
+  match the families you declared, so `cross_family` with two reviewers of the
+  same family is rejected. A degraded independence also requires
+  `fallback_reason` (why the round settled for less) and a residue item of
+  class `reviewer_correlation` naming that reviewer: the errors a model shares
+  with itself were not covered by the round, and that is residue. Level A does
+  not admit it at all.
+- `reviewers[].hardening`: `verified` if the reviewer ran through an adapter
+  whose neutralisation of project instructions was tested against a hostile
+  repository, `unverified` otherwise. `unverified` does not block, but it
+  requires a `reviewer_hardening_gap` item: the material under review can
+  address the reviewer before your brief does.
 - `reviewers[].prompt_hash`: hash of the adversarial brief given to the
   reviewer. If you used the packaged brief, it is
   `disensor prompt --gate <plan|diff|architecture> --hash`, and anyone can recompute that

@@ -18,7 +18,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 ## Qué hay acá
 
-- `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.3.
+- `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.4. Las versiones superadas conservan su propio recurso congelado al lado.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
 - `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G9), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
@@ -35,7 +35,12 @@ pip install disensor        # o pipx install disensor, recomendado para CLIs
 disensor init               # en la raíz del repo: config, CLAUDE.md, skill de llenado y workflow de CI
 disensor pin                # la Action del workflow, congelada al SHA de commit del tag de la release
 
+disensor reviewer suggest              # qué revisores tiene esta máquina, sin red
+disensor round --gate diff --generator-family anthropic --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json   # la declaración de esa ronda
+
 disensor prompt --gate diff            # la consigna adversarial, para pegarle al revisor de otra familia
+disensor pack --gate diff --base main --head HEAD          # el paquete completo, si manejás la ronda vos
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
 disensor validate .residue/<id>.json   # schema + reglas R0 a R10
 disensor gate --no-comment             # lo que va a correr CI, en local
@@ -87,10 +92,59 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.7.0
+      - uses: NicolasRocchia/disensor@v0.9.0
 ```
 
 El gate valida las declaraciones que **el PR agrega**, aplica la política y publica el resultado como comentario (se actualiza en el lugar en cada push). Todo lo que decide sale de objetos de git en el rango `merge-base..head`, nunca del working tree: en un evento `pull_request` el checkout deja el merge commit sintético mientras `head.sha` apunta al head real, así que leer del disco clasificaría un árbol y validaría otro.
+
+## La ronda orquestada
+
+La ronda era la parte que se hacía a mano: empaquetar el material, entregárselo
+a otro asistente, traer el informe, acordarse de mirar el árbol después.
+`disensor round` hace la mitad mecánica, así que nunca se copia y pega material
+entre modelos.
+
+```bash
+disensor reviewer suggest          # qué tiene esta máquina, sin red
+disensor reviewer add codex --yes  # registrarlo, una vez por máquina
+
+disensor round --gate diff --generator-family anthropic \
+  --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json
+```
+
+**Cualquier asistente puede ser el revisor.** Nosotros corremos Claude Code con
+Codex atacando porque es lo que tenemos; la herramienta no está atada a ninguno
+de los dos. Sirve cualquier línea de comandos que reciba un texto y devuelva un
+texto: el CLI de otro proveedor, un modelo local por Ollama, lo que ya estés
+pagando. El catálogo empaquetado es un atajo para los casos que ya probamos, no
+la lista de lo que está permitido. Si el tuyo no está, tu asistente lee su
+`--help`, propone la entrada y vos la aprobás una vez.
+
+Dos cosas que conviene saber sobre esa aprobación. Los revisores viven en tu
+máquina (`~/.disensor/reviewers.json`) y nunca en el repositorio: una entrada es
+código ejecutable, y un PR que pudiera agregar una correría comandos en la
+máquina de quien lo revise. Y lo que propone tu asistente no se registra hasta
+que digas que sí, porque un repositorio puede traer instrucciones dirigidas a tu
+asistente, y registrar un ejecutable que después va a recibir tu código privado
+es una decisión tuya, no suya.
+
+**Qué corre solo y dónde aparecés vos.** El runner le pregunta a la política si
+hace falta una ronda (un cambio que solo toca rutas exentas no gasta un token),
+se niega a correr con el árbol sucio, elige el revisor más independiente
+disponible, lo ejecuta, captura el informe y emite un resultado anclado a los
+commits exactos que se revisaron. Nunca lee el informe: juzgar lo que dijo el
+revisor es trabajo de tu asistente. Vos aparecés cuando hay que consentir que el
+material salga de tu máquina, cuando un riesgo necesita dueño, cuando algo se
+escala sin resolver, y en el PR.
+
+**Cuando no hay una segunda familia.** El método quiere un revisor de otra
+familia de modelo, y eso es lo que la política sigue exigiendo en nivel A. Por
+debajo, una ronda con el mismo modelo y sin contexto es un modo degradado
+declarable: la declaración registra la independencia que de hecho tuvo, por qué
+se conformó con menos, y un ítem de residuo que dice que los errores que el
+modelo comparte consigo mismo no los cubrió esa ronda. Peor que lo real, e
+infinitamente mejor que no poder declarar lo que pasó.
 
 ## Qué hace cumplir el gate
 
@@ -104,7 +158,7 @@ Por PR:
 - **G6, cobertura**: cada ruta cambiada está cubierta por una declaración cuya compuerta la política de alcance acepta para esa ruta, y que **califica** para ella, o sea que la ruta no cambió entre el commit revisado y el head. Una declaración rancia no cubre nada.
 - **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración.
 - **G8, la evidencia es de solo agregar**: un PR no puede modificar, borrar ni renombrar declaraciones que ya estaban, ni reutilizar un `event_id` existente.
-- **G9, lo nuevo declara la versión vigente**: una declaración que el PR agrega tiene que declarar `residue/v0.3`. Las versiones superadas se siguen leyendo para que la historia no se reescriba; esa legibilidad no es un permiso para seguir emitiendo bajo las reglas más débiles. El plano de evidencia aplica el mismo criterio en la ingesta.
+- **G9, lo nuevo declara la versión vigente**: una declaración que el PR agrega tiene que declarar `residue/v0.4`. Las versiones superadas se siguen leyendo para que la historia no se reescriba; esa legibilidad no es un permiso para seguir emitiendo bajo las reglas más débiles. El plano de evidencia aplica el mismo criterio en la ingesta.
 
 El gate **falla cerrado**: si no puede resolver el rango del PR, no da verde. Un control de cumplimiento que no puede decidir, no aprueba.
 
@@ -157,6 +211,8 @@ En el perfil `minimized`, R9 remueve los campos del hallazgo que el protocolo de
 
 `spec/vectors/` contiene los vectores de conformidad: 31 artefactos con su veredicto esperado (válido o no, y las etiquetas de regla que deben dispararse). Toda implementación del validador tiene que pasarlos idénticos: la referencia en Python los corre en la suite (`tests/test_vectors.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m disensor.vectors spec/vectors`.
 
+Cada vector se valida con el schema de la versión que declara. El port TypeScript implementa las reglas de **v0.2 y v0.3**: ante un artefacto v0.4 lo dice y se niega, en vez de devolver un veredicto sin haber corrido las reglas que esa versión agregó. Así que el claim de dos implementaciones independientes cubre hoy hasta v0.3; la referencia en Python es la única que valida v0.4 ([#29](https://github.com/NicolasRocchia/disensor/issues/29)).
+
 `plano-evidencia/` contiene el Worker de ingesta (Cloudflare Workers más D1) con el port TypeScript del validador y el recibo de integridad de solo agregado. Ver su README para el estado de verificación y el despliegue.
 
 ## Glosario ES-EN
@@ -206,6 +262,34 @@ Y `verification.against` acepta ahora **`external_source`**: literatura, especif
 
 El contrato v0.2 original queda congelado, byte a byte como se publicó, en `spec/residue.schema.v0.2.json`: el esquema vigente sigue leyendo v0.2, pero el documento al que ese identificador apunta ya no depende de una reconstrucción.
 
+## Migración del esquema: residue/v0.3 a residue/v0.4
+
+Las declaraciones históricas no cambian. Cada versión tiene ahora su propio
+recurso congelado y se valida con sus propias reglas, así que una declaración
+v0.3 sigue validando igual que antes: leer registros viejos nunca fue un
+permiso para seguir emitiendo bajo reglas más débiles, y tampoco es un motivo
+para reescribirlos. Lo que cambia es lo que tiene que decir una declaración
+NUEVA.
+
+| Qué agrega v0.4 | Por qué |
+|---|---|
+| `reviewers[].independence` (obligatorio) | R4 exigía familia distinta y punto, así que una ronda sin segundo modelo no se podía declarar de ninguna manera, ni diciendo la verdad. Ahora la independencia se declara y la regla verifica que coincida con las familias declaradas: `cross_family` con dos revisores de la misma familia se rechaza, y declararse degradado teniendo otra familia también. |
+| `reviewers[].fallback_reason` | Obligatorio por debajo de `cross_family`. Un código enumerado, no prosa: el texto libre se vuelve boilerplate en el segundo evento, y ahí la cadena pasa a ser una excusa para ir siempre por el camino barato. |
+| `reviewers[].hardening` | `verified` cuando el revisor corrió por un adaptador cuya neutralización de las instrucciones del proyecto se probó contra un repositorio hostil. Se deriva, no se elige. |
+| Clases de residuo `reviewer_correlation` y `reviewer_hardening_gap` | Una por revisor degradado, nombrándolo. La correlación es lo que el revisor no podía ver; el endurecimiento es lo que el material revisado podía decirle. Riesgos distintos, ítems distintos. |
+
+**Cómo migrar**: nada, para lo que ya está escrito. Para lo que escribas de
+ahora en más, `disensor new` emite v0.4 y prellena estos campos desde la ronda;
+`disensor validate` te dice exactamente qué falta si escribís una a mano. El
+nivel A no admite independencia por debajo de `cross_family`: declarable no es
+lo mismo que admisible en el nivel que el protocolo reserva para lo que no se
+puede deshacer.
+
+**Un detalle del despliegue**: un CLI 0.9 emite v0.4, y un gate todavía pineado
+a una release anterior no conoce esa versión. `disensor init --upgrade` mueve
+el pin, o lo avisa antes de que generes una declaración que tu propio CI
+rechazaría.
+
 ## Migración de v0.3 a v0.4 (versiones del paquete)
 
 El esquema del artefacto no cambia y las declaraciones ya versionadas siguen siendo válidas: lo que cambia es qué PRs aprueba el gate. Actualizar sin leer esto deja el CI en rojo con mensajes que sí explican la causa, pero conviene saberlo antes.
@@ -228,7 +312,7 @@ El esquema del artefacto no cambia y las declaraciones ya versionadas siguen sie
 
 ## Estado
 
-v0.7.0, sobre **residue/v0.3**. Esta versión agrega `disensor pin`: la Action congelada al SHA de commit de su tag de release por comando, y `disensor init` deja el workflow ya pineado de nacimiento cuando puede resolver el tag. La versión anterior completó la ficha de PyPI: badges, keywords, classifiers y links de la barra lateral. Desde la v0.6.3 la documentación larga es bilingüe: `README.md` es el inglés que renderiza PyPI, `README.es.md` es el castellano, y la guía de llenado viaja en los dos idiomas. Esta versión vuelve alcanzable la guía castellana empaquetada, con `disensor guide --lang es`. Las releases se publican a PyPI vía Trusted Publishing (OIDC, `release.yml`): sin tokens en ninguna máquina. La v0.4 reescribió el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate") y la v0.5 entrega la consigna adversarial empaquetada con hash reproducible; el paso a residue/v0.3 endurece tres puntos del artefacto, cerrando los issues [#5](https://github.com/NicolasRocchia/disensor/issues/5), [#7](https://github.com/NicolasRocchia/disensor/issues/7) y [#8](https://github.com/NicolasRocchia/disensor/issues/8). Ver "Migración de v0.2 a v0.3". Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes).
+v0.9.0, sobre **residue/v0.4**. Esta versión orquesta la ronda: `disensor round` empaqueta el material, corre un revisor registrado en tu máquina, captura el informe y ancla el resultado a los commits que efectivamente revisó, y `disensor new --round` construye la declaración desde ahí. Cualquier asistente con línea de comandos puede ser el revisor; el catálogo empaquetado es un atajo, no la lista de lo permitido. residue/v0.4 vuelve declarable una ronda sin segunda familia de modelo como el modo degradado que es, en vez de imposible de declarar, y cada versión del esquema se valida con sus propias reglas. `disensor init --upgrade` lleva una instalación anterior a este procedimiento sin tocar nada que hayas editado. La versión anterior agregó `disensor pin`, que congela la Action al SHA de commit de su tag de release. Desde la v0.6.3 la documentación larga es bilingüe: `README.md` es el inglés que renderiza PyPI, `README.es.md` es el castellano, y la guía de llenado viaja en los dos idiomas. Esta versión vuelve alcanzable la guía castellana empaquetada, con `disensor guide --lang es`. Las releases se publican a PyPI vía Trusted Publishing (OIDC, `release.yml`): sin tokens en ninguna máquina. La v0.4 reescribió el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate") y la v0.5 entrega la consigna adversarial empaquetada con hash reproducible; el paso a residue/v0.3 endurece tres puntos del artefacto, cerrando los issues [#5](https://github.com/NicolasRocchia/disensor/issues/5), [#7](https://github.com/NicolasRocchia/disensor/issues/7) y [#8](https://github.com/NicolasRocchia/disensor/issues/8). Ver "Migración de v0.2 a v0.3". Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes).
 
 ## Licencia
 

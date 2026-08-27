@@ -29,7 +29,7 @@ paper is in Spanish; the glossary at the end maps its terminology to the schema.
 
 ## What is here
 
-- `spec/residue.schema.json`: the artifact schema (JSON Schema 2020-12), version residue/v0.3.
+- `spec/residue.schema.json`: the artifact schema (JSON Schema 2020-12), version residue/v0.4. Superseded versions keep their own frozen resource next to it.
 - `spec/examples/`: three example artifacts, including a real anonymised event and the minimized profile with no free text.
 - `src/disensor/`: Python package with the validator (rules R0 to R10), the CI gate (checks G1 to G9), the PR comment rendering, artifact and repository scaffolding (`init`), and the packaged filling guide (`GUIDE.md`).
 - `action.yml`: composite GitHub Action, ready to use.
@@ -46,7 +46,12 @@ pip install disensor        # or pipx install disensor, recommended for CLIs
 disensor init               # at the repo root: config, CLAUDE.md, filling skill and CI workflow
 disensor pin                # the gate Action, frozen to the commit SHA of the release tag
 
+disensor reviewer suggest              # which reviewers this machine has, offline
+disensor round --gate diff --generator-family anthropic --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json   # declaration from that round
+
 disensor prompt --gate diff            # the adversarial brief, to hand to a reviewer from another family
+disensor pack --gate diff --base main --head HEAD          # the full package, if you drive the round yourself
 disensor new --gate diff --level B     # template prefilled in .residue/
 disensor validate .residue/<id>.json   # schema + rules R0 to R10
 disensor gate --no-comment             # what CI will run, locally
@@ -115,7 +120,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.7.0
+      - uses: NicolasRocchia/disensor@v0.9.0
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -124,6 +129,55 @@ decides comes from git objects in the `merge-base..head` range, never from the
 working tree: on a `pull_request` event the checkout leaves the synthetic merge
 commit while `head.sha` points at the real head, so reading from disk would
 classify one tree and validate another.
+
+## The orchestrated round
+
+The round used to be the part you did by hand: package the material, hand it to
+another assistant, bring the report back, remember to check the tree afterwards.
+`disensor round` does the mechanical half, so nothing is ever pasted between
+models by hand.
+
+```bash
+disensor reviewer suggest          # what this machine has, offline
+disensor reviewer add codex --yes  # register it, once per machine
+
+disensor round --gate diff --generator-family anthropic \
+  --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json
+```
+
+**Any assistant can be the reviewer.** We happen to run Claude Code with Codex
+attacking, because that is what we have; the tool is not tied to either. Any
+command line that takes a text and returns a text works: another vendor's CLI,
+a local model through Ollama, whatever you already pay for. The packaged
+catalogue is a shortcut for the cases we already tested, not a list of what is
+allowed. If yours is not in it, your assistant reads its `--help`, proposes the
+entry, and you approve it once.
+
+Two things are worth knowing about that approval. The reviewers live on your
+machine (`~/.disensor/reviewers.json`), never in the repository: an entry is
+executable code, and a pull request that could add one would run commands on the
+machine of whoever reviews it. And what your assistant proposes is not
+registered until you say yes, because a repository can carry instructions
+addressed to your assistant, and registering an executable that will later
+receive your private code is your decision, not its.
+
+**What runs alone, and where you come in.** The runner asks the policy whether a
+round is required at all (a change that only touches exempt paths does not spend
+a token), refuses to run on a dirty tree, picks the most independent reviewer
+available, runs it, captures the report and emits a result anchored to the exact
+commits reviewed. It never reads the report: judging what the reviewer said is
+your assistant's work. You appear when you consent to material leaving your
+machine, when a risk needs an owner, when something is escalated without
+resolution, and at the pull request.
+
+**When there is no second family.** The method wants a reviewer from another
+model family, and that is still what the policy demands at Level A. Below that,
+a round with the same model and no context is a declarable degraded mode: the
+declaration records the independence it actually had, why it settled for less,
+and a residue item saying that the errors the model shares with itself were not
+covered. Worse than the real thing, and infinitely better than not being able to
+declare what happened.
 
 ## What the gate enforces
 
@@ -147,7 +201,7 @@ Per PR:
 - **G6, coverage**: every changed path is covered by a declaration whose gate the scope policy accepts for that path, and which **qualifies** for it, meaning the path did not change between the reviewed commit and the head. A stale declaration covers nothing.
 - **G7, integration witness**: some declaration saw the complete final tree. Path-by-path coverage is not enough: two side branches reviewed separately and later merged cover every path between them while nobody reviewed the integration.
 - **G8, evidence is append-only**: a PR cannot modify, delete or rename declarations that were already there, nor reuse an existing `event_id`.
-- **G9, new declarations state the current version**: a declaration the PR adds has to declare `residue/v0.3`. Superseded versions are still read so that history is not rewritten; that readability is not a permit to keep emitting under the weaker rules. The evidence plane applies the same criterion at ingestion.
+- **G9, new declarations state the current version**: a declaration the PR adds has to declare `residue/v0.4`. Superseded versions are still read so that history is not rewritten; that readability is not a permit to keep emitting under the weaker rules. The evidence plane applies the same criterion at ingestion.
 
 The gate **fails closed**: if it cannot resolve the PR range, it does not go
 green. A compliance control that cannot decide does not approve.
@@ -246,6 +300,13 @@ its suite (`tests/test_vectors.py`) and the TypeScript port of the evidence
 plane runs them with `npm run conformidad`. Labels are compared, not messages.
 The vectors are regenerated with `python -m disensor.vectors spec/vectors`.
 
+Each vector is validated under the schema of the version it declares. The
+TypeScript port implements the rules of **v0.2 and v0.3**: handed a v0.4
+artifact it says so and refuses, rather than returning a verdict without having
+run the rules that version added. So the two-independent-implementations claim
+currently covers up to v0.3; the Python reference is the only one that validates
+v0.4 ([#29](https://github.com/NicolasRocchia/disensor/issues/29)).
+
 `plano-evidencia/` holds the ingestion Worker (Cloudflare Workers plus D1) with
 the TypeScript port of the validator and the append-only integrity receipt. See
 its README for verification status and deployment.
@@ -322,6 +383,32 @@ The original v0.2 contract stays frozen, byte for byte as published, in
 `spec/residue.schema.v0.2.json`: the current schema still reads v0.2, but the
 document that identifier points at no longer depends on a reconstruction.
 
+## Schema migration: residue/v0.3 to residue/v0.4
+
+Historical declarations do not change. Each version now has its own frozen
+resource and is validated under its own rules, so a v0.3 declaration keeps
+validating exactly as it did: reading old records was never a permit to keep
+emitting under weaker rules, and it is not a reason to rewrite them either.
+What changes is what a NEW declaration has to say.
+
+| What v0.4 adds | Why |
+|---|---|
+| `reviewers[].independence` (required) | R4 used to demand a different model family, full stop, so a round without a second model could not be declared at all, even truthfully. Now independence is declared and the rule checks that it matches the families declared: `cross_family` with two reviewers of the same family is rejected, and so is claiming a degraded mode while actually having another family. |
+| `reviewers[].fallback_reason` | Required below `cross_family`. An enumerated code, not prose: free text becomes boilerplate on the second event, and then the chain is an excuse to always take the cheap path. |
+| `reviewers[].hardening` | `verified` when the reviewer ran through an adapter whose neutralisation of project instructions was tested against a hostile repository. It is derived, not chosen. |
+| Residue classes `reviewer_correlation` and `reviewer_hardening_gap` | One per degraded reviewer, naming it. Correlation is what the reviewer could not see; hardening is what the reviewed material could tell it. Different risks, different items. |
+
+**How to migrate**: nothing, for what is already written. For what you write
+from now on, `disensor new` emits v0.4 and prefills these fields from the round;
+`disensor validate` will tell you exactly what is missing if you write one by
+hand. Level A does not admit independence below `cross_family`: declarable is
+not the same as admissible at the level the protocol reserves for what cannot
+be undone.
+
+**One rollout detail**: a 0.9 CLI emits v0.4, and a gate still pinned to an
+older release does not know that version. `disensor init --upgrade` moves the
+pin, or says so before you generate a declaration your own CI would reject.
+
 ## Migrating from v0.3 to v0.4 (package versions)
 
 The artifact schema does not change and already-versioned declarations remain
@@ -352,7 +439,7 @@ it says.
 
 ## Status
 
-v0.7.0, on **residue/v0.3**. This version adds `disensor pin`: the Action frozen to the commit SHA of its release tag by command, and `disensor init` now leaves the workflow born pinned when it can resolve the tag. The previous version completed the PyPI listing: badges, keywords, classifiers and sidebar links. The long-form documentation is bilingual
+v0.9.0, on **residue/v0.4**. This version orchestrates the round: `disensor round` packages the material, runs a reviewer registered on your machine, captures the report and anchors the result to the commits it actually reviewed, and `disensor new --round` builds the declaration from it. Any assistant with a command line can be the reviewer; the packaged catalogue is a shortcut, not a list of what is allowed. residue/v0.4 makes a round without a second model family declarable as the degraded mode it is, instead of impossible to declare at all, and each schema version is now validated under its own rules. `disensor init --upgrade` brings an older installation up to this procedure without touching anything you edited. The previous version added `disensor pin`, which freezes the Action to the commit SHA of its release tag. The long-form documentation is bilingual
 since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
 is the Spanish, and the filling guide ships in both languages. This version
 makes the packaged Spanish guide reachable with `disensor guide --lang es`.

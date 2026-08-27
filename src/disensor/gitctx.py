@@ -142,3 +142,36 @@ def show_text(rev: str, path: str, cwd: Path) -> str:
 
 def path_exists(rev: str, path: str, cwd: Path) -> bool:
     return tree_entry(rev, path, cwd) is not None
+
+
+def canonical_repository(cwd: Path) -> str:
+    """A stable identity for the repository, the same one from every spelling.
+
+    `git@host:owner/name.git` and `https://host/owner/name` are the same place,
+    so both have to reduce to the same string or a declaration produced under
+    one spelling would look like it came from another repository. The HOST
+    stays: a mirror on a different service shares the commits and is NOT the
+    same repository, which is the case this identity exists to separate.
+    """
+    r = subprocess.run(
+        ["git", "config", "--get", "remote.origin.url"],
+        capture_output=True, text=True, cwd=cwd, check=False,
+    )
+    return normalize_repository(r.stdout.strip() if r.returncode == 0 else "")
+
+
+def normalize_repository(url: str) -> str:
+    """The canonical form of a repository URL, whatever spelling it arrived in.
+
+    Both sides of any comparison have to go through here, or the same place
+    written two ways looks like two repositories and the check rejects a
+    legitimate result.
+    """
+    if not url:
+        return ""
+    url = url.strip()
+    for prefijo in ("ssh://", "https://", "http://", "git://"):
+        url = url.removeprefix(prefijo)
+    if "@" in url:
+        url = url.split("@", 1)[1]
+    return url.replace(":", "/", 1).removesuffix(".git").rstrip("/")

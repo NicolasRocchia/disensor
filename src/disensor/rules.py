@@ -36,9 +36,24 @@ MINIMIZED_FORBIDDEN_TEXT_FIELDS = {"title", "description", "location"}
 TEMPLATE_MARKER = "FILL_IN"
 
 
-def load_schema() -> dict:
-    """Load the schema packaged with the distribution."""
-    with resources.files("disensor").joinpath("residue.schema.json").open(encoding="utf-8") as f:
+CURRENT = "residue/v0.4"
+
+# Un recurso por version, inmutable. Un solo archivo con todas las versiones en
+# un enum alcanzaba para dos y deja de alcanzar para tres: una declaracion vieja
+# terminaba validandose contra la forma combinada, aceptando campos de una
+# version que no existia cuando se escribio (issue #13). El discriminador se lee
+# primero y elige forma Y reglas juntas; una version ausente o desconocida falla.
+SCHEMA_FILES = {
+    "residue/v0.2": "residue.schema.v0.2.json",
+    "residue/v0.3": "residue.schema.v0.3.json",
+    "residue/v0.4": "residue.schema.json",
+}
+
+
+def load_schema(version: str | None = None) -> dict:
+    """Load the schema of a version (the current one by default)."""
+    name = SCHEMA_FILES[version or CURRENT]
+    with resources.files("disensor").joinpath(name).open(encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -48,6 +63,70 @@ def schema_errors(artifact: dict, schema: dict) -> list[str]:
         f"[schema] {'/'.join(str(p) for p in err.path) or '(root)'}: {err.message}"
         for err in sorted(validator.iter_errors(artifact), key=lambda x: list(x.path))
     ]
+
+
+def _independence_errors(a: dict, gen_family: str, error) -> None:
+    """R4 in v0.4: declared independence has to match the declared families.
+
+    A string nobody checks is worth nothing: `cross_family` would become the
+    value everyone writes, degraded rounds included, and the whole point of
+    recording the degradation is that it stays visible. The identity of the
+    models themselves is still declared and unverifiable; what this closes is
+    the cheapest lie, the one where the artifact contradicts itself.
+
+    Every reviewer below cross_family carries a residue item naming it, and an
+    unverified hardening carries its own: they are different risks. Correlation
+    is about what the reviewer could not see; hardening is about what the
+    reviewed material could tell the reviewer.
+    """
+    items = a["residue"].get("items", [])
+    refs = {
+        (i.get("class"), i.get("reviewer_ref"))
+        for i in items
+        if i.get("class") in ("reviewer_correlation", "reviewer_hardening_gap")
+    }
+    level = a["event"]["criticality_level"]
+
+    for r in a["actors"]["reviewers"]:
+        rid = r["reviewer_id"]
+        independence = r["independence"]
+        distinta = r["family"] != gen_family
+
+        if independence == "cross_family" and not distinta:
+            error("R4", f"reviewer {rid} declares cross_family and shares family ({gen_family}) with the generator")
+        if independence != "cross_family" and distinta:
+            error(
+                "R4",
+                f"reviewer {rid} declares {independence} and comes from a different family "
+                f"({r['family']} vs {gen_family}): declared independence has to match the families declared",
+            )
+        if independence != "cross_family":
+            if level == "A":
+                error(
+                    "R4",
+                    f"reviewer {rid}: Level A demands cross_family. A degraded mode is declarable, "
+                    "not admissible at the level the protocol reserves for what cannot be undone",
+                )
+            if "fallback_reason" not in r:
+                error(
+                    "R4",
+                    f"reviewer {rid}: independence below cross_family without fallback_reason. "
+                    "Why the round settled for less is part of what happened",
+                )
+            if ("reviewer_correlation", rid) not in refs:
+                error(
+                    "R11",
+                    f"reviewer {rid}: independence {independence} without a reviewer_correlation "
+                    "residue item naming it. The errors the reviewer shares with the generator "
+                    "were not covered by this round, and that is residue",
+                )
+        if r.get("hardening") == "unverified" and ("reviewer_hardening_gap", rid) not in refs:
+            error(
+                "R12",
+                f"reviewer {rid}: unverified hardening without a reviewer_hardening_gap residue "
+                "item naming it. The reviewed material could have addressed the reviewer before "
+                "the brief did",
+            )
 
 
 def rule_errors(a: dict) -> list[str]:
@@ -137,11 +216,20 @@ def rule_errors(a: dict) -> list[str]:
     if ap.get("used") and ap.get("protected_cases_touched"):
         error("R3", "abbreviated path used on a change that touches protected cases of 3.2")
 
-    # R4: decorrelation: no model reviewer shares a family with the generator.
+    # R4: decorrelation. Hasta v0.3 la regla era absoluta: familia distinta o la
+    # declaracion se rechaza. Eso dejaba sin poder declarar nada a quien no tiene
+    # un segundo modelo, aunque dijera la verdad sobre lo que hizo, y empujaba la
+    # unica salida honesta fuera del registro. Desde v0.4 la independencia se
+    # DECLARA siempre y la regla verifica que lo declarado coincida con las
+    # familias declaradas; el minimo exigible por nivel lo fija la politica, y
+    # cualquier cosa por debajo de cross_family arrastra su propio residuo.
     gen_family = a["actors"]["generator"]["family"]
-    for r in a["actors"]["reviewers"]:
-        if r["family"] == gen_family:
-            error("R4", f"reviewer {r['reviewer_id']} shares family ({gen_family}) with the generator: no decorrelation")
+    if a["schema"] == "residue/v0.4":
+        _independence_errors(a, gen_family, error)
+    else:
+        for r in a["actors"]["reviewers"]:
+            if r["family"] == gen_family:
+                error("R4", f"reviewer {r['reviewer_id']} shares family ({gen_family}) with the generator: no decorrelation")
 
     # R5: Level A + execution gap demands written acceptance by a lead (section 7).
     if level == "A":
@@ -212,17 +300,32 @@ def rule_errors(a: dict) -> list[str]:
 def validate_artifact(artifact: dict, schema: dict | None = None) -> list[str]:
     """Validate a complete artifact. Returns the list of errors (empty if valid).
 
-    If the schema fails, structural rules are not evaluated: they would
-    operate over a shape that is not guaranteed.
+    The declared version is read FIRST and selects shape and rules together. A
+    single combined shape let a v0.2 declaration borrow fields from v0.3, which
+    is the opposite of what versioning is for: a record is validated under the
+    rules of the version it was written under, and nothing else.
+
+    An explicit `schema` argument still wins, for callers that need to check an
+    artifact against a specific version on purpose.
     """
-    schema = schema or load_schema()
     if isinstance(artifact, dict) and isinstance(artifact.get("esquema"), str) \
             and artifact["esquema"].startswith("residuo/"):
         return [
             "[schema] artifact declares 'esquema: residuo/v0.1' (Spanish keys). "
-            "This disensor validates residue/v0.3, which renamed every key and enum "
+            f"This disensor validates {CURRENT}, which renamed every key and enum "
             "to English. See the ES-EN glossary in the repository README to migrate."
         ]
+    if schema is None:
+        declared = artifact.get("schema") if isinstance(artifact, dict) else None
+        if declared not in SCHEMA_FILES:
+            conocidas = ", ".join(sorted(SCHEMA_FILES))
+            return [
+                f"[schema] the artifact declares schema {declared!r}, which this disensor does "
+                f"not know how to validate (it reads {conocidas}). A declaration is validated "
+                "under the version it declares; guessing one would validate it under rules it "
+                "was never written for."
+            ]
+        schema = load_schema(declared)
     errors = schema_errors(artifact, schema)
     if errors:
         return errors

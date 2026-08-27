@@ -15,8 +15,11 @@ from .brief import GATES, main_prompt
 from .gate import main_gate
 from .guide import main_guide, main_hash
 from .init import main_init
+from .pack import main_pack
 from .pin import main_pin
-from .rules import load_schema, validate_artifact
+from .reviewers import main_reviewer
+from .round import main_round
+from .rules import validate_artifact
 from .template import main_new
 
 
@@ -31,7 +34,10 @@ actually happened in the round, not a file to commit as it comes."""
 
 
 def main_validate(args) -> int:
-    schema = load_schema()
+    # Sin esquema fijo: cada declaracion se valida contra la version que
+    # declara. Cargar uno solo aca hacia que una declaracion historica valida
+    # fuera rechazada por no tener campos que su version no conocia, que es
+    # justo lo contrario de lo que el versionado promete.
     failed = False
     invalid_artifact = False
     for path in args.files:
@@ -46,7 +52,7 @@ def main_validate(args) -> int:
             print(f"{path}: not valid JSON ({exc})")
             failed = True
             continue
-        errors = validate_artifact(artifact, schema)
+        errors = validate_artifact(artifact)
         print(f"{path}: {'VALID' if not errors else 'INVALID'}")
         for msg in errors:
             print(f"  {msg}")
@@ -75,6 +81,12 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--claude-global", action="store_true",
                       help="Write the Claude Code section and skill to ~/.claude instead of the repo.")
     init.add_argument("--no-workflow", action="store_true", help="Do not write the CI workflow.")
+    init.add_argument("--upgrade", action="store_true",
+                      help="Bring the managed blocks of an older installation up to this version. "
+                           "Only migrates what is still byte-identical to a known version; "
+                           "anything edited is left alone and reported.")
+    init.add_argument("--show", action="store_true",
+                      help="Print what --upgrade would write, to resolve a conflict by hand.")
     init.set_defaults(func=main_init)
 
     new = sub.add_parser("new", aliases=["nuevo"],
@@ -83,6 +95,10 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--gate", "--compuerta", choices=["plan", "diff", "architecture"], default="diff")
     new.add_argument("--level", "--nivel", choices=["A", "B", "C"], default="B")
     new.add_argument("--profile", "--perfil", choices=["full", "minimized"], default="full")
+    new.add_argument("--round", metavar="RESULT",
+                     help="Result of `disensor round` (or - for standard input): prefills what "
+                          "the runner observed and anchors the declaration to the commits it "
+                          "actually reviewed.")
     new.set_defaults(func=main_new)
 
     validate = sub.add_parser("validate", aliases=["validar"],
@@ -138,6 +154,113 @@ def build_parser() -> argparse.ArgumentParser:
         help="Release to pin, with or without the leading v (default: the installed version).",
     )
     pin.set_defaults(func=main_pin)
+
+    pack = sub.add_parser(
+        "pack",
+        help="Print the full package for the reviewer: confinement, material and the brief.",
+        description=(
+            "The operational package of a round: the confinement rules, which repository and "
+            "which material, where the report goes, and the packaged brief verbatim. A diff "
+            "gate takes --base and --head; a plan or architecture gate takes --material, "
+            "because that material usually does not live in the git range."
+        ),
+    )
+    pack.add_argument("--gate", "--compuerta", choices=list(GATES), default="diff")
+    pack.add_argument("--base", default=None, help="Base of the range (a diff gate needs it).")
+    pack.add_argument("--head", "--cabeza", default=None, help="Head of the range (a diff gate needs it).")
+    pack.add_argument("--material", default=None,
+                      help="File with the plan or decision under review, or - for standard input.")
+    pack.add_argument("--branch", default=None, help="Branch name, for the reviewer's context.")
+    pack.add_argument("--report", default=None,
+                      help="Absolute path, outside the repository, where the reviewer must write.")
+    pack.add_argument("--repository", default=None, help="Repository path (defaults to the working directory).")
+    pack.add_argument("--output", "--salida", metavar="FILE",
+                      help="Write the package to a file, keeping the bytes its hash is computed over.")
+    pack.set_defaults(func=main_pack)
+
+    rnd = sub.add_parser(
+        "round",
+        help="Run the adversarial round: package, reviewer, report and structured result.",
+        description=(
+            "Orchestrates the mechanical half of a round. It asks the policy whether a round "
+            "is required at all, refuses to run on a dirty tree (a diff round reviews commits "
+            "that already exist), picks the best reviewer registered on this machine, runs it, "
+            "captures the report and emits a result anchored to the commits reviewed. It never "
+            "reads the report: judging what the reviewer said is the assistant's work."
+        ),
+    )
+    rnd.add_argument("--gate", "--compuerta", choices=list(GATES), default="diff")
+    rnd.add_argument("--generator-family", required=True,
+                     choices=["anthropic", "openai", "google", "meta", "mistral", "other"],
+                     help="Family of the assistant that produced the material, to keep R4.")
+    rnd.add_argument("--generator-model", default=None,
+                     help="Model of the generator, to tell same-model from same-family.")
+    rnd.add_argument("--base", default=None)
+    rnd.add_argument("--head", "--cabeza", default=None)
+    rnd.add_argument("--material", default=None,
+                     help="Plan or decision under review (plan and architecture gates).")
+    rnd.add_argument("--config", default="disensor.config.json")
+    rnd.add_argument("--directory", "--directorio", default=".residue")
+    rnd.add_argument("--repository", default=None)
+    rnd.add_argument("--report", default=None, help="Where to leave the reviewer's report.")
+    rnd.add_argument("--result", default=None,
+                     help="File for the structured result. Outside the repository, or use a pipe.")
+    rnd.add_argument("--timeout", type=int, default=900)
+    rnd.add_argument("--check", action="store_true",
+                     help="Only answer whether a round is required, without running one.")
+    rnd.set_defaults(func=main_round)
+
+    reviewer = sub.add_parser(
+        "reviewer",
+        help="Register and list the reviewers this machine can run.",
+        description=(
+            "The reviewers live on the machine, never in the repository: an entry is "
+            "executable code, and a pull request that could add one would run commands on "
+            "the machine of whoever reviews it. The assistant discovers and proposes; an "
+            "entry outside the packaged catalogue needs the owner to approve it."
+        ),
+    )
+    racc = reviewer.add_subparsers(dest="reviewer_action", required=True)
+
+    rsug = racc.add_parser("suggest", help="Which catalogued reviewers this machine has (offline).")
+    rsug.set_defaults(func=main_reviewer)
+
+    rlist = racc.add_parser("list", help="Reviewers already registered.")
+    rlist.set_defaults(func=main_reviewer)
+
+    radd = racc.add_parser("add", help="Register a reviewer.")
+    radd.add_argument("id")
+    radd.add_argument("--family", choices=["anthropic", "openai", "google", "meta", "mistral", "other"])
+    radd.add_argument("--model")
+    radd.add_argument("--stdin", choices=["pack"], default=None,
+                      help="Pass the package on standard input instead of as an argument.")
+    radd.add_argument("--egress", choices=["local", "cloud", "unknown"], default="unknown")
+    radd.add_argument("--yes", action="store_true",
+                      help="Approve exactly what the command prints before writing it.")
+    # REMAINDER y no nargs=+: el argv de un revisor esta lleno de cosas que
+    # parecen flags nuestros (-c, --model), y argparse las reclamaria para si.
+    # Todo lo que sigue a --command es del revisor.
+    radd.add_argument("--command", nargs=argparse.REMAINDER,
+                      help="argv of the reviewer, everything after this flag. "
+                           "Placeholders: {pack}, {report}.")
+    radd.set_defaults(func=main_reviewer)
+
+    rcon = racc.add_parser(
+        "consent",
+        help="Authorise sending this repository's material to a registered cloud reviewer.",
+        description=(
+            "Consent is scoped: it covers this repository, this recipe and these executable "
+            "bytes. Authorising one project does not authorise the next one, and a changed "
+            "command or a replaced binary invalidates it."
+        ),
+    )
+    rcon.add_argument("id")
+    rcon.add_argument("--revoke", action="store_true", help="Withdraw a consent already given.")
+    rcon.set_defaults(func=main_reviewer)
+
+    rrm = racc.add_parser("remove", help="Remove a registered reviewer.")
+    rrm.add_argument("id")
+    rrm.set_defaults(func=main_reviewer)
 
     guide = sub.add_parser("guide", help="Print the artifact filling guide (for any coding agent or human).")
     guide.add_argument("--lang", "--idioma", choices=["en", "es"], default="en",

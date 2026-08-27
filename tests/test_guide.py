@@ -22,7 +22,9 @@ def run(capsys, *argv: str) -> str:
 def test_guide_prints_packaged_text(capsys):
     out = run(capsys, "guide")
     assert out == guide_text()
-    assert "residue/v0.3" in out and "R4" in out and "disensor hash" in out
+    from disensor.rules import CURRENT
+
+    assert CURRENT in out and "R4" in out and "disensor hash" in out
 
 
 def test_hash_of_file_matches_hashlib_and_schema_pattern(tmp_path, capsys):

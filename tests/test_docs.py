@@ -173,8 +173,12 @@ def test_the_schema_declares_the_version_the_tool_enforces():
         assert provisional.group(1) == esperada, (
             f"{ruta.name}: la descripcion dice {provisional.group(1)} y el gate exige {esperada}"
         )
-        assert CURRENT_SCHEMA in s["properties"]["schema"]["enum"], (
-            f"{ruta.name}: el enum de schema no admite {CURRENT_SCHEMA}"
+        # Desde v0.4 el discriminador es `const` y no `enum`: cada version
+        # tiene su recurso y una declaracion se valida contra la suya, en vez
+        # de contra una forma combinada que le dejaria pedir prestados campos
+        # de una version que no existia cuando se escribio.
+        assert s["properties"]["schema"].get("const") == CURRENT_SCHEMA, (
+            f"{ruta.name}: el discriminador no fija {CURRENT_SCHEMA}"
         )
 
 
