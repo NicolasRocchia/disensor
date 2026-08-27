@@ -76,11 +76,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = sub.add_parser("init", help="Scaffold a repository: config, CLAUDE.md section, filling skill and CI workflow.")
     init.add_argument("--level", "--nivel", choices=["A", "B", "C"], default="B")
-    init.add_argument("--no-claude", action="store_true", help="Do not touch CLAUDE.md nor the skill.")
-    init.add_argument("--no-skill", action="store_true", help="Write the CLAUDE.md section but not the skill.")
-    init.add_argument("--only-skill", action="store_true",
-                      help="Write the skill but not the CLAUDE.md section, for a repository whose "
-                           "agent is not Claude Code.")
+    # Los tres dicen cual del par CLAUDE.md/skill se escribe, asi que no pueden
+    # convivir: resolver la contradiccion por orden de rama hace que una bandera
+    # que prometio no escribir algo lo escriba igual.
+    par = init.add_mutually_exclusive_group()
+    par.add_argument("--no-claude", action="store_true", help="Do not touch CLAUDE.md nor the skill.")
+    par.add_argument("--no-skill", action="store_true", help="Write the CLAUDE.md section but not the skill.")
+    par.add_argument("--only-skill", action="store_true",
+                     help="Write the skill but not the CLAUDE.md section, for a repository whose "
+                          "agent is not Claude Code.")
     init.add_argument("--claude-global", action="store_true",
                       help="Write the Claude Code section and skill to ~/.claude instead of the repo.")
     init.add_argument("--no-workflow", action="store_true", help="Do not write the CI workflow.")

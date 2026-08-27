@@ -273,6 +273,12 @@ def main_init(args) -> int:
 
     _write_config(root, args.level, report)
 
+    if args.claude_global and getattr(args, "only_skill", False):
+        print(
+            "init: --claude-global writes the CLAUDE.md section in your home, and --only-skill "
+            "asks for no CLAUDE.md section. Pick one"
+        )
+        return 1
     if args.claude_global:
         home = Path.home()
         _write_claude(
