@@ -66,10 +66,18 @@ def entrada_catalogada(nombre: str) -> dict:
     from disensor.reviewers import CATALOG
 
     receta = CATALOG[nombre]
+    import sys as _sys
+
+    from disensor.reviewers import executable_fingerprint
+
+    # El binario tambien tiene que estar atado: se usa el interprete actual como
+    # ejecutable de mentira, con su hash real, porque el endurecimiento heredado
+    # exige que lo que va a correr sea lo que se aprobo.
     return entrada(
         nombre, receta["family"], list(receta["command"]),
         source="catalog", stdin=receta.get("stdin"), egress=receta["egress"],
-        model=receta["model"],
+        model=receta["model"], executable=_sys.executable,
+        executable_hash=executable_fingerprint(_sys.executable),
     )
 
 
@@ -385,9 +393,26 @@ def test_an_assistant_entry_cannot_forge_catalogued_hardening():
     )
     assert effective_hardening(otra_familia) == "unverified", "la familia es parte de la identidad"
 
-    legitima = entrada(
-        "codex", CATALOG["codex"]["family"], list(CATALOG["codex"]["command"]),
-        source="catalog", stdin=CATALOG["codex"].get("stdin"),
-        egress=CATALOG["codex"]["egress"],
-    )
-    assert effective_hardening(legitima) == "verified"
+    assert effective_hardening(entrada_catalogada("codex")) == "verified"
+
+
+def test_catalog_hardening_needs_the_binary_bound_and_matching(tmp_path: Path):
+    """Sin hash guardado no hay con que comparar, y el runner ejecutaria lo que
+    diga `executable`: alcanzaba con editar el registro a mano dejando la
+    identidad de la receta intacta."""
+    from disensor.round import effective_hardening
+    from disensor.reviewers import executable_fingerprint
+
+    base = entrada_catalogada("codex")
+
+    sin_hash = dict(base, executable=sys.executable)
+    sin_hash.pop("executable_hash", None)
+    assert effective_hardening(sin_hash) == "unverified", "sin hash no hay atadura"
+
+    otro_binario = dict(base, executable=sys.executable,
+                        executable_hash="sha256:" + "0" * 64)
+    assert effective_hardening(otro_binario) == "unverified", "el hash no coincide"
+
+    atado = dict(base, executable=sys.executable,
+                 executable_hash=executable_fingerprint(sys.executable))
+    assert effective_hardening(atado) == "verified"

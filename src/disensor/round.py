@@ -143,7 +143,18 @@ def effective_hardening(entry: dict) -> str:
         return "unverified"
     if entry.get("egress") != receta.get("egress"):
         return "unverified"
-    return "verified" if list(entry.get("command", [])) == list(receta["command"]) else "unverified"
+    if list(entry.get("command", [])) != list(receta["command"]):
+        return "unverified"
+    # Y el binario tiene que estar atado. Sin hash guardado no hay con que
+    # comparar, y el runner ejecutaria lo que diga `executable` sin chequear
+    # nada: alcanzaba con editar el registro a mano dejando la identidad de la
+    # receta intacta para que un programa cualquiera corriera declarado como el
+    # adaptador probado.
+    esperado = entry.get("executable_hash")
+    ruta = entry.get("executable") or shutil.which(entry["command"][0])
+    if not esperado or not ruta:
+        return "unverified"
+    return "verified" if executable_fingerprint(ruta) == esperado else "unverified"
 
 
 def file_hash(path: Path) -> str:
