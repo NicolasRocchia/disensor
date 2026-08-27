@@ -139,8 +139,15 @@ def validate_command(command) -> list[str]:
                 f"{', '.join(sorted(PLACEHOLDERS))}. Glued to other text it stops being an "
                 "argument and becomes string building, which is where injection lives"
             )
-    if len(set(command)) != len(command) and any(p in command for p in PLACEHOLDERS):
-        errors.append("a placeholder appears more than once: the runner would not know what to fill")
+    # Se cuenta CADA placeholder por separado. Mirar si hay algun elemento
+    # repetido rechazaba comandos legitimos: repetir una bandera como -c es
+    # una forma normal de argv, y esas integraciones no se podian registrar.
+    for marca in PLACEHOLDERS:
+        if command.count(marca) > 1:
+            errors.append(
+                f"the placeholder {marca} appears {command.count(marca)} times: the runner "
+                "would not know which one to fill"
+            )
     return errors
 
 
@@ -235,9 +242,16 @@ def consent_key(entry: dict, repository: str) -> str:
     leaves the machine is not consenting that a private one does, and a swapped
     executable is not the program that was approved.
     """
-    partes = [repository, entry["id"], " ".join(entry.get("command", [])),
-              entry.get("executable_hash") or ""]
-    return hashlib.sha256("\u0000".join(partes).encode("utf-8")).hexdigest()
+    # El argv se codifica ESTRUCTURALMENTE. Aplanarlo con espacios pierde los
+    # limites entre argumentos: ["tool", "--label", "a b", "c"] y
+    # ["tool", "--label", "a", "b c"] daban la misma clave, asi que un
+    # consentimiento dado para una receta autorizaba otra distinta.
+    material = json.dumps(
+        [repository, entry["id"], list(entry.get("command", [])),
+         entry.get("executable_hash") or ""],
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def has_consent(entry: dict, repository: str) -> bool:

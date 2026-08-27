@@ -208,3 +208,20 @@ def test_a_local_reviewer_needs_no_egress_consent():
     from disensor.reviewers import has_consent
 
     assert has_consent({"id": "x", "egress": "local", "command": ["x"]}, "cualquiera")
+
+
+def test_two_different_recipes_never_share_a_consent():
+    """Aplanar el argv con espacios perdia los limites entre argumentos, asi que
+    un consentimiento dado para una receta autorizaba otra distinta."""
+    from disensor.reviewers import consent_key
+
+    una = {"id": "t", "command": ["tool", "--label", "a b", "c"], "executable_hash": "h"}
+    otra = {"id": "t", "command": ["tool", "--label", "a", "b c"], "executable_hash": "h"}
+    assert consent_key(una, "repo") != consent_key(otra, "repo")
+
+
+def test_a_repeated_flag_is_a_normal_command():
+    """Repetir una bandera es una forma normal de argv: lo que no puede
+    repetirse es un placeholder, porque el runner no sabria cual llenar."""
+    assert validate_command(["tool", "-c", "uno", "-c", "dos", "{pack}"]) == []
+    assert validate_command(["tool", "{pack}", "{pack}"])
