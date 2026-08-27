@@ -81,6 +81,12 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--claude-global", action="store_true",
                       help="Write the Claude Code section and skill to ~/.claude instead of the repo.")
     init.add_argument("--no-workflow", action="store_true", help="Do not write the CI workflow.")
+    init.add_argument("--upgrade", action="store_true",
+                      help="Bring the managed blocks of an older installation up to this version. "
+                           "Only migrates what is still byte-identical to a known version; "
+                           "anything edited is left alone and reported.")
+    init.add_argument("--show", action="store_true",
+                      help="Print what --upgrade would write, to resolve a conflict by hand.")
     init.set_defaults(func=main_init)
 
     new = sub.add_parser("new", aliases=["nuevo"],
