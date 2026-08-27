@@ -185,3 +185,26 @@ def test_a_broken_registry_fails_loudly(registro_aislado):
     registro_aislado.write_text("{no es json", encoding="utf-8")
     with pytest.raises(ReviewerError, match="not valid JSON"):
         reviewers.load_registry()
+
+
+def test_consent_is_scoped_to_the_repository_the_recipe_and_the_bytes():
+    """Consentir que salga el codigo de un proyecto no es consentir el del siguiente."""
+    from disensor.reviewers import consent_key
+
+    base = {"id": "codex", "command": ["codex", "exec"], "executable_hash": "sha256:" + "a" * 64}
+    uno = consent_key(base, "github.com/mio/publico")
+    otro = consent_key(base, "github.com/mio/privado")
+    assert uno != otro, "otro repositorio, otro consentimiento"
+
+    cambiado = dict(base, command=["codex", "exec", "--otra-cosa"])
+    assert consent_key(cambiado, "github.com/mio/publico") != uno, "otra receta, otro consentimiento"
+
+    binario = dict(base, executable_hash="sha256:" + "b" * 64)
+    assert consent_key(binario, "github.com/mio/publico") != uno, "otros bytes, otro consentimiento"
+
+
+def test_a_local_reviewer_needs_no_egress_consent():
+    """Si no sale nada de la maquina, no hay nada que consentir."""
+    from disensor.reviewers import has_consent
+
+    assert has_consent({"id": "x", "egress": "local", "command": ["x"]}, "cualquiera")

@@ -38,7 +38,7 @@ from . import gitctx
 from .brief import brief_hash
 from .gate import GateFailure, classify_requirement, resolve_context
 from .pack import pack_hash, pack_text
-from .reviewers import ReviewerError, executable_fingerprint, load_registry
+from .reviewers import CATALOG, ReviewerError, executable_fingerprint, load_registry
 
 RESULT_VERSION = "disensor/round-result/v1"
 
@@ -101,10 +101,30 @@ def chain_for(
         (e, independence_of(e, generator_family, generator_model))
         for e in registry.get("reviewers", [])
     ]
+    # El endurecimiento se DERIVA del catalogo en el momento de correr, no se
+    # lee del registro: ese archivo es un JSON editable a mano, y un `verified`
+    # escrito ahi convertiria una afirmacion sobre una prueba hostil en un campo
+    # que cualquiera se pone. Solo lo conserva quien sigue coincidiendo con la
+    # receta catalogada que lo gano.
+    for entry, _ in entries:
+        entry["hardening"] = effective_hardening(entry)
     return sorted(
         entries,
         key=lambda par: (ORDER[par[1]], 0 if par[0].get("hardening") == "verified" else 1),
     )
+
+
+def effective_hardening(entry: dict) -> str:
+    """The hardening this entry has EARNED, not the one its file claims.
+
+    A catalogued recipe was tested against a hostile repository; an entry whose
+    command drifted from that recipe, or that never came from it, has not been
+    tested no matter what the JSON says.
+    """
+    receta = CATALOG.get(entry.get("id"))
+    if not receta or receta.get("hardening") != "verified":
+        return "unverified"
+    return "verified" if list(entry.get("command", [])) == list(receta["command"]) else "unverified"
 
 
 def file_hash(path: Path) -> str:
@@ -218,7 +238,9 @@ def _report_destination(args, repo: Path) -> Path:
                 "live outside it: written in, it dirties the very tree the round measures"
             )
         return destino
-    return Path(tempfile.gettempdir()) / f"disensor-report-{args.gate}.md"
+    # Un destino por corrida y no una ruta fija: dos rondas simultaneas escribian
+    # sobre el mismo archivo y una podia terminar hasheando el informe de la otra.
+    return Path(tempfile.mkdtemp(prefix="disensor-report-")) / f"report-{args.gate}.md"
 
 
 def main_round(args) -> int:
@@ -251,7 +273,7 @@ def _round(args, repo: Path) -> int:
             return OK
         base, head, merge_base = ctx.base_oid, ctx.head_oid, ctx.merge_base
         target_tip = ctx.base_oid
-        repository = _canonical_repository(repo)
+        repository = gitctx.canonical_repository(repo) or str(repo)
     else:
         # Un plan o una decision de arquitectura no vive en el rango: el
         # disparador ahi es de quien conoce el impacto, y `round` orquesta.
@@ -261,7 +283,7 @@ def _round(args, repo: Path) -> int:
         if not args.material:
             raise RoundError(f"a {args.gate} gate needs --material")
         base = head = merge_base = target_tip = ""
-        repository = _canonical_repository(repo)
+        repository = gitctx.canonical_repository(repo) or str(repo)
 
     # --- Precondicion: arbol limpio ------------------------------------------
     # La ronda de diff revisa COMMITS YA HECHOS. Comparar estados antes y
@@ -298,6 +320,24 @@ def _round(args, repo: Path) -> int:
     generator_family = args.generator_family
     generator_model = args.generator_model or ""
     chain = chain_for(registry, generator_family, generator_model)
+    # Piso por nivel: el nivel que el protocolo reserva para lo que no se puede
+    # deshacer no admite un revisor que el material bajo revision podria
+    # secuestrar, ni uno de la propia familia del generador. Declarable no es lo
+    # mismo que admisible, y filtrar aca evita gastar la corrida para que la
+    # declaracion la rechace despues.
+    nivel = _criticality_level(repo, args)
+    if nivel == "A":
+        chain = [
+            (e, ind) for e, ind in chain
+            if ind == "cross_family" and e.get("hardening") == "verified"
+        ]
+        if not chain:
+            print(
+                "round: Level A demands a cross-family reviewer with verified hardening, and "
+                "none of the registered ones qualifies. Declarable is not the same as "
+                "admissible at the level reserved for what cannot be undone."
+            )
+            return CHAIN_EXHAUSTED
     if not chain:
         print(
             "round: no reviewer registered on this machine. Run `disensor reviewer suggest`; "
@@ -390,19 +430,13 @@ def _round(args, repo: Path) -> int:
     return OK
 
 
-def _canonical_repository(repo: Path) -> str:
-    """A stable identity for the repository, so `new --round` can refuse a mismatch."""
+def _criticality_level(repo: Path, args) -> str:
+    """The level the repository declares, or the safe default."""
     try:
-        url = gitctx._git(["config", "--get", "remote.origin.url"], repo).strip()
-    except Exception:
-        url = ""
-    if not url:
-        return str(repo)
-    # Sin credenciales, sin sufijo .git y sin distinguir ssh de https: es la
-    # misma identidad escrita de formas distintas.
-    limpio = url.replace("git@", "").replace("ssh://", "").replace("https://", "").replace("http://", "")
-    limpio = limpio.replace(":", "/", 1) if limpio.startswith("github.com") is False and "@" not in limpio else limpio
-    return limpio.removesuffix(".git").rstrip("/")
+        crudo = json.loads((repo / args.config).read_text(encoding="utf-8"))
+        return crudo.get("criticality_level", "B")
+    except (OSError, json.JSONDecodeError):
+        return "B"
 
 
 def _branch(repo: Path) -> str:

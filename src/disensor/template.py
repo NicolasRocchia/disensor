@@ -13,6 +13,8 @@ import json
 import subprocess
 import sys
 import uuid
+
+from . import gitctx
 from pathlib import Path
 from .rules import CURRENT
 
@@ -148,7 +150,7 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     # solo por coincidir el commit, y la declaracion copiaba la identidad ajena.
     esperado = resultado.get("repository")
     if esperado:
-        actual = _repository_identity(cwd)
+        actual = gitctx.canonical_repository(cwd)
         if actual and not _same_repository(esperado, actual):
             raise RoundMismatch(
                 f"the round was run in {esperado} and this is {actual}. Commit ids are shared "
@@ -273,25 +275,12 @@ def _fallback_from(resultado: dict) -> dict:
     }
 
 
-def _repository_identity(cwd: Path) -> str:
-    """The same canonical form the runner records, so the two can be compared."""
-    url = _git(["config", "--get", "remote.origin.url"], cwd)
-    if not url:
-        return ""
-    limpio = url.replace("git@", "").replace("ssh://", "")
-    limpio = limpio.replace("https://", "").replace("http://", "")
-    return limpio.removesuffix(".git").rstrip("/")
-
-
 def _same_repository(uno: str, otro: str) -> bool:
     """Two spellings of the same identity, or two different repositories.
 
-    `git@host:owner/name` and `https://host/owner/name` are the same place, so
-    the comparison is on the parts and not on the string.
+    Both sides go through the same normalisation: `git@host:owner/name.git` and
+    `https://host/owner/name` are the same place. The HOST stays part of the
+    identity, because a mirror on another service shares the commits and is not
+    the same repository, which is precisely what this check separates.
     """
-    def partes(valor: str) -> tuple:
-        normal = valor.replace(":", "/").replace("\\", "/")
-        return tuple(p for p in normal.split("/") if p)
-
-    a, b = partes(uno), partes(otro)
-    return a == b or a[-2:] == b[-2:] if len(a) >= 2 and len(b) >= 2 else a == b
+    return gitctx.normalize_repository(uno) == gitctx.normalize_repository(otro)

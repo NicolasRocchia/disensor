@@ -137,15 +137,18 @@ sys.exit(0)
 def test_the_chain_puts_independence_first_then_hardening():
     """Agotar lo mejor antes de degradar: si no, el modo degradado se vuelve el
     camino por defecto y el registro mostraria una degradacion que nunca hizo falta."""
+    # El endurecimiento se deriva del catalogo, asi que el unico que puede
+    # salir verified es una entrada que coincide con una receta catalogada.
+    from disensor.reviewers import CATALOG
     registro = {"reviewers": [
-        entrada("propio-verificado", "anthropic", ["x"], hardening="verified", model="claude-opus-5"),
-        entrada("otro-sin-verificar", "openai", ["x"], hardening="unverified"),
-        entrada("otro-verificado", "google", ["x"], hardening="verified"),
+        entrada("propio", "anthropic", ["x"], model="claude-opus-5"),
+        entrada("otro-sin-verificar", "openai", ["x"]),
+        entrada("codex", "google", list(CATALOG["codex"]["command"])),
     ]}
     orden = [e["id"] for e, _ in chain_for(registro, "anthropic", "claude-opus-5")]
-    assert orden[0] == "otro-verificado"
+    assert orden[0] == "codex", "cross-family y verificado va primero"
     assert orden[1] == "otro-sin-verificar"
-    assert orden[2] == "propio-verificado", "el de la misma familia va ultimo"
+    assert orden[2] == "propio", "el de la misma familia va ultimo"
 
 
 def test_independence_is_what_the_reviewer_is():
@@ -260,3 +263,35 @@ def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
     assert r["declared"]["independence"] == "cross_family"
     assert r["observed"]["report_hash"].startswith("sha256:")
     assert (tmp_path / "informe.md").read_text(encoding="utf-8") == "informe legitimo"
+
+
+def test_hardening_is_derived_from_the_catalog_not_read_from_the_file():
+    """El registro es un JSON editable a mano: un `verified` escrito ahi
+    convertiria una afirmacion sobre una prueba hostil en un campo que
+    cualquiera se pone."""
+    from disensor.reviewers import CATALOG
+    from disensor.round import effective_hardening
+
+    legitimo = entrada("codex", "openai", list(CATALOG["codex"]["command"]), hardening="verified")
+    assert effective_hardening(legitimo) == "verified"
+
+    falsificado = entrada("codex", "openai", ["codex", "exec"], hardening="verified")
+    assert effective_hardening(falsificado) == "unverified", "el comando ya no es la receta probada"
+
+    inventado = entrada("propio", "openai", ["x"], hardening="verified")
+    assert effective_hardening(inventado) == "unverified", "no viene de ninguna receta"
+
+
+def test_level_a_refuses_a_reviewer_that_does_not_meet_the_floor(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Declarable no es admisible en el nivel reservado para lo irreversible."""
+    (repo / "disensor.config.json").write_text('{"criticality_level": "A"}', encoding="utf-8")
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {"reviewers": [
+        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN))
+    ]}
+    assert correr(repo, registro, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
+    assert "Level A demands" in capsys.readouterr().out

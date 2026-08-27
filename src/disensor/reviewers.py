@@ -228,6 +228,32 @@ def build_entry(
     return entry
 
 
+def consent_key(entry: dict, repository: str) -> str:
+    """What a consent covers: this repository, this recipe, these bytes.
+
+    Anything else invalidates it. Consenting that the code of a public project
+    leaves the machine is not consenting that a private one does, and a swapped
+    executable is not the program that was approved.
+    """
+    partes = [repository, entry["id"], " ".join(entry.get("command", [])),
+              entry.get("executable_hash") or ""]
+    return hashlib.sha256("\u0000".join(partes).encode("utf-8")).hexdigest()
+
+
+def has_consent(entry: dict, repository: str) -> bool:
+    if entry.get("egress") == "local":
+        return True  # no sale nada de la maquina: no hay nada que consentir
+    return consent_key(entry, repository) in set(load_registry().get("consents", []))
+
+
+def grant_consent(entry: dict, repository: str) -> None:
+    data = load_registry()
+    consents = set(data.get("consents", []))
+    consents.add(consent_key(entry, repository))
+    data["consents"] = sorted(consents)
+    save_registry(data)
+
+
 def describe(entry: dict) -> str:
     """What the owner reads before approving. Everything that will run, in full."""
     lineas = [
@@ -355,7 +381,9 @@ def _add(args) -> int:
     if entry.get("egress") != "local" and not args.yes:
         print(
             "The material under review would leave this machine. Re-run with --yes to confirm, "
-            "or register a local reviewer instead."
+            "or register a local reviewer instead.\n"
+            "That confirmation covers THIS repository, this recipe and this executable: "
+            "consenting that one project leaves the machine is not consenting for the next one."
         )
         return 2
 
