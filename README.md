@@ -300,6 +300,13 @@ its suite (`tests/test_vectors.py`) and the TypeScript port of the evidence
 plane runs them with `npm run conformidad`. Labels are compared, not messages.
 The vectors are regenerated with `python -m disensor.vectors spec/vectors`.
 
+Each vector is validated under the schema of the version it declares. The
+TypeScript port implements the rules of **v0.2 and v0.3**: handed a v0.4
+artifact it says so and refuses, rather than returning a verdict without having
+run the rules that version added. So the two-independent-implementations claim
+currently covers up to v0.3; the Python reference is the only one that validates
+v0.4 ([#29](https://github.com/NicolasRocchia/disensor/issues/29)).
+
 `plano-evidencia/` holds the ingestion Worker (Cloudflare Workers plus D1) with
 the TypeScript port of the validator and the append-only integrity receipt. See
 its README for verification status and deployment.
