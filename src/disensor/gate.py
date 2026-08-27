@@ -42,7 +42,7 @@ from pathlib import Path, PurePosixPath
 
 from . import gitctx
 from .render import MARKER, render_comment
-from .rules import load_schema, validate_artifact
+from .rules import CURRENT, load_schema, validate_artifact
 from .scope import DEFAULT_SCOPE, ScopeError, accepts_for, floor_patterns, validate_scope
 
 DEFAULT_CONFIG = {
@@ -59,7 +59,9 @@ DEFAULT_CONFIG = {
 V01_CONFIG_KEYS = {"nivel_criticidad", "nivel_A_habilitado"}
 
 KNOWN_CONFIG_KEYS = {"criticality_level", "level_A_enabled", "gate"}
-CURRENT_SCHEMA = "residue/v0.3"
+# Una sola fuente: la version vigente la fija el validador, que es quien la
+# aplica. Dos constantes con el mismo nombre en dos modulos derivan sin aviso.
+CURRENT_SCHEMA = CURRENT
 
 KNOWN_GATE_KEYS = {"required", "level_A_accepted_confinement", "warn_unverified_confinement", "scope"}
 
@@ -677,7 +679,10 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         if isinstance(past_id, str) and past_id.strip():
             historical.add(event_key(past_id))
 
-    schema = load_schema()
+    # Sin schema fijo: cada declaracion se valida contra la version que declara.
+    # Pasar uno solo aca hacia que una declaracion historica se midiera con la
+    # forma vigente y fuera rechazada por no tener campos que su version no
+    # conocia, que es lo contrario de conservar la historia legible.
     artifacts: list[Artifact] = []
     for path in new_paths:
         try:
@@ -685,7 +690,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         except (json.JSONDecodeError, gitctx.GitError) as exc:
             errors_by_file[path] = [f"invalid JSON: {exc}"]
             continue
-        artifact = Artifact(path=path, data=data, errors=validate_artifact(data, schema))
+        artifact = Artifact(path=path, data=data, errors=validate_artifact(data))
         # G9: the schema keeps reading superseded versions so that historical
         # declarations stay valid without being rewritten (evidence is
         # append-only). That readability must not become a way to keep emitting

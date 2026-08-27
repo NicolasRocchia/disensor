@@ -1,4 +1,4 @@
-# Cómo se llena una declaración de residuo (residue/v0.3)
+# Cómo se llena una declaración de residuo (residue/v0.4)
 
 > **Traducción.** La versión normativa es [`GUIDE.md`](GUIDE.md), en inglés, que
 > es la que imprime `disensor guide` y la que `disensor init` instala como
@@ -24,8 +24,9 @@ sus errores.
 
 1. `disensor prompt --gate <plan|diff|architecture>` imprime la consigna adversarial.
    Entregásela, junto con el material bajo revisión, a un revisor de OTRA familia
-   de modelo. Con un plan gratuito alcanza. La misma familia que el generador no
-   cuenta, y la regla R4 rechaza la declaración si lo intentás.
+   de modelo. Con un plan gratuito alcanza. La misma familia que el generador es
+   un modo degradado: se puede declarar, con su independencia registrada y su
+   propio ítem de residuo, pero no es lo mismo y el registro tiene que decirlo.
 2. Verificá cada hallazgo contra el código real antes de aceptarlo. El revisor
    está decorrelacionado, no acertado, y un hallazgo sin verificar no es un
    hallazgo.
@@ -66,9 +67,22 @@ Por defecto todo exige `diff`.
 - `generator`: el asistente que produjo el plan o el diff. `family` es su
   familia de modelo (anthropic, openai, google, meta, mistral, other).
 - `reviewers[]`: los asistentes que atacan. Cada uno necesita `reviewer_id` (r1,
-  r2...), `family`, `model` y `confinement`. La regla R4 rechaza cualquier
-  revisor cuya familia sea igual a la del generador: la decorrelación es el
-  punto del método, no una opción.
+  r2...), `family`, `model`, `confinement` e `independence`.
+- `reviewers[].independence`: `cross_family` cuando el revisor viene de otra
+  familia de modelo, que es lo que el método espera; por debajo,
+  `same_family_distinct_model` o `same_model_fresh_context`. La regla R4 ya no
+  exige familia distinta de forma absoluta: exige que lo declarado coincida con
+  las familias declaradas, así que `cross_family` con dos revisores de la misma
+  familia se rechaza. Una independencia degradada además pide `fallback_reason`
+  (por qué la ronda se conformó con menos) y un ítem de residuo de clase
+  `reviewer_correlation` que nombre a ese revisor: los errores que un modelo
+  comparte consigo mismo no los cubrió esta ronda, y eso es residuo. El nivel A
+  no lo admite.
+- `reviewers[].hardening`: `verified` si el revisor corrió por un adaptador
+  cuya neutralización de las instrucciones del proyecto se probó contra un
+  repositorio hostil; `unverified` en cualquier otro caso. `unverified` no
+  bloquea, pero pide un ítem `reviewer_hardening_gap`: el material bajo
+  revisión puede hablarle al revisor antes que tu consigna.
 - `reviewers[].prompt_hash`: el hash de la consigna adversarial que recibió el
   revisor. Si usaste la empaquetada, es
   `disensor prompt --gate <plan|diff|architecture> --hash`, y cualquiera puede recomputar ese

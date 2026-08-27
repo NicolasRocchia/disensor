@@ -559,8 +559,17 @@ def test_new_artifact_declaring_a_superseded_schema_fails(repo, capsys):
     repo.write("src/app.py", "code")
     code = repo.commit("feat")
     path = repo.artifact("diff", head=code, base=base)
+    # Un v0.3 LEGITIMO, no un vigente con la etiqueta cambiada: desde que cada
+    # version tiene su recurso, un artefacto que dice v0.3 y trae campos de
+    # v0.4 lo rechaza el esquema de v0.3 y nunca llega a G9. Se le quita lo que
+    # v0.3 no conoce, que es exactamente lo que lo vuelve una declaracion vieja
+    # y valida: historia legible, no permiso de emision.
     data = json.loads((repo.path / path).read_text(encoding="utf-8"))
-    data["schema"] = "residue/v0.2"
+    data["schema"] = "residue/v0.3"
+    for r in data["actors"]["reviewers"]:
+        r.pop("independence", None)
+        r.pop("fallback_reason", None)
+        r.pop("hardening", None)
     repo.write(path, json.dumps(data, ensure_ascii=False))
     head = repo.commit("docs(residue)")
     assert repo.run(base, head) == 1

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://www.pelatech.com.ar/specs/residue/v0.4/residue.schema.json",
+  "$id": "https://www.pelatech.com.ar/specs/residue/v0.3/residue.schema.json",
   "title": "Residue declaration of an adversarial review event (controlled disagreement)",
-  "description": "Artifact that an adversarial review event emits at the close of the cycle. It declares residue, not coverage (protocol, section 9): it lists what the cycle could not close by itself, or expressly declares its absence. Resolved and verified findings are not residue; their evidence is the diff. Provisional version v0.4, subject to ratification. v0.2 renames every key and enum from Spanish (residuo/v0.1) to English; the mapping is documented in the repository glossary. No structural semantics changed between v0.1 and v0.2.",
+  "description": "Artifact that an adversarial review event emits at the close of the cycle. It declares residue, not coverage (protocol, section 9): it lists what the cycle could not close by itself, or expressly declares its absence. Resolved and verified findings are not residue; their evidence is the diff. Provisional version v0.3, subject to ratification. v0.2 renames every key and enum from Spanish (residuo/v0.1) to English; the mapping is documented in the repository glossary. No structural semantics changed between v0.1 and v0.2.",
   "type": "object",
   "required": [
     "schema",
@@ -15,8 +15,8 @@
   "additionalProperties": false,
   "properties": {
     "schema": {
-      "const": "residue/v0.4",
-      "description": "Schema version identifier. v0.4 adds declared independence: a round that could not reach another model family is recorded as what it is, a degraded mode with its own residue, instead of being impossible to declare at all."
+      "const": "residue/v0.3",
+      "description": "Schema version identifier. This resource describes v0.3 and only v0.3: a declaration is validated against the shape and the rules of the version it declares, never against a combined shape that would let it borrow fields from a version that did not exist when it was written."
     },
     "profile": {
       "enum": [
@@ -193,8 +193,7 @@
               "reviewer_id",
               "family",
               "model",
-              "confinement",
-              "independence"
+              "confinement"
             ],
             "additionalProperties": false,
             "properties": {
@@ -248,44 +247,6 @@
                     ]
                   }
                 }
-              },
-              "independence": {
-                "enum": [
-                  "cross_family",
-                  "same_family_distinct_model",
-                  "same_model_fresh_context"
-                ],
-                "description": "How independent this reviewer was from the generator. Rule R4 no longer demands a different family unconditionally: it demands that the independence be declared and that it match the families actually declared. cross_family is the minimum the protocol expects, and the policy can require it per level; anything below it is a degraded mode that carries its own residue item, because the errors a model shares with itself were not covered by this round."
-              },
-              "fallback_reason": {
-                "type": "object",
-                "required": [
-                  "code"
-                ],
-                "additionalProperties": false,
-                "description": "Why the round settled for less independence or less hardening than the best available. An enumerated code rather than prose: free text turns into boilerplate on the second event, and then the chain becomes an excuse to always take the cheap path.",
-                "properties": {
-                  "code": {
-                    "enum": [
-                      "no_other_family_available",
-                      "quota_exhausted",
-                      "reviewer_unavailable",
-                      "policy_allowed_degradation",
-                      "owner_decision"
-                    ]
-                  },
-                  "detail": {
-                    "type": "string",
-                    "minLength": 10
-                  }
-                }
-              },
-              "hardening": {
-                "enum": [
-                  "verified",
-                  "unverified"
-                ],
-                "description": "Whether the reviewer ran through an adapter whose neutralisation of project instructions, hooks and plugins was verified against a hostile repository. unverified does not block: the material under review can address the reviewer before the brief does, and that risk is declared instead of hidden."
               }
             }
           }
@@ -681,11 +642,9 @@
           "enum": [
             "escalation_without_decision",
             "principal_refutation",
-            "execution_gap",
-            "reviewer_correlation",
-            "reviewer_hardening_gap"
+            "execution_gap"
           ],
-          "description": "The three classes of section 6 plus the two the degraded modes of v0.4 introduce: reviewer_correlation, the errors a reviewer shares with the generator because it was not from another family, and reviewer_hardening_gap, the possibility that the reviewed material addressed the reviewer."
+          "description": "The three classes of section 6: findings escalated without a decision, findings the principal model refuted, and behavior that execution could not arbitrate."
         },
         "finding_ref": {
           "type": "string",
@@ -740,11 +699,6 @@
               "description": "Link or identifier of the written record of the acceptance."
             }
           }
-        },
-        "reviewer_ref": {
-          "type": "string",
-          "minLength": 1,
-          "description": "reviewer_id this item is about. Required for the two reviewer classes: one item cannot cover several degraded reviewers, or the record stops saying which one carried the risk."
         }
       },
       "allOf": [
@@ -794,31 +748,6 @@
             ]
           },
           "then": {
-            "properties": {
-              "requires_human_attention": {
-                "const": true
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "class": {
-                "enum": [
-                  "reviewer_correlation",
-                  "reviewer_hardening_gap"
-                ]
-              }
-            },
-            "required": [
-              "class"
-            ]
-          },
-          "then": {
-            "required": [
-              "reviewer_ref"
-            ],
             "properties": {
               "requires_human_attention": {
                 "const": true

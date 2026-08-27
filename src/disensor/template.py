@@ -12,6 +12,7 @@ import json
 import subprocess
 import uuid
 from pathlib import Path
+from .rules import CURRENT
 
 
 def _git(args: list[str], cwd: Path) -> str:
@@ -27,7 +28,7 @@ def template(gate: str, level: str, profile: str, cwd: Path) -> dict:
         ["merge-base", "HEAD", "origin/master"], cwd
     )
     a: dict = {
-        "schema": "residue/v0.3",
+        "schema": CURRENT,
         "profile": profile,
         "event": {
             "event_id": str(uuid.uuid4()),
@@ -45,6 +46,11 @@ def template(gate: str, level: str, profile: str, cwd: Path) -> dict:
                     "reviewer_id": "r1",
                     "family": "openai",
                     "model": "FILL_IN_reviewer_model",
+                    # La independencia se declara siempre: el valor que viene es
+                    # el que el metodo espera, y si la ronda fue degradada hay
+                    # que corregirlo Y agregar su item de residuo. Dejarlo como
+                    # viene cuando no fue asi es declarar algo que no paso.
+                    "independence": "cross_family",
                     "confinement": {
                         "mode": "read_only_by_instruction",
                         "verified": False,
