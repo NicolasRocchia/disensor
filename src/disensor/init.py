@@ -36,7 +36,7 @@ from .pin import PinError, pin_text, resolve_tag_commit
 # se queda con el procedimiento viejo para siempre, porque init conserva byte
 # por byte lo que ya existe y actualizar el paquete no cambia lo que el agente
 # lee. Con la marca, --upgrade sabe que reemplazar y que dejar quieto.
-BLOCK_VERSION = "0.8"
+BLOCK_VERSION = "0.9"
 
 CLAUDE_HEADING = "## disensor: residue declaration at event close"
 
@@ -96,10 +96,11 @@ Read the exit code, do not guess from the text:
 - `0`: the round ran. Its report and result are where you asked for them.
 - `3`: no review required. The policy of this repository says these paths do
   not demand one. Go to the pull request; the gate will agree.
-- `4`: no reviewer answered. Run `disensor reviewer suggest`. If nothing is
-  registered, investigate what this machine has and register it; an entry
-  outside the packaged catalogue needs the OWNER to approve it, so ask, do not
-  approve it yourself.
+- `4`: no reviewer answered. Run `disensor reviewer suggest`. The catalogue is
+  a shortcut, not the list of what is allowed: ANY assistant with a command
+  line can review, whatever the vendor. Look at what this machine actually has,
+  read its `--help`, and register it. An entry outside the catalogue needs the
+  OWNER to approve it, so ask; do not approve it yourself.
 - `5`: the tree changed during the round. Do NOT declare. Tell the user what
   appeared: a reviewer that writes is not a reviewer that only reads.
 - `6`: could not decide whether a round was needed. Stop and report. This is

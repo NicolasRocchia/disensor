@@ -46,7 +46,12 @@ pip install disensor        # or pipx install disensor, recommended for CLIs
 disensor init               # at the repo root: config, CLAUDE.md, filling skill and CI workflow
 disensor pin                # the gate Action, frozen to the commit SHA of the release tag
 
+disensor reviewer suggest              # which reviewers this machine has, offline
+disensor round --gate diff --generator-family anthropic --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json   # declaration from that round
+
 disensor prompt --gate diff            # the adversarial brief, to hand to a reviewer from another family
+disensor pack --gate diff --base main --head HEAD          # the full package, if you drive the round yourself
 disensor new --gate diff --level B     # template prefilled in .residue/
 disensor validate .residue/<id>.json   # schema + rules R0 to R10
 disensor gate --no-comment             # what CI will run, locally
@@ -115,7 +120,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.8.0
+      - uses: NicolasRocchia/disensor@v0.9.0
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -124,6 +129,55 @@ decides comes from git objects in the `merge-base..head` range, never from the
 working tree: on a `pull_request` event the checkout leaves the synthetic merge
 commit while `head.sha` points at the real head, so reading from disk would
 classify one tree and validate another.
+
+## The orchestrated round
+
+The round used to be the part you did by hand: package the material, hand it to
+another assistant, bring the report back, remember to check the tree afterwards.
+`disensor round` does the mechanical half, so nothing is ever pasted between
+models by hand.
+
+```bash
+disensor reviewer suggest          # what this machine has, offline
+disensor reviewer add codex --yes  # register it, once per machine
+
+disensor round --gate diff --generator-family anthropic \
+  --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json
+```
+
+**Any assistant can be the reviewer.** We happen to run Claude Code with Codex
+attacking, because that is what we have; the tool is not tied to either. Any
+command line that takes a text and returns a text works: another vendor's CLI,
+a local model through Ollama, whatever you already pay for. The packaged
+catalogue is a shortcut for the cases we already tested, not a list of what is
+allowed. If yours is not in it, your assistant reads its `--help`, proposes the
+entry, and you approve it once.
+
+Two things are worth knowing about that approval. The reviewers live on your
+machine (`~/.disensor/reviewers.json`), never in the repository: an entry is
+executable code, and a pull request that could add one would run commands on the
+machine of whoever reviews it. And what your assistant proposes is not
+registered until you say yes, because a repository can carry instructions
+addressed to your assistant, and registering an executable that will later
+receive your private code is your decision, not its.
+
+**What runs alone, and where you come in.** The runner asks the policy whether a
+round is required at all (a change that only touches exempt paths does not spend
+a token), refuses to run on a dirty tree, picks the most independent reviewer
+available, runs it, captures the report and emits a result anchored to the exact
+commits reviewed. It never reads the report: judging what the reviewer said is
+your assistant's work. You appear when you consent to material leaving your
+machine, when a risk needs an owner, when something is escalated without
+resolution, and at the pull request.
+
+**When there is no second family.** The method wants a reviewer from another
+model family, and that is still what the policy demands at Level A. Below that,
+a round with the same model and no context is a declarable degraded mode: the
+declaration records the independence it actually had, why it settled for less,
+and a residue item saying that the errors the model shares with itself were not
+covered. Worse than the real thing, and infinitely better than not being able to
+declare what happened.
 
 ## What the gate enforces
 
@@ -352,7 +406,7 @@ it says.
 
 ## Status
 
-v0.7.0, on **residue/v0.3**. This version adds `disensor pin`: the Action frozen to the commit SHA of its release tag by command, and `disensor init` now leaves the workflow born pinned when it can resolve the tag. The previous version completed the PyPI listing: badges, keywords, classifiers and sidebar links. The long-form documentation is bilingual
+v0.9.0, on **residue/v0.4**. This version orchestrates the round: `disensor round` packages the material, runs a reviewer registered on your machine, captures the report and anchors the result to the commits it actually reviewed, and `disensor new --round` builds the declaration from it. Any assistant with a command line can be the reviewer; the packaged catalogue is a shortcut, not a list of what is allowed. residue/v0.4 makes a round without a second model family declarable as the degraded mode it is, instead of impossible to declare at all, and each schema version is now validated under its own rules. `disensor init --upgrade` brings an older installation up to this procedure without touching anything you edited. The previous version added `disensor pin`, which freezes the Action to the commit SHA of its release tag. The long-form documentation is bilingual
 since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
 is the Spanish, and the filling guide ships in both languages. This version
 makes the packaged Spanish guide reachable with `disensor guide --lang es`.

@@ -35,7 +35,12 @@ pip install disensor        # o pipx install disensor, recomendado para CLIs
 disensor init               # en la raíz del repo: config, CLAUDE.md, skill de llenado y workflow de CI
 disensor pin                # la Action del workflow, congelada al SHA de commit del tag de la release
 
+disensor reviewer suggest              # qué revisores tiene esta máquina, sin red
+disensor round --gate diff --generator-family anthropic --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json   # la declaración de esa ronda
+
 disensor prompt --gate diff            # la consigna adversarial, para pegarle al revisor de otra familia
+disensor pack --gate diff --base main --head HEAD          # el paquete completo, si manejás la ronda vos
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
 disensor validate .residue/<id>.json   # schema + reglas R0 a R10
 disensor gate --no-comment             # lo que va a correr CI, en local
@@ -87,10 +92,59 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.8.0
+      - uses: NicolasRocchia/disensor@v0.9.0
 ```
 
 El gate valida las declaraciones que **el PR agrega**, aplica la política y publica el resultado como comentario (se actualiza en el lugar en cada push). Todo lo que decide sale de objetos de git en el rango `merge-base..head`, nunca del working tree: en un evento `pull_request` el checkout deja el merge commit sintético mientras `head.sha` apunta al head real, así que leer del disco clasificaría un árbol y validaría otro.
+
+## La ronda orquestada
+
+La ronda era la parte que se hacía a mano: empaquetar el material, entregárselo
+a otro asistente, traer el informe, acordarse de mirar el árbol después.
+`disensor round` hace la mitad mecánica, así que nunca se copia y pega material
+entre modelos.
+
+```bash
+disensor reviewer suggest          # qué tiene esta máquina, sin red
+disensor reviewer add codex --yes  # registrarlo, una vez por máquina
+
+disensor round --gate diff --generator-family anthropic \
+  --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json
+```
+
+**Cualquier asistente puede ser el revisor.** Nosotros corremos Claude Code con
+Codex atacando porque es lo que tenemos; la herramienta no está atada a ninguno
+de los dos. Sirve cualquier línea de comandos que reciba un texto y devuelva un
+texto: el CLI de otro proveedor, un modelo local por Ollama, lo que ya estés
+pagando. El catálogo empaquetado es un atajo para los casos que ya probamos, no
+la lista de lo que está permitido. Si el tuyo no está, tu asistente lee su
+`--help`, propone la entrada y vos la aprobás una vez.
+
+Dos cosas que conviene saber sobre esa aprobación. Los revisores viven en tu
+máquina (`~/.disensor/reviewers.json`) y nunca en el repositorio: una entrada es
+código ejecutable, y un PR que pudiera agregar una correría comandos en la
+máquina de quien lo revise. Y lo que propone tu asistente no se registra hasta
+que digas que sí, porque un repositorio puede traer instrucciones dirigidas a tu
+asistente, y registrar un ejecutable que después va a recibir tu código privado
+es una decisión tuya, no suya.
+
+**Qué corre solo y dónde aparecés vos.** El runner le pregunta a la política si
+hace falta una ronda (un cambio que solo toca rutas exentas no gasta un token),
+se niega a correr con el árbol sucio, elige el revisor más independiente
+disponible, lo ejecuta, captura el informe y emite un resultado anclado a los
+commits exactos que se revisaron. Nunca lee el informe: juzgar lo que dijo el
+revisor es trabajo de tu asistente. Vos aparecés cuando hay que consentir que el
+material salga de tu máquina, cuando un riesgo necesita dueño, cuando algo se
+escala sin resolver, y en el PR.
+
+**Cuando no hay una segunda familia.** El método quiere un revisor de otra
+familia de modelo, y eso es lo que la política sigue exigiendo en nivel A. Por
+debajo, una ronda con el mismo modelo y sin contexto es un modo degradado
+declarable: la declaración registra la independencia que de hecho tuvo, por qué
+se conformó con menos, y un ítem de residuo que dice que los errores que el
+modelo comparte consigo mismo no los cubrió esa ronda. Peor que lo real, e
+infinitamente mejor que no poder declarar lo que pasó.
 
 ## Qué hace cumplir el gate
 
@@ -228,7 +282,7 @@ El esquema del artefacto no cambia y las declaraciones ya versionadas siguen sie
 
 ## Estado
 
-v0.7.0, sobre **residue/v0.3**. Esta versión agrega `disensor pin`: la Action congelada al SHA de commit de su tag de release por comando, y `disensor init` deja el workflow ya pineado de nacimiento cuando puede resolver el tag. La versión anterior completó la ficha de PyPI: badges, keywords, classifiers y links de la barra lateral. Desde la v0.6.3 la documentación larga es bilingüe: `README.md` es el inglés que renderiza PyPI, `README.es.md` es el castellano, y la guía de llenado viaja en los dos idiomas. Esta versión vuelve alcanzable la guía castellana empaquetada, con `disensor guide --lang es`. Las releases se publican a PyPI vía Trusted Publishing (OIDC, `release.yml`): sin tokens en ninguna máquina. La v0.4 reescribió el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate") y la v0.5 entrega la consigna adversarial empaquetada con hash reproducible; el paso a residue/v0.3 endurece tres puntos del artefacto, cerrando los issues [#5](https://github.com/NicolasRocchia/disensor/issues/5), [#7](https://github.com/NicolasRocchia/disensor/issues/7) y [#8](https://github.com/NicolasRocchia/disensor/issues/8). Ver "Migración de v0.2 a v0.3". Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes).
+v0.9.0, sobre **residue/v0.4**. Esta versión orquesta la ronda: `disensor round` empaqueta el material, corre un revisor registrado en tu máquina, captura el informe y ancla el resultado a los commits que efectivamente revisó, y `disensor new --round` construye la declaración desde ahí. Cualquier asistente con línea de comandos puede ser el revisor; el catálogo empaquetado es un atajo, no la lista de lo permitido. residue/v0.4 vuelve declarable una ronda sin segunda familia de modelo como el modo degradado que es, en vez de imposible de declarar, y cada versión del esquema se valida con sus propias reglas. `disensor init --upgrade` lleva una instalación anterior a este procedimiento sin tocar nada que hayas editado. La versión anterior agregó `disensor pin`, que congela la Action al SHA de commit de su tag de release. Desde la v0.6.3 la documentación larga es bilingüe: `README.md` es el inglés que renderiza PyPI, `README.es.md` es el castellano, y la guía de llenado viaja en los dos idiomas. Esta versión vuelve alcanzable la guía castellana empaquetada, con `disensor guide --lang es`. Las releases se publican a PyPI vía Trusted Publishing (OIDC, `release.yml`): sin tokens en ninguna máquina. La v0.4 reescribió el gate para que derive el alcance del PR de git (ver "Qué hace cumplir el gate") y la v0.5 entrega la consigna adversarial empaquetada con hash reproducible; el paso a residue/v0.3 endurece tres puntos del artefacto, cerrando los issues [#5](https://github.com/NicolasRocchia/disensor/issues/5), [#7](https://github.com/NicolasRocchia/disensor/issues/7) y [#8](https://github.com/NicolasRocchia/disensor/issues/8). Ver "Migración de v0.2 a v0.3". Decisión cerrada en v0.2: claves del esquema y CLI en inglés (el español queda como alias en la CLI y como idioma de la documentación). El esquema puede cambiar hasta v1.0; los cambios se declaran en el propio esquema. Decisión abierta antes de v1.0: licencia definitiva (hoy MIT; Apache-2.0 está en consideración por la concesión de patentes).
 
 ## Licencia
 

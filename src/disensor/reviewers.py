@@ -37,10 +37,13 @@ PLACEHOLDERS = {"{pack}", "{report}"}
 REGISTRY_DIR = Path.home() / ".disensor"
 REGISTRY = REGISTRY_DIR / "reviewers.json"
 
-# Recetas verificadas: su neutralizacion de instrucciones de proyecto se probo
-# contra un repositorio hostil, no se dedujo de la documentacion. Una receta
-# cuyo endurecimiento no se pudo probar viaja como `unverified`, que no bloquea
-# pero se declara.
+# El catalogo NO es la lista de revisores admitidos: es un atajo para los casos
+# que ya probamos, para que nadie tenga que improvisar lo conocido. Cualquier
+# CLI que acepte un texto y devuelva texto sirve de revisor, este o no aca, y se
+# registra con `disensor reviewer add`. Lo unico que cambia es el endurecimiento:
+# una receta del catalogo llega con su neutralizacion de instrucciones probada
+# contra un repositorio hostil, y una entrada armada en el momento viaja como
+# `unverified`, que no bloquea y se declara.
 CATALOG: dict[str, dict] = {
     "codex": {
         "family": "openai",
@@ -85,7 +88,22 @@ CATALOG: dict[str, dict] = {
         "hardening": "unverified",
         "egress": "local",
         "provider": "local",
-        "notes": "Runs locally: nothing leaves the machine. Hardening not tested.",
+        "notes": (
+            "Runs locally: nothing leaves the machine, which makes it the answer for a "
+            "private repository that cannot send code to a third party. Hardening not tested."
+        ),
+    },
+    "claude": {
+        "family": "anthropic",
+        "model": "claude-code",
+        "command": ["claude", "-p", "{pack}"],
+        "hardening": "unverified",
+        "egress": "cloud",
+        "provider": "Anthropic",
+        "notes": (
+            "Useful as a reviewer when the generator is NOT from this family. The runner "
+            "discards any reviewer whose family matches the generator before spending a run."
+        ),
     },
 }
 
@@ -260,12 +278,17 @@ def _suggest() -> int:
             print(f"  family {receta['family']}, hardening {receta['hardening']}, "
                   f"egress {receta['egress']}")
             print(f"  disensor reviewer add {reviewer_id}")
+    print(
+        "\nThis catalogue is a shortcut, not the list of allowed reviewers: any CLI that "
+        "takes a text and returns a text can be one. Register what you have with\n"
+        "  disensor reviewer add <id> --family <family> --model <model> --command <argv...>\n"
+        "It will be recorded with unverified hardening, which does not block and does travel "
+        "to the declaration."
+    )
     if not encontrados:
         print(
-            "\nNo catalogued reviewer on this machine. Any CLI that takes a prompt and "
-            "writes a report can be registered with `disensor reviewer add <id> --family "
-            "<family> --model <model> --command ...`; it will be recorded as unverified "
-            "hardening, which does not block and does get declared."
+            "Nothing from the catalogue is installed here, which does not mean you cannot run "
+            "a round: it means the reviewer you do have has to be registered by hand, once."
         )
     return 0
 
