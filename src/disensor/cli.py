@@ -18,6 +18,7 @@ from .init import main_init
 from .pack import main_pack
 from .pin import main_pin
 from .reviewers import main_reviewer
+from .round import main_round
 from .rules import load_schema, validate_artifact
 from .template import main_new
 
@@ -163,6 +164,38 @@ def build_parser() -> argparse.ArgumentParser:
     pack.add_argument("--output", "--salida", metavar="FILE",
                       help="Write the package to a file, keeping the bytes its hash is computed over.")
     pack.set_defaults(func=main_pack)
+
+    rnd = sub.add_parser(
+        "round",
+        help="Run the adversarial round: package, reviewer, report and structured result.",
+        description=(
+            "Orchestrates the mechanical half of a round. It asks the policy whether a round "
+            "is required at all, refuses to run on a dirty tree (a diff round reviews commits "
+            "that already exist), picks the best reviewer registered on this machine, runs it, "
+            "captures the report and emits a result anchored to the commits reviewed. It never "
+            "reads the report: judging what the reviewer said is the assistant's work."
+        ),
+    )
+    rnd.add_argument("--gate", "--compuerta", choices=list(GATES), default="diff")
+    rnd.add_argument("--generator-family", required=True,
+                     choices=["anthropic", "openai", "google", "meta", "mistral", "other"],
+                     help="Family of the assistant that produced the material, to keep R4.")
+    rnd.add_argument("--generator-model", default=None,
+                     help="Model of the generator, to tell same-model from same-family.")
+    rnd.add_argument("--base", default=None)
+    rnd.add_argument("--head", "--cabeza", default=None)
+    rnd.add_argument("--material", default=None,
+                     help="Plan or decision under review (plan and architecture gates).")
+    rnd.add_argument("--config", default="disensor.config.json")
+    rnd.add_argument("--directory", "--directorio", default=".residue")
+    rnd.add_argument("--repository", default=None)
+    rnd.add_argument("--report", default=None, help="Where to leave the reviewer's report.")
+    rnd.add_argument("--result", default=None,
+                     help="File for the structured result. Outside the repository, or use a pipe.")
+    rnd.add_argument("--timeout", type=int, default=900)
+    rnd.add_argument("--check", action="store_true",
+                     help="Only answer whether a round is required, without running one.")
+    rnd.set_defaults(func=main_round)
 
     reviewer = sub.add_parser(
         "reviewer",
