@@ -151,6 +151,11 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     # un ejecutable actualizado o reemplazado despues del registro corria igual
     # y seguia saliendo declarado como `verified`, atando la prueba hostil a
     # unos bytes que ya no eran los que se ejecutaban.
+    # Limite conocido: en Windows un CLI instalado por npm es un launcher .CMD
+    # que llama al codigo real en otro lado, asi que este hash cubre el lanzador
+    # y no lo que termina ejecutandose. Detecta que cambien el binario, no que
+    # actualicen el paquete debajo. Es una atestacion mas, no una prueba, y por
+    # eso `confinement.verified` sigue declarandose en false.
     esperado = entry.get("executable_hash")
     if esperado:
         actual = executable_fingerprint(executable)
@@ -277,6 +282,17 @@ def _round(args, repo: Path) -> int:
         if args.check:
             print(f"round: review required, gates {', '.join(requirement.accepted_gates)}")
             return OK
+        # La compuerta pedida tiene que ser una de las que la politica admite
+        # para estas rutas. Sin este chequeo se gastaba la corrida y el egreso
+        # para producir un resultado que el gate iba a rechazar despues, con el
+        # flujo ya dando exito.
+        if args.gate not in requirement.accepted_gates:
+            print(
+                f"round: the policy admits {', '.join(requirement.accepted_gates)} for these "
+                f"paths, not {args.gate}. Running it would spend the reviewer on something the "
+                "gate is going to reject."
+            )
+            return UNDECIDABLE
         base, head, merge_base = ctx.base_oid, ctx.head_oid, ctx.merge_base
         target_tip = ctx.base_oid
         repository = gitctx.canonical_repository(repo) or str(repo)
@@ -331,7 +347,10 @@ def _round(args, repo: Path) -> int:
     # secuestrar, ni uno de la propia familia del generador. Declarable no es lo
     # mismo que admisible, y filtrar aca evita gastar la corrida para que la
     # declaracion la rechace despues.
-    nivel = _criticality_level(repo, args)
+    # El nivel sale de la politica del DESTINO, la misma que el gate va a
+    # aplicar, y no del archivo que hay en el working tree: leer el checkout
+    # dejaria que la rama bajara su propio nivel para pasar su propio filtro.
+    nivel = ctx.config.get("criticality_level", "B") if args.gate == "diff" else "B"
     if nivel == "A":
         chain = [
             (e, ind) for e, ind in chain
@@ -458,15 +477,6 @@ def _round(args, repo: Path) -> int:
             "addressed the reviewer before the brief did: declare a reviewer_hardening_gap item."
         )
     return OK
-
-
-def _criticality_level(repo: Path, args) -> str:
-    """The level the repository declares, or the safe default."""
-    try:
-        crudo = json.loads((repo / args.config).read_text(encoding="utf-8"))
-        return crudo.get("criticality_level", "B")
-    except (OSError, json.JSONDecodeError):
-        return "B"
 
 
 def _branch(repo: Path) -> str:

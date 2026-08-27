@@ -290,7 +290,15 @@ def test_level_a_refuses_a_reviewer_that_does_not_meet_the_floor(
     repo: Path, monkeypatch, tmp_path, capsys,
 ):
     """Declarable no es admisible en el nivel reservado para lo irreversible."""
+    # El nivel se escribe en MAIN, que es de donde el runner lee la politica: si
+    # lo tomara del checkout, una rama podria bajarse el nivel a si misma para
+    # pasar su propio filtro, que es el bypass que la politica del destino evita.
+    git(repo, "checkout", "-q", "main")
     (repo / "disensor.config.json").write_text('{"criticality_level": "A"}', encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "nivel A")
+    git(repo, "checkout", "-q", "trabajo")
+    git(repo, "merge", "-q", "main", "-m", "traer politica")
     (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
