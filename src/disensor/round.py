@@ -130,6 +130,19 @@ def effective_hardening(entry: dict) -> str:
     receta = CATALOG.get(entry.get("id"))
     if not receta or receta.get("hardening") != "verified":
         return "unverified"
+    # Coincidir el argv no alcanza. La prueba hostil se corrio contra una
+    # identidad concreta: ese comando, invocando a ese proveedor, con esa
+    # familia. Una entrada armada por el asistente podia copiar el argv de la
+    # receta, declarar otra familia cualquiera y quedar cross_family Y verified,
+    # con lo cual pasaba el piso de nivel A sin haber venido nunca del catalogo.
+    if entry.get("source") != "catalog":
+        return "unverified"
+    if entry.get("family") != receta.get("family"):
+        return "unverified"
+    if entry.get("stdin") != receta.get("stdin"):
+        return "unverified"
+    if entry.get("egress") != receta.get("egress"):
+        return "unverified"
     return "verified" if list(entry.get("command", [])) == list(receta["command"]) else "unverified"
 
 

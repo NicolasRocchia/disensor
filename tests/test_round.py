@@ -56,6 +56,23 @@ def entrada(nombre: str, familia: str, command: list[str], **extra) -> dict:
     return base
 
 
+
+def entrada_catalogada(nombre: str) -> dict:
+    """Una entrada como la que produce el registro desde el catalogo.
+
+    El endurecimiento heredado exige la receta ENTERA, no solo el argv: copiar
+    el comando y declarar otra familia no hereda la prueba hostil.
+    """
+    from disensor.reviewers import CATALOG
+
+    receta = CATALOG[nombre]
+    return entrada(
+        nombre, receta["family"], list(receta["command"]),
+        source="catalog", stdin=receta.get("stdin"), egress=receta["egress"],
+        model=receta["model"],
+    )
+
+
 # --- La atribución del informe -------------------------------------------------
 
 def test_a_failed_reviewers_report_is_not_attributed_to_the_next_one(tmp_path: Path):
@@ -139,11 +156,10 @@ def test_the_chain_puts_independence_first_then_hardening():
     camino por defecto y el registro mostraria una degradacion que nunca hizo falta."""
     # El endurecimiento se deriva del catalogo, asi que el unico que puede
     # salir verified es una entrada que coincide con una receta catalogada.
-    from disensor.reviewers import CATALOG
     registro = {"reviewers": [
         entrada("propio", "anthropic", ["x"], model="claude-opus-5"),
-        entrada("otro-sin-verificar", "openai", ["x"]),
-        entrada("codex", "google", list(CATALOG["codex"]["command"])),
+        entrada("otro-sin-verificar", "google", ["x"]),
+        entrada_catalogada("codex"),
     ]}
     orden = [e["id"] for e, _ in chain_for(registro, "anthropic", "claude-opus-5")]
     assert orden[0] == "codex", "cross-family y verificado va primero"
@@ -276,8 +292,7 @@ def test_hardening_is_derived_from_the_catalog_not_read_from_the_file():
     from disensor.reviewers import CATALOG
     from disensor.round import effective_hardening
 
-    legitimo = entrada("codex", "openai", list(CATALOG["codex"]["command"]), hardening="verified")
-    assert effective_hardening(legitimo) == "verified"
+    assert effective_hardening(entrada_catalogada("codex")) == "verified"
 
     falsificado = entrada("codex", "openai", ["codex", "exec"], hardening="verified")
     assert effective_hardening(falsificado) == "unverified", "el comando ya no es la receta probada"
@@ -343,3 +358,36 @@ def test_a_local_reviewer_needs_no_consent(repo: Path, monkeypatch, tmp_path):
     )]}
     monkeypatch.setattr(ronda, "load_registry", lambda: registro)
     assert correr(repo, registro, monkeypatch, tmp_path) == OK
+
+
+def test_an_assistant_entry_cannot_forge_catalogued_hardening():
+    """Copiar el argv de una receta no hereda su prueba hostil.
+
+    La entrada del asistente podia usar el comando catalogado, declarar
+    cualquier familia, y quedar cross_family Y verified: con eso pasaba el piso
+    de nivel A sin haber venido nunca del catalogo. El endurecimiento ganado se
+    ata a la identidad completa que se probo, no al argv suelto.
+    """
+    from disensor.reviewers import CATALOG
+    from disensor.round import effective_hardening
+
+    forjada = entrada(
+        "codex", "google", list(CATALOG["codex"]["command"]),
+        source="assistant", stdin=CATALOG["codex"].get("stdin"),
+        egress=CATALOG["codex"]["egress"],
+    )
+    assert effective_hardening(forjada) == "unverified"
+
+    otra_familia = entrada(
+        "codex", "google", list(CATALOG["codex"]["command"]),
+        source="catalog", stdin=CATALOG["codex"].get("stdin"),
+        egress=CATALOG["codex"]["egress"],
+    )
+    assert effective_hardening(otra_familia) == "unverified", "la familia es parte de la identidad"
+
+    legitima = entrada(
+        "codex", CATALOG["codex"]["family"], list(CATALOG["codex"]["command"]),
+        source="catalog", stdin=CATALOG["codex"].get("stdin"),
+        egress=CATALOG["codex"]["egress"],
+    )
+    assert effective_hardening(legitima) == "verified"
