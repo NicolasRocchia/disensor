@@ -567,14 +567,23 @@ def test_an_entry_registered_before_the_fix_is_not_used(repo: Path, monkeypatch,
     assert "reviewer add codex --model" in salida
 
 
-def test_the_suggested_command_includes_the_model_when_the_recipe_needs_it(capsys):
-    """Lo primero que hace quien llega es copiar esa linea."""
+def test_the_suggested_command_includes_the_model_when_the_recipe_needs_it(capsys, monkeypatch):
+    """Lo primero que hace quien llega es copiar esa linea.
+
+    El ejecutable se simula presente: suggest solo muestra el comando de las
+    recetas que encuentra, y en CI no hay ningun CLI de revisor instalado.
+    """
+    from disensor import reviewers as revs
     from disensor.cli import build_parser
 
+    monkeypatch.setattr(revs, "resolve_executable", lambda cmd: "/usr/bin/" + cmd[0])
     args = build_parser().parse_args(["reviewer", "suggest"])
     args.func(args)
     salida = capsys.readouterr().out
     assert "disensor reviewer add codex --model" in salida
+    assert "disensor reviewer add gemini" in salida, (
+        "una receta que no fija el modelo en el argv no lo pide"
+    )
 
 
 def test_a_custom_reviewer_named_like_a_recipe_stays_in_the_chain():

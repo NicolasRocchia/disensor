@@ -208,6 +208,35 @@ En el perfil `minimized`, R9 remueve los campos del hallazgo que el protocolo de
 
 **El perfil angosta el canal de fuga; no lo cierra.** R9 no alcanza a todo string del artefacto. `residue.declaration`, `event.pr`, `verification.detail`, `human_arbiter.id` y `lead_acceptance` son algunos de los campos que siguen admitiendo prosa libre, y la lista no pretende ser exhaustiva: la superficie vigente está en el esquema. Ojo con que un `repository` hasheado no sirve de nada si `event.pr` lleva la URL. El propio esquema lo dice del espacio de extensión: una clave con forma de identificador todavía puede llevar un mensaje. `minimized` es una reducción de superficie, no la garantía de que no sale nada.
 
+## Qué promete cada número
+
+El paquete y el esquema se numeran por separado, y prometen cosas distintas.
+
+**Estable dentro de una serie mayor del paquete.** Los códigos de salida de
+`disensor round` (`0` revisado, `1` error, `3` no hacía falta ronda, `4` cadena
+agotada, `5` árbol modificado durante la ronda, `6` no se pudo decidir si hacía
+falta); los subcomandos y banderas documentados en este archivo; los cuatro
+inputs de la Action (`github-token`, `directory`, `config`, `python-version`); y
+las claves de `disensor.config.json`, que ya fallan cerrado ante cualquier cosa
+desconocida. Romperlos exige una mayor.
+
+**Versionado por su cuenta.** El esquema de la declaración (`residue/vX.Y`,
+declarado dentro de cada artefacto) y el resultado de `disensor round`
+(`result_version`). Ninguno sigue la numeración del paquete, y un cambio en ellos
+no es una mayor del paquete.
+
+**Sin promesa.** El registro de revisores de tu máquina, el catálogo de recetas y
+la API de ingesta del plano de evidencia. El catálogo es la única superficie que
+depende de CLIs de terceros: la receta de Codex cambió el día que una cuenta dejó
+de ofrecer el modelo que nombraba.
+
+**Una asimetría que conviene saber antes de pinear.** El gate exige que una
+declaración que el PR agrega traiga la versión de esquema vigente, y rechaza
+tanto las superadas como las **más nuevas**. La Action instala el CLI desde su
+propio checkout, así que el SHA con el que la pines fija también qué versión de
+esquema acepta tu gate. Un cambio de esquema exige entonces actualizar ese pin
+antes de poder mergear declaraciones bajo la versión nueva.
+
 ## Conformidad entre implementaciones
 
 `spec/vectors/` contiene los vectores de conformidad: 31 artefactos con su veredicto esperado (válido o no, y las etiquetas de regla que deben dispararse). Toda implementación del validador tiene que pasarlos idénticos: la referencia en Python los corre en la suite (`tests/test_vectors.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m disensor.vectors spec/vectors`.

@@ -295,6 +295,35 @@ not help if `event.pr` carries the URL. The schema says as much about the
 extension space: an identifier-shaped key can still carry a message. Treat
 `minimized` as a reduction of surface, not as a guarantee that nothing leaves.
 
+## What each number promises
+
+The package and the schema are numbered separately, and they promise different
+things.
+
+**Stable within a major series of the package.** The exit codes of
+`disensor round` (`0` reviewed, `1` error, `3` no round required, `4` chain
+exhausted, `5` tree modified during the round, `6` could not decide whether a
+round was required); the subcommands and flags documented in this file; the four
+inputs of the Action (`github-token`, `directory`, `config`, `python-version`);
+and the keys of `disensor.config.json`, which already fail closed on anything
+unknown. Breaking these needs a major.
+
+**Versioned on their own.** The declaration schema (`residue/vX.Y`, stated inside
+every artifact) and the result of `disensor round` (`result_version`). Neither
+follows the package numbering, and a change in them is not a package major.
+
+**No promise.** The reviewer registry on your machine, the recipe catalogue, and
+the ingestion API of the evidence plane. The catalogue is the one surface that
+depends on third-party CLIs: the Codex recipe changed the day an account stopped
+offering the model it named.
+
+**One asymmetry worth knowing before you pin.** The gate demands that a
+declaration a PR adds states the current schema version, and it rejects both
+superseded and *newer* ones. The Action installs the CLI from its own checkout,
+so the SHA you pin fixes which schema version your gate accepts. A schema change
+therefore requires updating that pin before declarations under the new version
+can merge.
+
 ## Conformance between implementations
 
 `spec/vectors/` holds the conformance vectors: 31 artifacts with their expected
