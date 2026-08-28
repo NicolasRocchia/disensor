@@ -66,8 +66,11 @@ export function erroresReglas(a: Artifact): string[] {
     error("R0", "event without a human arbiter present");
   }
 
-  // R10: in the full profile, the findings list is mandatory.
-  if (profile === "full" && findings.length === 0) {
+  // R10: in the full profile, the findings list is mandatory. What has to be
+  // there is the LIST, not an element in it: a round that found nothing is a
+  // valid result and the reference accepts it. Rejecting the empty list made
+  // the two implementations disagree on artifacts that already exist.
+  if (profile === "full" && !Array.isArray(a.findings)) {
     error("R10", "full profile without a findings list");
   }
 
@@ -146,7 +149,11 @@ export function erroresReglas(a: Artifact): string[] {
   }
 
   // R6: counts coherent with the findings list.
-  if (findings.length > 0) {
+  //
+  // Presence, not truthiness: the empty list used to skip the whole coherence
+  // check on both sides, so a declaration of zero findings could carry counts
+  // saying otherwise.
+  if (Array.isArray(a.findings)) {
     const c = a.metrics.counts;
     const count = (st: string) => findings.filter((h) => h.final_state === st).length;
     const expected: Array<[string, string, number]> = [

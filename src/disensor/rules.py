@@ -238,7 +238,13 @@ def rule_errors(a: dict) -> list[str]:
                 error("R5", f"item {i['id']}: execution gap in Level A without lead acceptance (blocks the merge)")
 
     # R6: counts coherent with the findings list (when present).
-    if findings:
+    #
+    # Presencia y no truthiness: con la lista vacia, la guarda anterior salteaba
+    # toda la coherencia, y un artefacto que declaraba cero hallazgos podia
+    # contar tres incorporados y un escalado en los subconteos sin que nada lo
+    # mirara. Cero hallazgos es un resultado valido; cero hallazgos con conteos
+    # que dicen otra cosa no lo es.
+    if a.get("findings") is not None:
         c = a["metrics"]["counts"]
 
         def count(state: str) -> int:

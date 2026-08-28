@@ -120,9 +120,38 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     m["event"]["repository"] = "https://github.com/ejemplo/repo"
     out.append(("r9_clear_url_in_minimized", m, False, {"R9"}))
 
+    # R10 caza la AUSENCIA de la lista, no que este vacia: una ronda que no
+    # encontro nada es un resultado valido y el contrato lo dice.
+    m = copy.deepcopy(diff)
+    del m["findings"]
+    out.append(("r10_full_without_findings", m, False, {"R10"}))
+
+    # Cero hallazgos declarados con conteos en cero y ausencia expresa: la forma
+    # de cinco declaraciones del corpus, que el port rechazaba mientras la
+    # referencia la aceptaba. La divergencia que rompia el claim de conformidad.
     m = copy.deepcopy(diff)
     m["findings"] = []
-    out.append(("r10_full_without_findings", m, False, {"R10"}))
+    m["metrics"]["counts"] = {
+        "total_findings": 0,
+        "valid": {"incorporated": 0, "debt_recorded": 0, "owner_decision": 0},
+        "false_positives": {"refuted_verifiable": 0, "refuted_interpretive": 0},
+        "escalated_open": 0,
+    }
+    m["residue"] = {
+        "declared_absence": True,
+        "declaration": (
+            "La ronda no encontro hallazgos y el revisor no declaro hipotesis sin verificar "
+            "ni brechas de ejecucion sobre el rango revisado."
+        ),
+    }
+    out.append(("valid_full_empty_findings", m, True, set()))
+
+    # Y el reverso: la lista vacia no puede tapar conteos que dicen otra cosa.
+    # Las dos implementaciones aceptaban esto porque R6 corria solo con lista no
+    # vacia y R10 solo miraba el total.
+    m = copy.deepcopy(m)
+    m["metrics"]["counts"]["valid"]["incorporated"] = 3
+    out.append(("r6_counts_without_findings", m, False, {"R6"}))
 
     # Invalid: schema only (rules are not evaluated when the shape fails)
     m = copy.deepcopy(diff)
