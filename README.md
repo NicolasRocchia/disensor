@@ -121,7 +121,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.9.2
+      - uses: NicolasRocchia/disensor@v0.9.3
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -443,7 +443,12 @@ it says.
 
 ## Status
 
-v0.9.2, on **residue/v0.4**. This version makes `disensor guide` hand over the
+v0.9.3, on **residue/v0.4**. This version writes down when the gate Action's own
+pin goes up: it travels in the next PR of real work, except when the release
+fixes gate security or changes the schema version, and it says out loud that
+this is a convention rather than a control
+([#17](https://github.com/NicolasRocchia/disensor/issues/17)). The previous
+version makes `disensor guide` hand over the
 event runbook as well as the artifact filling guide, so an agent that is not
 Claude Code gets from one command the same material the Claude Code skill
 carries, which is what the documentation had been promising since the round
