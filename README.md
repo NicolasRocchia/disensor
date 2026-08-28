@@ -468,10 +468,14 @@ residue/v0.3 hardens three points of the artifact, closing issues
 [#7](https://github.com/NicolasRocchia/disensor/issues/7) and
 [#8](https://github.com/NicolasRocchia/disensor/issues/8). See "Schema
 migration: residue/v0.2 to residue/v0.3". Decision closed in v0.2: schema keys
-and CLI in English (Spanish remains as CLI aliases). The schema may change up to
-v1.0; changes are declared in the schema itself. Decision open before v1.0: the
-definitive licence (MIT today; Apache-2.0 under consideration for its patent
-grant).
+and CLI in English (Spanish remains as CLI aliases). The schema may change;
+each version from residue/v0.2 onwards is frozen under its own identifier, and a
+declaration keeps being validated under the rules that judged it when it was
+emitted. The Spanish-keyed residuo/v0.1 is recognised and refused with migration
+instructions, not validated. No version is
+committed to as the point where the schema stabilises: when there is a contract
+ratified as stable, it will be said here. Open decision: the definitive licence
+(MIT today; Apache-2.0 under consideration for its patent grant).
 
 ## Licence
 
