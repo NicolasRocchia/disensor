@@ -543,3 +543,35 @@ def test_outside_a_git_repository_the_round_fails_without_blowing_up(monkeypatch
     monkeypatch.chdir(afuera)
     assert args.func(args) != 0
     assert "round:" in capsys.readouterr().err
+
+
+def test_an_entry_registered_before_the_fix_is_not_used(repo: Path, monkeypatch, tmp_path, capsys):
+    """Declara un modelo que su comando no fija: correria el default y declararia otro.
+
+    Degradar el endurecimiento no alcanza, porque el modelo falso viaja igual a
+    la declaracion. La entrada se excluye y el runner dice por que.
+    """
+    from disensor.reviewers import CATALOG
+
+    (repo / "d.py").write_text("w = 4\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    vieja = {
+        "id": "codex", "family": "openai", "model": "gpt-5-codex", "source": "catalog",
+        "stdin": "pack", "egress": "cloud", "executable": "x", "executable_hash": "sha256:0",
+        "command": [c for c in CATALOG["codex"]["command"] if c not in ("-m", "{model}")],
+    }
+    assert correr(repo, {"reviewers": [vieja]}, monkeypatch, tmp_path) == 4
+    salida = capsys.readouterr().err
+    assert "does not pass it" in salida
+    assert "reviewer add codex --model" in salida
+
+
+def test_the_suggested_command_includes_the_model_when_the_recipe_needs_it(capsys):
+    """Lo primero que hace quien llega es copiar esa linea."""
+    from disensor.cli import build_parser
+
+    args = build_parser().parse_args(["reviewer", "suggest"])
+    args.func(args)
+    salida = capsys.readouterr().out
+    assert "disensor reviewer add codex --model" in salida

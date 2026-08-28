@@ -140,7 +140,7 @@ models by hand.
 
 ```bash
 disensor reviewer suggest          # what this machine has, offline
-disensor reviewer add codex --yes  # register it, once per machine
+disensor reviewer add codex --model <model> --yes  # once per machine, with a model your account runs
 
 disensor round --gate diff --generator-family anthropic \
   --base main --head HEAD --result ../result.json

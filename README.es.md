@@ -106,7 +106,7 @@ entre modelos.
 
 ```bash
 disensor reviewer suggest          # qué tiene esta máquina, sin red
-disensor reviewer add codex --yes  # registrarlo, una vez por máquina
+disensor reviewer add codex --model <model> --yes  # una vez por máquina, con un modelo que corra tu cuenta
 
 disensor round --gate diff --generator-family anthropic \
   --base main --head HEAD --result ../result.json

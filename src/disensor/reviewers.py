@@ -374,7 +374,11 @@ def _suggest() -> int:
             encontrados += 1
             print(f"  family {receta['family']}, hardening {receta['hardening']}, "
                   f"egress {receta['egress']}")
-            print(f"  disensor reviewer add {reviewer_id}")
+            # Con el modelo cuando la receta lo fija en el argv: sin el, el
+            # comando sugerido falla, y lo primero que hace quien llega es
+            # copiar esta linea.
+            sufijo = " --model <the model your account runs>" if "{model}" in receta["command"] else ""
+            print(f"  disensor reviewer add {reviewer_id}{sufijo}")
     print(
         "\nThis catalogue is a shortcut, not the list of allowed reviewers: any CLI that "
         "takes a text and returns a text can be one. Register what you have with\n"

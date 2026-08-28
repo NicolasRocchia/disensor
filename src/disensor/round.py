@@ -93,6 +93,11 @@ def independence_of(entry: dict, generator_family: str, generator_model: str) ->
 ORDER = {"cross_family": 0, "same_family_distinct_model": 1, "same_model_fresh_context": 2}
 
 
+def _usable(entry: dict) -> bool:
+    """Una entrada desactualizada no entra en la cadena: mentiria al declarar."""
+    return stale_model_entry(entry) is None
+
+
 def chain_for(
     registry: dict, generator_family: str, generator_model: str,
 ) -> list[tuple[dict, str]]:
@@ -106,6 +111,7 @@ def chain_for(
     entries = [
         (e, independence_of(e, generator_family, generator_model))
         for e in registry.get("reviewers", [])
+        if _usable(e)
     ]
     # El endurecimiento se DERIVA del catalogo en el momento de correr, no se
     # lee del registro: ese archivo es un JSON editable a mano, y un `verified`
@@ -117,6 +123,28 @@ def chain_for(
     return sorted(
         entries,
         key=lambda par: (ORDER[par[1]], 0 if par[0].get("hardening") == "verified" else 1),
+    )
+
+
+def stale_model_entry(entry: dict) -> str | None:
+    """Si la receta fija el modelo en el argv y la entrada registrada no.
+
+    Pasa con los registros anteriores al arreglo: declaran un modelo que nada
+    pone en el comando, asi que el revisor corre el que tenga por defecto y la
+    declaracion afirma otro. Degradar el endurecimiento no lo cubre, porque el
+    valor falso viaja igual.
+    """
+    receta = CATALOG.get(entry.get("id"))
+    if not receta or "{model}" not in list(receta.get("command", [])):
+        return None
+    if "{model}" in list(entry.get("command", [])):
+        return None
+    return (
+        f"the registered entry {entry.get('id')!r} declares model "
+        f"{entry.get('model')!r} but its command does not pass it, so the reviewer would run "
+        "whatever default the account has while the declaration claims otherwise. Register it "
+        f"again: disensor reviewer remove {entry.get('id')} && disensor reviewer add "
+        f"{entry.get('id')} --model <the model your account runs>"
     )
 
 
@@ -416,11 +444,20 @@ def _round(args, repo: Path) -> int:
             )
             return CHAIN_EXHAUSTED
     if not chain:
-        estado(
-            "round: no reviewer registered on this machine. Run `disensor reviewer suggest`; "
-            "an assistant can register what it finds, and an entry outside the catalogue needs "
-            "your approval."
-        )
+        # Una entrada desactualizada se excluye de la cadena, y quedarse con
+        # "no hay revisor" cuando hay uno registrado manda a buscar el problema
+        # donde no esta.
+        viejas = [
+            stale_model_entry(e) for e in registry.get("reviewers", []) if stale_model_entry(e)
+        ]
+        for aviso in viejas:
+            estado(f"round: {aviso}")
+        if not viejas:
+            estado(
+                "round: no reviewer registered on this machine. Run `disensor reviewer suggest`; "
+                "an assistant can register what it finds, and an entry outside the catalogue "
+                "needs your approval."
+            )
         return CHAIN_EXHAUSTED
 
     attempts = []
