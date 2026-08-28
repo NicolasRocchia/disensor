@@ -48,9 +48,13 @@ REGISTRY = REGISTRY_DIR / "reviewers.json"
 CATALOG: dict[str, dict] = {
     "codex": {
         "family": "openai",
-        "model": "gpt-5-codex",
+        # Sin default: ninguna receta puede saber que modelos habilita la cuenta
+        # de quien la instala. Quien registra declara cual, y `-m {model}` lo fija
+        # en el argv para que lo declarado y lo ejecutado sean el mismo valor.
+        "model": None,
         "command": [
             "codex", "exec",
+            "-m", "{model}",
             "--dangerously-bypass-approvals-and-sandbox",
             # Sin persistir sesiones fuera del repositorio.
             "--ephemeral",
@@ -89,7 +93,7 @@ CATALOG: dict[str, dict] = {
     },
     "ollama": {
         "family": "other",
-        "model": "local",
+        "model": None,
         "command": ["ollama", "run", "{model}"],
         "stdin": "pack",
         "hardening": "unverified",
@@ -243,6 +247,12 @@ def build_entry(
     errors = validate_command(command)
     if errors:
         raise ReviewerError("; ".join(errors))
+    if "{model}" in list(command) and not model:
+        raise ReviewerError(
+            "this recipe puts the model in the command, so it needs --model: without uno el "
+            "argumento queda vacio y el revisor corre lo que tenga por defecto mientras la "
+            "declaracion afirma otra cosa"
+        )
     ruta = resolve_executable(command)
     if ruta is None:
         raise ReviewerError(
@@ -285,9 +295,12 @@ def consent_key(entry: dict, repository: str) -> str:
     # limites entre argumentos: ["tool", "--label", "a b", "c"] y
     # ["tool", "--label", "a", "b c"] daban la misma clave, asi que un
     # consentimiento dado para una receta autorizaba otra distinta.
+    # Y el modelo: desde que el argv lo lleva por `{model}`, el comando
+    # registrado es el mismo para dos modelos distintos, asi que sin esto un
+    # consentimiento dado para uno autorizaria mandar el codigo al otro.
     material = json.dumps(
         [repository, entry["id"], list(entry.get("command", [])),
-         entry.get("executable_hash") or ""],
+         entry.get("model") or "", entry.get("executable_hash") or ""],
         ensure_ascii=False,
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
@@ -364,7 +377,11 @@ def _suggest() -> int:
             encontrados += 1
             print(f"  family {receta['family']}, hardening {receta['hardening']}, "
                   f"egress {receta['egress']}")
-            print(f"  disensor reviewer add {reviewer_id}")
+            # Con el modelo cuando la receta lo fija en el argv: sin el, el
+            # comando sugerido falla, y lo primero que hace quien llega es
+            # copiar esta linea.
+            sufijo = " --model <the model your account runs>" if "{model}" in receta["command"] else ""
+            print(f"  disensor reviewer add {reviewer_id}{sufijo}")
     print(
         "\nThis catalogue is a shortcut, not the list of allowed reviewers: any CLI that "
         "takes a text and returns a text can be one. Register what you have with\n"
