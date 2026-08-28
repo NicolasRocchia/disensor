@@ -134,6 +134,10 @@ def stale_model_entry(entry: dict) -> str | None:
     declaracion afirma otro. Degradar el endurecimiento no lo cubre, porque el
     valor falso viaja igual.
     """
+    # Solo las que dicen venir del catalogo: un revisor propio puede llamarse
+    # igual que una receta y no le debe nada a su forma.
+    if entry.get("source") != "catalog":
+        return None
     receta = CATALOG.get(entry.get("id"))
     if not receta or "{model}" not in list(receta.get("command", [])):
         return None

@@ -575,3 +575,11 @@ def test_the_suggested_command_includes_the_model_when_the_recipe_needs_it(capsy
     args.func(args)
     salida = capsys.readouterr().out
     assert "disensor reviewer add codex --model" in salida
+
+
+def test_a_custom_reviewer_named_like_a_recipe_stays_in_the_chain():
+    """Un revisor propio puede llamarse igual que una receta y no le debe nada a su forma."""
+    from disensor.round import stale_model_entry
+
+    propio = {"id": "codex", "source": "assistant", "model": "m", "command": ["mio", "{pack}"]}
+    assert stale_model_entry(propio) is None

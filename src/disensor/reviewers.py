@@ -295,9 +295,12 @@ def consent_key(entry: dict, repository: str) -> str:
     # limites entre argumentos: ["tool", "--label", "a b", "c"] y
     # ["tool", "--label", "a", "b c"] daban la misma clave, asi que un
     # consentimiento dado para una receta autorizaba otra distinta.
+    # Y el modelo: desde que el argv lo lleva por `{model}`, el comando
+    # registrado es el mismo para dos modelos distintos, asi que sin esto un
+    # consentimiento dado para uno autorizaria mandar el codigo al otro.
     material = json.dumps(
         [repository, entry["id"], list(entry.get("command", [])),
-         entry.get("executable_hash") or ""],
+         entry.get("model") or "", entry.get("executable_hash") or ""],
         ensure_ascii=False,
     )
     return hashlib.sha256(material.encode("utf-8")).hexdigest()

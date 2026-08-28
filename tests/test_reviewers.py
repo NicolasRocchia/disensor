@@ -289,3 +289,16 @@ def test_what_is_declared_as_model_is_what_reaches_the_command(monkeypatch):
     i = entry["command"].index("{model}")
     assert entry["command"][i - 1] == "-m"
     assert entry["model"] == "un-modelo"
+
+
+def test_changing_the_model_invalidates_the_egress_consent():
+    """Desde que el argv lleva el modelo por {model}, el comando registrado es el
+    mismo para dos modelos distintos: sin esto, consentir que el codigo salga
+    hacia uno autorizaria mandarlo al otro."""
+    from disensor.reviewers import consent_key
+
+    base = {"id": "codex", "command": ["codex", "exec", "-m", "{model}"],
+            "executable_hash": "sha256:" + "0" * 64}
+    uno = consent_key({**base, "model": "un-modelo"}, "github.com/x/y")
+    otro = consent_key({**base, "model": "otro-modelo"}, "github.com/x/y")
+    assert uno != otro
