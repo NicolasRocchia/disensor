@@ -133,7 +133,7 @@ def test_with_approval_it_is_registered(capsys, registro_aislado):
 def test_a_cloud_reviewer_needs_confirmation_even_from_the_catalog(capsys, registro_aislado, monkeypatch):
     """Consentir el registro no es consentir que el código privado salga."""
     monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
-    code = correr("add", "codex")
+    code = correr("add", "codex", "--model", "un-modelo")
     assert code == 2
     assert "would leave this machine" in capsys.readouterr().out
     assert not registro_aislado.exists()
@@ -260,3 +260,32 @@ def test_the_ids_we_ship_are_valid():
 
     for identificador in CATALOG:
         validate_id(identificador)
+
+
+def test_a_recipe_that_puts_the_model_in_the_command_demands_one():
+    """Sin --model el argumento queda vacio y el revisor corre su default.
+
+    Ese es el defecto que llevo a cinco declaraciones afirmando un modelo que la
+    cuenta ni siquiera puede correr.
+    """
+    with pytest.raises(ReviewerError, match="needs --model"):
+        build_entry("codex", "openai", None, CATALOG["codex"]["command"], from_catalog=True)
+
+
+def test_the_catalogued_recipes_do_not_invent_a_default_model():
+    """Ninguna receta puede saber que modelos habilita la cuenta de quien instala."""
+    for identificador, receta in CATALOG.items():
+        if "{model}" in receta["command"]:
+            assert receta["model"] is None, f"{identificador} trae un modelo que no puede garantizar"
+
+
+def test_what_is_declared_as_model_is_what_reaches_the_command(monkeypatch):
+    """Lo declarado y lo ejecutado son el mismo valor, por construccion."""
+    monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
+    monkeypatch.setattr(reviewers, "executable_fingerprint", lambda ruta: "sha256:" + "0" * 64)
+    entry = build_entry("codex", "openai", "un-modelo", CATALOG["codex"]["command"],
+                        from_catalog=True)
+    assert "{model}" in entry["command"]
+    i = entry["command"].index("{model}")
+    assert entry["command"][i - 1] == "-m"
+    assert entry["model"] == "un-modelo"

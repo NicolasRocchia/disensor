@@ -141,6 +141,11 @@ def effective_hardening(entry: dict) -> str:
         return "unverified"
     if entry.get("stdin") != receta.get("stdin"):
         return "unverified"
+    # Si la receta trae un modelo fijo, la entrada tiene que declarar ese. Cuando
+    # no lo trae, el modelo lo elige quien registra y va al argv por `{model}`,
+    # asi que lo declarado es lo que corre y no hay nada que comparar.
+    if receta.get("model") is not None and entry.get("model") != receta.get("model"):
+        return "unverified"
     if entry.get("egress") != receta.get("egress"):
         return "unverified"
     if list(entry.get("command", [])) != list(receta["command"]):

@@ -48,9 +48,13 @@ REGISTRY = REGISTRY_DIR / "reviewers.json"
 CATALOG: dict[str, dict] = {
     "codex": {
         "family": "openai",
-        "model": "gpt-5-codex",
+        # Sin default: ninguna receta puede saber que modelos habilita la cuenta
+        # de quien la instala. Quien registra declara cual, y `-m {model}` lo fija
+        # en el argv para que lo declarado y lo ejecutado sean el mismo valor.
+        "model": None,
         "command": [
             "codex", "exec",
+            "-m", "{model}",
             "--dangerously-bypass-approvals-and-sandbox",
             # Sin persistir sesiones fuera del repositorio.
             "--ephemeral",
@@ -89,7 +93,7 @@ CATALOG: dict[str, dict] = {
     },
     "ollama": {
         "family": "other",
-        "model": "local",
+        "model": None,
         "command": ["ollama", "run", "{model}"],
         "stdin": "pack",
         "hardening": "unverified",
@@ -243,6 +247,12 @@ def build_entry(
     errors = validate_command(command)
     if errors:
         raise ReviewerError("; ".join(errors))
+    if "{model}" in list(command) and not model:
+        raise ReviewerError(
+            "this recipe puts the model in the command, so it needs --model: without uno el "
+            "argumento queda vacio y el revisor corre lo que tenga por defecto mientras la "
+            "declaracion afirma otra cosa"
+        )
     ruta = resolve_executable(command)
     if ruta is None:
         raise ReviewerError(
