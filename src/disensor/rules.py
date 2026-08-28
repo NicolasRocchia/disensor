@@ -46,7 +46,7 @@ CURRENT = "residue/v0.4"
 SCHEMA_FILES = {
     "residue/v0.2": "residue.schema.v0.2.json",
     "residue/v0.3": "residue.schema.v0.3.json",
-    "residue/v0.4": "residue.schema.json",
+    "residue/v0.4": "residue.schema.v0.4.json",
 }
 
 
