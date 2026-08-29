@@ -66,13 +66,27 @@ export function erroresReglas(a: Artifact): string[] {
     error("R0", "event without a human arbiter present");
   }
 
-  // R10: in the full profile, the findings list is mandatory.
-  if (profile === "full" && findings.length === 0) {
+  // R10: in the full profile, the findings list is mandatory. What has to be
+  // there is the LIST, not an element in it: a round that found nothing is a
+  // valid result and the reference accepts it. Rejecting the empty list made
+  // the two implementations disagree on artifacts that already exist.
+  if (profile === "full" && !Array.isArray(a.findings)) {
     error("R10", "full profile without a findings list");
+  } else if (profile === "full" && findings.length === 0
+             && a.metrics?.counts?.total_findings !== 0) {
+    // La otra mitad de R10, que la referencia tiene y que se perdio al
+    // simplificar: una lista vacia cuyo total dice otra cosa. R6 tambien lo
+    // caza, pero el contrato es que coincidan las ETIQUETAS, no solo el
+    // veredicto, y el detalle del error de la ingesta sale de ellas.
+    const n = a.metrics?.counts?.total_findings;
+    error("R10", `full profile lists no findings but metrics declare ${n}: either list `
+                 + "them or set the counts to zero. A count without its findings is not a record");
   }
 
   // R1: coherence between residue-joining states and their items.
-  if (findings.length > 0) {
+  // Presence, not truthiness: same reason as R6. An item referencing a finding
+  // that is not there was going unchecked once the empty list became valid.
+  if (Array.isArray(a.findings)) {
     const refs = new Set(items.map((i) => i.finding_ref).filter(Boolean));
     for (const h of findings) {
       if (RESIDUE_STATES.has(h.final_state) && !refs.has(h.id)) {
@@ -146,7 +160,11 @@ export function erroresReglas(a: Artifact): string[] {
   }
 
   // R6: counts coherent with the findings list.
-  if (findings.length > 0) {
+  //
+  // Presence, not truthiness: the empty list used to skip the whole coherence
+  // check on both sides, so a declaration of zero findings could carry counts
+  // saying otherwise.
+  if (Array.isArray(a.findings)) {
     const c = a.metrics.counts;
     const count = (st: string) => findings.filter((h) => h.final_state === st).length;
     const expected: Array<[string, string, number]> = [

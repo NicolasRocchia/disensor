@@ -1,4 +1,4 @@
-"""Conformance vectors of schema v0.3.
+"""Conformance vectors of the current schema version.
 
 The vectors are the shared source of truth across implementations of the
 validator (the Python reference, the TypeScript one of the evidence plane,
@@ -18,7 +18,7 @@ import json
 import sys
 from pathlib import Path
 
-from .rules import validate_artifact
+from .rules import CURRENT, validate_artifact
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "spec" / "examples"
@@ -120,9 +120,59 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     m["event"]["repository"] = "https://github.com/ejemplo/repo"
     out.append(("r9_clear_url_in_minimized", m, False, {"R9"}))
 
+    # R10 caza la AUSENCIA de la lista, no que este vacia: una ronda que no
+    # encontro nada es un resultado valido y el contrato lo dice.
+    m = copy.deepcopy(diff)
+    del m["findings"]
+    out.append(("r10_full_without_findings", m, False, {"R10"}))
+
+    # Cero hallazgos declarados con conteos en cero y ausencia expresa: la forma
+    # de cinco declaraciones del corpus, que el port rechazaba mientras la
+    # referencia la aceptaba. La divergencia que rompia el claim de conformidad.
     m = copy.deepcopy(diff)
     m["findings"] = []
-    out.append(("r10_full_without_findings", m, False, {"R10"}))
+    m["metrics"]["counts"] = {
+        "total_findings": 0,
+        "valid": {"incorporated": 0, "debt_recorded": 0, "owner_decision": 0},
+        "false_positives": {"refuted_verifiable": 0, "refuted_interpretive": 0},
+        "escalated_open": 0,
+    }
+    m["residue"] = {
+        "declared_absence": True,
+        "declaration": (
+            "La ronda no encontro hallazgos y el revisor no declaro hipotesis sin verificar "
+            "ni brechas de ejecucion sobre el rango revisado."
+        ),
+    }
+    out.append(("valid_full_empty_findings", m, True, set()))
+
+    # Y el reverso: la lista vacia no puede tapar conteos que dicen otra cosa.
+    # Las dos implementaciones aceptaban esto porque R6 corria solo con lista no
+    # vacia y R10 solo miraba el total.
+    vacio = copy.deepcopy(m)
+
+    m = copy.deepcopy(vacio)
+    m["metrics"]["counts"]["valid"]["incorporated"] = 3
+    out.append(("r6_counts_without_findings", m, False, {"R6"}))
+
+    # El borde donde las dos implementaciones se separaban: la lista vacia con
+    # un total que dice otra cosa dispara las dos reglas, y el contrato es que
+    # coincidan las etiquetas y no solo el veredicto.
+    m = copy.deepcopy(vacio)
+    m["metrics"]["counts"]["total_findings"] = 1
+    out.append(("r10_empty_list_with_nonzero_total", m, False, {"R10", "R6"}))
+
+    # Y la referencia colgada, que la lista vacia volvio alcanzable: sin
+    # hallazgos no hay estados que unir al residuo, pero una referencia sigue
+    # apuntando a algo que no esta.
+    m = copy.deepcopy(vacio)
+    m["residue"] = {"items": [{
+        "id": "r1", "class": "escalation_without_decision", "finding_ref": "h9",
+        "requires_human_attention": True,
+        "description": ("Un item que referencia un hallazgo que la lista no contiene: con la "
+                        "lista vacia declarada como resultado valido, la referencia apunta a la nada."),
+    }]}
+    out.append(("r1_reference_with_empty_findings", m, False, {"R1"}))
 
     # Invalid: schema only (rules are not evaluated when the shape fails)
     m = copy.deepcopy(diff)
@@ -206,6 +256,28 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     return out
 
 
+def _refuse_version_mixing(target: Path) -> None:
+    """Una suite de una version no se pisa con otra.
+
+    El generador produce la version vigente. Si el destino ya tiene vectores de
+    otra, escribir encima borra la unica cobertura negativa que tienen las reglas
+    de esa version y deja a las implementaciones validando contra un contrato que
+    no es el que declaran. Hasta que haya suites por version, esto se rechaza en
+    voz alta en vez de convertir el corpus en silencio.
+    """
+    indice = target / "index.json"
+    if not indice.exists():
+        return
+    with open(indice, encoding="utf-8") as f:
+        declarada = json.load(f).get("schema")
+    if declarada and declarada != CURRENT:
+        raise SystemExit(
+            f"vectors: {target} holds a {declarada} suite and this generator produces "
+            f"{CURRENT}. Writing here would replace the only negative coverage those rules "
+            "have. Point it at a directory of its own, or migrate the suite deliberately."
+        )
+
+
 def generate(target: Path) -> int:
     """Write the vectors with the verdict of the reference implementation.
 
@@ -214,6 +286,7 @@ def generate(target: Path) -> int:
     checked before writing: the generator cannot bless its own bug.
     """
     target.mkdir(parents=True, exist_ok=True)
+    _refuse_version_mixing(target)
     index = []
     for name, artifact, expected_valid, minimum_rules in cases():
         errors = validate_artifact(artifact)
@@ -232,7 +305,10 @@ def generate(target: Path) -> int:
             f.write("\n")
         index.append(name)
     with open(target / "index.json", "w", encoding="utf-8") as f:
-        json.dump({"schema": "residue/v0.3", "vectors": index}, f, ensure_ascii=False, indent=2)
+        # La version sale de lo que se acaba de generar, no de una constante:
+        # escrita a mano quedo diciendo v0.3 mientras el generador ya producia
+        # v0.4, y un indice que miente sobre su propia suite es peor que ninguno.
+        json.dump({"schema": CURRENT, "vectors": index}, f, ensure_ascii=False, indent=2)
         f.write("\n")
     print(f"{len(index)} vectors written to {target}")
     return 0

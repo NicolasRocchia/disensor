@@ -326,12 +326,12 @@ can merge.
 
 ## Conformance between implementations
 
-`spec/vectors/` holds the conformance vectors: 31 artifacts with their expected
+`spec/vectors/` holds the conformance vectors: 35 artifacts with their expected
 verdict (valid or not, and the rule labels that must fire). Every validator
 implementation has to pass them identically: the Python reference runs them in
 its suite (`tests/test_vectors.py`) and the TypeScript port of the evidence
 plane runs them with `npm run conformidad`. Labels are compared, not messages.
-The vectors are regenerated with `python -m disensor.vectors spec/vectors`.
+The vectors are regenerated with `python -m disensor.vectors <directory>`. The generator produces the current schema version and refuses to write over a suite that declares another one: the committed suite is still v0.3 and overwriting it would erase the only negative coverage the historical rules have.
 
 Each vector is validated under the schema of the version it declares. The
 TypeScript port implements the rules of **v0.2 and v0.3**: handed a v0.4

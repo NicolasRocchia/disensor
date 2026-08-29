@@ -1,9 +1,10 @@
 {
-  "name": "r10_full_without_findings",
+  "name": "r10_empty_list_with_nonzero_total",
   "expected": {
     "valid": false,
     "rules": [
-      "R10"
+      "R10",
+      "R6"
     ]
   },
   "artifact": {
@@ -45,49 +46,24 @@
         "id": "dueno-feature-02"
       }
     },
+    "findings": [],
     "residue": {
-      "items": [
-        {
-          "id": "r1",
-          "class": "escalation_without_decision",
-          "finding_ref": "h2",
-          "requires_human_attention": true,
-          "description": "El limite de filas de la exportacion quedo escalado a producto y sin resolver al cierre del ciclo."
-        },
-        {
-          "id": "r2",
-          "class": "principal_refutation",
-          "finding_ref": "h3",
-          "refutation_type": "verifiable",
-          "requires_human_attention": false,
-          "description": "Refutacion con enlace al objeto de consulta compartido, para que el revisor humano pueda no darla por buena.",
-          "evidence": {
-            "text": "La validacion vive en el objeto de consulta compartido reutilizado por la exportacion.",
-            "link": "src/consultas/RangoFechas.cs#L41-L58"
-          }
-        },
-        {
-          "id": "r3",
-          "class": "execution_gap",
-          "requires_human_attention": true,
-          "gap_reason": "environment_not_reproducible",
-          "description": "El comportamiento bajo concurrencia real no se probo porque el entorno de desarrollo no la reproduce."
-        }
-      ]
+      "declared_absence": true,
+      "declaration": "La ronda no encontro hallazgos y el revisor no declaro hipotesis sin verificar ni brechas de ejecucion sobre el rango revisado."
     },
     "metrics": {
       "counts": {
-        "total_findings": 3,
+        "total_findings": 1,
         "valid": {
-          "incorporated": 1,
+          "incorporated": 0,
           "debt_recorded": 0,
           "owner_decision": 0
         },
         "false_positives": {
-          "refuted_verifiable": 1,
+          "refuted_verifiable": 0,
           "refuted_interpretive": 0
         },
-        "escalated_open": 1
+        "escalated_open": 0
       },
       "extra_time_sec": 2400
     }

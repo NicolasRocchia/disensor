@@ -77,3 +77,37 @@ def test_a_frozen_version_does_not_load_from_the_moving_slot():
             f"el recurso de {version} no declara esa version"
         )
     assert CURRENT in SCHEMA_FILES
+
+
+def test_the_generator_refuses_to_convert_a_suite_of_another_version(tmp_path):
+    """Correr el comando documentado convertia el corpus en silencio.
+
+    El generador produce la version vigente y el corpus commiteado es de la
+    anterior: escribir encima borraba la unica cobertura negativa que tienen las
+    reglas historicas y dejaba al port validando contra un contrato que no
+    implementa.
+    """
+    import json
+
+    import pytest
+
+    from disensor.vectors import generate
+
+    (tmp_path / "index.json").write_text(
+        json.dumps({"schema": "residue/v0.1", "vectors": []}), encoding="utf-8"
+    )
+    with pytest.raises(SystemExit, match="holds a residue/v0.1 suite"):
+        generate(tmp_path)
+
+
+def test_the_index_declares_the_version_it_generated(tmp_path):
+    """Escrita a mano, la version del indice quedo diciendo v0.3 mientras el
+    generador ya producia v0.4."""
+    import json
+
+    from disensor.rules import CURRENT
+    from disensor.vectors import generate
+
+    generate(tmp_path)
+    indice = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
+    assert indice["schema"] == CURRENT

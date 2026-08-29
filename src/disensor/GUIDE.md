@@ -170,11 +170,13 @@ Either `items` or the express absence, never an empty field.
 that state, `escalated_open` likewise, `total_findings` equals the list
 length. Count, do not estimate.
 
-The rules catch less than that sentence suggests. R6 compares only when the
-findings list is non-empty, and in the full profile R10 checks `total_findings`
-against an empty list but not the buckets. So `findings: []` with a bucket set
-to one passes both. Getting the counts right is on you; the validator catches
-some mismatches, not all of them.
+The rules catch less than that sentence suggests. R6 compares the counts against
+the list whenever the list is there, empty included, and in the full profile R10
+also demands the list and rejects an empty one whose `total_findings` says
+otherwise. What neither of them can check is whether each finding carries the
+right terminal state: a finding recorded as incorporated when it was really
+refuted keeps every count coherent. Getting the states right is on you; the
+validator catches mismatches, not misclassification.
 
 ## Minimized profile
 
