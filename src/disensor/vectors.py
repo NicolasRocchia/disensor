@@ -111,14 +111,6 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     # R13: la atribucion y las referencias tienen que resolver, y los
     # identificadores nombrar una sola cosa.
     m = copy.deepcopy(diff)
-    m["findings"][0]["origin"] = "r9"
-    out.append(("r13_finding_attributed_to_nobody", m, False, {"R13"}))
-
-    m = copy.deepcopy(diff)
-    m["residue"]["items"][1]["id"] = m["residue"]["items"][0]["id"]
-    out.append(("r13_duplicate_residue_id", m, False, {"R13"}))
-
-    m = copy.deepcopy(diff)
     m["findings"][0]["fix_verification"] = {"type": "pending_in_diff_gate"}
     out.append(("r7_fix_pending_in_diff", m, False, {"R7"}))
 

@@ -331,7 +331,7 @@ can merge.
 
 ## Conformance between implementations
 
-`spec/vectors/` holds the conformance vectors: 37 artifacts with their expected
+`spec/vectors/` holds the conformance vectors: 35 artifacts with their expected
 verdict (valid or not, and the rule labels that must fire). Every validator
 implementation has to pass them identically: the Python reference runs them in
 its suite (`tests/test_vectors.py`) and the TypeScript port of the evidence

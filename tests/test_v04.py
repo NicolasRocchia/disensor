@@ -223,3 +223,27 @@ def test_an_item_referencing_a_missing_reviewer_is_refused(diff):
     }]}
     errores = validate_artifact(a)
     assert any("R13" in e and "revisor-fantasma" in e for e in errores), errores
+
+
+def test_r13_does_not_reach_frozen_versions(diff):
+    """Una declaracion emitida bajo un identificador congelado se sigue juzgando
+    con las reglas de su contrato: endurecer una regla no puede volverla invalida.
+
+    Es lo que los dos README prometen, y R13 entro sin la guarda: corria tambien
+    para v0.2 y v0.3.
+    """
+    from disensor.rules import applies_from
+
+    assert applies_from("residue/v0.4", "residue/v0.4")
+    assert not applies_from("residue/v0.3", "residue/v0.4")
+    assert not applies_from("residue/v0.2", "residue/v0.4")
+
+    historico = load("example_2_diff_gate.json", historico=True)
+    historico["residue"]["items"][1]["id"] = historico["residue"]["items"][0]["id"]
+    assert not [e for e in validate_artifact(historico) if "R13" in e]
+
+
+def test_r13_reaches_the_version_that_introduced_it(diff):
+    a = copy.deepcopy(diff)
+    a["findings"][0]["origin"] = "revisor-que-no-esta"
+    assert [e for e in validate_artifact(a) if "R13" in e]

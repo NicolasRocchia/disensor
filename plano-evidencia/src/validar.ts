@@ -193,7 +193,12 @@ export function erroresReglas(a: Artifact): string[] {
   // correlation item covers ONE degraded reviewer. Without this, a finding
   // could stay attributed to someone who is not in the declaration, which is
   // exactly what an audit record cannot afford.
+  // Desde residue/v0.4, que es la version vigente cuando se introdujo: una
+  // declaracion emitida bajo un identificador anterior se sigue juzgando con las
+  // reglas de su contrato. Este port soporta hasta v0.3, asi que hoy no alcanza
+  // a nada; queda escrita para cuando aprenda la version que la introdujo.
   const idsRevisores = (a.actors?.reviewers ?? []).map((r: any) => r.reviewer_id);
+  if (a.schema === "residue/v0.4") {
   const grupos: Array<[string, any[]]> = [
     ["reviewer_id", idsRevisores],
     ["finding id", findings.map((h: any) => h.id)],
@@ -218,6 +223,8 @@ export function erroresReglas(a: Artifact): string[] {
       error("R13", `item ${i.id} references reviewer '${i.reviewer_ref}', which is not among the `
                    + "declared reviewers");
     }
+  }
+
   }
 
   // R7: in the diff gate, every incorporated finding closes with its fix verified.
