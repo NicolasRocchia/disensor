@@ -50,7 +50,20 @@ SCHEMA_FILES = {
 }
 
 
-ORDER = tuple(SCHEMA_FILES)
+def _version_key(identificador: str) -> tuple[int, ...]:
+    """La parte numerica del identificador, para ordenar por version.
+
+    Ni el orden de escritura ni el alfabetico sirven: el primero convierte el
+    formato del archivo en semantica, y el segundo pone v0.10 antes que v0.2.
+    """
+    return tuple(int(p) for p in identificador.split("/v", 1)[1].split("."))
+
+
+# Ordenado por version, no por como quedo escrito SCHEMA_FILES: de esto depende
+# que regla alcanza a que declaracion, y no puede depender del orden de las
+# lineas. Un identificador que no parsee revienta al importar, que es lo que
+# corresponde: un orden mal calculado no avisa.
+ORDER = tuple(sorted(SCHEMA_FILES, key=_version_key))
 
 
 def applies_from(declared: str, introduced: str) -> bool:
@@ -392,7 +405,11 @@ def validate_artifact(artifact: dict, schema: dict | None = None) -> list[str]:
         ]
     if schema is None:
         declared = artifact.get("schema") if isinstance(artifact, dict) else None
-        if declared not in SCHEMA_FILES:
+        # El discriminador viene de afuera y puede ser cualquier cosa: una lista
+        # o un objeto reventaban la busqueda con TypeError, y ni el CLI ni el
+        # gate lo atrapan. Un artefacto de tres bytes tumbaba el proceso en vez
+        # de recibir el error que le corresponde.
+        if not isinstance(declared, str) or declared not in SCHEMA_FILES:
             conocidas = ", ".join(sorted(SCHEMA_FILES))
             return [
                 f"[schema] the artifact declares schema {declared!r}, which this disensor does "

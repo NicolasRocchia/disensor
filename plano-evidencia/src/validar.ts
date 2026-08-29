@@ -346,10 +346,34 @@ export const SUPPORTED = new Set(Object.keys(SCHEMA_FILES));
  * equality against the current version would silently drop the rule's newer
  * shape the day the next version opens, with nothing failing to say so.
  */
+function versionKey(id: string): number[] {
+  const n = id.split("/v")[1];
+  if (n === undefined) throw new Error(`schema identifier without a version: ${id}`);
+  return n.split(".").map((p) => {
+    const v = Number(p);
+    if (!Number.isInteger(v)) throw new Error(`schema identifier with a non-numeric version: ${id}`);
+    return v;
+  });
+}
+
+/**
+ * The known versions, ordered by version. Neither the order they happen to be
+ * written in nor the alphabetical one will do: the first turns file formatting
+ * into semantics, and the second puts v0.10 before v0.2.
+ */
+export const ORDER: string[] = Object.keys(SCHEMA_FILES).sort((a, b) => {
+  const ka = versionKey(a);
+  const kb = versionKey(b);
+  for (let i = 0; i < Math.max(ka.length, kb.length); i++) {
+    const d = (ka[i] ?? 0) - (kb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+});
+
 export function appliesFrom(declared: string, introduced: string): boolean {
-  const order = Object.keys(SCHEMA_FILES);
-  const d = order.indexOf(declared);
-  const i = order.indexOf(introduced);
+  const d = ORDER.indexOf(declared);
+  const i = ORDER.indexOf(introduced);
   return d !== -1 && i !== -1 && d >= i;
 }
 
@@ -371,8 +395,9 @@ export function validarArtefacto(a: Artifact, validar: ValidateFunction): string
       && typeof a.esquema === "string" && a.esquema.startsWith("residuo/")) {
     return [
       "[schema] artifact declares 'esquema: residuo/v0.1' (Spanish keys). "
-      + "This validator checks residue/v0.3, which renamed every key and enum "
-      + "to English. See the ES-EN glossary in the repository README to migrate.",
+      + `This validator checks ${[...SUPPORTED].join(", ")}, which renamed every `
+      + "key and enum to English. See the ES-EN glossary in the repository README "
+      + "to migrate.",
     ];
   }
   const es = erroresSchema(a, validar);

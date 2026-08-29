@@ -249,26 +249,156 @@ def test_r13_reaches_the_version_that_introduced_it(diff):
     assert [e for e in validate_artifact(a) if "R13" in e]
 
 
-def test_no_literal_version_equality_in_the_rules():
-    """Ninguna regla se pregunta por una version exacta.
+def test_no_literal_version_comparison_in_any_source():
+    """Ninguna fuente se pregunta si un artefacto ES una version exacta.
 
-    Una igualdad contra la version vigente se lee como "esta regla vale desde
-    v0.4" y significa "vale SOLO en v0.4": el dia que se abra la siguiente, el
-    artefacto cae al camino de las versiones anteriores, la forma nueva de la
-    regla desaparece y ninguna prueba falla. La pregunta correcta es ordinal y
-    tiene un solo lugar, applies_from.
+    Una comparacion contra un literal se lee como "esta regla vale desde v0.4" y
+    significa "vale SOLO en v0.4": el dia que se abra la siguiente, el artefacto
+    cae al camino de las versiones anteriores, la forma nueva de la regla
+    desaparece y ninguna prueba falla. La pregunta correcta es ordinal y tiene un
+    solo lugar, applies_from.
+
+    Comparar contra la CONSTANTE de vigencia es otra cosa y es legitima: no
+    pregunta que reglas aplican sino si algo puede EMITIRSE hoy, que es
+    exactamente una igualdad (G9, y la politica de la ingesta). Por eso la
+    guardia persigue el literal y no el operador.
+
+    Lo que esta guardia NO puede cubrir, y queda dicho: una comparacion contra
+    una constante auxiliar es sintacticamente identica a la politica de emision,
+    asi que alguien que introduzca `SOLO_V04 = "residue/v0.4"` y compare contra
+    eso pasa por el mismo agujero. Una prueba sintactica llega hasta aca.
     """
     import re
     from pathlib import Path
 
     raiz = Path(__file__).resolve().parents[1]
-    fuentes = [raiz / "src/disensor/rules.py", raiz / "src/disensor/vectors.py",
-               raiz / "plano-evidencia/src/validar.ts"]
-    patron = re.compile(r'===?\s*"residue/v\d')
-    culpables = [
-        f"{p.relative_to(raiz).as_posix()}:{n}: {linea.strip()}"
-        for p in fuentes
-        for n, linea in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
-        if patron.search(linea)
+    fuentes = [
+        *sorted((raiz / "src/disensor").glob("*.py")),
+        *sorted((raiz / "plano-evidencia/src").glob("*.ts")),
+        *sorted((raiz / "plano-evidencia/scripts").glob("*.ts")),
     ]
-    assert not culpables, "igualdad literal de version:\n" + "\n".join(culpables)
+    assert len(fuentes) > 10, fuentes
+    lit = r"""["']residue/v[0-9]+\.[0-9]+["']"""
+    patrones = [
+        re.compile(rf"[=!]==?\s*{lit}"),      # x == "residue/v0.4"
+        re.compile(rf"{lit}\s*[=!]==?"),      # "residue/v0.4" == x
+        re.compile(rf"\bcase\s+{lit}"),       # match/case, switch
+    ]
+    culpables = []
+    for p in fuentes:
+        # Sin saltos de linea: una comparacion partida en dos lineas es la misma
+        # comparacion, y era una de las formas que la version anterior de esta
+        # guardia dejaba pasar.
+        plano = re.sub(r"\s+", " ", p.read_text(encoding="utf-8"))
+        for patron in patrones:
+            for m in patron.finditer(plano):
+                culpables.append(f"{p.relative_to(raiz).as_posix()}: ...{m.group(0)}...")
+    assert not culpables, "comparacion contra un literal de version:\n" + "\n".join(culpables)
+
+
+def test_the_guard_catches_every_form_the_defect_had():
+    """La guardia se verifica contra las formas que tuvo y las que le señalaron.
+
+    Una guardia que no se prueba contra su propio defecto es una linea que
+    tranquiliza y no sostiene nada: la primera version de esta pasaba en verde
+    frente a la mitad de esta lista.
+    """
+    import re
+
+    lit = r"""["']residue/v[0-9]+\.[0-9]+["']"""
+    patrones = [
+        re.compile(rf"[=!]==?\s*{lit}"),
+        re.compile(rf"{lit}\s*[=!]==?"),
+        re.compile(rf"\bcase\s+{lit}"),
+    ]
+
+    def caza(texto: str) -> bool:
+        plano = re.sub(r"\s+", " ", texto)
+        return any(p.search(plano) for p in patrones)
+
+    reintroducciones = [
+        'if a["schema"] == "residue/v0.4":',
+        "if a['schema'] == 'residue/v0.5':",
+        'if (a.schema === "residue/v0.4") {',
+        'if "residue/v0.5" == a["schema"]:',
+        'if a["schema"] != "residue/v0.5":',
+        'if (a.schema !== "residue/v0.4") {',
+        'if (a["schema"]\n            == "residue/v0.4"):',
+        '        case "residue/v0.4":',
+    ]
+    for forma in reintroducciones:
+        assert caza(forma), f"la guardia no caza: {forma}"
+
+    legitimas = [
+        'if applies_from(a["schema"], "residue/v0.4"):',
+        'if (appliesFrom(a.schema, "residue/v0.4")) {',
+        "if not artifact.errors and declared_version != CURRENT_SCHEMA:",
+        "if (artefacto.schema !== ESQUEMA_VIGENTE) {",
+        'SCHEMA_FILES = {"residue/v0.4": "residue.schema.v0.4.json"}',
+    ]
+    for forma in legitimas:
+        assert not caza(forma), f"la guardia molesta a: {forma}"
+
+
+def test_version_order_does_not_depend_on_how_the_literal_was_written():
+    """De este orden depende que regla alcanza a que declaracion.
+
+    Salia de la posicion en el diccionario, o sea del orden en que alguien
+    escribio las lineas: escribir la version proxima arriba en vez de abajo daba
+    vuelta el sentido de todas las reglas versionadas y nada fallaba. El orden
+    alfabetico tampoco sirve, porque pone v0.10 antes que v0.2.
+    """
+    from disensor.rules import ORDER, _version_key
+
+    assert list(ORDER) == sorted(ORDER, key=_version_key)
+    revuelto = sorted(ORDER, key=lambda v: -_version_key(v)[1])
+    assert tuple(sorted(revuelto, key=_version_key)) == ORDER
+    assert _version_key("residue/v0.10") > _version_key("residue/v0.9")
+    assert sorted(["residue/v0.10", "residue/v0.9"]) == ["residue/v0.10", "residue/v0.9"]
+
+
+def test_the_evidence_plane_knows_the_same_versions_as_the_reference():
+    """Abrir una version nueva sin llevar el port y la ingesta es una falla.
+
+    Son cuatro lugares que tienen que moverse juntos: SCHEMA_FILES de la
+    referencia, el del port, los recursos que el Worker importa uno por uno
+    porque no tiene filesystem, y la version que la ingesta acepta emitir. Nada
+    los ataba: el port se quedo dos versiones atras y lo que lo delato fue que
+    la ingesta rechazaba el cien por ciento de lo que el CLI emite.
+    """
+    import re
+    from pathlib import Path
+
+    from disensor.rules import CURRENT, SCHEMA_FILES
+
+    raiz = Path(__file__).resolve().parents[1]
+    port = (raiz / "plano-evidencia/src/validar.ts").read_text(encoding="utf-8")
+    worker = (raiz / "plano-evidencia/src/index.ts").read_text(encoding="utf-8")
+
+    bloque = port[port.index("export const SCHEMA_FILES"):]
+    bloque = bloque[:bloque.index("};")]
+    assert dict(re.findall(r'"(residue/v[^"]+)":\s*"([^"]+)"', bloque)) == SCHEMA_FILES
+
+    bloque = worker[worker.index("export const VALIDADORES"):]
+    bloque = bloque[:bloque.index("};")]
+    declaradas = dict(re.findall(r'"(residue/v[^"]+)":\s*compilarSchema\((\w+)', bloque))
+    assert sorted(declaradas) == sorted(SCHEMA_FILES)
+    for version, simbolo in declaradas.items():
+        importado = re.search(rf'import {simbolo} from "[^"]*/([^/"]+)"', worker)
+        assert importado, f"{simbolo} no se importa"
+        assert importado.group(1) == SCHEMA_FILES[version], (version, importado.group(1))
+
+    vigente = re.search(r'const ESQUEMA_VIGENTE = "([^"]+)"', worker)
+    assert vigente and vigente.group(1) == CURRENT
+
+
+def test_an_unhashable_schema_is_rejected_and_does_not_crash():
+    """El discriminador puede ser cualquier cosa: JSON entra de afuera.
+
+    `declared not in SCHEMA_FILES` con una lista o un objeto reventaba con
+    TypeError en vez de devolver el error de schema, y ni el CLI ni el gate lo
+    atrapan: un artefacto de tres bytes tumbaba el proceso.
+    """
+    for basura in ([1, 2], {"a": 1}, 3, None, True):
+        errores = validate_artifact({"schema": basura})
+        assert errores and errores[0].startswith("[schema]"), (basura, errores)
