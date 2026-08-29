@@ -11,7 +11,7 @@
  * Lo que este archivo NO hace, a proposito: no corre modelos, no ve codigo,
  * no acepta texto fuera del artefacto. Perfil minimizado bienvenido.
  */
-import schema from "../../spec/residue.schema.json";
+import schema from "../../spec/residue.schema.v0.4.json";
 import { compilarSchema, validarArtefacto } from "./validar.js";
 
 export interface Env {
@@ -25,7 +25,7 @@ const validar = compilarSchema(schema as object);
 // sigue leyendo versiones superadas para que la historia no se reescriba, pero
 // cada POST es una emision presente: el recibo atesta que el artefacto existe
 // ahora, asi que lo que entra declara la version vigente.
-const ESQUEMA_VIGENTE = "residue/v0.3";
+const ESQUEMA_VIGENTE = "residue/v0.4";
 
 const enc = new TextEncoder();
 
