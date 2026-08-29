@@ -476,8 +476,16 @@ it says.
 
 ## Status
 
-v0.9.3, on **residue/v0.4**. This version writes down when the gate Action's own
-pin goes up: it travels in the next PR of real work, except when the release
+v0.9.4, on **residue/v0.4**. This version closes residue/v0.4: the TypeScript
+port validates v0.2, v0.3 and v0.4, so the two-independent-implementations claim
+covers the version the CLI emits; conformance runs 89 vectors across three suites
+plus 28 shared cases fixing the form of a schema identifier and which rules reach
+which declaration, and it fails when a known version has no vectors declaring it;
+the Level A floor is enforced; referential integrity enters as R13, guarded so it
+does not reach frozen versions; the frozen resources are verified by content and
+not only by name; and which rules reach which declaration stopped depending on
+the order the lines happen to be written in. The previous version writes down
+when the gate Action's own pin goes up: it travels in the next PR of real work, except when the release
 fixes gate security or changes the schema version, and it says out loud that
 this is a convention rather than a control
 ([#17](https://github.com/NicolasRocchia/disensor/issues/17)). The previous

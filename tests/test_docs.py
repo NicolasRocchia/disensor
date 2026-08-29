@@ -244,3 +244,25 @@ def test_the_self_gate_pin_is_a_commit_not_a_tag_object():
             f"el pin {sha[:12]} es un objeto '{tipo}', no un commit: "
             "rev-parse sobre un tag anotado devuelve el tag, hace falta ^{commit}"
         )
+
+
+def test_the_status_section_names_the_package_version():
+    """La seccion de estado dice que version es esta.
+
+    El test de al lado solo mira los pines `@vX` de la Action, asi que un bump
+    podia dejar el encabezado de estado en la version anterior y pasar en verde:
+    quien abriera la pagina del repositorio o el README que renderiza PyPI leia
+    una version y el paquete instalado reportaba otra. Lo cazo el revisor
+    de la ronda del propio bump, no esta suite.
+    """
+    import re
+
+    # Los dos README, que son los que tienen seccion de estado; DOCS ademas
+    # incluye el workflow de ejemplo, que solo lleva el pin de la Action.
+    for path in [p for p in DOCS if p.name.startswith("README")]:
+        texto = path.read_text(encoding="utf-8")
+        m = re.search(r"^## (?:Status|Estado)\s*\n+v([0-9][0-9.]*)", texto, re.M)
+        assert m, f"{path.name} no tiene una seccion de estado que empiece por su version"
+        assert m.group(1) == __version__, (
+            f"{path.name} dice estar en v{m.group(1)} y el paquete es {__version__}"
+        )
