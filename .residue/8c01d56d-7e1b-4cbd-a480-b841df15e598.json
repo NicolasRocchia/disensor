@@ -1,0 +1,394 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+    "created_at": "2026-08-29T03:20:00-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "ba64535539a8be6ca469d3ccacd7872809e847fd"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El recibo de un artefacto ya aceptado no sobrevivia al cambio de version vigente",
+      "description": "La ingesta compilaba un solo schema, el de la version vigente, y rechazaba por version antes de buscar el recibo del evento. El cambio que la puso en v0.4 convertia eso en dos regresiones que se repiten en cada bump: una declaracion de una version superada fallaba por forma contra el schema de un contrato que no es el suyo, asi que el emisor recibia errores de campos que su version no tiene y nunca la unica explicacion util; y el reenvio de algo ya aceptado devolvia un rechazo en vez del recibo original, que es exactamente lo que la idempotencia promete a un cliente al que se le corto la red. Un validador por version conocida, y la busqueda del recibo antes de la politica de emision.",
+      "location": "plano-evidencia/src/index.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador escribio la prueba de la ingesta punta a punta y la corrio contra el codigo anterior: cuatro fallas, y el cuerpo devuelto mostraba literalmente el sintoma que el revisor describia, errores de forma del schema de otra version en lugar del motivo de vigencia."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "plano-evidencia/scripts/ingesta.test.ts"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El orden que decide que regla alcanza a que declaracion salia del orden del literal",
+      "description": "applies_from resolvia la ordinalidad por la posicion del identificador en el diccionario, o sea por el orden en que alguien escribio las lineas. Escribir la version proxima arriba en vez de abajo daba vuelta el sentido de todas las reglas versionadas sin que nada fallara, y en las dos implementaciones a la vez: coincidirian en el contrato equivocado, que es la peor forma que puede tomar un defecto en un sistema cuyo claim es que dos implementaciones independientes coinciden. El orden pasa a derivarse de la version parseada; el alfabetico no servia porque pone v0.10 antes que v0.2. El generador habia llegado al mismo defecto por su cuenta mientras esta ronda corria, y ya lo habia corregido cuando leyo el informe: la convergencia es parte del dato.",
+      "location": "src/disensor/rules.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador construyo el mapa con la version proxima escrita arriba y evaluo la ordinalidad: daba que una regla de v0.5 alcanza a v0.4, que es al reves de lo que significa. Y verifico que el orden alfabetico ordena v0.10 antes que v0.9."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_version_order_does_not_depend_on_how_the_literal_was_written"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Nada obligaba a mover juntas las cuatro piezas de una version, y CI quedaba en verde",
+      "description": "Abrir una version exige tocar cuatro lugares: el mapa de la referencia, el del port, los recursos que el Worker importa uno por uno porque no tiene filesystem, y la version que la ingesta acepta emitir. Nada los ataba, y el runner de conformidad contaba las suites que no sabe juzgar y salia con cero igual: el modo de falla que este trabajo vino a cerrar, el port cubriendo una version que ya no es la vigente, dejaba CI en verde mientras el claim de dos implementaciones se vaciaba en silencio. Es como se llego hasta aca sin que nadie lo notara.",
+      "location": "plano-evidencia/scripts/conformidad.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "El generador leyo el process.exit del runner, que solo miraba las divergencias, y confirmo que el contador de suites no implementadas no participaba del codigo de salida."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_the_evidence_plane_knows_the_same_versions_as_the_reference"
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La guardia contra la comparacion literal pasaba en verde ante la mitad de las formas del defecto",
+      "description": "La prueba escrita para impedir la reintroduccion del defecto solo cazaba comillas dobles, en la misma linea, con el literal a la derecha, en tres archivos elegidos a mano. No cazaba comillas simples, el orden invertido, la negacion con else, la comparacion partida en dos lineas, ni nada en un modulo nuevo. Una guardia que no se prueba contra su propio defecto es una linea que tranquiliza y no sostiene nada. Ahora recorre todas las fuentes, normaliza los saltos y persigue el literal en vez del operador, porque comparar contra la constante de vigencia es politica de emision y es legitima.",
+      "location": "tests/test_v04.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador corrio el patron viejo contra las formas que el revisor enumero y confirmo que pasaba; el patron nuevo se prueba contra ocho formas del defecto y contra cinco construcciones legitimas que no debe molestar."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_the_guard_catches_every_form_the_defect_had"
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El mensaje que guia la migracion seguia nombrando la version anterior",
+      "description": "Un artefacto con las claves en castellano recibia un texto que decia que este validador verifica residue/v0.3, en el mismo cambio que le enseño v0.4. Ninguno de los 78 vectores ejercita esa ruta, asi que la conformidad no lo iba a delatar nunca. Pasa a derivarse de las versiones que el port implementa.",
+      "location": "plano-evidencia/src/validar.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "El generador leyo el mensaje en el port y confirmo la version nombrada y que ningun vector entra por ese camino."
+      },
+      "fix_verification": {
+        "type": "diff_gate"
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un discriminador no hasheable tumbaba el proceso en vez de devolver el error de schema",
+      "description": "El campo que elige version viene de un JSON de afuera y puede ser cualquier cosa. Con una lista o un objeto, la busqueda en el mapa de versiones reventaba con TypeError, y ni el CLI ni el gate lo atrapan: un artefacto de tres bytes tumbaba el proceso en vez de recibir el error que le corresponde. El revisor lo marco como preexistente y no introducido por este rango, y tiene razon; entra igual porque es una linea y porque el rango es justo el que endurece el despacho por version.",
+      "location": "src/disensor/rules.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador llamo al validador con el discriminador en lista, objeto, numero y nulo: los dos primeros reventaban con TypeError y los otros dos devolvian el error de schema."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_an_unhashable_schema_is_rejected_and_does_not_crash"
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La primera ingesta concurrente no era idempotente y devolvia error interno",
+      "description": "Dos POST simultaneos del mismo evento pueden ver los dos que no hay recibo: uno inserta y el otro choca con la clave primaria y caia al catch general, o sea devolvia error interno. La idempotencia quedaba dependiendo de que nadie reintentara rapido. Es preexistente y la correccion de la pasada anterior no lo cerraba, solo lo dejaba a la vista: el revisor lo dijo asi. Si el recibo aparecio, gana el que lo escribio y el otro devuelve lo mismo que la busqueda le habria dado un instante despues.",
+      "location": "plano-evidencia/src/index.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "El generador siguio el camino desde la busqueda hasta el batch y confirmo que cualquier fallo de escritura terminaba en el catch de la ruta, que devuelve error interno sin mirar que fallo."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "plano-evidencia/scripts/ingesta.test.ts"
+      }
+    },
+    {
+      "id": "h8",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La idempotencia de lo historico dependia de una invariante que nada sostenia",
+      "description": "La correccion anterior resolvia el bump donde la version anterior sigue soportada, pero la busqueda del recibo sigue ocurriendo despues de validar: si una version sale del mapa, un reenvio byte por byte de algo ya atestado se rechaza antes de llegar a buscarlo. El revisor lo dijo con precision: es aceptable si conservar todos los validadores historicos es una invariante irrevocable, pero entonces esa invariante tiene que estar protegida. Lo esta: ningun recurso congelado puede salir del mapa sin romper una prueba.",
+      "location": "plano-evidencia/src/index.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "El generador confirmo el orden de la ingesta y que la promesa de leer para siempre las versiones congeladas vivia solo en los README y en la costumbre, sin nada que la verificara."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_a_frozen_version_is_never_dropped"
+      }
+    },
+    {
+      "id": "h9",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La compuerta de cobertura quedaba verde si la suite nueva no existia",
+      "description": "El contador de suites no implementadas solo crece al encontrar un vector cuya version no esta soportada. Abrir una version, actualizar los cuatro mapas y no crear sus vectores dejaba el contador vacio y el runner en verde, declarando conformidad sobre un contrato que nadie ejercito. Ahora cada version conocida tiene que tener vectores que la declaren. En su primera corrida encontro que residue/v0.2 era exactamente ese caso, hoy y no en el futuro: las dos implementaciones decian soportarla y nada lo verificaba. Entra su suite, y con ella aparecieron dos divergencias de etiquetas. El revisor tambien enumero cuatro formas en que el parseo con expresiones regulares de la prueba de sincronia puede dar falso verde; se cerraron las dos que dependian de esta prueba, el corte del bloque en el primer cierre y la comparacion por nombre final del archivo importado.",
+      "location": "plano-evidencia/scripts/conformidad.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador corrio el runner con la compuerta nueva y salio en rojo por una version conocida sin vectores, que es el defecto que el revisor describia como futuro y era presente."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "plano-evidencia/scripts/conformidad.ts (89 vectores, suite v0.2 incluida)"
+      }
+    },
+    {
+      "id": "h10",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El doble de la base probaba el control de flujo y no la escritura que afirmaba",
+      "description": "La prueba decia que se escribe una sola vez y solo contaba llamadas: reemplazar la escritura entera por un batch vacio pasaba igual. Ahora el doble guarda las sentencias con sus bindings, y se verifica que la fila del recibo es la que se devolvio, en ese orden, que su firma verifica contra ese hash y esa fecha, y que la del artefacto lleva version, perfil, nivel, compuerta y el cuerpo tal como llego.",
+      "location": "plano-evidencia/scripts/ingesta.test.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "El generador releyo la prueba y confirmo que la unica afirmacion sobre la escritura era el largo de una lista de llamadas."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "plano-evidencia/scripts/ingesta.test.ts"
+      }
+    },
+    {
+      "id": "h11",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La guardia reforzada seguia dejando pasar reintroducciones directas",
+      "description": "Despues de ampliarla una vez seguian pasando la pertenencia a un conjunto, el parentesis sobrante, el metodo includes de un arreglo, el template literal, un identificador de tres componentes y cualquier submodulo anidado, porque la busqueda no era recursiva. Una lista de formas prohibidas siempre va una forma atras. Se da vuelta: toda aparicion de un literal de version tiene que estar en una forma listada como legitima, y las constantes de vigencia se listan por nombre y no por forma, con lo cual la constante auxiliar que era el limite declarado tambien falla.",
+      "location": "tests/test_v04.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador corrio el patron anterior contra las cinco formas que el revisor enumero: las cinco pasaban en verde."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_the_guard_catches_every_form_the_defect_had"
+      }
+    },
+    {
+      "id": "h12",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La prueba del orden seguia verde con la implementacion regresada",
+      "description": "Conservando el calculo de la clave y volviendo a derivar el orden del diccionario, todas las aserciones seguian pasando, porque el diccionario ya estaba escrito en orden: la prueba verificaba el ayudante, no que el codigo lo usara. Y no habia prueba equivalente del comparador de TypeScript. Mientras exista un orden derivado hay un lugar donde equivocarse, asi que se saco del camino: la ordinalidad compara las claves numericas, y una prueba mira que ninguna de las dos implementaciones vuelva a buscar posiciones.",
+      "location": "tests/test_v04.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador reconstruyo el orden con la derivacion regresada y comprobo que la asercion de la prueba seguia siendo verdadera."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_ordinality_does_not_go_through_a_derived_order"
+      }
+    },
+    {
+      "id": "h13",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El identificador de version no tenia forma y los dos parsers no coincidian",
+      "description": "El port leia residue/v0. como (0,0) y residue/v0.1e1 como (0,10), que la referencia rechaza, y ambos aceptaban tres componentes con semanticas distintas. Dos implementaciones que no coinciden sobre que es un identificador no coinciden sobre que reglas aplican, que es lo unico que el claim de dos implementaciones afirma. Ademas, un argumento introduced mal escrito devolvia falso en silencio, o sea apagaba la regla para todas las versiones; ese argumento no viene de afuera y ahora grita. La forma queda escrita y sin ceros a la izquierda, porque v0.04 y v0.4 serian dos escrituras de una misma version. Y se verifica con un vector compartido, que es como se verifica el resto del contrato y era justo lo que esta parte no tenia.",
+      "location": "plano-evidencia/src/validar.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador corrio los dos parsers sobre las mismas entradas: el de TypeScript devolvia claves para residue/v0. y residue/v0.1e1 y el de Python las rechazaba, tal como el revisor describia."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "spec/version_ordinality.json, verificado por las dos implementaciones"
+      }
+    },
+    {
+      "id": "h14",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La equivalencia de los dos parsers seguia siendo falsa por dos bordes",
+      "description": "Despues de escribir la forma del identificador, las dos implementaciones seguian sin aceptar lo mismo: en Python la clase de digitos abarca cualquier digito Unicode, asi que un identificador escrito con digitos arabigo-indios entraba como un numero distinto, y la busqueda anclada con dolar deja pasar un salto de linea final. El port rechaza los dos. Ninguno de los vectores cubria esos bordes: el revisor los encontro leyendo las dos expresiones, no corriendolas. Digitos ASCII explicitos y coincidencia completa, y los tres bordes entran al vector compartido.",
+      "location": "src/disensor/rules.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador paso los dos casos a la implementacion de referencia: los acepto, y devolvio once para el identificador con digitos no ASCII."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "spec/version_ordinality.json, verificado por las dos implementaciones"
+      }
+    },
+    {
+      "id": "h15",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La pregunta ordinal del port consultaba el mapa por la cadena de prototipos",
+      "description": "En JavaScript preguntar si una clave esta en un objeto recorre el prototipo, asi que nombres como toString o constructor pasaban por conocidos y despues reventaban al parsearlos, con lo cual una version desconocida no se comportaba como desconocida. El generador habia llegado a lo mismo por su cuenta mientras esta pasada corria y ya lo habia corregido cuando leyo el informe, junto con el mapa de validadores del Worker, que entregaba una funcion heredada como si fuera un validador. Es la segunda convergencia de esta ronda y es parte del dato.",
+      "location": "plano-evidencia/src/validar.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador evaluo la pertenencia de esos nombres en las dos implementaciones: verdadera en JavaScript con acceso a una funcion, falsa en Python."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "spec/version_ordinality.json, casos de nombres heredados del prototipo"
+      }
+    },
+    {
+      "id": "h16",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La guardia de lista blanca se evadia escribiendo la comparacion al lado de un uso correcto",
+      "description": "La decision se tomaba por linea: si algun patron legitimo aparecia, se perdonaban todas las apariciones de esa linea. Alcanzaba con poner la comparacion literal al lado de una llamada correcta. Ahora se tachan las apariciones cubiertas y se mira lo que queda. El revisor encontro en la misma raiz otras dos: un bloque de comentario delante de codigo hacia saltear la linea entera, y el uso correcto formateado en varias lineas quedaba marcado por donde cayeron los saltos, o sea que la guardia era evadible y quisquillosa a la vez. Y ahora mira toda fuente ejecutable, no tres extensiones.",
+      "location": "tests/test_v04.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador corrio la guardia contra las tres formas que el revisor describio: las dos evasiones pasaban en verde y el uso legitimo multilinea salia marcado."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_the_guard_catches_every_form_the_defect_had"
+      }
+    },
+    {
+      "id": "h17",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Congelado no estaba verificado ni contra el borrado ni contra la edicion",
+      "description": "La prueba derivaba la lista de recursos del directorio y la comparaba con el mapa: los dos conjuntos podian achicarse juntos, asi que sacar una version y borrar su archivo pasaba. Y comparar las dos copias de cada schema entre si no impide editarlas a las dos, con lo cual el contrato de toda la evidencia emitida bajo esa version cambiaba sin que nada lo dijera. Lo primero lo habia cerrado el generador en paralelo atando la invariante a la evidencia: toda version que alguna declaracion del corpus haya usado tiene que seguir siendo validable. Lo segundo entra ahora: los seis archivos quedan registrados por su contenido. Si una version tiene que cambiar de verdad no se edita, se abre la siguiente, y tocar ese registro es decir lo contrario a la vista en el diff.",
+      "location": "tests/test_v04.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "El generador releyo la prueba y confirmo que las dos comparaciones eran relativas: una entre dos conjuntos que se derivan del mismo estado, y la otra entre dos copias que se editan juntas."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_v04.py::test_the_frozen_resources_still_have_the_content_they_were_frozen_with"
+      }
+    },
+    {
+      "id": "h18",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La prueba de la escritura salteaba la fecha del artefacto",
+      "description": "Verificaba los bindings del artefacto en dos tramos y dejaba justo afuera el que lleva la fecha, con lo cual el artefacto y su recibo firmado podian quedar con marcas de tiempo distintas y la prueba seguia en verde. Ahora se compara la fila entera.",
+      "location": "plano-evidencia/scripts/ingesta.test.ts",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "El generador conto los indices verificados y confirmo el que faltaba."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "plano-evidencia/scripts/ingesta.test.ts"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "environment_not_reproducible",
+        "description": "La prueba de la ingesta corre contra un doble de la base, no contra la base. Verifica el orden de las decisiones y la fila completa de cada escritura, que es lo que estaba sin verificar, pero no ejercita el motor: SQL invalido, violaciones reales de clave, aislamiento y rollback quedan afuera. La carrera entre dos ingestas simultaneas se probo con la escritura fallando a proposito, no con dos pedidos concurrentes de verdad. El revisor si verifico contra la documentacion de la plataforma que el lote es transaccional, asi que el estado parcial no es alcanzable."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "La equivalencia entre las dos implementaciones de la regla de independencia se establecio por lectura comparada, no por vector: el revisor recorrio las dos en la primera pasada y no encontro divergencia, y el generador confirmo la comparacion, pero varias ramas de esa regla no tienen vector que las ejercite. La conformidad declara 89 vectores y 28 casos de ordinalidad sin divergencias y eso es cierto; no es lo mismo que decir que toda la regla esta cubierta."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "La guardia contra la comparacion literal es sintactica y mira fuentes: un literal armado en tiempo de ejecucion, concatenado o leido de un archivo, le pasa por al lado. Cubre quince formas escritas que se le probaron, incluidas las que el revisor enumero en dos pasadas distintas, y no puede cubrir mas que eso."
+      },
+      {
+        "id": "r4",
+        "class": "execution_gap",
+        "requires_human_attention": true,
+        "gap_reason": "other",
+        "description": "Los commits que incorporan la tercera pasada no fueron revisados por el revisor: la ronda se corta aca por decision del arbitro humano, no porque el revisor haya dejado de encontrar cosas. Las tres pasadas trajeron dieciocho hallazgos y ninguna volvio vacia, asi que no hay evidencia de haber llegado al fondo; hay una decision de costo, tomada por quien la puede tomar. Cada correccion de esta ultima tanda tiene su prueba y la suite completa pasa, que es otra cosa que una pasada adversarial encima."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 18,
+      "valid": {
+        "incorporated": 18,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
