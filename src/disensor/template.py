@@ -44,7 +44,13 @@ def template(gate: str, level: str, profile: str, cwd: Path) -> dict:
             "abbreviated_path": {"used": False},
         },
         "actors": {
-            "generator": {"family": "anthropic", "model": "claude-code"},
+            # El modelo se pide, no se inventa: estaba escrito un valor concreto
+            # que no es un modelo, y R4 contrasta familia y modelo del generador
+            # contra los del revisor, asi que ahi un dato inventado le miente a
+            # la regla. La familia queda con el caso mayoritario porque es un
+            # enum y no admite marcador; el hueco de al lado obliga a mirarla.
+            # Con `new --round` las dos vienen de lo que se declaro en la ronda.
+            "generator": {"family": "anthropic", "model": "FILL_IN_generator_model"},
             "reviewers": [
                 {
                     "reviewer_id": "r1",
@@ -187,6 +193,15 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
         a["event"]["base_commit"] = anclas["merge_base_oid"]
     elif "base_commit" in a["event"]:
         del a["event"]["base_commit"]
+
+    # El generador que la ronda declaro, si lo trae: la plantilla dejo de
+    # inventarlo, asi que sin este dato el hueco queda a la vista en vez de
+    # llenarse solo con una familia y un modelo que nadie dijo.
+    generador = declarado.get("generator") or {}
+    if generador.get("family"):
+        a["actors"]["generator"]["family"] = generador["family"]
+    if generador.get("model"):
+        a["actors"]["generator"]["model"] = generador["model"]
 
     revisor = a["actors"]["reviewers"][0]
     revisor["reviewer_id"] = "r1"
