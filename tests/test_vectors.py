@@ -14,7 +14,9 @@ from disensor.vectors import _labels
 VECTORS = Path(__file__).resolve().parents[1] / "spec" / "vectors"
 
 
-@pytest.mark.parametrize("path", sorted(VECTORS.glob("*.json")), ids=lambda p: p.stem)
+# Todas las suites, no un nivel unico: cada version tiene la suya y las
+# historicas son la unica cobertura negativa de las reglas de su contrato.
+@pytest.mark.parametrize("path", sorted(VECTORS.glob("*/*.json")), ids=lambda p: f"{p.parent.name}/{p.stem}")
 def test_vector(path):
     if path.name == "index.json":
         pytest.skip("index")
