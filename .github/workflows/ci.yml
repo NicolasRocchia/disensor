@@ -35,6 +35,7 @@ jobs:
           node-version: '22'
       - run: npm ci
       - run: npm run conformidad
+      - run: npm test
       - run: npm run typecheck
 
   # Este repositorio se aplica su propio gate, con la version publicada y no con

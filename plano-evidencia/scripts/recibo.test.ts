@@ -3,7 +3,15 @@
  * esperado calculado con una implementacion independiente (Python hmac).
  * Dos implementaciones, un resultado, o algo esta mal.
  */
-import { sha256Hex, firmarRecibo } from "../src/index.js";
+import { webcrypto } from "node:crypto";
+
+// El entorno de Workers trae crypto global; el Node de este repo es viejo y no.
+// Sin esto la prueba reventaba antes de comparar nada, que es como estuvo desde
+// que se escribio: no la corria ni CI ni nadie.
+const g = globalThis as any;
+if (!g.crypto?.subtle) g.crypto = webcrypto;
+
+const { sha256Hex, firmarRecibo } = await import("../src/index.js");
 
 const cuerpo = new TextEncoder().encode('{"prueba":"recibo"}');
 const hash = await sha256Hex(cuerpo);

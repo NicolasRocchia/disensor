@@ -11,15 +11,27 @@
  * Lo que este archivo NO hace, a proposito: no corre modelos, no ve codigo,
  * no acepta texto fuera del artefacto. Perfil minimizado bienvenido.
  */
-import schema from "../../spec/residue.schema.v0.4.json";
-import { compilarSchema, validarArtefacto } from "./validar.js";
+import schemaV02 from "../../spec/residue.schema.v0.2.json";
+import schemaV03 from "../../spec/residue.schema.v0.3.json";
+import schemaV04 from "../../spec/residue.schema.v0.4.json";
+import { compilarSchema, validarArtefacto, versionOf } from "./validar.js";
 
 export interface Env {
   DB: D1Database;
   HMAC_SECRET: string;
 }
 
-const validar = compilarSchema(schema as object);
+// Un validador por version conocida: un artefacto se juzga con el schema de la
+// version que declara. Compilando solo la vigente, una declaracion de una
+// version superada fallaba por forma, con los errores de un contrato que no es
+// el suyo, y nunca llegaba a la unica explicacion util. El Worker no tiene
+// filesystem, asi que los recursos se importan uno por uno; que este mapa
+// coincida con el del validador lo verifica una prueba, no la buena memoria.
+export const VALIDADORES: Record<string, ReturnType<typeof compilarSchema>> = {
+  "residue/v0.2": compilarSchema(schemaV02 as object),
+  "residue/v0.3": compilarSchema(schemaV03 as object),
+  "residue/v0.4": compilarSchema(schemaV04 as object),
+};
 
 // Espejo de CURRENT_SCHEMA en src/disensor/gate.py (G9). El esquema compartido
 // sigue leyendo versiones superadas para que la historia no se reescriba, pero
@@ -80,15 +92,10 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
     return json({ error: "JSON invalido" }, 400);
   }
 
+  const declarada = versionOf(artefacto);
+  const validar = (declarada !== null && VALIDADORES[declarada]) || VALIDADORES[ESQUEMA_VIGENTE];
   const errores = validarArtefacto(artefacto, validar);
   if (errores.length > 0) return json({ error: "artefacto invalido", errores }, 422);
-
-  if (artefacto.schema !== ESQUEMA_VIGENTE) {
-    return json({
-      error: `el artefacto declara '${artefacto.schema}' y la version vigente es `
-        + `${ESQUEMA_VIGENTE}; las versiones superadas se leen, no se emiten`,
-    }, 422);
-  }
 
   const hash = await sha256Hex(crudo);
   const idEvento: string = artefacto.event.event_id;
@@ -108,6 +115,18 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
       error: "el evento ya fue declarado con otro contenido; los recibos no se reemplazan",
       recibo_original: existente,
     }, 409);
+  }
+
+  // Recien aca la politica de emision. Va despues de la busqueda del recibo a
+  // proposito: un evento ya declarado devuelve lo que ya se le atesto, aunque
+  // su version haya sido superada desde entonces. Rechazar un reenvio no
+  // protege nada y rompe el reintento de cualquier cliente al que se le corto
+  // la red, en cada bump de version.
+  if (artefacto.schema !== ESQUEMA_VIGENTE) {
+    return json({
+      error: `el artefacto declara '${artefacto.schema}' y la version vigente es `
+        + `${ESQUEMA_VIGENTE}; las versiones superadas se leen, no se emiten`,
+    }, 422);
   }
 
   const recibidoEn = new Date().toISOString();
