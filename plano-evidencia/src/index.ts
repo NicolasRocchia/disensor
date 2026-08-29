@@ -77,6 +77,24 @@ async function organizacionDelToken(env: Env, req: Request): Promise<string | nu
   return fila?.org_id ?? null;
 }
 
+type Recibo = { hash: string; recibido_en: string; firma: string };
+
+async function reciboDe(env: Env, orgId: string, idEvento: string): Promise<Recibo | null> {
+  return await env.DB
+    .prepare("SELECT hash, recibido_en, firma FROM recibos WHERE org_id = ? AND id_evento = ?")
+    .bind(orgId, idEvento)
+    .first<Recibo>();
+}
+
+/** Lo que un evento ya declarado responde: su recibo, o el conflicto. */
+function respuestaDelRecibo(existente: Recibo, hash: string): Response {
+  if (existente.hash === hash) return json({ recibo: existente, repetido: true }, 200);
+  return json({
+    error: "el evento ya fue declarado con otro contenido; los recibos no se reemplazan",
+    recibo_original: existente,
+  }, 409);
+}
+
 async function ingestar(env: Env, req: Request): Promise<Response> {
   const orgId = await organizacionDelToken(env, req);
   if (!orgId) return json({ error: "token invalido o revocado" }, 401);
@@ -103,19 +121,8 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
   // Idempotencia: el mismo evento con el mismo contenido devuelve el recibo
   // original; el mismo evento con otro contenido es un conflicto, nunca un
   // reemplazo silencioso. Los recibos son de solo agregado.
-  const existente = await env.DB
-    .prepare("SELECT hash, recibido_en, firma FROM recibos WHERE org_id = ? AND id_evento = ?")
-    .bind(orgId, idEvento)
-    .first<{ hash: string; recibido_en: string; firma: string }>();
-  if (existente) {
-    if (existente.hash === hash) {
-      return json({ recibo: existente, repetido: true }, 200);
-    }
-    return json({
-      error: "el evento ya fue declarado con otro contenido; los recibos no se reemplazan",
-      recibo_original: existente,
-    }, 409);
-  }
+  const yaDeclarado = await reciboDe(env, orgId, idEvento);
+  if (yaDeclarado) return respuestaDelRecibo(yaDeclarado, hash);
 
   // Recien aca la politica de emision. Va despues de la busqueda del recibo a
   // proposito: un evento ya declarado devuelve lo que ya se le atesto, aunque
@@ -133,16 +140,27 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
   const firma = await firmarRecibo(env.HMAC_SECRET, hash, recibidoEn);
   const ev = artefacto.event;
 
-  await env.DB.batch([
-    env.DB.prepare(
-      `INSERT INTO artefactos (org_id, id_evento, hash, esquema, perfil, nivel, compuerta, recibido_en, cuerpo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(orgId, idEvento, hash, artefacto.schema, artefacto.profile,
-           ev.criticality_level, ev.gate, recibidoEn, new TextDecoder().decode(crudo)),
-    env.DB.prepare(
-      `INSERT INTO recibos (org_id, id_evento, hash, recibido_en, firma) VALUES (?, ?, ?, ?, ?)`,
-    ).bind(orgId, idEvento, hash, recibidoEn, firma),
-  ]);
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO artefactos (org_id, id_evento, hash, esquema, perfil, nivel, compuerta, recibido_en, cuerpo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(orgId, idEvento, hash, artefacto.schema, artefacto.profile,
+             ev.criticality_level, ev.gate, recibidoEn, new TextDecoder().decode(crudo)),
+      env.DB.prepare(
+        `INSERT INTO recibos (org_id, id_evento, hash, recibido_en, firma) VALUES (?, ?, ?, ?, ?)`,
+      ).bind(orgId, idEvento, hash, recibidoEn, firma),
+    ]);
+  } catch (e) {
+    // Dos POST simultaneos del mismo evento pueden ver los dos que no hay
+    // recibo: uno inserta y el otro choca con la clave primaria. Eso no es un
+    // error interno, es la respuesta que la busqueda habria dado un instante
+    // despues, y devolver 500 hace que la idempotencia dependa de que nadie
+    // reintente rapido. Si el recibo aparecio, gana el que lo escribio.
+    const carrera = await reciboDe(env, orgId, idEvento);
+    if (carrera) return respuestaDelRecibo(carrera, hash);
+    throw e;
+  }
 
   return json({ recibo: { hash, recibido_en: recibidoEn, firma } }, 201);
 }

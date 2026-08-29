@@ -57,24 +57,52 @@ const ORG = "org-de-prueba";
 const SECRETO = "secreto-de-prueba";
 
 type Recibo = { hash: string; recibido_en: string; firma: string };
+type Sentencia = { sql: string; args: unknown[] };
 
-/** Un D1 que responde lo justo: la tabla de tokens y la de recibos. */
-function entorno(recibo: Recibo | null = null, idEvento: string | null = null) {
-  const escrituras: string[] = [];
+/**
+ * Un D1 que responde lo justo y GUARDA lo que le mandan a escribir.
+ *
+ * Contar las llamadas a `batch` no prueba nada: reemplazar la escritura entera
+ * por `batch([])` pasaba igual. Lo que se guarda es el SQL y sus bindings, para
+ * poder afirmar que lo escrito es lo que el recibo dice.
+ *
+ * `recibosNuevos` sirve para el caso de la carrera: la busqueda no encuentra
+ * nada, la escritura choca con la clave primaria, y la segunda busqueda si
+ * encuentra, que es lo que pasa cuando dos POST del mismo evento llegan juntos.
+ */
+function entorno(opciones: {
+  recibo?: Recibo | null;
+  idEvento?: string | null;
+  batchFalla?: boolean;
+  reciboTrasLaCarrera?: Recibo | null;
+} = {}) {
+  const { recibo = null, idEvento = null, batchFalla = false, reciboTrasLaCarrera = null } = opciones;
+  const escrito: Sentencia[] = [];
+  let busquedas = 0;
   const stmt = (sql: string, args: unknown[] = []): any => ({
+    sql,
+    args,
     bind: (...a: unknown[]) => stmt(sql, a),
     first: async () => {
       if (sql.includes("FROM tokens")) return { org_id: ORG };
-      if (sql.includes("FROM recibos")) return recibo && args[1] === idEvento ? recibo : null;
+      if (sql.includes("FROM recibos")) {
+        busquedas++;
+        if (busquedas > 1 && reciboTrasLaCarrera) return reciboTrasLaCarrera;
+        return recibo && args[1] === idEvento ? recibo : null;
+      }
       return null;
     },
     run: async () => ({ success: true }),
   });
   return {
-    escrituras,
+    escrito,
     DB: {
       prepare: (sql: string) => stmt(sql),
-      batch: async (s: unknown[]) => { escrituras.push(`batch:${s.length}`); return []; },
+      batch: async (s: Sentencia[]) => {
+        if (batchFalla) throw new Error("UNIQUE constraint failed: recibos.id_evento");
+        escrito.push(...s);
+        return [];
+      },
     } as any,
     HMAC_SECRET: SECRETO,
   };
@@ -122,26 +150,69 @@ const idSuperada = JSON.parse(superada).event.event_id;
   const hash = await sha256Hex(new TextEncoder().encode(superada));
   const recibidoEn = "2026-08-11T00:00:00.000Z";
   const recibo = { hash, recibido_en: recibidoEn, firma: await firmarRecibo(SECRETO, hash, recibidoEn) };
-  const env = entorno(recibo, idSuperada);
+  const env = entorno({ recibo, idEvento: idSuperada });
   const { status, body } = await post(env, superada);
   ok(status === 200, "un reenvio de lo ya aceptado devuelve su recibo", status);
   ok(body.repetido === true && body.recibo?.hash === hash, "y es el recibo original", body);
-  ok(env.escrituras.length === 0, "sin escribir nada nuevo", env.escrituras);
+  ok(env.escrito.length === 0, "sin escribir nada nuevo", env.escrito);
 }
 
 // 3. El mismo evento con otro contenido sigue siendo conflicto, no reemplazo.
 {
-  const env = entorno({ hash: "otro", recibido_en: "2026-08-11T00:00:00.000Z", firma: "x" }, idSuperada);
-  const { status } = await post(env, superada);
+  const env = entorno({
+    recibo: { hash: "otro", recibido_en: "2026-08-11T00:00:00.000Z", firma: "x" },
+    idEvento: idSuperada,
+  });
+  const { status, body } = await post(env, superada);
   ok(status === 409, "el mismo evento con otro contenido es conflicto", status);
+  ok(body.recibo_original?.hash === "otro", "y devuelve el recibo original", body);
+  ok(env.escrito.length === 0, "sin escribir nada", env.escrito);
 }
 
-// 4. La version vigente entra y se escribe una sola vez.
+// 4. La version vigente entra, y lo que se escribe es lo que el recibo dice.
+//    Contar las llamadas no alcanza: `batch([])` pasaba igual.
 {
   const env = entorno();
-  const { status } = await post(env, vigente);
+  const { status, body } = await post(env, vigente);
   ok(status === 201, "la version vigente se acepta", status);
-  ok(env.escrituras.length === 1, "y se escribe una vez", env.escrituras);
+
+  const hash = await sha256Hex(new TextEncoder().encode(vigente));
+  const art = JSON.parse(vigente);
+  const enArtefactos = env.escrito.find((s) => s.sql.includes("INSERT INTO artefactos"));
+  const enRecibos = env.escrito.find((s) => s.sql.includes("INSERT INTO recibos"));
+  ok(env.escrito.length === 2 && !!enArtefactos && !!enRecibos,
+     "y se escriben el artefacto y su recibo, una vez cada uno", env.escrito.map((s) => s.sql.slice(0, 30)));
+  ok(body.recibo?.hash === hash, "el recibo lleva el hash del cuerpo recibido", body);
+  ok(await firmarRecibo(SECRETO, hash, body.recibo?.recibido_en) === body.recibo?.firma,
+     "y una firma que verifica contra ese hash y esa fecha", body);
+  ok(JSON.stringify(enRecibos?.args) === JSON.stringify(
+       [ORG, art.event.event_id, hash, body.recibo?.recibido_en, body.recibo?.firma]),
+     "la fila del recibo es la que se devolvio, en ese orden", enRecibos?.args);
+  ok(JSON.stringify(enArtefactos?.args?.slice(0, 7)) === JSON.stringify(
+       [ORG, art.event.event_id, hash, art.schema, art.profile,
+        art.event.criticality_level, art.event.gate]),
+     "y la del artefacto lleva su version, perfil, nivel y compuerta", enArtefactos?.args?.slice(0, 7));
+  ok(enArtefactos?.args?.[8] === vigente, "con el cuerpo tal como llego", typeof enArtefactos?.args?.[8]);
+}
+
+// 5. Dos POST simultaneos del mismo evento: los dos ven que no hay recibo, uno
+//    inserta y el otro choca con la clave primaria. El que pierde la carrera
+//    devuelve el recibo que gano, no un error interno.
+{
+  const hash = await sha256Hex(new TextEncoder().encode(vigente));
+  const recibidoEn = "2026-08-11T00:00:00.000Z";
+  const ganador = { hash, recibido_en: recibidoEn, firma: await firmarRecibo(SECRETO, hash, recibidoEn) };
+  const env = entorno({ batchFalla: true, reciboTrasLaCarrera: ganador });
+  const { status, body } = await post(env, vigente);
+  ok(status === 200, "el que pierde la carrera devuelve el recibo del que gano", status);
+  ok(body.repetido === true && body.recibo?.hash === hash, "y es el recibo ganador", body);
+}
+
+// 6. Si la escritura falla por cualquier otra cosa, sigue siendo un error.
+{
+  const env = entorno({ batchFalla: true });
+  const { status } = await post(env, vigente);
+  ok(status === 500, "una escritura que falla sin recibo detras sigue siendo un error", status);
 }
 
 console.log("---");
