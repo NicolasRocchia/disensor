@@ -17,7 +17,7 @@ No verificado todavia (se estrena con `wrangler dev`): el handler HTTP contra D1
   - `201`: `{ "recibo": { "hash", "recibido_en", "firma" } }`
   - `200` con `repetido: true`: mismo evento, mismo contenido (idempotente).
   - `409`: mismo evento, otro contenido. Los recibos no se reemplazan; se devuelve el original.
-  - `422`: artefacto invalido, con la lista de errores del validador. Tambien si el artefacto declara una version superada del esquema (espejo del G9 del gate): las versiones viejas se leen, no se emiten.
+  - `422`: artefacto invalido, con la lista de errores del validador, que son los del schema de la version que el artefacto declara. Tambien si el artefacto declara una version superada del esquema (espejo del G9 del gate): las versiones viejas se leen, no se emiten. Esa negativa es sobre la EMISION, asi que va despues de la busqueda del recibo: un evento ya declarado devuelve su `200` o su `409` aunque su version haya sido superada desde entonces, porque rechazar un reenvio no protege nada y rompe el reintento de un cliente al que se le corto la red.
   - `401`: token invalido o revocado.
 - `GET /v1/salud`.
 
