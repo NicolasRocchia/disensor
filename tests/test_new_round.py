@@ -227,3 +227,36 @@ def test_the_same_repository_written_differently_is_accepted(repo: Path, informe
     r["repository"] = "https://github.com/mio/repo"
     a = from_round(r, "diff", "B", "full", repo)
     assert a["event"]["repository"] == "https://github.com/mio/repo"
+
+
+def test_the_declared_generator_travels_from_the_round(tmp_path, monkeypatch):
+    """La familia y el modelo del generador salen de la ronda, no de un literal.
+
+    `round` pide las dos por linea de comandos y despues no las usaba: el
+    resultado no las registraba y la plantilla tenia escrito un modelo que ni
+    siquiera es un modelo. R4 contrasta familia y modelo del generador contra
+    los del revisor, asi que ahi un dato inventado le miente a la regla. Lo
+    encontro la primera ronda que se corrio con el runner sobre este repositorio.
+    """
+    from disensor.template import from_round, template
+
+    resultado = {
+        "result_version": "disensor/round-result/v1",
+        "gate": "diff",
+        "repository": None,
+        "anchors": {},
+        "observed": {},
+        "declared": {
+            "generator": {"family": "openai", "model": "un-modelo-concreto"},
+            "reviewer_id": "x", "family": "anthropic", "model": "otro",
+            "independence": "cross_family", "hardening": "verified",
+        },
+        "hashes": {},
+    }
+    monkeypatch.chdir(tmp_path)
+    a = from_round(resultado, "diff", "B", "full", tmp_path)
+    assert a["actors"]["generator"] == {"family": "openai", "model": "un-modelo-concreto"}
+
+    # Y sin ronda el modelo se pide en vez de afirmarse.
+    m = template("diff", "B", "full", tmp_path)
+    assert m["actors"]["generator"]["model"].startswith("FILL_IN")

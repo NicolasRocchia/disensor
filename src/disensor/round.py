@@ -610,6 +610,15 @@ def _result(
             ),
         },
         "declared": {
+            # El generador va aca y no en `observed` por el mismo motivo que el
+            # revisor: el runner no puede probar que modelo produjo el material,
+            # solo transcribir lo que le dijeron. Y tiene que viajar: la
+            # declaracion contrasta familia y modelo del generador contra los del
+            # revisor (R4), asi que un dato inventado ahi le miente a la regla.
+            "generator": {
+                "family": args.generator_family,
+                "model": getattr(args, "generator_model", None),
+            },
             "reviewer_id": entry["id"] if entry else None,
             "family": entry["family"] if entry else None,
             "model": entry.get("model") if entry else None,
