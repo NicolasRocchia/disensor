@@ -339,11 +339,10 @@ plane runs them with `npm run conformidad`. Labels are compared, not messages.
 The vectors are regenerated with `python -m disensor.vectors <directory>`. The generator produces the current schema version and refuses to write over a suite that declares another one: the committed suite is still v0.3 and overwriting it would erase the only negative coverage the historical rules have.
 
 Each vector is validated under the schema of the version it declares. The
-TypeScript port implements the rules of **v0.2 and v0.3**: handed a v0.4
-artifact it says so and refuses, rather than returning a verdict without having
-run the rules that version added. So the two-independent-implementations claim
-currently covers up to v0.3; the Python reference is the only one that validates
-v0.4 ([#29](https://github.com/NicolasRocchia/disensor/issues/29)).
+TypeScript port implements the rules of **v0.2, v0.3 and v0.4**, so the
+two-independent-implementations claim covers the version the CLI emits. Handed a
+version it does not implement it says so and refuses, rather than returning a
+verdict without having run the rules that version added.
 
 `plano-evidencia/` holds the ingestion Worker (Cloudflare Workers plus D1) with
 the TypeScript port of the validator and the append-only integrity receipt. See
