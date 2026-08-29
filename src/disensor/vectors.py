@@ -9,7 +9,10 @@ errors, "R0" to "R10" for structural rules).
 Labels are compared, not messages: messages are free per implementation;
 labels cannot diverge.
 
-Usage: python -m disensor.vectors <target_directory>
+Usage: python -m disensor.vectors <suites_root>
+Each schema version gets its own subdirectory, so a suite is never overwritten
+with another version's: the historical ones are the only negative coverage the
+rules of their contract have.
 """
 from __future__ import annotations
 
@@ -176,6 +179,74 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     }]}
     out.append(("r1_reference_with_empty_findings", m, False, {"R1"}))
 
+    # --- Casos que solo existen desde residue/v0.4 -------------------------
+    #
+    # Antes de esto, la unica version que agrego reglas no tenia un vector suyo:
+    # la coherencia de la independencia declarada, los minimos del modo degradado
+    # y la integridad de los identificadores vivian solo en tests.
+    if CURRENT == "residue/v0.4":
+        def degradado(base):
+            """Una ronda de la misma familia, bien declarada."""
+            m = copy.deepcopy(base)
+            gen = m["actors"]["generator"]
+            r = m["actors"]["reviewers"][0]
+            r["family"] = gen["family"]
+            r["model"] = "otro-modelo-de-la-misma-familia"
+            r["independence"] = "same_family_distinct_model"
+            r["fallback_reason"] = {"code": "no_other_family_available"}
+            m["residue"] = {"items": [{
+                "id": "r1", "class": "reviewer_correlation", "reviewer_ref": r["reviewer_id"],
+                "requires_human_attention": True,
+                "description": ("El revisor comparte familia con el generador, asi que los errores "
+                                "que comparten no quedaron cubiertos por esta ronda."),
+            }]}
+            m["metrics"]["counts"] = {
+                "total_findings": 0,
+                "valid": {"incorporated": 0, "debt_recorded": 0, "owner_decision": 0},
+                "false_positives": {"refuted_verifiable": 0, "refuted_interpretive": 0},
+                "escalated_open": 0,
+            }
+            m["findings"] = []
+            return m
+
+        m = degradado(diff)
+        out.append(("valid_declared_degraded_round", m, True, set()))
+
+        # En nivel A el modo degradado es declarable pero no admisible.
+        m = degradado(diff)
+        m["event"]["criticality_level"] = "A"
+        out.append(("r4_degraded_round_in_level_a", m, False, {"R4"}))
+
+        # R11: el modo degradado sin el residuo de correlacion que lo nombra.
+        m = degradado(diff)
+        m["residue"] = {"declared_absence": True,
+                        "declaration": ("La ronda no dejo residuo declarable sobre el rango "
+                                        "revisado, dicho de forma concreta.")}
+        out.append(("r11_degraded_round_without_correlation", m, False, {"R11"}))
+
+        # R12: endurecimiento sin verificar y sin el residuo que lo declara.
+        m = copy.deepcopy(diff)
+        m["actors"]["reviewers"][0]["hardening"] = "unverified"
+        out.append(("r12_unverified_hardening_without_its_item", m, False, {"R12"}))
+
+        # R4 contrasta el modelo, no solo la familia.
+        m = degradado(diff)
+        m["actors"]["reviewers"][0]["model"] = m["actors"]["generator"]["model"]
+        out.append(("r4_same_model_declared_as_distinct", m, False, {"R4"}))
+
+        # R13: la atribucion y las referencias resuelven.
+        m = copy.deepcopy(diff)
+        m["findings"][0]["origin"] = "r9"
+        out.append(("r13_finding_attributed_to_nobody", m, False, {"R13"}))
+
+        m = degradado(diff)
+        m["residue"]["items"][0]["reviewer_ref"] = "r9"
+        out.append(("r13_item_references_missing_reviewer", m, False, {"R13"}))
+
+        m = copy.deepcopy(diff)
+        m["residue"]["items"][1]["id"] = m["residue"]["items"][0]["id"]
+        out.append(("r13_duplicate_residue_id", m, False, {"R13"}))
+
     # Invalid: schema only (rules are not evaluated when the shape fails)
     m = copy.deepcopy(diff)
     m["event"]["abbreviated_path"] = {
@@ -276,7 +347,7 @@ def _refuse_version_mixing(target: Path) -> None:
         raise SystemExit(
             f"vectors: {target} holds a {declarada} suite and this generator produces "
             f"{CURRENT}. Writing here would replace the only negative coverage those rules "
-            "have. Point it at a directory of its own, or migrate the suite deliberately."
+            "have. Point it at the subdirectory of its own version instead."
         )
 
 
@@ -287,6 +358,7 @@ def generate(target: Path) -> int:
     minimum expectation (valid or not, and which rules must appear) that is
     checked before writing: the generator cannot bless its own bug.
     """
+    target.mkdir(parents=True, exist_ok=True)
     target.mkdir(parents=True, exist_ok=True)
     _refuse_version_mixing(target)
     index = []
@@ -317,4 +389,7 @@ def generate(target: Path) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(generate(Path(sys.argv[1] if len(sys.argv) > 1 else "spec/vectors")))
+    # Cada version en su subdirectorio: el destino que se recibe es la raiz de
+    # las suites, y la version vigente elige la suya.
+    raiz = Path(sys.argv[1] if len(sys.argv) > 1 else "spec/vectors")
+    sys.exit(generate(raiz / CURRENT.split("/")[-1]))

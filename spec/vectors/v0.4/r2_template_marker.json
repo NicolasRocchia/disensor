@@ -1,0 +1,142 @@
+{
+  "name": "r2_template_marker",
+  "expected": {
+    "valid": false,
+    "rules": [
+      "R2"
+    ]
+  },
+  "artifact": {
+    "schema": "residue/v0.4",
+    "profile": "full",
+    "event": {
+      "event_id": "7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f",
+      "created_at": "2026-07-15T18:40:00-03:00",
+      "repository": "https://github.com/ejemplo/sistema-interno",
+      "pr": "https://github.com/ejemplo/sistema-interno/pull/214",
+      "base_commit": "c0ffee1",
+      "head_commit": "beef042",
+      "gate": "diff",
+      "criticality_level": "B",
+      "abbreviated_path": {
+        "used": false
+      }
+    },
+    "actors": {
+      "generator": {
+        "family": "anthropic",
+        "model": "claude-code"
+      },
+      "reviewers": [
+        {
+          "reviewer_id": "r1",
+          "family": "openai",
+          "model": "FILL_IN_reviewer_model",
+          "prompt_hash": "sha256:1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d",
+          "confinement": {
+            "mode": "read_only_by_instruction",
+            "verified": true,
+            "verification_method": "clean_git_status"
+          },
+          "independence": "cross_family"
+        }
+      ],
+      "human_arbiter": {
+        "present": true,
+        "id": "dueno-feature-02"
+      }
+    },
+    "findings": [
+      {
+        "id": "h1",
+        "origin": "r1",
+        "severity": "major",
+        "title": "El flujo de escritura no se libera si la consulta falla a mitad de camino",
+        "description": "En la exportacion, una falla intermedia de la consulta dejaba el flujo de escritura tomado.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Confirmado en el codigo del diff: faltaba la liberacion en el camino de error."
+        },
+        "fix_verification": {
+          "type": "specific_test",
+          "reference": "tests/Exportacion_FallaIntermedia_LiberaFlujo"
+        }
+      },
+      {
+        "id": "h2",
+        "origin": "r1",
+        "severity": "major",
+        "title": "Limite de filas de la exportacion sin definir",
+        "description": "El comportamiento ante rangos que superan el maximo permitido no esta definido por producto.",
+        "final_state": "escalated_open",
+        "verification": {
+          "against": "repository",
+          "detail": "El codigo no impone limite y el requerimiento no lo especifica: la decision no es tecnica."
+        }
+      },
+      {
+        "id": "h3",
+        "origin": "r1",
+        "severity": "minor",
+        "title": "Validacion de fechas supuestamente faltante",
+        "description": "El revisor reporto que la exportacion no valida el rango de fechas de entrada.",
+        "final_state": "refuted_verifiable",
+        "verification": {
+          "against": "repository",
+          "detail": "La validacion existe en el objeto de consulta compartido que este flujo reutiliza."
+        },
+        "evidence": {
+          "text": "El objeto de consulta compartido valida el rango antes de ejecutar; la exportacion lo reutiliza sin excepcion.",
+          "link": "src/consultas/RangoFechas.cs#L41-L58"
+        }
+      }
+    ],
+    "residue": {
+      "items": [
+        {
+          "id": "r1",
+          "class": "escalation_without_decision",
+          "finding_ref": "h2",
+          "requires_human_attention": true,
+          "description": "El limite de filas de la exportacion quedo escalado a producto y sin resolver al cierre del ciclo."
+        },
+        {
+          "id": "r2",
+          "class": "principal_refutation",
+          "finding_ref": "h3",
+          "refutation_type": "verifiable",
+          "requires_human_attention": false,
+          "description": "Refutacion con enlace al objeto de consulta compartido, para que el revisor humano pueda no darla por buena.",
+          "evidence": {
+            "text": "La validacion vive en el objeto de consulta compartido reutilizado por la exportacion.",
+            "link": "src/consultas/RangoFechas.cs#L41-L58"
+          }
+        },
+        {
+          "id": "r3",
+          "class": "execution_gap",
+          "requires_human_attention": true,
+          "gap_reason": "environment_not_reproducible",
+          "description": "El comportamiento bajo concurrencia real no se probo porque el entorno de desarrollo no la reproduce."
+        }
+      ]
+    },
+    "metrics": {
+      "counts": {
+        "total_findings": 3,
+        "valid": {
+          "incorporated": 1,
+          "debt_recorded": 0,
+          "owner_decision": 0
+        },
+        "false_positives": {
+          "refuted_verifiable": 1,
+          "refuted_interpretive": 0
+        },
+        "escalated_open": 1
+      },
+      "extra_time_sec": 2400
+    }
+  }
+}
