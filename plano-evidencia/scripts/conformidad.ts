@@ -5,7 +5,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { compilarSchema, validarArtefacto, etiquetas, versionOf, SCHEMA_FILES } from "../src/validar.js";
+import {
+  compilarSchema, validarArtefacto, etiquetas, versionOf, SCHEMA_FILES,
+  appliesFrom, versionKeyOf,
+} from "../src/validar.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
@@ -26,6 +29,7 @@ const desconocida = compilarSchema(
 let run = 0;
 let divergences = 0;
 const noImplementadas = new Map<string, number>();
+const porVersion = new Map<string, number>();
 
 // Una suite por version: se recorren todas. Las de versiones que este port no
 // implementa se cuentan aparte y se declaran al final, porque saltearlas en
@@ -47,6 +51,7 @@ for (const suite of suites) {
       continue;
     }
     const validar = (version !== null && validadores.get(version)) || desconocida;
+    if (version !== null) porVersion.set(version, (porVersion.get(version) ?? 0) + 1);
     const errores = validarArtefacto(vector.artifact, validar);
     const valid = errores.length === 0;
     const tags = etiquetas(errores);
@@ -65,15 +70,53 @@ for (const suite of suites) {
   }
 }
 
+// Cobertura, no solo ausencia de divergencia: cada version conocida tiene que
+// tener su suite, y esa suite tiene que contener vectores que declaren esa
+// version. Contar lo no implementado solo caza el caso en que la suite existe;
+// abrir una version y no crear sus vectores dejaba el contador vacio y el
+// runner en verde, declarando conformidad sobre un contrato que nadie ejercito.
+const faltantes: string[] = [];
+for (const version of Object.keys(SCHEMA_FILES)) {
+  const juzgados = porVersion.get(version) ?? 0;
+  if (juzgados === 0) faltantes.push(version);
+}
+
+// Y el vector compartido de la forma del identificador y de la ordinalidad, que
+// es donde las dos implementaciones se habian separado sin que nada lo dijera.
+let ordinalidad = 0;
+const casos = JSON.parse(readFileSync(join(root, "spec", "version_ordinality.json"), "utf-8"));
+for (const c of casos.form) {
+  let acepta = true;
+  try { versionKeyOf(c.id); } catch { acepta = false; }
+  if (acepta !== c.valid) {
+    console.log(`DIVERGE form ${JSON.stringify(c.id)}: obtained valid=${acepta}, expected ${c.valid}`);
+    divergences++;
+  }
+  ordinalidad++;
+}
+for (const c of casos.ordinality) {
+  let obtenido: boolean | "raises";
+  try { obtenido = appliesFrom(c.declared, c.introduced); } catch { obtenido = "raises"; }
+  const esperado = c.raises ? "raises" : c.applies;
+  if (obtenido !== esperado) {
+    console.log(`DIVERGE ordinality ${c.declared} from ${c.introduced}: obtained ${obtenido}, expected ${esperado}`);
+    divergences++;
+  }
+  ordinalidad++;
+}
+
 console.log(`---`);
 for (const [version, cuantos] of [...noImplementadas].sort()) {
   console.log(`NOT IMPLEMENTED: ${cuantos} vectors of ${version} were not judged by this port`);
 }
+for (const version of faltantes) {
+  console.log(`NO COVERAGE: ${version} is a known version with no vectors declaring it`);
+}
 console.log(divergences === 0
-  ? `CONFORMANT: ${run} vectors, zero divergences`
-  : `NOT CONFORMANT: ${divergences} of ${run} vectors diverge`);
-// Una suite que este port no sabe juzgar es una falla, no una nota al pie: sin
-// esto CI queda en verde mientras el claim de dos implementaciones vuelve a
-// cubrir una version que ya no es la vigente, que es exactamente el agujero que
-// este trabajo vino a cerrar.
-process.exit(divergences === 0 && noImplementadas.size === 0 ? 0 : 1);
+  ? `CONFORMANT: ${run} vectors and ${ordinalidad} ordinality cases, zero divergences`
+  : `NOT CONFORMANT: ${divergences} divergences over ${run} vectors and ${ordinalidad} ordinality cases`);
+// Una suite que este port no sabe juzgar, o una version conocida sin vectores,
+// son fallas y no notas al pie: sin esto CI queda en verde mientras el claim de
+// dos implementaciones vuelve a cubrir una version que ya no es la vigente, que
+// es exactamente el agujero que este trabajo vino a cerrar.
+process.exit(divergences === 0 && noImplementadas.size === 0 && faltantes.length === 0 ? 0 : 1);
