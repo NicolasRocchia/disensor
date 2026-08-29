@@ -72,4 +72,8 @@ for (const [version, cuantos] of [...noImplementadas].sort()) {
 console.log(divergences === 0
   ? `CONFORMANT: ${run} vectors, zero divergences`
   : `NOT CONFORMANT: ${divergences} of ${run} vectors diverge`);
-process.exit(divergences === 0 ? 0 : 1);
+// Una suite que este port no sabe juzgar es una falla, no una nota al pie: sin
+// esto CI queda en verde mientras el claim de dos implementaciones vuelve a
+// cubrir una version que ya no es la vigente, que es exactamente el agujero que
+// este trabajo vino a cerrar.
+process.exit(divergences === 0 && noImplementadas.size === 0 ? 0 : 1);
