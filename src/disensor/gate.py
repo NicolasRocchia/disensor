@@ -179,14 +179,38 @@ def _level_a_without_coverage(config: dict | None) -> bool:
             and config.get("gate", {}).get("required") is False)
 
 
-def _config_at(oid: str, cfg_path: str, repo_dir):
-    """La configuracion en un commit, o None si no esta o no se puede leer."""
-    try:
-        if not gitctx.path_exists(oid, cfg_path, repo_dir):
+def repairs_level_a_policy(merge_base: str, head_oid: str, cfg_path: str, repo_dir) -> bool:
+    """Si el head CAMBIA la politica y la deja usable, sin la combinacion prohibida.
+
+    Reparar es un acto, no una coincidencia, y se mide contra el punto donde la
+    rama se separo: el destino pudo cambiar la politica despues, y una rama que
+    salio antes tampoco tiene la combinacion sin haber arreglado nada. Si eso
+    contara, cualquier PR viejo abriria la excepcion.
+
+    Y exige lo que la palabra promete: presente, parseable, objeto, de forma
+    valida. Ausente e ilegible no son reparaciones, porque dejan la rama destino
+    ingobernable: cargar su politica falla antes de poder mirar ningun head que
+    venga a arreglarla.
+    """
+    def leer(oid):
+        try:
+            if not gitctx.path_exists(oid, cfg_path, repo_dir):
+                return None
+            return gitctx.show_text(oid, cfg_path, repo_dir)
+        except (gitctx.GitError, UnicodeDecodeError):
             return None
-        return json.loads(gitctx.show_text(oid, cfg_path, repo_dir))
-    except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError):
-        return None
+
+    crudo_head = leer(head_oid)
+    if crudo_head is None or crudo_head == leer(merge_base):
+        return False
+    try:
+        cfg = json.loads(crudo_head)
+        if not isinstance(cfg, dict):
+            return False
+        validate_config_shape(cfg, cfg_path)
+    except (GateFailure, json.JSONDecodeError):
+        return False
+    return not _level_a_without_coverage(cfg)
 
 
 def _refuse_level_a_without_coverage(config: dict, where: str) -> None:
@@ -385,6 +409,7 @@ class GateContext:
     merge_base: str
     config: dict
     policy_note: str
+    head_repairs_policy: bool
     status: dict
     new_paths: list
     mutations: list
@@ -446,6 +471,7 @@ def resolve_context(directory, config_path, base, head, repo_dir: Path) -> GateC
         base_oid=base_oid,
         head_oid=head_oid,
         merge_base=mb,
+        head_repairs_policy=repairs_level_a_policy(mb, head_oid, cfg_path, repo_dir),
         config=config,
         policy_note=policy_note,
         status=status,
@@ -462,7 +488,8 @@ def classify_requirement(ctx: GateContext) -> ReviewRequirement:
     # sigue evaluando el resto. Quedan en el contexto para que `round` pueda
     # advertir sin mezclar las dos preguntas.
     if (ctx.config.get("criticality_level") == "A"
-            and not ctx.config["gate"].get("required", True)):
+            and not ctx.config["gate"].get("required", True)
+            and not ctx.head_repairs_policy):
         # El gate rechaza esta politica, asi que el preflight no puede contestar
         # que no hace falta ronda: son las dos caras de la misma decision, y que
         # difieran es exactamente lo que esta funcion existe para impedir.
@@ -838,7 +865,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
         # aplicar el piso, y eso falla cerrado. Pero no puede trabar el PR que
         # viene a arreglarlo: si el head la repara, el repositorio necesita
         # poder mergearlo, o queda sin salida.
-        if _level_a_without_coverage(_config_at(head_oid, cfg_path, repo_dir)):
+        if not repairs_level_a_policy(mb, head_oid, cfg_path, repo_dir):
             gate_errors.append(
                 f"[G3] {cfg_path} declares Level A with gate.required=false. With coverage off "
                 "there is no declaration to check the floor against, so the level that demands a "
