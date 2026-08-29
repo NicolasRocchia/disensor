@@ -5,7 +5,7 @@ Worker de ingesta en Cloudflare (Workers mas D1) que recibe artefactos de residu
 ## Estado de verificacion
 
 Verificado en este repo:
-- Conformidad del port TypeScript contra las suites de `spec/vectors`, una por versión del esquema: los 78 vectores de v0.3 y v0.4, cada uno bajo las reglas de la versión que declara (`npm run conformidad`): mismo veredicto y mismas etiquetas de regla que la implementacion de referencia en Python, por vector.
+- Conformidad del port TypeScript contra las suites de `spec/vectors`, una por versión del esquema: los 89 vectores de v0.2, v0.3 y v0.4, cada uno bajo las reglas de la versión que declara (`npm run conformidad`): mismo veredicto y mismas etiquetas de regla que la implementacion de referencia en Python, por vector. Más los 21 casos de `spec/version_ordinality.json`, que fijan la forma del identificador de versión y qué reglas alcanzan a qué declaración: es donde las dos implementaciones se habían separado sin que nada lo dijera. El runner falla si una versión conocida no tiene vectores que la declaren, porque si no el claim de dos implementaciones se vacía en silencio.
 - Verificacion cruzada del recibo (`npx tsx scripts/recibo.test.ts`): hash y firma HMAC coinciden con valores calculados por una implementacion independiente en Python.
 - Typecheck estricto (`npm run typecheck`).
 
