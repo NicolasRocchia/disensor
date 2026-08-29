@@ -1,4 +1,16 @@
 {
   "schema": "residue/v0.2",
-  "vectors": 11
+  "vectors": [
+    "r0_no_human_arbiter",
+    "r4_same_family",
+    "r6_counts_do_not_close",
+    "schema_item_reference_not_declared",
+    "schema_refutation_without_evidence",
+    "valid_real_01_plan_gate",
+    "valid_real_02_diff_gate",
+    "valid_real_03_diff_gate",
+    "valid_real_04_diff_gate",
+    "valid_real_05_diff_gate",
+    "valid_real_06_diff_gate"
+  ]
 }

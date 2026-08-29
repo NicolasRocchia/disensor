@@ -536,3 +536,31 @@ def test_shared_vectors_of_identifier_form_and_ordinality():
                 applies_from(c["declared"], c["introduced"])
         else:
             assert applies_from(c["declared"], c["introduced"]) == c["applies"], c
+
+
+def test_every_vector_suite_declares_its_own_contents():
+    """Cada suite dice que version es y que vectores tiene, en el mismo formato.
+
+    El indice es lo que el generador lee para negarse a escribir encima de una
+    suite de otra version. Una suite con el indice en otra forma no lo protege, y
+    la primera que escribi a mano tenia el conteo donde va la lista.
+    """
+    import json
+    from pathlib import Path
+
+    from disensor.rules import SCHEMA_FILES
+
+    raiz = Path(__file__).resolve().parents[1]
+    suites = sorted(p for p in (raiz / "spec/vectors").iterdir() if p.is_dir())
+    assert {p.name for p in suites} == {v.split("/")[1] for v in SCHEMA_FILES}, [p.name for p in suites]
+
+    for suite in suites:
+        indice = json.loads((suite / "index.json").read_text(encoding="utf-8"))
+        nombres = sorted(p.stem for p in suite.glob("*.json") if p.name != "index.json")
+        assert indice["schema"] == f"residue/{suite.name}", (suite.name, indice["schema"])
+        assert sorted(indice["vectors"]) == nombres, suite.name
+        assert nombres, suite.name
+        for nombre in nombres:
+            vector = json.loads((suite / f"{nombre}.json").read_text(encoding="utf-8"))
+            assert vector["name"] == nombre, (suite.name, nombre)
+            assert vector["artifact"]["schema"] == indice["schema"], (suite.name, nombre)
