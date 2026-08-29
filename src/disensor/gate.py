@@ -171,6 +171,26 @@ def canonical_repo_path(raw: str, root: Path, label: str) -> str:
     return "/".join(parts)
 
 
+def _refuse_level_a_without_coverage(config: dict, where: str) -> None:
+    """En nivel A, apagar la cobertura no es una preferencia: la vacia.
+
+    Con `gate.required=false`, un PR de codigo sin declaracion no crea ningun
+    revisor sobre el que comprobar el piso, asi que la exigencia de familia
+    distinta y endurecimiento probado no se aplica a nada y el gate queda verde.
+    El nivel A esta reservado para lo que no se puede deshacer: o significa lo
+    que dice o no significa nada.
+    """
+    if config.get("criticality_level") != "A":
+        return
+    if config.get("gate", {}).get("required") is False:
+        raise GateFailure(
+            f"{where}: Level A with gate.required=false. Turning coverage off leaves no "
+            "declaration to check the floor against, so the level that demands a cross-family "
+            "reviewer with tested hardening would demand it of nothing. Lower the level or "
+            "leave coverage on"
+        )
+
+
 def validate_config_shape(config: dict, where: str) -> None:
     old = V01_CONFIG_KEYS & set(config)
     if old:
@@ -214,6 +234,7 @@ def validate_config_shape(config: dict, where: str) -> None:
         validate_scope(gate.get("scope", DEFAULT_SCOPE))
     except ScopeError as exc:
         raise GateFailure(f"{where}: {exc}") from exc
+    _refuse_level_a_without_coverage(config, where)
 
 
 def merge_config(raw: dict) -> dict:
@@ -752,6 +773,18 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
                     f"[G4] reviewer {r['reviewer_id']}: confinement '{conf['mode']}' not admitted in "
                     "Level A (the reviewer only reads, and that is guaranteed with permissions, not "
                     "with the brief)"
+                )
+            if ev.get("criticality_level") == "A" and r.get("hardening") != "verified":
+                # El campo es opcional en el esquema, asi que omitirlo evitaba
+                # R12 y pasaba el nivel A: la exigencia vivia solo en el camino
+                # feliz del runner, que es justo el que no recorre quien arma la
+                # declaracion a mano.
+                declarado = r.get("hardening", "not declared")
+                own.append(
+                    f"[G4] reviewer {r['reviewer_id']}: hardening '{declarado}' in Level A. The "
+                    "level reserved for what cannot be undone demands a reviewer whose "
+                    "neutralisation of project instructions was tested, and that has to be "
+                    "declared"
                 )
             if not conf["verified"] and gate_cfg.get("warn_unverified_confinement", True):
                 warnings.append(

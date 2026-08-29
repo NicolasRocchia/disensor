@@ -617,3 +617,52 @@ def test_working_tree_does_not_change_the_verdict(repo, capsys):
     (repo.path / "src" / "app.py").write_text("dirty, never committed", encoding="utf-8")
     (repo.path / "src" / "extra.py").write_text("untracked", encoding="utf-8")
     assert repo.run(repo.git("rev-parse", "HEAD~2"), head) == 0
+
+
+# --- el piso de nivel A, por los dos caminos que lo eludian ---------------------
+
+def test_level_a_refuses_a_reviewer_without_verified_hardening(repo, capsys):
+    """El campo es opcional en el esquema, asi que omitirlo evitaba R12 y pasaba.
+
+    La exigencia vivia solo en el camino feliz del runner, que es justo el que no
+    recorre quien arma la declaracion a mano.
+    """
+    # La politica se lee del tip del destino, asi que el nivel A tiene que estar
+    # commiteado antes de la base del rango.
+    repo.config({"criticality_level": "A", "level_A_enabled": True})
+    base = repo.commit("politica de nivel A")
+    repo.write("src/app.py", "code")
+    code = repo.commit("feat")
+    ruta = repo.artifact("diff", head=code, base=base, level="A")
+    datos = json.loads((repo.path / ruta).read_text(encoding="utf-8"))
+    for r in datos["actors"]["reviewers"]:
+        r.pop("hardening", None)
+        r["confinement"]["mode"] = "permissions"
+        r["confinement"]["verified"] = True
+    # El gap de ejecucion del ejemplo dispara R5 en nivel A y cortaria antes,
+    # asi que se acepta: lo que este caso tiene que aislar es el piso de
+    # endurecimiento.
+    for i in datos["residue"]["items"]:
+        if i["class"] == "execution_gap":
+            i["lead_acceptance"] = {
+                "lead": "quien acepta", "date": "2026-08-28",
+                "record": "https://ejemplo/registro/1",
+            }
+    repo.write(ruta, json.dumps(datos, ensure_ascii=False))
+    head = repo.commit("docs(residue)")
+    assert repo.run(base, head) != 0
+    assert "hardening 'not declared' in Level A" in out(capsys)
+
+
+def test_level_a_cannot_switch_coverage_off(repo, capsys):
+    """Sin cobertura no hay declaracion sobre la que comprobar el piso.
+
+    El nivel A esta reservado para lo que no se puede deshacer: o significa lo
+    que dice o no significa nada.
+    """
+    repo.config({"criticality_level": "A", "level_A_enabled": True, "gate": {"required": False}})
+    base = repo.commit("config de nivel A sin cobertura")
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat")
+    assert repo.run(base, head) != 0
+    assert "Level A with gate.required=false" in out(capsys)
