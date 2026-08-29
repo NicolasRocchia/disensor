@@ -1,4 +1,4 @@
-"""Conformance vectors of schema v0.3.
+"""Conformance vectors of the current schema version.
 
 The vectors are the shared source of truth across implementations of the
 validator (the Python reference, the TypeScript one of the evidence plane,
@@ -18,7 +18,7 @@ import json
 import sys
 from pathlib import Path
 
-from .rules import validate_artifact
+from .rules import CURRENT, validate_artifact
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "spec" / "examples"
@@ -244,6 +244,28 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     return out
 
 
+def _refuse_version_mixing(target: Path) -> None:
+    """Una suite de una version no se pisa con otra.
+
+    El generador produce la version vigente. Si el destino ya tiene vectores de
+    otra, escribir encima borra la unica cobertura negativa que tienen las reglas
+    de esa version y deja a las implementaciones validando contra un contrato que
+    no es el que declaran. Hasta que haya suites por version, esto se rechaza en
+    voz alta en vez de convertir el corpus en silencio.
+    """
+    indice = target / "index.json"
+    if not indice.exists():
+        return
+    with open(indice, encoding="utf-8") as f:
+        declarada = json.load(f).get("schema")
+    if declarada and declarada != CURRENT:
+        raise SystemExit(
+            f"vectors: {target} holds a {declarada} suite and this generator produces "
+            f"{CURRENT}. Writing here would replace the only negative coverage those rules "
+            "have. Point it at a directory of its own, or migrate the suite deliberately."
+        )
+
+
 def generate(target: Path) -> int:
     """Write the vectors with the verdict of the reference implementation.
 
@@ -252,6 +274,7 @@ def generate(target: Path) -> int:
     checked before writing: the generator cannot bless its own bug.
     """
     target.mkdir(parents=True, exist_ok=True)
+    _refuse_version_mixing(target)
     index = []
     for name, artifact, expected_valid, minimum_rules in cases():
         errors = validate_artifact(artifact)
@@ -270,7 +293,10 @@ def generate(target: Path) -> int:
             f.write("\n")
         index.append(name)
     with open(target / "index.json", "w", encoding="utf-8") as f:
-        json.dump({"schema": "residue/v0.3", "vectors": index}, f, ensure_ascii=False, indent=2)
+        # La version sale de lo que se acaba de generar, no de una constante:
+        # escrita a mano quedo diciendo v0.3 mientras el generador ya producia
+        # v0.4, y un indice que miente sobre su propia suite es peor que ninguno.
+        json.dump({"schema": CURRENT, "vectors": index}, f, ensure_ascii=False, indent=2)
         f.write("\n")
     print(f"{len(index)} vectors written to {target}")
     return 0
