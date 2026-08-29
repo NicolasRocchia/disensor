@@ -171,6 +171,24 @@ def canonical_repo_path(raw: str, root: Path, label: str) -> str:
     return "/".join(parts)
 
 
+def _level_a_without_coverage(config: dict | None) -> bool:
+    """La combinacion que el nivel A no admite. `None` es una config ilegible."""
+    if not isinstance(config, dict):
+        return False
+    return (config.get("criticality_level") == "A"
+            and config.get("gate", {}).get("required") is False)
+
+
+def _config_at(oid: str, cfg_path: str, repo_dir):
+    """La configuracion en un commit, o None si no esta o no se puede leer."""
+    try:
+        if not gitctx.path_exists(oid, cfg_path, repo_dir):
+            return None
+        return json.loads(gitctx.show_text(oid, cfg_path, repo_dir))
+    except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError):
+        return None
+
+
 def _refuse_level_a_without_coverage(config: dict, where: str) -> None:
     """En nivel A, apagar la cobertura no es una preferencia: la vacia.
 
@@ -817,13 +835,20 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
 
     if config.get("criticality_level") == "A" and not required:
         # La politica que gobierna este PR deja el nivel A sin nada sobre que
-        # aplicar el piso. Falla cerrado: el nivel reservado para lo que no se
-        # puede deshacer o significa lo que dice o no significa nada.
-        gate_errors.append(
-            f"[G3] {cfg_path} declares Level A with gate.required=false. With coverage off there "
-            "is no declaration to check the floor against, so the level that demands a "
-            "cross-family reviewer with tested hardening would demand it of nothing"
-        )
+        # aplicar el piso, y eso falla cerrado. Pero no puede trabar el PR que
+        # viene a arreglarlo: si el head la repara, el repositorio necesita
+        # poder mergearlo, o queda sin salida.
+        if _level_a_without_coverage(_config_at(head_oid, cfg_path, repo_dir)):
+            gate_errors.append(
+                f"[G3] {cfg_path} declares Level A with gate.required=false. With coverage off "
+                "there is no declaration to check the floor against, so the level that demands a "
+                "cross-family reviewer with tested hardening would demand it of nothing"
+            )
+        else:
+            warnings.append(
+                f"the policy at the base declares Level A with gate.required=false, and the head "
+                "of this PR repairs it: judged by the base, which demands no coverage"
+            )
 
     if required:
         coverage_errors, coverage_notes, _demanding = evaluate_coverage(

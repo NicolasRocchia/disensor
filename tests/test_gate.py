@@ -690,3 +690,17 @@ def test_a_repository_already_on_level_a_without_coverage_fails_closed(repo, cap
     head = repo.commit("feat")
     assert repo.run(base, head) != 0
     assert "declares Level A with gate.required=false" in out(capsys)
+
+
+def test_a_pr_that_repairs_the_invalid_level_a_policy_is_not_blocked(repo, capsys):
+    """Fallar cerrado no puede trabar al PR que viene a arreglarlo.
+
+    Si la politica de la base es invalida y el gate rechaza todo, el repositorio
+    queda sin salida: el unico PR que puede sacarlo de ahi es el que la repara.
+    """
+    repo.config({"criticality_level": "A", "level_A_enabled": True, "gate": {"required": False}})
+    base = repo.commit("politica invalida")
+    repo.config({"criticality_level": "B", "level_A_enabled": False})
+    head = repo.commit("la repara")
+    assert repo.run(base, head) == 0
+    assert "repairs it" in out(capsys)
