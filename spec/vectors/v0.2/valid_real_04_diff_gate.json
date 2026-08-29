@@ -1,0 +1,137 @@
+{
+  "name": "valid_real_04_diff_gate",
+  "artifact": {
+    "schema": "residue/v0.2",
+    "profile": "full",
+    "event": {
+      "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+      "created_at": "2026-08-14T10:13:32+00:00",
+      "repository": "https://github.com/NicolasRocchia/disensor",
+      "head_commit": "f521a0439358cb21618dfa5b7e6e463848879ff2",
+      "gate": "diff",
+      "criticality_level": "B",
+      "abbreviated_path": {
+        "used": false
+      },
+      "base_commit": "e36d49ee9e8629b0030ae9feb6efa1e1aa5b1009"
+    },
+    "actors": {
+      "generator": {
+        "family": "anthropic",
+        "model": "claude-code"
+      },
+      "reviewers": [
+        {
+          "reviewer_id": "r1",
+          "family": "openai",
+          "model": "GPT-5.6 Sol (declarado por el revisor; no atestiguado)",
+          "confinement": {
+            "mode": "no_confinement",
+            "verified": false
+          }
+        }
+      ],
+      "human_arbiter": {
+        "present": true
+      }
+    },
+    "findings": [
+      {
+        "id": "h1",
+        "origin": "r1",
+        "severity": "major",
+        "title": "El perfil minimized promete ausencia de texto libre que R9 no hace cumplir",
+        "location": "README.md, spec/residue.schema.json (properties/profile), src/disensor/rules.py (R9)",
+        "final_state": "debt_recorded",
+        "debt_id": "https://github.com/NicolasRocchia/disensor/issues/8",
+        "verification": {
+          "against": "execution",
+          "detail": "Reproducido con disensor validate sobre example_3_minimized_profile.json: extensions con una clave y un endpoint interno, mas verification.detail en texto libre, da VALID. MINIMIZED_FORBIDDEN_TEXT_FIELDS son solo title, description y location."
+        },
+        "evidence": {
+          "text": "rules.py:34 MINIMIZED_FORBIDDEN_TEXT_FIELDS = {\"title\", \"description\", \"location\"}; el esquema describe extensions como espacio que no participa de las reglas del protocolo.",
+          "link": "https://github.com/NicolasRocchia/disensor/issues/8"
+        }
+      },
+      {
+        "id": "h2",
+        "origin": "r1",
+        "severity": "major",
+        "title": "El documento elevaba G5 a G7 de provenance del estado declarado a prueba de que la revision ocurrio",
+        "location": "docs/antecedentes.md",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Confirmado en rules.py:140-144: R4 solo compara los valores declarados de family. Ninguna regla contrasta la invocacion del revisor contra una attestation, asi que un artefacto fabricado con merge-base y head reales valida. El texto afirmaba lo contrario tres parrafos debajo de la tabla que ya lo declaraba correctamente."
+        },
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "f521a04: corregidos los tres lugares y agregado el ataque de fabricacion explicito"
+        }
+      },
+      {
+        "id": "h3",
+        "origin": "r1",
+        "severity": "minor",
+        "title": "La fila de NanoZK citaba cifras de v1 bajo un enlace sin version que hoy resuelve a v2",
+        "location": "docs/antecedentes.md",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "El riesgo se confirma: el enlace sin version resuelve a una version posterior a la verificada. Las cifras de v2 que propuso el revisor no pudieron comprobarse desde este entorno porque arxiv esta bloqueado por el proxy de egress, asi que se refuto su remedio preferido y se aplico el alternativo que el mismo declaro valido."
+        },
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "f521a04: enlace pinneado a 2603.18046v1, cifras atribuidas a v1, y v2 anotada como pendiente antes de publicar"
+        }
+      },
+      {
+        "id": "h4",
+        "origin": "r1",
+        "severity": "info",
+        "title": "El README declaraba v0.4 borrador cuando la version publicada es 0.5.0",
+        "location": "README.md",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "pyproject.toml declara version 0.5.0 y el historial registra la subida del propio gate a la 0.5.0 publicada."
+        },
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "f521a04: estado actualizado a v0.5.0 publicada, con los tres defectos de contrato enlazados"
+        }
+      }
+    ],
+    "residue": {
+      "items": [
+        {
+          "id": "r1",
+          "class": "execution_gap",
+          "finding_ref": "h3",
+          "gap_reason": "other",
+          "requires_human_attention": true,
+          "description": "Las cifras revisadas de NanoZK v2 no pudieron verificarse: arxiv esta bloqueado por el proxy de egress de este entorno. El documento quedo pinneado a v1 con las cifras atribuidas a esa version, pero la sintesis tiene que releerse contra v2 antes de publicar. Nadie en esta ronda pudo arbitrar cuales son las cifras vigentes."
+        }
+      ]
+    },
+    "metrics": {
+      "counts": {
+        "total_findings": 4,
+        "valid": {
+          "incorporated": 3,
+          "debt_recorded": 1,
+          "owner_decision": 0
+        },
+        "false_positives": {
+          "refuted_verifiable": 0,
+          "refuted_interpretive": 0
+        },
+        "escalated_open": 0
+      }
+    }
+  },
+  "expected": {
+    "valid": true,
+    "rules": []
+  }
+}

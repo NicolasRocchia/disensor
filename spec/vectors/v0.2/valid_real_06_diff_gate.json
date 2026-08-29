@@ -1,0 +1,155 @@
+{
+  "name": "valid_real_06_diff_gate",
+  "artifact": {
+    "schema": "residue/v0.2",
+    "profile": "full",
+    "event": {
+      "event_id": "aabede1f-171f-4833-ab98-8a3718c992ee",
+      "created_at": "2026-08-14T03:31:32+00:00",
+      "repository": "https://github.com/NicolasRocchia/disensor",
+      "head_commit": "d97195f6104afc430710c8bc829a9aca25a0a49d",
+      "gate": "diff",
+      "criticality_level": "B",
+      "abbreviated_path": {
+        "used": false
+      },
+      "base_commit": "e36d49ee9e8629b0030ae9feb6efa1e1aa5b1009"
+    },
+    "actors": {
+      "generator": {
+        "family": "anthropic",
+        "model": "claude-code"
+      },
+      "reviewers": [
+        {
+          "reviewer_id": "r1",
+          "family": "openai",
+          "model": "gpt (familia openai, via interfaz web; version exacta no declarada por el operador)",
+          "confinement": {
+            "mode": "no_confinement",
+            "verified": false
+          }
+        }
+      ],
+      "human_arbiter": {
+        "present": true
+      }
+    },
+    "findings": [
+      {
+        "id": "h1",
+        "origin": "r1",
+        "severity": "minor",
+        "title": "El documento afirmaba que Nidus no enmarca su progreso como expansion de lo mecanicamente exigible",
+        "location": "docs/antecedentes.md",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado contra el paper: el conjunto de obligaciones de Nidus crece monotonamente, todo estado satisface las obligaciones activas, y las fallas observadas se convierten en obligaciones nuevas. La afirmacion del documento era falsa."
+        },
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "0410921; el revisor releyo la seccion corregida y confirmo el encuadre nuevo"
+        }
+      },
+      {
+        "id": "h2",
+        "origin": "r1",
+        "severity": "major",
+        "title": "R4 se apoyaba en el falso consenso de Adversarial Review como si fuera evidencia causal de la decorrelacion de familias",
+        "location": "docs/antecedentes.md",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "El paper observa falso consenso pero no incluye ablacion same-family contra cross-family, asi que no atribuye el efecto a la familia. El sustento explicito del cross-family esta en Refute-or-Promote, y es fundamento de diseno, no experimento controlado."
+        },
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "690541a; el revisor confirmo que el documento ahora declara R4 como diseno plausible y no como regla demostrada"
+        }
+      },
+      {
+        "id": "h3",
+        "origin": "r1",
+        "severity": "major",
+        "title": "El README declaraba una garantia mas fuerte que la implementada en refutaciones verificables",
+        "location": "README.md",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "El README decia evidencia obligatoria; residue/v0.2 solo exige la presencia del objeto evidence."
+        },
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "18deb4a; el revisor leyo la rama y confirmo la correccion y la referencia al issue"
+        }
+      },
+      {
+        "id": "h4",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "residue/v0.2 admite refuted_verifiable con evidencia vacia y con verification.against none",
+        "location": "spec/residue.schema.json ($defs/evidence, $defs/finding/allOf[2])",
+        "final_state": "debt_recorded",
+        "debt_id": "https://github.com/NicolasRocchia/disensor/issues/5",
+        "verification": {
+          "against": "repository",
+          "detail": "Reproducido con disensor validate sobre example_2_diff_gate.json mutado: evidence vacia con against repository, evidence.text con against none, y la combinacion de ambas, las tres VALID. La causa es que $defs/evidence no declara minProperties, required ni anyOf, y ninguna regla liga el estado con verification.against."
+        },
+        "evidence": {
+          "text": "$defs/evidence: text, link y hash son todas opcionales, sin minProperties ni anyOf, por lo que {} satisface el required de $defs/finding/allOf[2].",
+          "link": "https://github.com/NicolasRocchia/disensor/issues/5"
+        }
+      },
+      {
+        "id": "h5",
+        "origin": "r1",
+        "severity": "info",
+        "title": "El criterio de conformidad propuesto nombraba el campo de evidencia como sha256",
+        "location": "spec/residue.schema.json ($defs/evidence)",
+        "final_state": "refuted_verifiable",
+        "verification": {
+          "against": "repository",
+          "detail": "El campo se llama hash, con patron ^sha256:[0-9a-f]{64}$. Con el nombre propuesto los vectores de conformidad no habrian compilado y el criterio habria sido inaplicable."
+        },
+        "evidence": {
+          "text": "$defs/evidence.hash: {\"type\": \"string\", \"pattern\": \"^sha256:[0-9a-f]{64}$\"}. No existe propiedad sha256 y additionalProperties es false."
+        }
+      }
+    ],
+    "residue": {
+      "items": [
+        {
+          "id": "r1",
+          "class": "principal_refutation",
+          "finding_ref": "h5",
+          "refutation_type": "verifiable",
+          "requires_human_attention": false,
+          "description": "El generador refuto un hallazgo del revisor citando el esquema. La refutacion es verificable releyendo $defs/evidence, pero queda declarada para que el revisor humano pueda no tomarla al pie de la letra.",
+          "evidence": {
+            "text": "$defs/evidence declara hash y no sha256; additionalProperties es false."
+          }
+        }
+      ]
+    },
+    "metrics": {
+      "counts": {
+        "total_findings": 5,
+        "valid": {
+          "incorporated": 3,
+          "debt_recorded": 1,
+          "owner_decision": 0
+        },
+        "false_positives": {
+          "refuted_verifiable": 1,
+          "refuted_interpretive": 0
+        },
+        "escalated_open": 0
+      }
+    }
+  },
+  "expected": {
+    "valid": true,
+    "rules": []
+  }
+}
