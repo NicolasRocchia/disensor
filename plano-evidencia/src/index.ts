@@ -161,7 +161,13 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
     // despues, y devolver 500 hace que la idempotencia dependa de que nadie
     // reintente rapido. Si el recibo aparecio, gana el que lo escribio.
     const carrera = await reciboDe(env, orgId, idEvento);
-    if (carrera) return respuestaDelRecibo(carrera, hash);
+    if (carrera) {
+      // El error original no vuelve al cliente, y sin esto tampoco quedaba en
+      // ningun lado: una escritura que empieza a fallar por otro motivo se
+      // veria como trafico normal mientras haya un recibo detras.
+      console.error("escritura fallida con recibo existente", { idEvento, error: String(e) });
+      return respuestaDelRecibo(carrera, hash);
+    }
     throw e;
   }
 

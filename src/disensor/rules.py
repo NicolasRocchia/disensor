@@ -57,7 +57,10 @@ SCHEMA_FILES = {
 # como (0, 10), que aca revientan: dos parsers que difieren difieren en que
 # reglas aplican. Sin ceros a la izquierda: `v0.04` y `v0.4` serian dos
 # escrituras de la misma version, y un identificador congelado tiene una.
-VERSION_FORM = re.compile(r"^residue/v(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+# Digitos ASCII explicitos y fullmatch, no `\d` ni `match`: el primero acepta
+# cualquier digito Unicode y el segundo deja pasar un salto de linea final,
+# dos bordes donde este parser aceptaba lo que el del port rechaza.
+VERSION_FORM = re.compile(r"residue/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 
 
 def _version_key(identificador: str) -> tuple[int, int]:
@@ -67,7 +70,7 @@ def _version_key(identificador: str) -> tuple[int, int]:
     primero convierte el formato del archivo en semantica, y el segundo pone
     v0.10 antes que v0.2.
     """
-    m = VERSION_FORM.match(identificador)
+    m = VERSION_FORM.fullmatch(identificador)
     if m is None:
         raise ValueError(
             f"{identificador!r} is not a schema identifier: the form is "

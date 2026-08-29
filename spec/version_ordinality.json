@@ -75,6 +75,21 @@
       "id": "__proto__",
       "valid": false,
       "why": "same, and it is not even an own property"
+    },
+    {
+      "id": "residue/v0.4\n",
+      "valid": false,
+      "why": "trailing newline: Python's match() with $ accepts it, the port does not"
+    },
+    {
+      "id": "residue/v1١.0",
+      "valid": false,
+      "why": "non-ASCII digit: Python's \\d accepts it as eleven, the port does not"
+    },
+    {
+      "id": "residue/v0.4 ",
+      "valid": false,
+      "why": "trailing space"
     }
   ],
   "ordinality": [

@@ -188,11 +188,14 @@ const idSuperada = JSON.parse(superada).event.event_id;
   ok(JSON.stringify(enRecibos?.args) === JSON.stringify(
        [ORG, art.event.event_id, hash, body.recibo?.recibido_en, body.recibo?.firma]),
      "la fila del recibo es la que se devolvio, en ese orden", enRecibos?.args);
-  ok(JSON.stringify(enArtefactos?.args?.slice(0, 7)) === JSON.stringify(
+  // La fila entera, sin saltear ninguno: verificar 0..6 y 8 dejaba afuera la
+  // fecha, asi que el artefacto y su recibo firmado podian quedar con
+  // timestamps distintos y la prueba seguia verde.
+  ok(JSON.stringify(enArtefactos?.args) === JSON.stringify(
        [ORG, art.event.event_id, hash, art.schema, art.profile,
-        art.event.criticality_level, art.event.gate]),
-     "y la del artefacto lleva su version, perfil, nivel y compuerta", enArtefactos?.args?.slice(0, 7));
-  ok(enArtefactos?.args?.[8] === vigente, "con el cuerpo tal como llego", typeof enArtefactos?.args?.[8]);
+        art.event.criticality_level, art.event.gate, body.recibo?.recibido_en, vigente]),
+     "y la del artefacto es la fila completa, con la misma fecha que su recibo y el cuerpo tal como llego",
+     enArtefactos?.args);
 }
 
 // 5. Dos POST simultaneos del mismo evento: los dos ven que no hay recibo, uno

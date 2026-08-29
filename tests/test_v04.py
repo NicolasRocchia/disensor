@@ -254,13 +254,13 @@ def test_r13_reaches_the_version_that_introduced_it(diff):
 # proposito: una lista de formas prohibidas siempre va una forma atras, y este
 # defecto ya se colo dos veces por una forma que el patron de turno no cazaba.
 FORMAS_LEGITIMAS = (
-    # La clave de un mapa de versiones conocidas, anclada al principio de la
-    # linea: sin el ancla, una comparacion dentro de un `if` tambien termina en
-    # dos puntos y se colaba como si fuera una clave.
-    r'^"residue/v[0-9.]+":',
+    # La clave de un mapa de versiones conocidas. Va precedida del inicio de la
+    # sentencia o de una llave o coma: sin eso, una comparacion dentro de un `if`
+    # tambien termina en dos puntos y se colaba como si fuera una clave.
+    r'(?:^|[{,] )"residue/v[0-9.]+":',
     # El argumento `introduced` de la pregunta ordinal, que es la forma correcta.
-    r'applies_from\([^)]*"residue/v[0-9.]+"\)',
-    r'appliesFrom\([^)]*"residue/v[0-9.]+"\)',
+    r'applies_from\([^()]*"residue/v[0-9.]+"[^()]*\)',
+    r'appliesFrom\([^()]*"residue/v[0-9.]+"[^()]*\)',
     # La definicion de las constantes de vigencia, por su nombre y no por su
     # forma: cualquier constante nueva que envuelva un literal falla esta prueba
     # y obliga a agregarla aca, que es una decision visible en un diff. Con un
@@ -270,33 +270,75 @@ FORMAS_LEGITIMAS = (
     r'^const ESQUEMA_VIGENTE = "residue/v[0-9.]+";$',
 )
 
+LITERAL_DE_VERSION = r"""["'`]residue/v[0-9]+(?:\.[0-9]+)*["'`]"""
 
-def _apariciones_ilegitimas(fuentes, raiz):
-    """Toda aparicion de un literal de version que no este en una forma conocida."""
+
+def _sentencias(texto):
+    """Las lineas del archivo, con las continuaciones unidas y sin comentarios.
+
+    Dos motivos. Una llamada partida en varias lineas es una sentencia, y
+    juzgarla por lineas marcaba como ilegitimo el uso correcto solo por como
+    estaba formateado. Y un bloque de comentario en la misma linea que codigo
+    dejaba pasar el codigo entero, porque la linea empezaba con el comentario.
+    """
     import re
 
-    literal = re.compile(r"""["'`]residue/v[0-9]+(?:\.[0-9]+)*["'`]""")
+    sin_bloque = re.compile(r"/\*.*?\*/")
+    buffer, inicio, saldo = "", 0, 0
+    for n, cruda in enumerate(texto.splitlines(), 1):
+        linea = sin_bloque.sub(" ", cruda).strip()
+        if not buffer:
+            inicio = n
+            # Una linea que es solo comentario o continuacion de docstring no
+            # ejecuta nada. Un comentario al final de una linea de codigo si se
+            # mira: un literal ahi tambien hay que justificarlo.
+            if linea.startswith(("#", "//", "*")):
+                continue
+        buffer = f"{buffer} {linea}".strip() if buffer else linea
+        saldo += linea.count("(") - linea.count(")")
+        if saldo <= 0:
+            if buffer:
+                yield inicio, buffer
+            buffer, saldo = "", 0
+    if buffer:
+        yield inicio, buffer
+
+
+def _apariciones_ilegitimas(fuentes, raiz):
+    """Toda aparicion de un literal de version que no este en una forma conocida.
+
+    Por APARICION y no por linea: decidir por linea perdonaba todas las
+    apariciones de una sentencia con tal de que una fuera legitima, asi que
+    `applies_from(a["schema"], "residue/v0.4") and a["schema"] == "residue/v0.4"`
+    pasaba en verde. Se tachan las apariciones cubiertas y se mira lo que queda.
+    """
+    import re
+
+    literal = re.compile(LITERAL_DE_VERSION)
     legitimas = [re.compile(f) for f in FORMAS_LEGITIMAS]
     fuera = []
     for p in fuentes:
-        for n, linea in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-            desnuda = linea.strip()
-            # Un comentario o una linea de docstring no ejecuta nada.
-            if desnuda.startswith(("#", "//", "*", "/*")):
+        for n, sentencia in _sentencias(p.read_text(encoding="utf-8")):
+            if not literal.search(sentencia):
                 continue
-            if not literal.search(desnuda):
-                continue
-            if any(f.search(desnuda) for f in legitimas):
-                continue
-            fuera.append(f"{p.relative_to(raiz).as_posix()}:{n}: {desnuda}")
+            resto = sentencia
+            for f in legitimas:
+                resto = f.sub(" ", resto)
+            if literal.search(resto):
+                fuera.append(f"{p.relative_to(raiz).as_posix()}:{n}: {sentencia}")
     return fuera
 
 
 def _fuentes(raiz):
+    # Toda fuente ejecutable, no una lista de tres archivos ni una extension:
+    # una comparacion literal en un modulo nuevo, en un submodulo anidado o en
+    # un archivo con otra extension es el mismo defecto.
     return [
         *sorted((raiz / "src/disensor").rglob("*.py")),
-        *sorted((raiz / "plano-evidencia/src").rglob("*.ts")),
-        *sorted((raiz / "plano-evidencia/scripts").rglob("*.ts")),
+        *sorted(q for e in ("*.ts", "*.tsx", "*.js", "*.mjs", "*.cjs")
+                for q in (raiz / "plano-evidencia/src").rglob(e)),
+        *sorted(q for e in ("*.ts", "*.tsx", "*.js", "*.mjs", "*.cjs")
+                for q in (raiz / "plano-evidencia/scripts").rglob(e)),
     ]
 
 
@@ -357,6 +399,13 @@ def test_the_guard_catches_every_form_the_defect_had(tmp_path):
         'SOLO_V04 = "residue/v0.4"',
         'SOLO = "residue/v0.4"',
         'const SOLO = "residue/v0.4";',
+        # Escondida en una sentencia que ya tiene un uso legitimo: decidir por
+        # linea perdonaba todas las apariciones con tal de que una estuviera
+        # bien, asi que esto pasaba en verde.
+        'if applies_from(a["schema"], "residue/v0.4") and a["schema"] == "residue/v0.4":',
+        # Y detras de un bloque de comentario en la misma linea, que hacia que
+        # la linea entera se saltara por como empezaba.
+        '/* nota */ if (a.schema === "residue/v0.4") {',
     ]
     legitimas = [
         'if applies_from(a["schema"], "residue/v0.4"):',
@@ -367,6 +416,11 @@ def test_the_guard_catches_every_form_the_defect_had(tmp_path):
         'CURRENT = "residue/v0.4"',
         'const ESQUEMA_VIGENTE = "residue/v0.4";',
         '# El comentario puede nombrar "residue/v0.4" sin que sea una regla.',
+        # El uso correcto formateado en varias lineas: la guardia no puede
+        # depender de donde cayeron los saltos.
+        'if applies_from(\n    a["schema"],\n    "residue/v0.4",\n):',
+        # La clave de un mapa que se construye dentro de una llamada.
+        'const V = new Map(Object.entries({\n  "residue/v0.4": compilar(x),\n}));',
     ]
 
     def caza(texto: str) -> bool:
@@ -577,3 +631,43 @@ def test_every_vector_suite_declares_its_own_contents():
             vector = json.loads((suite / f"{nombre}.json").read_text(encoding="utf-8"))
             assert vector["name"] == nombre, (suite.name, nombre)
             assert vector["artifact"]["schema"] == indice["schema"], (suite.name, nombre)
+
+
+def test_the_frozen_resources_still_have_the_content_they_were_frozen_with():
+    """Congelado quiere decir por contenido, no solo por nombre.
+
+    Editar uno de estos archivos dejando el nombre y el discriminador como
+    estaban cambia el contrato de toda la evidencia emitida bajo esa version, y
+    la unica comprobacion que habia comparaba los archivos entre si: editar las
+    dos copias pasaba. Un registro del contenido lo hace verificable.
+
+    Si una version tiene que cambiar de verdad, no se edita: se abre la
+    siguiente. Tocar esta lista es decir lo contrario, y por eso se ve en el
+    diff.
+    """
+    import hashlib
+    from pathlib import Path
+
+    from disensor.rules import SCHEMA_FILES
+
+    raiz = Path(__file__).resolve().parents[1]
+    registro = {}
+    for linea in (raiz / "spec/frozen.sha256").read_text(encoding="utf-8").splitlines():
+        if linea.startswith("#") or not linea.strip():
+            continue
+        h, ruta = linea.split(None, 1)
+        registro[ruta.strip()] = h
+
+    esperadas = {f"{base}/{archivo}"
+                 for archivo in SCHEMA_FILES.values()
+                 for base in ("spec", "src/disensor")}
+    assert set(registro) == esperadas, (
+        "el registro de recursos congelados no cubre exactamente los schemas conocidos"
+    )
+    for ruta, h in sorted(registro.items()):
+        real = hashlib.sha256((raiz / ruta).read_bytes()).hexdigest()
+        assert real == h, (
+            f"{ruta} cambio de contenido: una declaracion emitida bajo esa version "
+            "pasaria a validarse contra otro contrato. Si el cambio es deliberado, "
+            "lo que corresponde es abrir la version siguiente."
+        )
