@@ -11,21 +11,33 @@
  * Lo que este archivo NO hace, a proposito: no corre modelos, no ve codigo,
  * no acepta texto fuera del artefacto. Perfil minimizado bienvenido.
  */
-import schema from "../../spec/residue.schema.json";
-import { compilarSchema, validarArtefacto } from "./validar.js";
+import schemaV02 from "../../spec/residue.schema.v0.2.json";
+import schemaV03 from "../../spec/residue.schema.v0.3.json";
+import schemaV04 from "../../spec/residue.schema.v0.4.json";
+import { compilarSchema, validarArtefacto, versionOf } from "./validar.js";
 
 export interface Env {
   DB: D1Database;
   HMAC_SECRET: string;
 }
 
-const validar = compilarSchema(schema as object);
+// Un validador por version conocida: un artefacto se juzga con el schema de la
+// version que declara. Compilando solo la vigente, una declaracion de una
+// version superada fallaba por forma, con los errores de un contrato que no es
+// el suyo, y nunca llegaba a la unica explicacion util. El Worker no tiene
+// filesystem, asi que los recursos se importan uno por uno; que este mapa
+// coincida con el del validador lo verifica una prueba, no la buena memoria.
+export const VALIDADORES = new Map<string, ReturnType<typeof compilarSchema>>(Object.entries({
+  "residue/v0.2": compilarSchema(schemaV02 as object),
+  "residue/v0.3": compilarSchema(schemaV03 as object),
+  "residue/v0.4": compilarSchema(schemaV04 as object),
+}));
 
 // Espejo de CURRENT_SCHEMA en src/disensor/gate.py (G9). El esquema compartido
 // sigue leyendo versiones superadas para que la historia no se reescriba, pero
 // cada POST es una emision presente: el recibo atesta que el artefacto existe
 // ahora, asi que lo que entra declara la version vigente.
-const ESQUEMA_VIGENTE = "residue/v0.3";
+const ESQUEMA_VIGENTE = "residue/v0.4";
 
 const enc = new TextEncoder();
 
@@ -65,6 +77,24 @@ async function organizacionDelToken(env: Env, req: Request): Promise<string | nu
   return fila?.org_id ?? null;
 }
 
+type Recibo = { hash: string; recibido_en: string; firma: string };
+
+async function reciboDe(env: Env, orgId: string, idEvento: string): Promise<Recibo | null> {
+  return await env.DB
+    .prepare("SELECT hash, recibido_en, firma FROM recibos WHERE org_id = ? AND id_evento = ?")
+    .bind(orgId, idEvento)
+    .first<Recibo>();
+}
+
+/** Lo que un evento ya declarado responde: su recibo, o el conflicto. */
+function respuestaDelRecibo(existente: Recibo, hash: string): Response {
+  if (existente.hash === hash) return json({ recibo: existente, repetido: true }, 200);
+  return json({
+    error: "el evento ya fue declarado con otro contenido; los recibos no se reemplazan",
+    recibo_original: existente,
+  }, 409);
+}
+
 async function ingestar(env: Env, req: Request): Promise<Response> {
   const orgId = await organizacionDelToken(env, req);
   if (!orgId) return json({ error: "token invalido o revocado" }, 401);
@@ -80,15 +110,13 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
     return json({ error: "JSON invalido" }, 400);
   }
 
+  const declarada = versionOf(artefacto);
+  // Un Map y no un objeto: en JavaScript `VALIDADORES["toString"]` devuelve
+  // una funcion heredada del prototipo, y el discriminador viene de afuera.
+  const validar = VALIDADORES.get(declarada ?? ESQUEMA_VIGENTE)
+    ?? VALIDADORES.get(ESQUEMA_VIGENTE)!;
   const errores = validarArtefacto(artefacto, validar);
   if (errores.length > 0) return json({ error: "artefacto invalido", errores }, 422);
-
-  if (artefacto.schema !== ESQUEMA_VIGENTE) {
-    return json({
-      error: `el artefacto declara '${artefacto.schema}' y la version vigente es `
-        + `${ESQUEMA_VIGENTE}; las versiones superadas se leen, no se emiten`,
-    }, 422);
-  }
 
   const hash = await sha256Hex(crudo);
   const idEvento: string = artefacto.event.event_id;
@@ -96,34 +124,52 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
   // Idempotencia: el mismo evento con el mismo contenido devuelve el recibo
   // original; el mismo evento con otro contenido es un conflicto, nunca un
   // reemplazo silencioso. Los recibos son de solo agregado.
-  const existente = await env.DB
-    .prepare("SELECT hash, recibido_en, firma FROM recibos WHERE org_id = ? AND id_evento = ?")
-    .bind(orgId, idEvento)
-    .first<{ hash: string; recibido_en: string; firma: string }>();
-  if (existente) {
-    if (existente.hash === hash) {
-      return json({ recibo: existente, repetido: true }, 200);
-    }
+  const yaDeclarado = await reciboDe(env, orgId, idEvento);
+  if (yaDeclarado) return respuestaDelRecibo(yaDeclarado, hash);
+
+  // Recien aca la politica de emision. Va despues de la busqueda del recibo a
+  // proposito: un evento ya declarado devuelve lo que ya se le atesto, aunque
+  // su version haya sido superada desde entonces. Rechazar un reenvio no
+  // protege nada y rompe el reintento de cualquier cliente al que se le corto
+  // la red, en cada bump de version.
+  if (artefacto.schema !== ESQUEMA_VIGENTE) {
     return json({
-      error: "el evento ya fue declarado con otro contenido; los recibos no se reemplazan",
-      recibo_original: existente,
-    }, 409);
+      error: `el artefacto declara '${artefacto.schema}' y la version vigente es `
+        + `${ESQUEMA_VIGENTE}; las versiones superadas se leen, no se emiten`,
+    }, 422);
   }
 
   const recibidoEn = new Date().toISOString();
   const firma = await firmarRecibo(env.HMAC_SECRET, hash, recibidoEn);
   const ev = artefacto.event;
 
-  await env.DB.batch([
-    env.DB.prepare(
-      `INSERT INTO artefactos (org_id, id_evento, hash, esquema, perfil, nivel, compuerta, recibido_en, cuerpo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(orgId, idEvento, hash, artefacto.schema, artefacto.profile,
-           ev.criticality_level, ev.gate, recibidoEn, new TextDecoder().decode(crudo)),
-    env.DB.prepare(
-      `INSERT INTO recibos (org_id, id_evento, hash, recibido_en, firma) VALUES (?, ?, ?, ?, ?)`,
-    ).bind(orgId, idEvento, hash, recibidoEn, firma),
-  ]);
+  try {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO artefactos (org_id, id_evento, hash, esquema, perfil, nivel, compuerta, recibido_en, cuerpo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(orgId, idEvento, hash, artefacto.schema, artefacto.profile,
+             ev.criticality_level, ev.gate, recibidoEn, new TextDecoder().decode(crudo)),
+      env.DB.prepare(
+        `INSERT INTO recibos (org_id, id_evento, hash, recibido_en, firma) VALUES (?, ?, ?, ?, ?)`,
+      ).bind(orgId, idEvento, hash, recibidoEn, firma),
+    ]);
+  } catch (e) {
+    // Dos POST simultaneos del mismo evento pueden ver los dos que no hay
+    // recibo: uno inserta y el otro choca con la clave primaria. Eso no es un
+    // error interno, es la respuesta que la busqueda habria dado un instante
+    // despues, y devolver 500 hace que la idempotencia dependa de que nadie
+    // reintente rapido. Si el recibo aparecio, gana el que lo escribio.
+    const carrera = await reciboDe(env, orgId, idEvento);
+    if (carrera) {
+      // El error original no vuelve al cliente, y sin esto tampoco quedaba en
+      // ningun lado: una escritura que empieza a fallar por otro motivo se
+      // veria como trafico normal mientras haya un recibo detras.
+      console.error("escritura fallida con recibo existente", { idEvento, error: String(e) });
+      return respuestaDelRecibo(carrera, hash);
+    }
+    throw e;
+  }
 
   return json({ recibo: { hash, recibido_en: recibidoEn, firma } }, 201);
 }

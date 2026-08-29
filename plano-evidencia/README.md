@@ -5,7 +5,7 @@ Worker de ingesta en Cloudflare (Workers mas D1) que recibe artefactos de residu
 ## Estado de verificacion
 
 Verificado en este repo:
-- Conformidad del port TypeScript contra las suites de `spec/vectors`, una por versión del esquema: hoy juzga los 35 vectores de v0.3 y declara los 43 de v0.4 como no implementados (`npm run conformidad`): mismo veredicto y mismas etiquetas de regla que la implementacion de referencia en Python, por vector.
+- Conformidad del port TypeScript contra las suites de `spec/vectors`, una por versión del esquema: los 89 vectores de v0.2, v0.3 y v0.4, cada uno bajo las reglas de la versión que declara (`npm run conformidad`): mismo veredicto y mismas etiquetas de regla que la implementacion de referencia en Python, por vector. Más los 21 casos de `spec/version_ordinality.json`, que fijan la forma del identificador de versión y qué reglas alcanzan a qué declaración: es donde las dos implementaciones se habían separado sin que nada lo dijera. El runner falla si una versión conocida no tiene vectores que la declaren, porque si no el claim de dos implementaciones se vacía en silencio.
 - Verificacion cruzada del recibo (`npx tsx scripts/recibo.test.ts`): hash y firma HMAC coinciden con valores calculados por una implementacion independiente en Python.
 - Typecheck estricto (`npm run typecheck`).
 
@@ -17,7 +17,7 @@ No verificado todavia (se estrena con `wrangler dev`): el handler HTTP contra D1
   - `201`: `{ "recibo": { "hash", "recibido_en", "firma" } }`
   - `200` con `repetido: true`: mismo evento, mismo contenido (idempotente).
   - `409`: mismo evento, otro contenido. Los recibos no se reemplazan; se devuelve el original.
-  - `422`: artefacto invalido, con la lista de errores del validador. Tambien si el artefacto declara una version superada del esquema (espejo del G9 del gate): las versiones viejas se leen, no se emiten.
+  - `422`: artefacto invalido, con la lista de errores del validador, que son los del schema de la version que el artefacto declara. Tambien si el artefacto declara una version superada del esquema (espejo del G9 del gate): las versiones viejas se leen, no se emiten. Esa negativa es sobre la EMISION, asi que va despues de la busqueda del recibo: un evento ya declarado devuelve su `200` o su `409` aunque su version haya sido superada desde entonces, porque rechazar un reenvio no protege nada y rompe el reintento de un cliente al que se le corto la red.
   - `401`: token invalido o revocado.
 - `GET /v1/salud`.
 

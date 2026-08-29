@@ -247,3 +247,427 @@ def test_r13_reaches_the_version_that_introduced_it(diff):
     a = copy.deepcopy(diff)
     a["findings"][0]["origin"] = "revisor-que-no-esta"
     assert [e for e in validate_artifact(a) if "R13" in e]
+
+
+# Las formas en que un literal de version puede aparecer en el codigo sin que
+# sea una regla preguntando por una version exacta. Es una lista blanca a
+# proposito: una lista de formas prohibidas siempre va una forma atras, y este
+# defecto ya se colo dos veces por una forma que el patron de turno no cazaba.
+FORMAS_LEGITIMAS = (
+    # La clave de un mapa de versiones conocidas. Va precedida del inicio de la
+    # sentencia o de una llave o coma: sin eso, una comparacion dentro de un `if`
+    # tambien termina en dos puntos y se colaba como si fuera una clave.
+    r'(?:^|[{,] )"residue/v[0-9.]+":',
+    # El argumento `introduced` de la pregunta ordinal, que es la forma correcta.
+    r'applies_from\([^()]*"residue/v[0-9.]+"[^()]*\)',
+    r'appliesFrom\([^()]*"residue/v[0-9.]+"[^()]*\)',
+    # La definicion de las constantes de vigencia, por su nombre y no por su
+    # forma: cualquier constante nueva que envuelva un literal falla esta prueba
+    # y obliga a agregarla aca, que es una decision visible en un diff. Con un
+    # patron generico bastaba escribir SOLO = "residue/v0.4" y comparar contra
+    # eso para volver a tener una regla atada a una version exacta.
+    r'^CURRENT = "residue/v[0-9.]+"$',
+    r'^const ESQUEMA_VIGENTE = "residue/v[0-9.]+";$',
+)
+
+LITERAL_DE_VERSION = r"""["'`]residue/v[0-9]+(?:\.[0-9]+)*["'`]"""
+
+
+def _sentencias(texto):
+    """Las lineas del archivo, con las continuaciones unidas y sin comentarios.
+
+    Dos motivos. Una llamada partida en varias lineas es una sentencia, y
+    juzgarla por lineas marcaba como ilegitimo el uso correcto solo por como
+    estaba formateado. Y un bloque de comentario en la misma linea que codigo
+    dejaba pasar el codigo entero, porque la linea empezaba con el comentario.
+    """
+    import re
+
+    sin_bloque = re.compile(r"/\*.*?\*/")
+    buffer, inicio, saldo = "", 0, 0
+    for n, cruda in enumerate(texto.splitlines(), 1):
+        linea = sin_bloque.sub(" ", cruda).strip()
+        if not buffer:
+            inicio = n
+            # Una linea que es solo comentario o continuacion de docstring no
+            # ejecuta nada. Un comentario al final de una linea de codigo si se
+            # mira: un literal ahi tambien hay que justificarlo.
+            if linea.startswith(("#", "//", "*")):
+                continue
+        buffer = f"{buffer} {linea}".strip() if buffer else linea
+        saldo += linea.count("(") - linea.count(")")
+        if saldo <= 0:
+            if buffer:
+                yield inicio, buffer
+            buffer, saldo = "", 0
+    if buffer:
+        yield inicio, buffer
+
+
+def _apariciones_ilegitimas(fuentes, raiz):
+    """Toda aparicion de un literal de version que no este en una forma conocida.
+
+    Por APARICION y no por linea: decidir por linea perdonaba todas las
+    apariciones de una sentencia con tal de que una fuera legitima, asi que
+    `applies_from(a["schema"], "residue/v0.4") and a["schema"] == "residue/v0.4"`
+    pasaba en verde. Se tachan las apariciones cubiertas y se mira lo que queda.
+    """
+    import re
+
+    literal = re.compile(LITERAL_DE_VERSION)
+    legitimas = [re.compile(f) for f in FORMAS_LEGITIMAS]
+    fuera = []
+    for p in fuentes:
+        for n, sentencia in _sentencias(p.read_text(encoding="utf-8")):
+            if not literal.search(sentencia):
+                continue
+            resto = sentencia
+            for f in legitimas:
+                resto = f.sub(" ", resto)
+            if literal.search(resto):
+                fuera.append(f"{p.relative_to(raiz).as_posix()}:{n}: {sentencia}")
+    return fuera
+
+
+def _fuentes(raiz):
+    # Toda fuente ejecutable, no una lista de tres archivos ni una extension:
+    # una comparacion literal en un modulo nuevo, en un submodulo anidado o en
+    # un archivo con otra extension es el mismo defecto.
+    return [
+        *sorted((raiz / "src/disensor").rglob("*.py")),
+        *sorted(q for e in ("*.ts", "*.tsx", "*.js", "*.mjs", "*.cjs")
+                for q in (raiz / "plano-evidencia/src").rglob(e)),
+        *sorted(q for e in ("*.ts", "*.tsx", "*.js", "*.mjs", "*.cjs")
+                for q in (raiz / "plano-evidencia/scripts").rglob(e)),
+    ]
+
+
+def test_no_literal_version_comparison_in_any_source():
+    """Ninguna fuente se pregunta si un artefacto ES una version exacta.
+
+    Una comparacion contra un literal se lee como "esta regla vale desde v0.4" y
+    significa "vale SOLO en v0.4": el dia que se abra la siguiente, el artefacto
+    cae al camino de las versiones anteriores, la forma nueva de la regla
+    desaparece y ninguna prueba falla. La pregunta correcta es ordinal.
+
+    Comparar contra la CONSTANTE de vigencia es otra cosa y es legitima: no
+    pregunta que reglas aplican sino si algo puede EMITIRSE hoy, que es
+    exactamente una igualdad (G9, y la politica de la ingesta). Por eso lo que se
+    persigue es el literal y no el operador.
+
+    Lo que esta guardia NO puede cubrir, y queda dicho: es sintactica y mira
+    fuentes, asi que un literal armado en tiempo de ejecucion (concatenado,
+    formateado, leido de un archivo) le pasa por al lado. Lo que si cubre, desde
+    que las constantes de vigencia se listan por nombre y no por forma, es la
+    constante auxiliar: agregar una obliga a tocar esta lista, y eso se ve.
+    """
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[1]
+    fuentes = _fuentes(raiz)
+    assert len(fuentes) > 10, fuentes
+    fuera = _apariciones_ilegitimas(fuentes, raiz)
+    assert not fuera, (
+        "un literal de version fuera de las formas conocidas; si es legitimo, va a "
+        "FORMAS_LEGITIMAS con su motivo:\n" + "\n".join(fuera)
+    )
+
+
+def test_the_guard_catches_every_form_the_defect_had(tmp_path):
+    """La guardia se verifica contra las formas que tuvo y las que le señalaron.
+
+    Una guardia que no se prueba contra su propio defecto es una linea que
+    tranquiliza y no sostiene nada: la primera version pasaba en verde ante la
+    mitad de esta lista y la segunda ante un tercio.
+    """
+    reintroducciones = [
+        'if a["schema"] == "residue/v0.4":',
+        "if a['schema'] == 'residue/v0.5':",
+        'if (a.schema === "residue/v0.4") {',
+        'if "residue/v0.5" == a["schema"]:',
+        'if a["schema"] != "residue/v0.5":',
+        'if (a.schema !== "residue/v0.4") {',
+        '        case "residue/v0.4":',
+        'if a["schema"] in {"residue/v0.4"}:',
+        'if a["schema"] == ("residue/v0.4"):',
+        'if (["residue/v0.4"].includes(a.schema)) {',
+        "if (a.schema === `residue/v0.4`) {",
+        'if a["schema"] == "residue/v0.4.0":',
+        # La constante auxiliar, que era el limite declarado de la version
+        # anterior de esta guardia: al listar las de vigencia por nombre en vez
+        # de por forma, una constante nueva ya no entra sin que se vea.
+        'SOLO_V04 = "residue/v0.4"',
+        'SOLO = "residue/v0.4"',
+        'const SOLO = "residue/v0.4";',
+        # Escondida en una sentencia que ya tiene un uso legitimo: decidir por
+        # linea perdonaba todas las apariciones con tal de que una estuviera
+        # bien, asi que esto pasaba en verde.
+        'if applies_from(a["schema"], "residue/v0.4") and a["schema"] == "residue/v0.4":',
+        # Y detras de un bloque de comentario en la misma linea, que hacia que
+        # la linea entera se saltara por como empezaba.
+        '/* nota */ if (a.schema === "residue/v0.4") {',
+    ]
+    legitimas = [
+        'if applies_from(a["schema"], "residue/v0.4"):',
+        'if (appliesFrom(a.schema, "residue/v0.4")) {',
+        "if not artifact.errors and declared_version != CURRENT_SCHEMA:",
+        "if (artefacto.schema !== ESQUEMA_VIGENTE) {",
+        '    "residue/v0.4": "residue.schema.v0.4.json",',
+        'CURRENT = "residue/v0.4"',
+        'const ESQUEMA_VIGENTE = "residue/v0.4";',
+        '# El comentario puede nombrar "residue/v0.4" sin que sea una regla.',
+        # El uso correcto formateado en varias lineas: la guardia no puede
+        # depender de donde cayeron los saltos.
+        'if applies_from(\n    a["schema"],\n    "residue/v0.4",\n):',
+        # La clave de un mapa que se construye dentro de una llamada.
+        'const V = new Map(Object.entries({\n  "residue/v0.4": compilar(x),\n}));',
+    ]
+
+    def caza(texto: str) -> bool:
+        f = tmp_path / "fuente.py"
+        f.write_text(texto, encoding="utf-8")
+        return bool(_apariciones_ilegitimas([f], tmp_path))
+
+    for forma in reintroducciones:
+        assert caza(forma), f"la guardia no caza: {forma}"
+    for forma in legitimas:
+        assert not caza(forma), f"la guardia molesta a: {forma}"
+
+
+def test_ordinality_does_not_go_through_a_derived_order():
+    """La ordinalidad compara claves; no busca posiciones en un orden.
+
+    Salia de la posicion en el diccionario, o sea del orden en que alguien
+    escribio las lineas, y la primera prueba que escribi para eso pasaba igual
+    con la derivacion regresada: el diccionario ya estaba escrito en orden, asi
+    que ordenarlo o no daba lo mismo y la prueba no distinguia. Mientras exista
+    un orden derivado hay un lugar donde equivocarse, asi que no hay: se comparan
+    las claves numericas, y esta prueba mira que el codigo lo haga.
+    """
+    import re
+    from pathlib import Path
+
+    from disensor.rules import ORDER, _version_key
+
+    assert _version_key("residue/v0.10") > _version_key("residue/v0.9")
+    assert sorted(["residue/v0.10", "residue/v0.9"]) == ["residue/v0.10", "residue/v0.9"]
+    assert list(ORDER) == sorted(ORDER, key=_version_key)
+
+    raiz = Path(__file__).resolve().parents[1]
+    for fuente, funcion in (("src/disensor/rules.py", "def applies_from"),
+                            ("plano-evidencia/src/validar.ts", "export function appliesFrom")):
+        texto = (raiz / fuente).read_text(encoding="utf-8")
+        cuerpo = texto[texto.index(funcion):]
+        cuerpo = cuerpo[:cuerpo.index("\n\n\n")] if "\n\n\n" in cuerpo else cuerpo
+        # Nombrar ORDER para armar un mensaje es inocuo; buscar una POSICION en
+        # el es la forma que tenia el defecto.
+        assert not re.search(r"\bORDER\.(index|indexOf)\b", cuerpo), (
+            f"{fuente}: la ordinalidad volvio a pasar por un orden derivado, que "
+            "es un lugar donde equivocarse sin que nada falle"
+        )
+        assert "ersionKey" in cuerpo or "_version_key" in cuerpo, fuente
+
+
+def test_the_evidence_plane_knows_the_same_versions_as_the_reference():
+    """Abrir una version nueva sin llevar el port y la ingesta es una falla.
+
+    Son cuatro lugares que tienen que moverse juntos: SCHEMA_FILES de la
+    referencia, el del port, los recursos que el Worker importa uno por uno
+    porque no tiene filesystem, y la version que la ingesta acepta emitir. Nada
+    los ataba: el port se quedo dos versiones atras y lo que lo delato fue que
+    la ingesta rechazaba el cien por ciento de lo que el CLI emite.
+    """
+    import re
+    from pathlib import Path
+
+    from disensor.rules import CURRENT, SCHEMA_FILES
+
+    raiz = Path(__file__).resolve().parents[1]
+    port = (raiz / "plano-evidencia/src/validar.ts").read_text(encoding="utf-8")
+    worker = (raiz / "plano-evidencia/src/index.ts").read_text(encoding="utf-8")
+
+    def mapa(texto, declaracion, valor):
+        """El bloque de un mapa a nivel de modulo, hasta su cierre en columna cero.
+
+        Cortar en el primer `};` alcanzaba para el mapa actual y dejaba pasar
+        cualquier cosa escrita despues; el cierre de una declaracion de modulo
+        esta al principio de la linea.
+        """
+        assert texto.count(declaracion) == 1, declaracion
+        bloque = texto[texto.index(declaracion):]
+        fin = re.search(r"^\};", bloque, re.M)
+        assert fin, declaracion
+        return dict(re.findall(valor, bloque[:fin.start()]))
+
+    assert mapa(port, "export const SCHEMA_FILES", r'"(residue/v[^"]+)":\s*"([^"]+)"') == SCHEMA_FILES
+
+    declaradas = mapa(worker, "export const VALIDADORES",
+                      r'"(residue/v[^"]+)":\s*compilarSchema\((\w+)')
+    assert sorted(declaradas) == sorted(SCHEMA_FILES)
+    for version, simbolo in declaradas.items():
+        # El path entero, no el nombre final: dos archivos distintos pueden
+        # llamarse igual en directorios distintos.
+        importado = re.search(rf'^import {simbolo} from "([^"]+)";$', worker, re.M)
+        assert importado, f"{simbolo} no se importa"
+        assert importado.group(1) == f"../../spec/{SCHEMA_FILES[version]}", (
+            version, importado.group(1))
+
+    vigente = re.findall(r'^const ESQUEMA_VIGENTE = "([^"]+)";$', worker, re.M)
+    assert vigente == [CURRENT], vigente
+
+
+def test_a_frozen_version_is_never_dropped():
+    """Ningun recurso congelado sale del mapa de versiones conocidas.
+
+    La ingesta valida antes de buscar el recibo, asi que un artefacto ya atestado
+    solo puede devolver su recibo mientras su version siga siendo validable. Eso
+    convierte "las versiones congeladas se leen para siempre" en una invariante
+    de la que depende la idempotencia, y una invariante de la que algo depende
+    tiene que estar sostenida por algo mas que la costumbre.
+    """
+    import re
+    from pathlib import Path
+
+    from disensor.rules import SCHEMA_FILES
+
+    raiz = Path(__file__).resolve().parents[1]
+    congelados = sorted(p.name for p in (raiz / "spec").glob("residue.schema.v*.json"))
+    assert congelados, "no hay recursos congelados"
+    assert sorted(SCHEMA_FILES.values()) == congelados, (
+        "hay un schema congelado que el mapa de versiones no conoce, o al reves; "
+        "sacar una version del mapa rompe la idempotencia de todo lo ya atestado "
+        "bajo ella"
+    )
+
+    # Y atada a la evidencia, no solo a los archivos: borrar el recurso y sacarlo
+    # del mapa en el mismo movimiento pasaba la comparacion de arriba. Toda
+    # version que alguna declaracion emitida haya usado tiene que seguir siendo
+    # validable, que es de lo que la promesa habla.
+    emitidas = {json.loads(p.read_text(encoding="utf-8")).get("schema")
+                for p in (raiz / ".residue").glob("*.json")}
+    emitidas.discard(None)
+    assert emitidas, "no hay declaraciones en el corpus"
+    assert emitidas <= set(SCHEMA_FILES), (
+        f"hay declaraciones emitidas bajo {sorted(emitidas - set(SCHEMA_FILES))}, que este "
+        "disensor ya no sabe validar: la evidencia dejo de poder verificarse"
+    )
+    for version, archivo in SCHEMA_FILES.items():
+        assert archivo == f"residue.schema.{version.split('/')[1]}.json", (version, archivo)
+        # Y cada recurso se declara a si mismo: el discriminador que el archivo
+        # exige es la version bajo la que esta archivado.
+        texto = (raiz / "spec" / archivo).read_text(encoding="utf-8")
+        declara = re.search(r'"schema":\s*\{[^}]*"const":\s*"([^"]+)"', texto)
+        assert declara and declara.group(1) == version, (archivo, declara)
+
+
+def test_an_unhashable_schema_is_rejected_and_does_not_crash():
+    """El discriminador puede ser cualquier cosa: JSON entra de afuera.
+
+    `declared not in SCHEMA_FILES` con una lista o un objeto reventaba con
+    TypeError en vez de devolver el error de schema, y ni el CLI ni el gate lo
+    atrapan: un artefacto de tres bytes tumbaba el proceso.
+    """
+    for basura in ([1, 2], {"a": 1}, 3, None, True):
+        errores = validate_artifact({"schema": basura})
+        assert errores and errores[0].startswith("[schema]"), (basura, errores)
+
+
+def test_shared_vectors_of_identifier_form_and_ordinality():
+    """La forma del identificador y la ordinalidad se verifican con vectores.
+
+    Es como se verifica todo el resto del contrato, y era justo lo que estas dos
+    cosas no tenian: la equivalencia entre las dos implementaciones se habia
+    establecido leyendo las dos, y ahi fue donde los parsers se separaron sin que
+    nada lo dijera. El port leia `residue/v0.` como (0, 0) y `residue/v0.1e1`
+    como (0, 10); esta implementacion los rechaza.
+    """
+    import json
+    from pathlib import Path
+
+    from disensor.rules import _version_key, applies_from
+
+    raiz = Path(__file__).resolve().parents[1]
+    casos = json.loads((raiz / "spec/version_ordinality.json").read_text(encoding="utf-8"))
+
+    for c in casos["form"]:
+        try:
+            _version_key(c["id"])
+            acepta = True
+        except ValueError:
+            acepta = False
+        assert acepta == c["valid"], (c, acepta)
+
+    for c in casos["ordinality"]:
+        if c.get("raises"):
+            with pytest.raises(ValueError):
+                applies_from(c["declared"], c["introduced"])
+        else:
+            assert applies_from(c["declared"], c["introduced"]) == c["applies"], c
+
+
+def test_every_vector_suite_declares_its_own_contents():
+    """Cada suite dice que version es y que vectores tiene, en el mismo formato.
+
+    El indice es lo que el generador lee para negarse a escribir encima de una
+    suite de otra version. Una suite con el indice en otra forma no lo protege, y
+    la primera que escribi a mano tenia el conteo donde va la lista.
+    """
+    import json
+    from pathlib import Path
+
+    from disensor.rules import SCHEMA_FILES
+
+    raiz = Path(__file__).resolve().parents[1]
+    suites = sorted(p for p in (raiz / "spec/vectors").iterdir() if p.is_dir())
+    assert {p.name for p in suites} == {v.split("/")[1] for v in SCHEMA_FILES}, [p.name for p in suites]
+
+    for suite in suites:
+        indice = json.loads((suite / "index.json").read_text(encoding="utf-8"))
+        nombres = sorted(p.stem for p in suite.glob("*.json") if p.name != "index.json")
+        assert indice["schema"] == f"residue/{suite.name}", (suite.name, indice["schema"])
+        assert sorted(indice["vectors"]) == nombres, suite.name
+        assert nombres, suite.name
+        for nombre in nombres:
+            vector = json.loads((suite / f"{nombre}.json").read_text(encoding="utf-8"))
+            assert vector["name"] == nombre, (suite.name, nombre)
+            assert vector["artifact"]["schema"] == indice["schema"], (suite.name, nombre)
+
+
+def test_the_frozen_resources_still_have_the_content_they_were_frozen_with():
+    """Congelado quiere decir por contenido, no solo por nombre.
+
+    Editar uno de estos archivos dejando el nombre y el discriminador como
+    estaban cambia el contrato de toda la evidencia emitida bajo esa version, y
+    la unica comprobacion que habia comparaba los archivos entre si: editar las
+    dos copias pasaba. Un registro del contenido lo hace verificable.
+
+    Si una version tiene que cambiar de verdad, no se edita: se abre la
+    siguiente. Tocar esta lista es decir lo contrario, y por eso se ve en el
+    diff.
+    """
+    import hashlib
+    from pathlib import Path
+
+    from disensor.rules import SCHEMA_FILES
+
+    raiz = Path(__file__).resolve().parents[1]
+    registro = {}
+    for linea in (raiz / "spec/frozen.sha256").read_text(encoding="utf-8").splitlines():
+        if linea.startswith("#") or not linea.strip():
+            continue
+        h, ruta = linea.split(None, 1)
+        registro[ruta.strip()] = h
+
+    esperadas = {f"{base}/{archivo}"
+                 for archivo in SCHEMA_FILES.values()
+                 for base in ("spec", "src/disensor")}
+    assert set(registro) == esperadas, (
+        "el registro de recursos congelados no cubre exactamente los schemas conocidos"
+    )
+    for ruta, h in sorted(registro.items()):
+        real = hashlib.sha256((raiz / ruta).read_bytes()).hexdigest()
+        assert real == h, (
+            f"{ruta} cambio de contenido: una declaracion emitida bajo esa version "
+            "pasaria a validarse contra otro contrato. Si el cambio es deliberado, "
+            "lo que corresponde es abrir la version siguiente."
+        )

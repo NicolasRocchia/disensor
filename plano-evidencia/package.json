@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "conformidad": "tsx scripts/conformidad.ts",
+    "test": "tsx scripts/ingesta.test.ts && tsx scripts/recibo.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],

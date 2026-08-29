@@ -1,5 +1,5 @@
 /**
- * TypeScript port of the residue artifact validator (schema v0.2 and v0.3).
+ * TypeScript port of the residue artifact validator (schema v0.2 to v0.4).
  *
  * Mirror of src/disensor/rules.py (the Python reference implementation).
  * Parity is not ensured by reading the code: it is ensured by running the
@@ -143,10 +143,57 @@ export function erroresReglas(a: Artifact): string[] {
   }
 
   // R4: decorrelation between generator and reviewers.
+  //
+  // Two shapes, dispatched by the declared version. Up to v0.3 it is absolute:
+  // same family is a violation, and a round without a second family cannot be
+  // declared at all. From v0.4 independence is always DECLARED, and the rule
+  // checks that what was declared matches the families and models the
+  // declaration names, with its own minimums per level and its own residue.
   const genFamily: string = a.actors.generator.family;
-  for (const r of a.actors.reviewers) {
-    if (r.family === genFamily) {
-      error("R4", `reviewer ${r.reviewer_id} shares family (${genFamily}) with the generator: no decorrelation`);
+  if (appliesFrom(a.schema, "residue/v0.4")) {
+    const refs = new Set(
+      items
+        .filter((i: any) => i.class === "reviewer_correlation" || i.class === "reviewer_hardening_gap")
+        .map((i: any) => `${i.class}|${i.reviewer_ref}`),
+    );
+    const genModel = a.actors.generator.model;
+    for (const r of a.actors.reviewers) {
+      const rid = r.reviewer_id;
+      const independence = r.independence;
+      const distinta = r.family !== genFamily;
+
+      if (independence === "cross_family" && !distinta) {
+        error("R4", `reviewer ${rid} declares cross_family and shares family (${genFamily}) with the generator`);
+      }
+      if (independence === "same_family_distinct_model" && r.model === genModel) {
+        error("R4", `reviewer ${rid} declares same_family_distinct_model with the same model as the generator: that is same_model_fresh_context`);
+      }
+      if (independence === "same_model_fresh_context" && r.model !== genModel) {
+        error("R4", `reviewer ${rid} declares same_model_fresh_context with model '${r.model}' while the generator declares '${genModel}'`);
+      }
+      if (independence !== "cross_family" && distinta) {
+        error("R4", `reviewer ${rid} declares ${independence} and comes from a different family (${r.family} vs ${genFamily}): declared independence has to match the families declared`);
+      }
+      if (independence !== "cross_family") {
+        if (level === "A") {
+          error("R4", `reviewer ${rid}: Level A demands cross_family. A degraded mode is declarable, not admissible at the level the protocol reserves for what cannot be undone`);
+        }
+        if (!("fallback_reason" in r)) {
+          error("R4", `reviewer ${rid}: independence below cross_family without fallback_reason. Why the round settled for less is part of what happened`);
+        }
+        if (!refs.has(`reviewer_correlation|${rid}`)) {
+          error("R11", `reviewer ${rid}: independence ${independence} without a reviewer_correlation residue item naming it. The errors the reviewer shares with the generator were not covered by this round, and that is residue`);
+        }
+      }
+      if (r.hardening === "unverified" && !refs.has(`reviewer_hardening_gap|${rid}`)) {
+        error("R12", `reviewer ${rid}: unverified hardening without a reviewer_hardening_gap residue item naming it. The reviewed material could have addressed the reviewer before the brief did`);
+      }
+    }
+  } else {
+    for (const r of a.actors.reviewers) {
+      if (r.family === genFamily) {
+        error("R4", `reviewer ${r.reviewer_id} shares family (${genFamily}) with the generator: no decorrelation`);
+      }
     }
   }
 
@@ -195,10 +242,9 @@ export function erroresReglas(a: Artifact): string[] {
   // exactly what an audit record cannot afford.
   // Desde residue/v0.4, que es la version vigente cuando se introdujo: una
   // declaracion emitida bajo un identificador anterior se sigue juzgando con las
-  // reglas de su contrato. Este port soporta hasta v0.3, asi que hoy no alcanza
-  // a nada; queda escrita para cuando aprenda la version que la introdujo.
+  // reglas de su contrato.
   const idsRevisores = (a.actors?.reviewers ?? []).map((r: any) => r.reviewer_id);
-  if (a.schema === "residue/v0.4") {
+  if (appliesFrom(a.schema, "residue/v0.4")) {
   const grupos: Array<[string, any[]]> = [
     ["reviewer_id", idsRevisores],
     ["finding id", findings.map((h: any) => h.id)],
@@ -282,6 +328,7 @@ export function erroresReglas(a: Artifact): string[] {
 export const SCHEMA_FILES: Record<string, string> = {
   "residue/v0.2": "residue.schema.v0.2.json",
   "residue/v0.3": "residue.schema.v0.3.json",
+  "residue/v0.4": "residue.schema.v0.4.json",
 };
 
 /**
@@ -292,6 +339,66 @@ export const SCHEMA_FILES: Record<string, string> = {
  * rules that version added. A stated limit beats a verdict that does not hold.
  */
 export const SUPPORTED = new Set(Object.keys(SCHEMA_FILES));
+
+/**
+ * Whether a rule introduced in `introduced` reaches an artifact declaring
+ * `declared`. A rule is introduced in one version and holds from there on: an
+ * equality against the current version would silently drop the rule's newer
+ * shape the day the next version opens, with nothing failing to say so.
+ */
+/**
+ * The form of a schema identifier: `residue/v<major>.<minor>`, two numeric
+ * components and nothing else. Without it this port read `residue/v0.` as
+ * (0, 0) and `residue/v0.1e1` as (0, 10), both of which the reference rejects,
+ * and two parsers that disagree disagree about which rules apply. No leading
+ * zeros: `v0.04` and `v0.4` would be two spellings of one version, and a
+ * frozen identifier has one.
+ */
+const VERSION_FORM = /^residue\/v(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
+export function versionKeyOf(id: string): [number, number] {
+  const m = VERSION_FORM.exec(id);
+  if (m === null) {
+    throw new Error(`'${id}' is not a schema identifier: the form is residue/v<major>.<minor>`);
+  }
+  return [Number(m[1]), Number(m[2])];
+}
+
+/**
+ * The known versions in order, for messages and for whoever needs it. Ordinality
+ * is NOT resolved by looking up positions here: a derived order is a place to be
+ * wrong, and a test over it passes just the same with the derivation broken as
+ * long as the map happens to be written in order. The keys get compared.
+ */
+export const ORDER: string[] = Object.keys(SCHEMA_FILES).sort((a, b) => {
+  const [ma, na] = versionKeyOf(a);
+  const [mb, nb] = versionKeyOf(b);
+  return ma !== mb ? ma - mb : na - nb;
+});
+
+/**
+ * Whether a rule introduced in `introduced` reaches an artifact declaring
+ * `declared`. A rule is introduced in one version and holds from there on: an
+ * equality against the current version would silently drop the rule's newer
+ * shape the day the next version opens, with nothing failing to say so.
+ *
+ * `declared` comes from the artifact, from outside: unknown is false, and the
+ * dispatch rejects it on its own. `introduced` is written by whoever programs
+ * the rule: a typo there would silently disable the rule for every version, so
+ * it throws.
+ */
+export function appliesFrom(declared: string, introduced: string): boolean {
+  if (!SUPPORTED.has(introduced)) {
+    throw new Error(
+      `rule introduced in '${introduced}', which is not a known schema version `
+      + `(${ORDER.join(", ")}). A typo here would silently disable the rule for every version.`,
+    );
+  }
+  if (!SUPPORTED.has(declared)) return false;
+  const [md, nd] = versionKeyOf(declared);
+  const [mi, ni] = versionKeyOf(introduced);
+  return md !== mi ? md > mi : nd >= ni;
+}
 
 export function versionOf(a: Artifact): string | null {
   if (a === null || typeof a !== "object" || Array.isArray(a)) return null;
@@ -311,8 +418,9 @@ export function validarArtefacto(a: Artifact, validar: ValidateFunction): string
       && typeof a.esquema === "string" && a.esquema.startsWith("residuo/")) {
     return [
       "[schema] artifact declares 'esquema: residuo/v0.1' (Spanish keys). "
-      + "This validator checks residue/v0.3, which renamed every key and enum "
-      + "to English. See the ES-EN glossary in the repository README to migrate.",
+      + `This validator checks ${[...SUPPORTED].join(", ")}, which renamed every `
+      + "key and enum to English. See the ES-EN glossary in the repository README "
+      + "to migrate.",
     ];
   }
   const es = erroresSchema(a, validar);

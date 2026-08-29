@@ -1,0 +1,16 @@
+# Los recursos congelados, por su contenido.
+#
+# Congelado quiere decir que una declaracion emitida bajo ese identificador se
+# valida siempre contra el mismo contrato. Hasta aca la palabra la sostenia la
+# costumbre: editar uno de estos archivos dejando el nombre y el discriminador
+# como estaban cambiaba el contrato de toda la evidencia emitida bajo esa
+# version sin que nada lo dijera. Con esto es verificable.
+#
+# Cada version esta dos veces: el recurso de la especificacion y la copia que
+# viaja dentro del paquete, que tienen que ser identicos.
+3264f82ccb9623f2068e9f4d6047a6c8e0b9aa28014b3a4fda36ddd6b3e9c916  spec/residue.schema.v0.2.json
+3264f82ccb9623f2068e9f4d6047a6c8e0b9aa28014b3a4fda36ddd6b3e9c916  src/disensor/residue.schema.v0.2.json
+63a67bd0e70c86057d1af0d23a21af7afb18402420c4a6071f37d48ae2a66b23  spec/residue.schema.v0.3.json
+63a67bd0e70c86057d1af0d23a21af7afb18402420c4a6071f37d48ae2a66b23  src/disensor/residue.schema.v0.3.json
+c54daa585125a535a05e3ffe155bd1107bcc3a60febd5c3f6ad16d295196b998  spec/residue.schema.v0.4.json
+c54daa585125a535a05e3ffe155bd1107bcc3a60febd5c3f6ad16d295196b998  src/disensor/residue.schema.v0.4.json

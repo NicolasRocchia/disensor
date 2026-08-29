@@ -11,6 +11,7 @@ the only real defense against cosmetic compliance.
 from __future__ import annotations
 
 import json
+import re
 from importlib import resources
 
 from jsonschema import Draft202012Validator
@@ -50,7 +51,39 @@ SCHEMA_FILES = {
 }
 
 
-ORDER = tuple(SCHEMA_FILES)
+# La forma de un identificador de version, para que las dos implementaciones
+# parseen lo mismo: `residue/v<mayor>.<menor>`, dos componentes numericos y nada
+# mas. Sin esto, el port aceptaba `residue/v0.` como (0, 0) y `residue/v0.1e1`
+# como (0, 10), que aca revientan: dos parsers que difieren difieren en que
+# reglas aplican. Sin ceros a la izquierda: `v0.04` y `v0.4` serian dos
+# escrituras de la misma version, y un identificador congelado tiene una.
+# Digitos ASCII explicitos y fullmatch, no `\d` ni `match`: el primero acepta
+# cualquier digito Unicode y el segundo deja pasar un salto de linea final,
+# dos bordes donde este parser aceptaba lo que el del port rechaza.
+VERSION_FORM = re.compile(r"residue/v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
+
+
+def _version_key(identificador: str) -> tuple[int, int]:
+    """Los numeros del identificador, para compararlo con otro.
+
+    Ni el orden de escritura ni el alfabetico sirven como orden de versiones: el
+    primero convierte el formato del archivo en semantica, y el segundo pone
+    v0.10 antes que v0.2.
+    """
+    m = VERSION_FORM.fullmatch(identificador)
+    if m is None:
+        raise ValueError(
+            f"{identificador!r} is not a schema identifier: the form is "
+            "residue/v<major>.<minor>"
+        )
+    return int(m.group(1)), int(m.group(2))
+
+
+# Las versiones conocidas en orden, para los mensajes y para quien lo necesite.
+# La ordinalidad NO se resuelve buscando posiciones aca: un orden derivado es un
+# lugar donde equivocarse, y una prueba sobre el pasa igual con la derivacion
+# rota mientras el diccionario este escrito en orden. Se comparan las claves.
+ORDER = tuple(sorted(SCHEMA_FILES, key=_version_key))
 
 
 def applies_from(declared: str, introduced: str) -> bool:
@@ -60,10 +93,21 @@ def applies_from(declared: str, introduced: str) -> bool:
     endurecer una regla reescribe el contrato de los identificadores congelados
     y una declaracion emitida bajo el suyo pasa de valida a invalida al
     actualizar el paquete, que es justo lo que el README promete que no ocurre.
+
+    `declared` viene del artefacto, o sea de afuera: desconocido es False, y el
+    despacho lo rechaza por su lado. `introduced` lo escribe quien programa la
+    regla: equivocarlo apagaria la regla para todas las versiones sin que nada
+    avise, asi que grita.
     """
-    if declared not in ORDER or introduced not in ORDER:
+    if introduced not in SCHEMA_FILES:
+        raise ValueError(
+            f"rule introduced in {introduced!r}, which is not a known schema "
+            f"version ({', '.join(ORDER)}). A typo here would silently disable "
+            "the rule for every version."
+        )
+    if declared not in SCHEMA_FILES:
         return False
-    return ORDER.index(declared) >= ORDER.index(introduced)
+    return _version_key(declared) >= _version_key(introduced)
 
 
 def load_schema(version: str | None = None) -> dict:
@@ -261,7 +305,7 @@ def rule_errors(a: dict) -> list[str]:
     # familias declaradas; el minimo exigible por nivel lo fija la politica, y
     # cualquier cosa por debajo de cross_family arrastra su propio residuo.
     gen_family = a["actors"]["generator"]["family"]
-    if a["schema"] == "residue/v0.4":
+    if applies_from(a["schema"], "residue/v0.4"):
         _independence_errors(a, gen_family, error)
     else:
         for r in a["actors"]["reviewers"]:
@@ -392,7 +436,11 @@ def validate_artifact(artifact: dict, schema: dict | None = None) -> list[str]:
         ]
     if schema is None:
         declared = artifact.get("schema") if isinstance(artifact, dict) else None
-        if declared not in SCHEMA_FILES:
+        # El discriminador viene de afuera y puede ser cualquier cosa: una lista
+        # o un objeto reventaban la busqueda con TypeError, y ni el CLI ni el
+        # gate lo atrapan. Un artefacto de tres bytes tumbaba el proceso en vez
+        # de recibir el error que le corresponde.
+        if not isinstance(declared, str) or declared not in SCHEMA_FILES:
             conocidas = ", ".join(sorted(SCHEMA_FILES))
             return [
                 f"[schema] the artifact declares schema {declared!r}, which this disensor does "

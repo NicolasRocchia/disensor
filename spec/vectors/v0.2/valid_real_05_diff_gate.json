@@ -1,0 +1,202 @@
+{
+  "name": "valid_real_05_diff_gate",
+  "artifact": {
+    "schema": "residue/v0.2",
+    "profile": "full",
+    "event": {
+      "event_id": "5bbfa9b8-f6cd-4697-bb2e-91e831533ffa",
+      "created_at": "2026-08-13T20:30:00-03:00",
+      "repository": "https://github.com/NicolasRocchia/disensor.git",
+      "head_commit": "1a9c698867210bd43dd9977d43a0724f5898972a",
+      "base_commit": "2404e6e9d91d495a5b88fad14b3deb61016e3c12",
+      "gate": "diff",
+      "criticality_level": "B",
+      "abbreviated_path": {
+        "used": false
+      }
+    },
+    "actors": {
+      "generator": {
+        "family": "anthropic",
+        "model": "claude-code"
+      },
+      "reviewers": [
+        {
+          "reviewer_id": "r1",
+          "family": "openai",
+          "model": "codex-cli",
+          "prompt_hash": "sha256:4be028cdc71597228655a122287209b222c88babbd0ad2105a421e706a9cca25",
+          "confinement": {
+            "mode": "read_only_by_instruction",
+            "verified": true,
+            "verification_method": "clean_git_status"
+          }
+        }
+      ],
+      "human_arbiter": {
+        "present": true
+      }
+    },
+    "findings": [
+      {
+        "id": "h1",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "Las consignas optimizaban agresividad verbal y no disciplina probatoria",
+        "description": "Pedir ser despiadado y no buscar balance no compra mejores hallazgos, compra hallazgos plausibles. Cada falso positivo lo paga el generador verificandolo contra el codigo, y el esquema obliga a registrar cada punto levantado.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado sobre el texto de las tres consignas."
+        },
+        "remedy_adjustment": "Se reemplaza el tono por una carga de prueba explicita: algo es hallazgo solo con invariante violado, entrada alcanzable y evidencia.",
+        "fix_verification": {
+          "type": "specific_test",
+          "reference": "tests/test_brief.py::test_the_brief_demands_evidence_instead_of_volume"
+        }
+      },
+      {
+        "id": "h2",
+        "origin": "r1",
+        "severity": "major",
+        "title": "No se decia que cero hallazgos es un resultado valido",
+        "description": "Sin decirlo, quedaba una cuota implicita de defectos: el revisor entiende que tiene que traer algo.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado sobre el texto de las tres consignas."
+        },
+        "fix_verification": {
+          "type": "specific_test",
+          "reference": "tests/test_brief.py::test_the_brief_demands_evidence_instead_of_volume"
+        }
+      },
+      {
+        "id": "h3",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "El material revisado se trataba como instruccion y no como dato",
+        "description": "Un comentario, un README o un mensaje de commit que le hable al revisor podia redirigir la revision. En una herramienta cuyo punto es que el revisor no se deje convencer, era un hueco raro.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado sobre el texto de las tres consignas."
+        },
+        "fix_verification": {
+          "type": "specific_test",
+          "reference": "tests/test_brief.py::test_the_brief_defends_the_reviewer_from_the_material"
+        }
+      },
+      {
+        "id": "h4",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "Tres salidas elegantes que suavizaban el ataque hacia el generador",
+        "description": "En plan, lo faltante contaba solo si no estaba declarado fuera de alcance. En diff, una regresion contaba solo si no estaba declarada, y lo bloqueante era solo lo que llegaria roto a produccion. Cada una era una excusa para no reportar, escritas por la familia que despues iba a ser atacada.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado sobre el texto de las consignas de plan y diff."
+        },
+        "remedy_adjustment": "Si algo es load bearing se reporta aunque este excluido a proposito: que la exclusion se sostenga es decision del dueno y no se puede tomar si el revisor calla.",
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "src/disensor/prompts/, revisado en la ronda siguiente de este mismo PR"
+        }
+      },
+      {
+        "id": "h5",
+        "origin": "r1",
+        "severity": "critical",
+        "title": "La consigna de diff no alcanzaba para decidir un merge",
+        "description": "Permitia cumplir superficialmente recorriendo el parche y los tests, sin verificar que el cambio fuera completo ni atacar las fronteras donde ocurren los defectos caros.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado sobre el texto de la consigna de diff."
+        },
+        "remedy_adjustment": "Suma integridad fuera del parche, limites de confianza, autorizacion, secretos en logs, concurrencia, transacciones, migraciones y rollback.",
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "src/disensor/prompts/diff.md, revisado en la ronda siguiente"
+        }
+      },
+      {
+        "id": "h6",
+        "origin": "r1",
+        "severity": "minor",
+        "title": "Contradiccion entre solo lectura y correr los tests",
+        "description": "La consigna pedia no escribir nada y a la vez habilitaba correr la suite, que escribe.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado sobre el texto de la consigna de diff."
+        },
+        "remedy_adjustment": "Se admite correr la suite y lo que escriba en temporales, exigiendo declarar que comandos se corrieron, y se prohibe tocar el arbol y el estado de git.",
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "src/disensor/prompts/_common.md, revisado en la ronda siguiente"
+        }
+      },
+      {
+        "id": "h7",
+        "origin": "r1",
+        "severity": "minor",
+        "title": "La compuerta architecture no estaba documentada en ninguna parte",
+        "description": "Es una compuerta publica del esquema y del CLI, y la guia de llenado no la mencionaba.",
+        "final_state": "incorporated",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado contra GUIDE.md."
+        },
+        "fix_verification": {
+          "type": "diff_gate",
+          "reference": "src/disensor/GUIDE.md, revisado en la ronda siguiente"
+        }
+      },
+      {
+        "id": "h8",
+        "origin": "r1",
+        "severity": "minor",
+        "title": "Recomendo acortar la explicacion repetida sobre familias de modelos",
+        "description": "El argumento es que sirve para cumplimiento y no mejora por si misma la calidad del ataque.",
+        "final_state": "refuted_interpretive",
+        "verification": {
+          "against": "repository",
+          "detail": "Verificado sobre el texto: la explicacion aparece una vez por consigna."
+        }
+      }
+    ],
+    "residue": {
+      "items": [
+        {
+          "id": "r1",
+          "class": "principal_refutation",
+          "finding_ref": "h8",
+          "refutation_type": "interpretive",
+          "requires_human_attention": true,
+          "description": "Se decidio conservar la explicacion de por que el revisor debe ser de otra familia. El argumento del revisor es razonable y la decision es opinable: quien pega la consigna suele no haber leido el paper, y la regla R4 le va a rechazar la declaracion sin ese contexto. Queda para que un humano no la de por buena."
+        }
+      ]
+    },
+    "metrics": {
+      "counts": {
+        "total_findings": 8,
+        "valid": {
+          "incorporated": 7,
+          "debt_recorded": 0,
+          "owner_decision": 0
+        },
+        "false_positives": {
+          "refuted_verifiable": 0,
+          "refuted_interpretive": 1
+        },
+        "escalated_open": 0
+      }
+    }
+  },
+  "expected": {
+    "valid": true,
+    "rules": []
+  }
+}
