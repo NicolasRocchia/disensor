@@ -1,0 +1,109 @@
+{
+  "comment": "Shared vectors for the schema identifier form and for ordinality. Both implementations read this file: a parser that disagrees about what an identifier is disagrees about which rules apply. See applies_from in src/disensor/rules.py and appliesFrom in plano-evidencia/src/validar.ts.",
+  "form": [
+    {
+      "id": "residue/v0.2",
+      "valid": true
+    },
+    {
+      "id": "residue/v0.4",
+      "valid": true
+    },
+    {
+      "id": "residue/v0.10",
+      "valid": true
+    },
+    {
+      "id": "residue/v10.0",
+      "valid": true
+    },
+    {
+      "id": "residue/v0.",
+      "valid": false,
+      "why": "missing minor: read as (0,0) by a lax parser"
+    },
+    {
+      "id": "residue/v0.1e1",
+      "valid": false,
+      "why": "scientific notation: read as (0,10) by a lax parser"
+    },
+    {
+      "id": "residue/v0.4.0",
+      "valid": false,
+      "why": "three components: the form is major.minor"
+    },
+    {
+      "id": "residue/v0.-1",
+      "valid": false,
+      "why": "negative"
+    },
+    {
+      "id": "residue/v 0.4",
+      "valid": false,
+      "why": "whitespace"
+    },
+    {
+      "id": "residue/v0.04",
+      "valid": false,
+      "why": "leading zero: it would be a second spelling of v0.4"
+    },
+    {
+      "id": "v0.4",
+      "valid": false,
+      "why": "no prefix"
+    },
+    {
+      "id": "residuo/v0.4",
+      "valid": false,
+      "why": "the Spanish key of the pre-rename schema"
+    },
+    {
+      "id": "",
+      "valid": false
+    }
+  ],
+  "ordinality": [
+    {
+      "declared": "residue/v0.4",
+      "introduced": "residue/v0.4",
+      "applies": true
+    },
+    {
+      "declared": "residue/v0.4",
+      "introduced": "residue/v0.3",
+      "applies": true
+    },
+    {
+      "declared": "residue/v0.4",
+      "introduced": "residue/v0.2",
+      "applies": true
+    },
+    {
+      "declared": "residue/v0.3",
+      "introduced": "residue/v0.4",
+      "applies": false
+    },
+    {
+      "declared": "residue/v0.2",
+      "introduced": "residue/v0.4",
+      "applies": false
+    },
+    {
+      "declared": "residue/v0.3",
+      "introduced": "residue/v0.3",
+      "applies": true
+    },
+    {
+      "declared": "residue/v9.9",
+      "introduced": "residue/v0.4",
+      "applies": false,
+      "why": "unknown declared version: it comes from outside, the dispatch rejects it"
+    },
+    {
+      "declared": "residue/v0.4",
+      "introduced": "residue/v0.04",
+      "raises": true,
+      "why": "unknown introduced version: a typo would silently disable the rule"
+    }
+  ]
+}

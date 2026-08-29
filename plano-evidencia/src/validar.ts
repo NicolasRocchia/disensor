@@ -346,35 +346,58 @@ export const SUPPORTED = new Set(Object.keys(SCHEMA_FILES));
  * equality against the current version would silently drop the rule's newer
  * shape the day the next version opens, with nothing failing to say so.
  */
-function versionKey(id: string): number[] {
-  const n = id.split("/v")[1];
-  if (n === undefined) throw new Error(`schema identifier without a version: ${id}`);
-  return n.split(".").map((p) => {
-    const v = Number(p);
-    if (!Number.isInteger(v)) throw new Error(`schema identifier with a non-numeric version: ${id}`);
-    return v;
-  });
+/**
+ * The form of a schema identifier: `residue/v<major>.<minor>`, two numeric
+ * components and nothing else. Without it this port read `residue/v0.` as
+ * (0, 0) and `residue/v0.1e1` as (0, 10), both of which the reference rejects,
+ * and two parsers that disagree disagree about which rules apply. No leading
+ * zeros: `v0.04` and `v0.4` would be two spellings of one version, and a
+ * frozen identifier has one.
+ */
+const VERSION_FORM = /^residue\/v(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
+export function versionKeyOf(id: string): [number, number] {
+  const m = VERSION_FORM.exec(id);
+  if (m === null) {
+    throw new Error(`'${id}' is not a schema identifier: the form is residue/v<major>.<minor>`);
+  }
+  return [Number(m[1]), Number(m[2])];
 }
 
 /**
- * The known versions, ordered by version. Neither the order they happen to be
- * written in nor the alphabetical one will do: the first turns file formatting
- * into semantics, and the second puts v0.10 before v0.2.
+ * The known versions in order, for messages and for whoever needs it. Ordinality
+ * is NOT resolved by looking up positions here: a derived order is a place to be
+ * wrong, and a test over it passes just the same with the derivation broken as
+ * long as the map happens to be written in order. The keys get compared.
  */
 export const ORDER: string[] = Object.keys(SCHEMA_FILES).sort((a, b) => {
-  const ka = versionKey(a);
-  const kb = versionKey(b);
-  for (let i = 0; i < Math.max(ka.length, kb.length); i++) {
-    const d = (ka[i] ?? 0) - (kb[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
+  const [ma, na] = versionKeyOf(a);
+  const [mb, nb] = versionKeyOf(b);
+  return ma !== mb ? ma - mb : na - nb;
 });
 
+/**
+ * Whether a rule introduced in `introduced` reaches an artifact declaring
+ * `declared`. A rule is introduced in one version and holds from there on: an
+ * equality against the current version would silently drop the rule's newer
+ * shape the day the next version opens, with nothing failing to say so.
+ *
+ * `declared` comes from the artifact, from outside: unknown is false, and the
+ * dispatch rejects it on its own. `introduced` is written by whoever programs
+ * the rule: a typo there would silently disable the rule for every version, so
+ * it throws.
+ */
 export function appliesFrom(declared: string, introduced: string): boolean {
-  const d = ORDER.indexOf(declared);
-  const i = ORDER.indexOf(introduced);
-  return d !== -1 && i !== -1 && d >= i;
+  if (!(introduced in SCHEMA_FILES)) {
+    throw new Error(
+      `rule introduced in '${introduced}', which is not a known schema version `
+      + `(${ORDER.join(", ")}). A typo here would silently disable the rule for every version.`,
+    );
+  }
+  if (!(declared in SCHEMA_FILES)) return false;
+  const [md, nd] = versionKeyOf(declared);
+  const [mi, ni] = versionKeyOf(introduced);
+  return md !== mi ? md > mi : nd >= ni;
 }
 
 export function versionOf(a: Artifact): string | null {

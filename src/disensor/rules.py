@@ -11,6 +11,7 @@ the only real defense against cosmetic compliance.
 from __future__ import annotations
 
 import json
+import re
 from importlib import resources
 
 from jsonschema import Draft202012Validator
@@ -50,19 +51,35 @@ SCHEMA_FILES = {
 }
 
 
-def _version_key(identificador: str) -> tuple[int, ...]:
-    """La parte numerica del identificador, para ordenar por version.
+# La forma de un identificador de version, para que las dos implementaciones
+# parseen lo mismo: `residue/v<mayor>.<menor>`, dos componentes numericos y nada
+# mas. Sin esto, el port aceptaba `residue/v0.` como (0, 0) y `residue/v0.1e1`
+# como (0, 10), que aca revientan: dos parsers que difieren difieren en que
+# reglas aplican. Sin ceros a la izquierda: `v0.04` y `v0.4` serian dos
+# escrituras de la misma version, y un identificador congelado tiene una.
+VERSION_FORM = re.compile(r"^residue/v(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
-    Ni el orden de escritura ni el alfabetico sirven: el primero convierte el
-    formato del archivo en semantica, y el segundo pone v0.10 antes que v0.2.
+
+def _version_key(identificador: str) -> tuple[int, int]:
+    """Los numeros del identificador, para compararlo con otro.
+
+    Ni el orden de escritura ni el alfabetico sirven como orden de versiones: el
+    primero convierte el formato del archivo en semantica, y el segundo pone
+    v0.10 antes que v0.2.
     """
-    return tuple(int(p) for p in identificador.split("/v", 1)[1].split("."))
+    m = VERSION_FORM.match(identificador)
+    if m is None:
+        raise ValueError(
+            f"{identificador!r} is not a schema identifier: the form is "
+            "residue/v<major>.<minor>"
+        )
+    return int(m.group(1)), int(m.group(2))
 
 
-# Ordenado por version, no por como quedo escrito SCHEMA_FILES: de esto depende
-# que regla alcanza a que declaracion, y no puede depender del orden de las
-# lineas. Un identificador que no parsee revienta al importar, que es lo que
-# corresponde: un orden mal calculado no avisa.
+# Las versiones conocidas en orden, para los mensajes y para quien lo necesite.
+# La ordinalidad NO se resuelve buscando posiciones aca: un orden derivado es un
+# lugar donde equivocarse, y una prueba sobre el pasa igual con la derivacion
+# rota mientras el diccionario este escrito en orden. Se comparan las claves.
 ORDER = tuple(sorted(SCHEMA_FILES, key=_version_key))
 
 
@@ -73,10 +90,21 @@ def applies_from(declared: str, introduced: str) -> bool:
     endurecer una regla reescribe el contrato de los identificadores congelados
     y una declaracion emitida bajo el suyo pasa de valida a invalida al
     actualizar el paquete, que es justo lo que el README promete que no ocurre.
+
+    `declared` viene del artefacto, o sea de afuera: desconocido es False, y el
+    despacho lo rechaza por su lado. `introduced` lo escribe quien programa la
+    regla: equivocarlo apagaria la regla para todas las versiones sin que nada
+    avise, asi que grita.
     """
-    if declared not in ORDER or introduced not in ORDER:
+    if introduced not in SCHEMA_FILES:
+        raise ValueError(
+            f"rule introduced in {introduced!r}, which is not a known schema "
+            f"version ({', '.join(ORDER)}). A typo here would silently disable "
+            "the rule for every version."
+        )
+    if declared not in SCHEMA_FILES:
         return False
-    return ORDER.index(declared) >= ORDER.index(introduced)
+    return _version_key(declared) >= _version_key(introduced)
 
 
 def load_schema(version: str | None = None) -> dict:
