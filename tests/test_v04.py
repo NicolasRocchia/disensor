@@ -247,3 +247,28 @@ def test_r13_reaches_the_version_that_introduced_it(diff):
     a = copy.deepcopy(diff)
     a["findings"][0]["origin"] = "revisor-que-no-esta"
     assert [e for e in validate_artifact(a) if "R13" in e]
+
+
+def test_no_literal_version_equality_in_the_rules():
+    """Ninguna regla se pregunta por una version exacta.
+
+    Una igualdad contra la version vigente se lee como "esta regla vale desde
+    v0.4" y significa "vale SOLO en v0.4": el dia que se abra la siguiente, el
+    artefacto cae al camino de las versiones anteriores, la forma nueva de la
+    regla desaparece y ninguna prueba falla. La pregunta correcta es ordinal y
+    tiene un solo lugar, applies_from.
+    """
+    import re
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[1]
+    fuentes = [raiz / "src/disensor/rules.py", raiz / "src/disensor/vectors.py",
+               raiz / "plano-evidencia/src/validar.ts"]
+    patron = re.compile(r'===?\s*"residue/v\d')
+    culpables = [
+        f"{p.relative_to(raiz).as_posix()}:{n}: {linea.strip()}"
+        for p in fuentes
+        for n, linea in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+        if patron.search(linea)
+    ]
+    assert not culpables, "igualdad literal de version:\n" + "\n".join(culpables)

@@ -21,7 +21,7 @@ import json
 import sys
 from pathlib import Path
 
-from .rules import CURRENT, validate_artifact
+from .rules import CURRENT, applies_from, validate_artifact
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "spec" / "examples"
@@ -184,7 +184,7 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     # Antes de esto, la unica version que agrego reglas no tenia un vector suyo:
     # la coherencia de la independencia declarada, los minimos del modo degradado
     # y la integridad de los identificadores vivian solo en tests.
-    if CURRENT == "residue/v0.4":
+    if applies_from(CURRENT, "residue/v0.4"):
         def degradado(base):
             """Una ronda de la misma familia, bien declarada."""
             m = copy.deepcopy(base)

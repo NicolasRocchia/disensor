@@ -261,7 +261,7 @@ def rule_errors(a: dict) -> list[str]:
     # familias declaradas; el minimo exigible por nivel lo fija la politica, y
     # cualquier cosa por debajo de cross_family arrastra su propio residuo.
     gen_family = a["actors"]["generator"]["family"]
-    if a["schema"] == "residue/v0.4":
+    if applies_from(a["schema"], "residue/v0.4"):
         _independence_errors(a, gen_family, error)
     else:
         for r in a["actors"]["reviewers"]:

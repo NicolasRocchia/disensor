@@ -150,7 +150,7 @@ export function erroresReglas(a: Artifact): string[] {
   // checks that what was declared matches the families and models the
   // declaration names, with its own minimums per level and its own residue.
   const genFamily: string = a.actors.generator.family;
-  if (a.schema === "residue/v0.4") {
+  if (appliesFrom(a.schema, "residue/v0.4")) {
     const refs = new Set(
       items
         .filter((i: any) => i.class === "reviewer_correlation" || i.class === "reviewer_hardening_gap")
@@ -244,7 +244,7 @@ export function erroresReglas(a: Artifact): string[] {
   // declaracion emitida bajo un identificador anterior se sigue juzgando con las
   // reglas de su contrato.
   const idsRevisores = (a.actors?.reviewers ?? []).map((r: any) => r.reviewer_id);
-  if (a.schema === "residue/v0.4") {
+  if (appliesFrom(a.schema, "residue/v0.4")) {
   const grupos: Array<[string, any[]]> = [
     ["reviewer_id", idsRevisores],
     ["finding id", findings.map((h: any) => h.id)],
@@ -339,6 +339,19 @@ export const SCHEMA_FILES: Record<string, string> = {
  * rules that version added. A stated limit beats a verdict that does not hold.
  */
 export const SUPPORTED = new Set(Object.keys(SCHEMA_FILES));
+
+/**
+ * Whether a rule introduced in `introduced` reaches an artifact declaring
+ * `declared`. A rule is introduced in one version and holds from there on: an
+ * equality against the current version would silently drop the rule's newer
+ * shape the day the next version opens, with nothing failing to say so.
+ */
+export function appliesFrom(declared: string, introduced: string): boolean {
+  const order = Object.keys(SCHEMA_FILES);
+  const d = order.indexOf(declared);
+  const i = order.indexOf(introduced);
+  return d !== -1 && i !== -1 && d >= i;
+}
 
 export function versionOf(a: Artifact): string | null {
   if (a === null || typeof a !== "object" || Array.isArray(a)) return null;
