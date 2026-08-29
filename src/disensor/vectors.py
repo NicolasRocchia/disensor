@@ -108,6 +108,8 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     m["metrics"]["counts"]["valid"]["incorporated"] = 3
     out.append(("r6_inflated_count", m, False, {"R6"}))
 
+    # R13: la atribucion y las referencias tienen que resolver, y los
+    # identificadores nombrar una sola cosa.
     m = copy.deepcopy(diff)
     m["findings"][0]["fix_verification"] = {"type": "pending_in_diff_gate"}
     out.append(("r7_fix_pending_in_diff", m, False, {"R7"}))

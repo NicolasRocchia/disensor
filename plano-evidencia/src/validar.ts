@@ -187,6 +187,46 @@ export function erroresReglas(a: Artifact): string[] {
     }
   }
 
+  // R13: local identifiers are unique, and every reference resolves.
+  //
+  // The schema already states that `origin` is a reviewer_id and that a
+  // correlation item covers ONE degraded reviewer. Without this, a finding
+  // could stay attributed to someone who is not in the declaration, which is
+  // exactly what an audit record cannot afford.
+  // Desde residue/v0.4, que es la version vigente cuando se introdujo: una
+  // declaracion emitida bajo un identificador anterior se sigue juzgando con las
+  // reglas de su contrato. Este port soporta hasta v0.3, asi que hoy no alcanza
+  // a nada; queda escrita para cuando aprenda la version que la introdujo.
+  const idsRevisores = (a.actors?.reviewers ?? []).map((r: any) => r.reviewer_id);
+  if (a.schema === "residue/v0.4") {
+  const grupos: Array<[string, any[]]> = [
+    ["reviewer_id", idsRevisores],
+    ["finding id", findings.map((h: any) => h.id)],
+    ["residue item id", items.map((i: any) => i.id)],
+  ];
+  for (const [etiqueta, valores] of grupos) {
+    const repetidos = [...new Set(valores.filter((v, _i, xs) => xs.filter((y) => y === v).length > 1))].sort();
+    for (const v of repetidos) {
+      error("R13", `${etiqueta} '${v}' is declared more than once: an identifier that names `
+                   + "two things cannot anchor a reference");
+    }
+  }
+  const conocidos = new Set(idsRevisores);
+  for (const h of findings) {
+    if (!conocidos.has(h.origin)) {
+      error("R13", `finding ${h.id} is attributed to reviewer '${h.origin}', which is not among `
+                   + "the declared reviewers");
+    }
+  }
+  for (const i of items) {
+    if (i.reviewer_ref !== undefined && !conocidos.has(i.reviewer_ref)) {
+      error("R13", `item ${i.id} references reviewer '${i.reviewer_ref}', which is not among the `
+                   + "declared reviewers");
+    }
+  }
+
+  }
+
   // R7: in the diff gate, every incorporated finding closes with its fix verified.
   if (gate === "diff") {
     for (const h of findings) {

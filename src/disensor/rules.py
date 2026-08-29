@@ -50,6 +50,22 @@ SCHEMA_FILES = {
 }
 
 
+ORDER = tuple(SCHEMA_FILES)
+
+
+def applies_from(declared: str, introduced: str) -> bool:
+    """Si una regla introducida en `introduced` alcanza a `declared`.
+
+    El despacho por version elige el esquema; esto es su otra mitad. Sin esto,
+    endurecer una regla reescribe el contrato de los identificadores congelados
+    y una declaracion emitida bajo el suyo pasa de valida a invalida al
+    actualizar el paquete, que es justo lo que el README promete que no ocurre.
+    """
+    if declared not in ORDER or introduced not in ORDER:
+        return False
+    return ORDER.index(declared) >= ORDER.index(introduced)
+
+
 def load_schema(version: str | None = None) -> dict:
     """Load the schema of a version (the current one by default)."""
     name = SCHEMA_FILES[version or CURRENT]
@@ -94,6 +110,22 @@ def _independence_errors(a: dict, gen_family: str, error) -> None:
 
         if independence == "cross_family" and not distinta:
             error("R4", f"reviewer {rid} declares cross_family and shares family ({gen_family}) with the generator")
+        # El modelo, no solo la familia: declararse distinto del generador
+        # siendo exactamente el mismo modelo falsea el registro que v0.4 dice
+        # estructurar.
+        gen_model = a["actors"]["generator"].get("model")
+        if independence == "same_family_distinct_model" and r.get("model") == gen_model:
+            error(
+                "R4",
+                f"reviewer {rid} declares same_family_distinct_model with the same model as the "
+                "generator: that is same_model_fresh_context",
+            )
+        if independence == "same_model_fresh_context" and r.get("model") != gen_model:
+            error(
+                "R4",
+                f"reviewer {rid} declares same_model_fresh_context with model "
+                f"{r.get('model')!r} while the generator declares {gen_model!r}",
+            )
         if independence != "cross_family" and distinta:
             error(
                 "R4",
@@ -269,6 +301,38 @@ def rule_errors(a: dict) -> list[str]:
             error("R6", f"escalated_open={c['escalated_open']} but the list has {count('escalated_open')}")
         if c["total_findings"] != len(findings):
             error("R6", f"total_findings={c['total_findings']} but the list has {len(findings)}")
+
+    # R13: local identifiers are unique, and every reference resolves.
+    #
+    # Desde v0.4, que es la version vigente cuando se introdujo: una declaracion
+    # emitida bajo un identificador anterior se sigue juzgando con las reglas de
+    # su contrato.
+    if applies_from(a["schema"], "residue/v0.4"):
+        #
+        # El esquema ya declara que `origin` es un reviewer_id y que un item de
+        # correlacion cubre UN revisor degradado. Sin esto, un hallazgo podia quedar
+        # atribuido a alguien que no esta en la declaracion, que es exactamente lo
+        # que un registro de auditoria no puede permitirse.
+        ids_revisores = [r["reviewer_id"] for r in a["actors"]["reviewers"]]
+        for etiqueta, valores in (
+            ("reviewer_id", ids_revisores),
+            ("finding id", [h["id"] for h in findings]),
+            ("residue item id", [i["id"] for i in items]),
+        ):
+            repetidos = sorted({v for v in valores if valores.count(v) > 1})
+            for v in repetidos:
+                error("R13", f"{etiqueta} {v!r} is declared more than once: an identifier that names "
+                             "two things cannot anchor a reference")
+        conocidos = set(ids_revisores)
+        for h in findings:
+            if h["origin"] not in conocidos:
+                error("R13", f"finding {h['id']} is attributed to reviewer {h['origin']!r}, which is "
+                             "not among the declared reviewers")
+        for i in items:
+            ref = i.get("reviewer_ref")
+            if ref is not None and ref not in conocidos:
+                error("R13", f"item {i['id']} references reviewer {ref!r}, which is not among the "
+                             "declared reviewers")
 
     # R7: in the diff gate, every incorporated finding closes with its fix verified.
     if gate == "diff":

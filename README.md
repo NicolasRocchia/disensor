@@ -31,7 +31,7 @@ paper is in Spanish; the glossary at the end maps its terminology to the schema.
 
 - `spec/residue.schema.json`: the artifact schema (JSON Schema 2020-12), version residue/v0.4. Superseded versions keep their own frozen resource next to it.
 - `spec/examples/`: three example artifacts, including a real anonymised event and the minimized profile with no free text.
-- `src/disensor/`: Python package with the validator (rules R0 to R10), the CI gate (checks G1 to G9), the PR comment rendering, artifact and repository scaffolding (`init`), and the packaged filling guide (`GUIDE.md`).
+- `src/disensor/`: Python package with the validator (rules R0 to R13), the CI gate (checks G1 to G9), the PR comment rendering, artifact and repository scaffolding (`init`), and the packaged filling guide (`GUIDE.md`).
 - `action.yml`: composite GitHub Action, ready to use.
 - `docs/integracion-claude-code.md` (Spanish only): how the real flow (Claude Code plus a reviewer from another family) emits the artifact at the close of each event.
 - `docs/antecedentes.md` (Spanish only): where the method sits relative to the literature (residual doubt and defeaters, design rationale and its capture bottleneck, multi-agent adversarial review, governance runtimes, supply chain provenance), with the verification status of each reference.
@@ -53,7 +53,7 @@ disensor new --gate diff --level B --round ../result.json   # declaration from t
 disensor prompt --gate diff            # the adversarial brief, to hand to a reviewer from another family
 disensor pack --gate diff --base main --head HEAD          # the full package, if you drive the round yourself
 disensor new --gate diff --level B     # template prefilled in .residue/
-disensor validate .residue/<id>.json   # schema + rules R0 to R10
+disensor validate .residue/<id>.json   # schema + rules R0 to R13
 disensor gate --no-comment             # what CI will run, locally
 
 disensor guide                         # the filling guide, for any agent or human
@@ -182,13 +182,18 @@ declare what happened.
 
 ## What the gate enforces
 
-Per artifact (rules R0 to R10): coherence between findings and residue, counts
+Per artifact (rules R0 to R13): coherence between findings and residue, counts
 that add up, family decorrelation between generator and reviewer, mandatory
 material evidence in verifiable refutations (`text`, `link` or `hash`) against a
 verifiable target (`verification.against` other than `none`), mandatory human
 attention in interpretive refutations, a fix verified before closing a finding
 in a diff gate, rejection of generic markers (in English and in Spanish), and a
-minimized profile with the free text R9 covers stripped.
+minimized profile with the free text R9 covers stripped. From residue/v0.4 they
+also cover the coherence between declared independence and the families and
+models the declaration names (R4), the minimums of the degraded mode per level
+(R11) and its per-reviewer correlation residue (R12), and from this version the
+integrity of local identifiers: unique, and every reference to a reviewer
+resolves against the declared ones (R13).
 
 Per artifact, against the PR: level equal to the repository's declared one (G2),
 Level A blocked while governance is not validated (G3), reviewer confinement
