@@ -209,3 +209,17 @@ def test_each_version_has_its_own_frozen_resource():
         declarado = s["properties"]["schema"]
         fijado = declarado.get("const") or declarado.get("enum")
         assert version in ([fijado] if isinstance(fijado, str) else fijado), version
+
+
+def test_an_item_referencing_a_missing_reviewer_is_refused(diff):
+    """La clase que admite reviewer_ref es de v0.4, asi que este caso no se puede
+    expresar como vector v0.3 y va aca hasta que exista la suite de su version."""
+    a = degradar(copy.deepcopy(diff))
+    a["residue"] = {"items": [{
+        "id": "r1", "class": "reviewer_correlation", "reviewer_ref": "revisor-fantasma",
+        "requires_human_attention": True,
+        "description": ("El revisor comparte familia con el generador y ese solapamiento no quedo "
+                        "cubierto por la ronda, con texto suficientemente concreto."),
+    }]}
+    errores = validate_artifact(a)
+    assert any("R13" in e and "revisor-fantasma" in e for e in errores), errores

@@ -20,7 +20,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 - `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.4. Las versiones superadas conservan su propio recurso congelado al lado.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
-- `src/disensor/`: paquete Python con el validador (reglas R0 a R10), el gate de CI (chequeos G1 a G9), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
+- `src/disensor/`: paquete Python con el validador (reglas R0 a R13), el gate de CI (chequeos G1 a G9), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
 - `docs/antecedentes.md`: dónde se ubica el método respecto de la literatura (residual doubt y defeaters, design rationale y su capture bottleneck, revisión adversarial multi-agente, governance runtimes, provenance de cadena de suministro), con el estado de verificación de cada referencia.
@@ -42,7 +42,7 @@ disensor new --gate diff --level B --round ../result.json   # la declaración de
 disensor prompt --gate diff            # la consigna adversarial, para pegarle al revisor de otra familia
 disensor pack --gate diff --base main --head HEAD          # el paquete completo, si manejás la ronda vos
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
-disensor validate .residue/<id>.json   # schema + reglas R0 a R10
+disensor validate .residue/<id>.json   # schema + reglas R0 a R13
 disensor gate --no-comment             # lo que va a correr CI, en local
 
 disensor guide                         # la guía de llenado, para cualquier agente o humano
@@ -148,7 +148,7 @@ infinitamente mejor que no poder declarar lo que pasó.
 
 ## Qué hace cumplir el gate
 
-Por artefacto (reglas R0 a R10): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, evidencia material obligatoria en refutaciones verificables (`text`, `link` o `hash`) contra un blanco verificable (`verification.against` distinto de `none`), atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado con el texto libre que R9 cubre removido.
+Por artefacto (reglas R0 a R13): coherencia entre hallazgos y residuo, conteos que cierran, decorrelación de familias entre generador y revisor, evidencia material obligatoria en refutaciones verificables (`text`, `link` o `hash`) contra un blanco verificable (`verification.against` distinto de `none`), atención humana obligatoria en refutaciones interpretativas, corrección verificada antes de cerrar un hallazgo en compuerta de diff, rechazo de marcadores genéricos (en inglés y en español), y perfil minimizado con el texto libre que R9 cubre removido. Desde residue/v0.4 se suman la coherencia entre la independencia declarada y las familias y modelos que la declaración nombra (R4), los mínimos del modo degradado por nivel (R11) y su residuo de correlación por revisor (R12), y desde esta versión la integridad de los identificadores locales: únicos, y toda referencia a un revisor resuelve contra los declarados (R13).
 
 Por artefacto, contra el PR: nivel igual al declarado del repositorio (G2), Nivel A bloqueado mientras la gobernanza no esté validada (G3), política de confinamiento del revisor por nivel (G4), y pertenencia al PR del commit revisado (G5), que para la compuerta de diff exige además `base_commit`, porque una revisión de diff identifica el par (base revisada, head revisada) y no un head suelto.
 
@@ -239,7 +239,7 @@ antes de poder mergear declaraciones bajo la versión nueva.
 
 ## Conformidad entre implementaciones
 
-`spec/vectors/` contiene los vectores de conformidad: 35 artefactos con su veredicto esperado (válido o no, y las etiquetas de regla que deben dispararse). Toda implementación del validador tiene que pasarlos idénticos: la referencia en Python los corre en la suite (`tests/test_vectors.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m disensor.vectors <directorio>`. El generador produce la versión de esquema vigente y se niega a escribir sobre una suite que declara otra: la suite commiteada sigue siendo v0.3, y pisarla borraría la única cobertura negativa que tienen las reglas históricas.
+`spec/vectors/` contiene los vectores de conformidad: 37 artefactos con su veredicto esperado (válido o no, y las etiquetas de regla que deben dispararse). Toda implementación del validador tiene que pasarlos idénticos: la referencia en Python los corre en la suite (`tests/test_vectors.py`) y el port TypeScript del plano de evidencia los corre con `npm run conformidad`. Se comparan etiquetas, no mensajes. Los vectores se regeneran con `python -m disensor.vectors <directorio>`. El generador produce la versión de esquema vigente y se niega a escribir sobre una suite que declara otra: la suite commiteada sigue siendo v0.3, y pisarla borraría la única cobertura negativa que tienen las reglas históricas.
 
 Cada vector se valida con el schema de la versión que declara. El port TypeScript implementa las reglas de **v0.2 y v0.3**: ante un artefacto v0.4 lo dice y se niega, en vez de devolver un veredicto sin haber corrido las reglas que esa versión agregó. Así que el claim de dos implementaciones independientes cubre hoy hasta v0.3; la referencia en Python es la única que valida v0.4 ([#29](https://github.com/NicolasRocchia/disensor/issues/29)).
 

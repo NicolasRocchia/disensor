@@ -4,6 +4,8 @@
     "r0_no_human_arbiter",
     "r10_empty_list_with_nonzero_total",
     "r10_full_without_findings",
+    "r13_duplicate_residue_id",
+    "r13_finding_attributed_to_nobody",
     "r1_escalation_without_item",
     "r1_nonexistent_reference",
     "r1_reference_with_empty_findings",
