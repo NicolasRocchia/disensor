@@ -121,7 +121,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.9.3
+      - uses: NicolasRocchia/disensor@v0.9.4
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
