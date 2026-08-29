@@ -6,6 +6,7 @@
     "r10_full_without_findings",
     "r1_escalation_without_item",
     "r1_nonexistent_reference",
+    "r1_reference_with_empty_findings",
     "r2_generic_marker",
     "r2_template_marker",
     "r4_no_decorrelation",

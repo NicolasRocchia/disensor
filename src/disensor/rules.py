@@ -171,7 +171,12 @@ def rule_errors(a: dict) -> list[str]:
 
     # R1: every finding whose state joins the residue has its item, and every
     # item with a reference points to an existing finding of the right state.
-    if findings:
+    #
+    # Presencia y no truthiness, por lo mismo que R6: desde que la lista vacia
+    # es un resultado valido, un item que referencia un hallazgo inexistente
+    # quedaba sin que nadie lo mirara. Con la lista vacia no hay estados que
+    # unir al residuo, pero cualquier referencia sigue apuntando a la nada.
+    if a.get("findings") is not None:
         refs = {i.get("finding_ref") for i in items if i.get("finding_ref")}
         for h in findings:
             if h["final_state"] in RESIDUE_STATES and h["id"] not in refs:

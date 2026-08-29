@@ -84,7 +84,9 @@ export function erroresReglas(a: Artifact): string[] {
   }
 
   // R1: coherence between residue-joining states and their items.
-  if (findings.length > 0) {
+  // Presence, not truthiness: same reason as R6. An item referencing a finding
+  // that is not there was going unchecked once the empty list became valid.
+  if (Array.isArray(a.findings)) {
     const refs = new Set(items.map((i) => i.finding_ref).filter(Boolean));
     for (const h of findings) {
       if (RESIDUE_STATES.has(h.final_state) && !refs.has(h.id)) {

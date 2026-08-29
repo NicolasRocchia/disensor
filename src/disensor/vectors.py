@@ -162,6 +162,18 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     m["metrics"]["counts"]["total_findings"] = 1
     out.append(("r10_empty_list_with_nonzero_total", m, False, {"R10", "R6"}))
 
+    # Y la referencia colgada, que la lista vacia volvio alcanzable: sin
+    # hallazgos no hay estados que unir al residuo, pero una referencia sigue
+    # apuntando a algo que no esta.
+    m = copy.deepcopy(vacio)
+    m["residue"] = {"items": [{
+        "id": "r1", "class": "escalation_without_decision", "finding_ref": "h9",
+        "requires_human_attention": True,
+        "description": ("Un item que referencia un hallazgo que la lista no contiene: con la "
+                        "lista vacia declarada como resultado valido, la referencia apunta a la nada."),
+    }]}
+    out.append(("r1_reference_with_empty_findings", m, False, {"R1"}))
+
     # Invalid: schema only (rules are not evaluated when the shape fails)
     m = copy.deepcopy(diff)
     m["event"]["abbreviated_path"] = {
