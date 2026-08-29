@@ -1,0 +1,161 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "664908c7-1472-4830-9d72-4a56ebd739f8",
+    "created_at": "2026-08-29T00:19:43-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "a9db86c19c0d9c2508dcbf5107f2200f33ead750",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "0bd5035169f1cef47788c866b3798da71104d9d6"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El rechazo quedaba en aviso cuando el PR introducia la politica prohibida",
+      "description": "El chequeo vivia dentro de la validacion de forma, y esa excepcion se atrapa a proposito para que una config rota en el head no decida el veredicto de un PR que no gobierna. Pero esto no es forma sino politica: mergear un PR que apaga la cobertura del nivel A deja al proximo PR de codigo pasando sin declaracion.",
+      "location": "src/disensor/gate.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido por el generador: el PR que introducia la combinacion fallaba por G1 y no por la politica, y el aviso era lo unico que la mencionaba."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_gate.py::test_a_pr_that_introduces_level_a_without_coverage_is_refused"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El preflight y el gate dejaron de decidir lo mismo",
+      "description": "El gate rechazaba la politica de nivel A con la cobertura apagada y classify_requirement seguia contestando que no hacia falta ronda para esa misma configuracion: alguien corria round --check, recibia que estaba exento, y despues el gate lo bloqueaba. Es la invariante que esa funcion existe para sostener, una decision y dos llamadores, rota por el propio arreglo.",
+      "location": "src/disensor/gate.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido llamando a classify_requirement con esa politica: devolvia not_required mientras el gate ya fallaba."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_requirement.py::test_level_a_without_coverage_is_blocked_not_exempt"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Fallar cerrado trababa al unico PR capaz de arreglar la politica",
+      "description": "Con la combinacion prohibida en la base, el gate rechazaba todo, incluido el PR que venia a repararla: el repositorio quedaba sin salida. Es el mismo callejon que el bootstrap del pin. La primera respuesta fue una excepcion para el PR reparador, que resulto ser el mecanismo que los dos hallazgos siguientes atacaron.",
+      "location": "src/disensor/gate.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido: un PR que cambiaba la politica invalida por una sana era rechazado igual."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "La sexta pasada de compuerta diff sobre el rango completo no encontro hallazgos, despues de que la respuesta al quinto fuera sacar el mecanismo entero."
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La excepcion tomaba una config ilegible por una reparacion, y no la veia el preflight",
+      "description": "El helper mapeaba ausente e ilegible al mismo valor, asi que un PR que reemplazara la config por JSON roto pasaba como si arreglara, y despues del merge la rama destino quedaba ingobernable: cargar su politica falla antes de poder mirar ningun head reparador. Y classify_requirement no miraba el head, asi que bloqueaba el PR que el gate aceptaba: la misma invariante rota por segunda vez en el mismo punto.",
+      "location": "src/disensor/gate.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido por lectura del despacho y por ejecucion sobre el rango del test de reparacion, que daba exit 0 en el gate y blocked en el preflight."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "La sexta pasada de compuerta diff sobre el rango completo no encontro hallazgos, despues de que la respuesta al quinto fuera sacar el mecanismo entero."
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Una reparacion valida de forma podia dejar el nivel A imposible por otro camino",
+      "description": "Una politica con nivel A, level_A_enabled en falso y la cobertura encendida es valida de forma y no tiene la combinacion prohibida, asi que contaba como reparacion. Pero G3 rechaza toda declaracion de nivel A en ese estado, o sea que el repositorio quedaba trabado igual, que es exactamente lo que la excepcion decia evitar. Con cinco defectos en el mismo mecanismo, la respuesta fue sacarlo entero: salir de una politica invalida pasa a ser un paso administrativo, con el criterio que el README ya aplica al bootstrap.",
+      "location": "src/disensor/gate.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Verificado siguiendo los valores por el helper y por el chequeo del head, y confirmado por el rechazo incondicional de artefactos de nivel A con level_A_enabled en falso."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_gate.py::test_repairing_the_invalid_policy_is_an_administrative_step"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "environment_not_reproducible",
+        "description": "El revisor no ejercito el gate dentro de un pull request real de la plataforma: la suite cubre el comportamiento del validador y del gate como programa, pero el payload del evento, los permisos y el cableado con la proteccion de rama solo se observan en una corrida viva. Tampoco corrio las dos pruebas hostiles de endurecimiento, que son opcionales por costo externo y estan detras de una variable de entorno. Este cambio toca la politica que el gate aplica, asi que la corrida en CI del propio PR es la primera observacion de ese lado."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 5,
+      "valid": {
+        "incorporated": 5,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:bf9f56345a8be8da61e7719ae44353ffc7bf088937b7a34ff097401fdb7ab289",
+      "report_hash": "sha256:d92f8a420461d861d5b42edb1cfc2b8ae902c05c8adb9b9e46afc2c44625e4aa",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
