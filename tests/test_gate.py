@@ -666,3 +666,27 @@ def test_level_a_cannot_switch_coverage_off(repo, capsys):
     head = repo.commit("feat")
     assert repo.run(base, head) != 0
     assert "Level A with gate.required=false" in out(capsys)
+
+
+def test_a_pr_that_introduces_level_a_without_coverage_is_refused(repo, capsys):
+    """Mergearlo dejaria al proximo PR de codigo pasando sin declaracion.
+
+    Una config con forma invalida en el head avisa, porque es un problema del
+    futuro. Apagar la cobertura del nivel A no: el gate protege el merge, y este
+    lo debilita.
+    """
+    base = repo.git("rev-parse", "HEAD")
+    repo.config({"criticality_level": "A", "level_A_enabled": True, "gate": {"required": False}})
+    head = repo.commit("relaja la politica")
+    assert repo.run(base, head) != 0
+    assert "leaves Level A with gate.required=false" in out(capsys)
+
+
+def test_a_repository_already_on_level_a_without_coverage_fails_closed(repo, capsys):
+    """La politica que gobierna el PR deja el nivel A sin nada sobre que aplicarse."""
+    repo.config({"criticality_level": "A", "level_A_enabled": True, "gate": {"required": False}})
+    base = repo.commit("politica de nivel A sin cobertura")
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat")
+    assert repo.run(base, head) != 0
+    assert "declares Level A with gate.required=false" in out(capsys)

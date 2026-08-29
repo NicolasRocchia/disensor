@@ -234,7 +234,6 @@ def validate_config_shape(config: dict, where: str) -> None:
         validate_scope(gate.get("scope", DEFAULT_SCOPE))
     except ScopeError as exc:
         raise GateFailure(f"{where}: {exc}") from exc
-    _refuse_level_a_without_coverage(config, where)
 
 
 def merge_config(raw: dict) -> dict:
@@ -802,6 +801,16 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
     valid = [a for a in artifacts if a.valid]
     required = gate_cfg.get("required", True)
 
+    if config.get("criticality_level") == "A" and not required:
+        # La politica que gobierna este PR deja el nivel A sin nada sobre que
+        # aplicar el piso. Falla cerrado: el nivel reservado para lo que no se
+        # puede deshacer o significa lo que dice o no significa nada.
+        gate_errors.append(
+            f"[G3] {cfg_path} declares Level A with gate.required=false. With coverage off there "
+            "is no declaration to check the floor against, so the level that demands a "
+            "cross-family reviewer with tested hardening would demand it of nothing"
+        )
+
     if required:
         coverage_errors, coverage_notes, _demanding = evaluate_coverage(
             artifacts, ordinary, config, evidence_root, cfg_path
@@ -820,6 +829,18 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
             if not isinstance(head_raw, dict):
                 raise GateFailure("the configuration is not an object")
             validate_config_shape(head_raw, f"{cfg_path} (head of the PR)")
+            # Una forma invalida en el head es un problema del futuro y avisa.
+            # Dejar el nivel A sin cobertura no: si esto se mergea, el proximo
+            # PR de codigo pasa sin declaracion y el piso no tiene sobre que
+            # aplicarse. El gate protege el merge, y este lo debilita.
+            if (head_raw.get("criticality_level") == "A"
+                    and head_raw.get("gate", {}).get("required") is False):
+                gate_errors.append(
+                    f"[G3] {cfg_path} at the head of the PR leaves Level A with "
+                    "gate.required=false. Merging it would turn coverage off for the level "
+                    "reserved for what cannot be undone, and the floor would have no "
+                    "declaration to apply to"
+                )
             base_raw = (
                 json.loads(gitctx.show_text(base_oid, cfg_path, repo_dir))
                 if gitctx.path_exists(base_oid, cfg_path, repo_dir)
