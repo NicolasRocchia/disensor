@@ -214,3 +214,23 @@ def test_the_gate_agrees_with_the_classification(repo: Path, capsys, policy, cam
     assert (code != 0) is espera_ronda, (
         "el gate y la clasificacion tienen que responder lo mismo sobre la necesidad de ronda"
     )
+
+
+def test_level_a_without_coverage_is_blocked_not_exempt(repo: Path):
+    """El gate rechaza esa politica, asi que el preflight no puede decir que no
+    hace falta ronda: son las dos caras de la misma decision, y que difieran es
+    lo que esta funcion existe para impedir."""
+    set_policy(repo, {"required": False})
+    actual = git(repo, "rev-parse", "--abbrev-ref", "HEAD")
+    git(repo, "checkout", "-q", "main")
+    cfg = json.loads((repo / "disensor.config.json").read_text(encoding="utf-8"))
+    cfg["criticality_level"] = "A"
+    cfg["level_A_enabled"] = True
+    (repo / "disensor.config.json").write_text(json.dumps(cfg), encoding="utf-8")
+    commit(repo, "nivel A sin cobertura")
+    git(repo, "checkout", "-q", actual)
+    (repo / "src" / "app.py").write_text("x = 4\n", encoding="utf-8")
+    commit(repo, "cambio bajo esa politica")
+    req = requirement_of(repo)
+    assert req.status == "blocked"
+    assert req.code == "level_a_without_coverage"

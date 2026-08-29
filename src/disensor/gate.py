@@ -171,6 +171,34 @@ def canonical_repo_path(raw: str, root: Path, label: str) -> str:
     return "/".join(parts)
 
 
+def _level_a_without_coverage(config: dict | None) -> bool:
+    """La combinacion que el nivel A no admite. `None` es una config ilegible."""
+    if not isinstance(config, dict):
+        return False
+    return (config.get("criticality_level") == "A"
+            and config.get("gate", {}).get("required") is False)
+
+
+def _refuse_level_a_without_coverage(config: dict, where: str) -> None:
+    """En nivel A, apagar la cobertura no es una preferencia: la vacia.
+
+    Con `gate.required=false`, un PR de codigo sin declaracion no crea ningun
+    revisor sobre el que comprobar el piso, asi que la exigencia de familia
+    distinta y endurecimiento probado no se aplica a nada y el gate queda verde.
+    El nivel A esta reservado para lo que no se puede deshacer: o significa lo
+    que dice o no significa nada.
+    """
+    if config.get("criticality_level") != "A":
+        return
+    if config.get("gate", {}).get("required") is False:
+        raise GateFailure(
+            f"{where}: Level A with gate.required=false. Turning coverage off leaves no "
+            "declaration to check the floor against, so the level that demands a cross-family "
+            "reviewer with tested hardening would demand it of nothing. Lower the level or "
+            "leave coverage on"
+        )
+
+
 def validate_config_shape(config: dict, where: str) -> None:
     old = V01_CONFIG_KEYS & set(config)
     if old:
@@ -423,6 +451,20 @@ def classify_requirement(ctx: GateContext) -> ReviewRequirement:
     # ortogonal a la necesidad de ronda, el gate las reporta por su cuenta y
     # sigue evaluando el resto. Quedan en el contexto para que `round` pueda
     # advertir sin mezclar las dos preguntas.
+    if (ctx.config.get("criticality_level") == "A"
+            and not ctx.config["gate"].get("required", True)):
+        # El gate rechaza esta politica, asi que el preflight no puede contestar
+        # que no hace falta ronda: son las dos caras de la misma decision, y que
+        # difieran es exactamente lo que esta funcion existe para impedir.
+        return ReviewRequirement(
+            status="blocked",
+            code="level_a_without_coverage",
+            reason=(
+                "the policy declares Level A with gate.required=false. With coverage off there "
+                "is no declaration to check the floor against, and the gate refuses it: fix the "
+                "policy before running a round against it"
+            ),
+        )
     if not ctx.config["gate"].get("required", True):
         return ReviewRequirement(
             status="not_required",
@@ -753,6 +795,18 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
                     "Level A (the reviewer only reads, and that is guaranteed with permissions, not "
                     "with the brief)"
                 )
+            if ev.get("criticality_level") == "A" and r.get("hardening") != "verified":
+                # El campo es opcional en el esquema, asi que omitirlo evitaba
+                # R12 y pasaba el nivel A: la exigencia vivia solo en el camino
+                # feliz del runner, que es justo el que no recorre quien arma la
+                # declaracion a mano.
+                declarado = r.get("hardening", "not declared")
+                own.append(
+                    f"[G4] reviewer {r['reviewer_id']}: hardening '{declarado}' in Level A. The "
+                    "level reserved for what cannot be undone demands a reviewer whose "
+                    "neutralisation of project instructions was tested, and that has to be "
+                    "declared"
+                )
             if not conf["verified"] and gate_cfg.get("warn_unverified_confinement", True):
                 warnings.append(
                     f"{path}: confinement of reviewer {r['reviewer_id']} without post-run verification"
@@ -768,6 +822,19 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
 
     valid = [a for a in artifacts if a.valid]
     required = gate_cfg.get("required", True)
+
+    if config.get("criticality_level") == "A" and not required:
+        # La politica que gobierna este PR deja el nivel A sin nada sobre que
+        # aplicar el piso, y eso falla cerrado. Pero no puede trabar el PR que
+        # viene a arreglarlo: si el head la repara, el repositorio necesita
+        # poder mergearlo, o queda sin salida.
+        gate_errors.append(
+            f"[G3] {cfg_path} declares Level A with gate.required=false. With coverage off there "
+            "is no declaration to check the floor against, so the level that demands a "
+            "cross-family reviewer with tested hardening would demand it of nothing. Repairing "
+            "this policy is an administrative step, like the initial activation: the gate cannot "
+            "wave through the PR that fixes the rules it is judging by"
+        )
 
     if required:
         coverage_errors, coverage_notes, _demanding = evaluate_coverage(
@@ -787,6 +854,18 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
             if not isinstance(head_raw, dict):
                 raise GateFailure("the configuration is not an object")
             validate_config_shape(head_raw, f"{cfg_path} (head of the PR)")
+            # Una forma invalida en el head es un problema del futuro y avisa.
+            # Dejar el nivel A sin cobertura no: si esto se mergea, el proximo
+            # PR de codigo pasa sin declaracion y el piso no tiene sobre que
+            # aplicarse. El gate protege el merge, y este lo debilita.
+            if (head_raw.get("criticality_level") == "A"
+                    and head_raw.get("gate", {}).get("required") is False):
+                gate_errors.append(
+                    f"[G3] {cfg_path} at the head of the PR leaves Level A with "
+                    "gate.required=false. Merging it would turn coverage off for the level "
+                    "reserved for what cannot be undone, and the floor would have no "
+                    "declaration to apply to"
+                )
             base_raw = (
                 json.loads(gitctx.show_text(base_oid, cfg_path, repo_dir))
                 if gitctx.path_exists(base_oid, cfg_path, repo_dir)
