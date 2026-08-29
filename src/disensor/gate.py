@@ -443,6 +443,20 @@ def classify_requirement(ctx: GateContext) -> ReviewRequirement:
     # ortogonal a la necesidad de ronda, el gate las reporta por su cuenta y
     # sigue evaluando el resto. Quedan en el contexto para que `round` pueda
     # advertir sin mezclar las dos preguntas.
+    if (ctx.config.get("criticality_level") == "A"
+            and not ctx.config["gate"].get("required", True)):
+        # El gate rechaza esta politica, asi que el preflight no puede contestar
+        # que no hace falta ronda: son las dos caras de la misma decision, y que
+        # difieran es exactamente lo que esta funcion existe para impedir.
+        return ReviewRequirement(
+            status="blocked",
+            code="level_a_without_coverage",
+            reason=(
+                "the policy declares Level A with gate.required=false. With coverage off there "
+                "is no declaration to check the floor against, and the gate refuses it: fix the "
+                "policy before running a round against it"
+            ),
+        )
     if not ctx.config["gate"].get("required", True):
         return ReviewRequirement(
             status="not_required",
