@@ -60,6 +60,21 @@
     {
       "id": "",
       "valid": false
+    },
+    {
+      "id": "toString",
+      "valid": false,
+      "why": "inherited from Object.prototype in JavaScript: `in` and index access both answer for it"
+    },
+    {
+      "id": "constructor",
+      "valid": false,
+      "why": "same, inherited"
+    },
+    {
+      "id": "__proto__",
+      "valid": false,
+      "why": "same, and it is not even an own property"
     }
   ],
   "ordinality": [
@@ -104,6 +119,12 @@
       "introduced": "residue/v0.04",
       "raises": true,
       "why": "unknown introduced version: a typo would silently disable the rule"
+    },
+    {
+      "declared": "toString",
+      "introduced": "residue/v0.4",
+      "applies": false,
+      "why": "a declared version inherited from the prototype is not a known version"
     }
   ]
 }

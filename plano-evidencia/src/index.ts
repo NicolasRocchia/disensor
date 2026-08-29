@@ -27,11 +27,11 @@ export interface Env {
 // el suyo, y nunca llegaba a la unica explicacion util. El Worker no tiene
 // filesystem, asi que los recursos se importan uno por uno; que este mapa
 // coincida con el del validador lo verifica una prueba, no la buena memoria.
-export const VALIDADORES: Record<string, ReturnType<typeof compilarSchema>> = {
+export const VALIDADORES = new Map<string, ReturnType<typeof compilarSchema>>(Object.entries({
   "residue/v0.2": compilarSchema(schemaV02 as object),
   "residue/v0.3": compilarSchema(schemaV03 as object),
   "residue/v0.4": compilarSchema(schemaV04 as object),
-};
+}));
 
 // Espejo de CURRENT_SCHEMA en src/disensor/gate.py (G9). El esquema compartido
 // sigue leyendo versiones superadas para que la historia no se reescriba, pero
@@ -111,7 +111,10 @@ async function ingestar(env: Env, req: Request): Promise<Response> {
   }
 
   const declarada = versionOf(artefacto);
-  const validar = (declarada !== null && VALIDADORES[declarada]) || VALIDADORES[ESQUEMA_VIGENTE];
+  // Un Map y no un objeto: en JavaScript `VALIDADORES["toString"]` devuelve
+  // una funcion heredada del prototipo, y el discriminador viene de afuera.
+  const validar = VALIDADORES.get(declarada ?? ESQUEMA_VIGENTE)
+    ?? VALIDADORES.get(ESQUEMA_VIGENTE)!;
   const errores = validarArtefacto(artefacto, validar);
   if (errores.length > 0) return json({ error: "artefacto invalido", errores }, 422);
 

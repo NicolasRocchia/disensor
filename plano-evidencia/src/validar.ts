@@ -388,13 +388,13 @@ export const ORDER: string[] = Object.keys(SCHEMA_FILES).sort((a, b) => {
  * it throws.
  */
 export function appliesFrom(declared: string, introduced: string): boolean {
-  if (!(introduced in SCHEMA_FILES)) {
+  if (!SUPPORTED.has(introduced)) {
     throw new Error(
       `rule introduced in '${introduced}', which is not a known schema version `
       + `(${ORDER.join(", ")}). A typo here would silently disable the rule for every version.`,
     );
   }
-  if (!(declared in SCHEMA_FILES)) return false;
+  if (!SUPPORTED.has(declared)) return false;
   const [md, nd] = versionKeyOf(declared);
   const [mi, ni] = versionKeyOf(introduced);
   return md !== mi ? md > mi : nd >= ni;
