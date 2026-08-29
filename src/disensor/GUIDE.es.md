@@ -175,11 +175,14 @@ de `valid.*` y de `false_positives.*` es igual a la cantidad de hallazgos en ese
 estado, `escalated_open` lo mismo, y `total_findings` es el largo de la lista.
 Contá, no estimes.
 
-Las reglas atrapan menos de lo que esa frase sugiere. R6 compara solo cuando la
-lista de hallazgos no está vacía, y en el perfil completo R10 chequea
-`total_findings` contra una lista vacía pero no los baldes. Así que
-`findings: []` con un balde en uno pasa las dos. Que los conteos estén bien es
-tu responsabilidad; el validador atrapa algunas discrepancias, no todas.
+Las reglas atrapan menos de lo que esa frase sugiere. R6 compara los conteos
+contra la lista siempre que la lista esté, vacía incluida, y en el perfil
+completo R10 además la exige y rechaza una lista vacía cuyo `total_findings`
+diga otra cosa. Lo que ninguna de las dos puede chequear es si cada hallazgo
+lleva el estado terminal correcto: un hallazgo anotado como incorporado cuando
+en realidad se refutó deja todos los conteos coherentes. Que los estados estén
+bien es tu responsabilidad; el validador atrapa discrepancias, no
+clasificaciones equivocadas.
 
 ## Perfil minimizado
 

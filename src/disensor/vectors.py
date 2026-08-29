@@ -149,9 +149,18 @@ def cases() -> list[tuple[str, dict, bool, set[str]]]:
     # Y el reverso: la lista vacia no puede tapar conteos que dicen otra cosa.
     # Las dos implementaciones aceptaban esto porque R6 corria solo con lista no
     # vacia y R10 solo miraba el total.
-    m = copy.deepcopy(m)
+    vacio = copy.deepcopy(m)
+
+    m = copy.deepcopy(vacio)
     m["metrics"]["counts"]["valid"]["incorporated"] = 3
     out.append(("r6_counts_without_findings", m, False, {"R6"}))
+
+    # El borde donde las dos implementaciones se separaban: la lista vacia con
+    # un total que dice otra cosa dispara las dos reglas, y el contrato es que
+    # coincidan las etiquetas y no solo el veredicto.
+    m = copy.deepcopy(vacio)
+    m["metrics"]["counts"]["total_findings"] = 1
+    out.append(("r10_empty_list_with_nonzero_total", m, False, {"R10", "R6"}))
 
     # Invalid: schema only (rules are not evaluated when the shape fails)
     m = copy.deepcopy(diff)

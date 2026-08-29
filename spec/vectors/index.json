@@ -2,6 +2,7 @@
   "schema": "residue/v0.3",
   "vectors": [
     "r0_no_human_arbiter",
+    "r10_empty_list_with_nonzero_total",
     "r10_full_without_findings",
     "r1_escalation_without_item",
     "r1_nonexistent_reference",
