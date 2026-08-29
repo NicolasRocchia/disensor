@@ -484,6 +484,19 @@ def test_a_frozen_version_is_never_dropped():
         "sacar una version del mapa rompe la idempotencia de todo lo ya atestado "
         "bajo ella"
     )
+
+    # Y atada a la evidencia, no solo a los archivos: borrar el recurso y sacarlo
+    # del mapa en el mismo movimiento pasaba la comparacion de arriba. Toda
+    # version que alguna declaracion emitida haya usado tiene que seguir siendo
+    # validable, que es de lo que la promesa habla.
+    emitidas = {json.loads(p.read_text(encoding="utf-8")).get("schema")
+                for p in (raiz / ".residue").glob("*.json")}
+    emitidas.discard(None)
+    assert emitidas, "no hay declaraciones en el corpus"
+    assert emitidas <= set(SCHEMA_FILES), (
+        f"hay declaraciones emitidas bajo {sorted(emitidas - set(SCHEMA_FILES))}, que este "
+        "disensor ya no sabe validar: la evidencia dejo de poder verificarse"
+    )
     for version, archivo in SCHEMA_FILES.items():
         assert archivo == f"residue.schema.{version.split('/')[1]}.json", (version, archivo)
         # Y cada recurso se declara a si mismo: el discriminador que el archivo

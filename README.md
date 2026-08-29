@@ -331,12 +331,12 @@ can merge.
 
 ## Conformance between implementations
 
-`spec/vectors/` holds the conformance vectors, one suite per schema version: 35 artifacts for v0.3 and 43 for v0.4, each with its expected
+`spec/vectors/` holds the conformance vectors, one suite per schema version: 11 artifacts for v0.2, 35 for v0.3 and 43 for v0.4, each with its expected
 verdict (valid or not, and the rule labels that must fire). Every validator
 implementation has to pass them identically: the Python reference runs them in
 its suite (`tests/test_vectors.py`) and the TypeScript port of the evidence
 plane runs them with `npm run conformidad`. Labels are compared, not messages.
-The vectors are regenerated with `python -m disensor.vectors <directory>`. The generator produces the current schema version and refuses to write over a suite that declares another one: the committed suite is still v0.3 and overwriting it would erase the only negative coverage the historical rules have.
+The vectors are regenerated with `python -m disensor.vectors <directory>`. The generator produces the current schema version and refuses to write over a suite that declares another one: overwriting a historical suite would erase the only negative coverage those rules have. The runner fails if a known version has no vectors declaring it, because otherwise a version can be claimed as supported without anything checking it, which is exactly how v0.2 got here. `spec/version_ordinality.json` carries the other shared vectors: the form of a schema identifier and which rules reach which declaration, both verified by both implementations.
 
 Each vector is validated under the schema of the version it declares. The
 TypeScript port implements the rules of **v0.2, v0.3 and v0.4**, so the
