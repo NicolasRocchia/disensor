@@ -692,15 +692,19 @@ def test_a_repository_already_on_level_a_without_coverage_fails_closed(repo, cap
     assert "declares Level A with gate.required=false" in out(capsys)
 
 
-def test_a_pr_that_repairs_the_invalid_level_a_policy_is_not_blocked(repo, capsys):
-    """Fallar cerrado no puede trabar al PR que viene a arreglarlo.
+def test_repairing_the_invalid_policy_is_an_administrative_step(repo, capsys):
+    """Ni siquiera el PR que la repara pasa, y eso es deliberado.
 
-    Si la politica de la base es invalida y el gate rechaza todo, el repositorio
-    queda sin salida: el unico PR que puede sacarlo de ahi es el que la repara.
+    Se intento una excepcion para el PR reparador y cinco rondas adversariales
+    encontraron cinco formas de abusarla: una config ilegible contaba como
+    arreglo, una rama vieja tambien, y una politica valida de forma podia dejar
+    el nivel A imposible por otro camino. El gate no puede dejar pasar al PR que
+    arregla las reglas por las que juzga, igual que el primer PR que instala el
+    control no puede convertirse a si mismo en raiz de confianza.
     """
     repo.config({"criticality_level": "A", "level_A_enabled": True, "gate": {"required": False}})
     base = repo.commit("politica invalida")
     repo.config({"criticality_level": "B", "level_A_enabled": False})
-    head = repo.commit("la repara")
-    assert repo.run(base, head) == 0
-    assert "repairs it" in out(capsys)
+    head = repo.commit("intenta repararla")
+    assert repo.run(base, head) != 0
+    assert "administrative step" in out(capsys)
