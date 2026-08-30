@@ -144,6 +144,13 @@ info), `title`, `description`, `location` (solo en el perfil completo), y:
     evidencia y qué no. "El test pasó" puede ser plenamente verificable mientras
     "por lo tanto el defecto no existe" no se deduce de eso; cuando sea el caso,
     decilo en `verification.detail`.
+
+    Citá lo mínimo que pruebe el punto: la evidencia vive en git para siempre,
+    y este es el campo donde algo sensible se pega sin que nadie lo note. Si el
+    fragmento trae identificadores, datos personales o credenciales, usá `hash`
+    o `link` en vez de `text`. Y si pegaste un secreto, rotalo; no confíes en
+    borrarlo. Reescribir la historia rompe los ids de commit que anclan todo el
+    sistema, y git conserva el blob original igual.
   - `refuted_interpretive`: falso positivo por juicio; TIENE que aparecer además
     como ítem de residuo (R1) con `requires_human_attention: true` (R8).
   - `escalated_open`: todavía sin decisión; TIENE que aparecer además como ítem

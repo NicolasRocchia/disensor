@@ -139,6 +139,14 @@ info), `title`, `description`, `location` (full profile only), and:
     Note what the evidence does and does not establish. "The test passed" can
     be fully verifiable while "therefore the defect does not exist" is not
     deduced from it; when that is the case, say so in `verification.detail`.
+
+    Quote the minimum that proves the point: evidence lives in git forever,
+    and this is the field where something sensitive gets pasted without
+    anyone noticing. If the fragment carries identifiers, personal data or
+    credentials, use `hash` or `link` instead of `text`. And if you did paste
+    a secret, rotate it; do not trust deletion. A rewritten history breaks
+    the commit ids the whole system anchors to, and git keeps the original
+    blob anyway.
   - `refuted_interpretive`: false positive by judgment; it MUST also appear
     as a residue item (R1) with `requires_human_attention: true` (R8).
   - `escalated_open`: no decision yet; it MUST also appear as a residue
