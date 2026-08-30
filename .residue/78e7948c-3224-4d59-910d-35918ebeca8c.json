@@ -1,0 +1,75 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "78e7948c-3224-4d59-910d-35918ebeca8c",
+    "created_at": "2026-08-29T20:53:18-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "5b4b82097ab467f7364024fab6413180d497594c",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "1824106ba4154fd2486c82d8d23cf2b0fe81fbf7"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "environment_not_reproducible",
+        "description": "La ronda no ejecuto la Action compuesta dentro de un runner de GitHub. El revisor verifico que el SHA pineado es el commit que el tag v0.9.4 apunta, que es ancestro de origin/main y que su arbol contiene la Action y la version que dice contener, todo leyendo el repositorio; que ese pin efectivamente corra queda cubierto por la propia CI de este PR, que es donde se ejercita."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:fd681c5c0e3d21eaa2f1b9344af91bac7d42f9a3838353465207a682d87feb2c",
+      "report_hash": "sha256:15ced63414bdd5455f3ed2e7d0cbcaa98665273ed25bb4247fb518dba9b2e246",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
