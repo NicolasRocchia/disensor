@@ -1,0 +1,75 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "0085276e-bb16-4ccd-86d4-e04bd740b4f6",
+    "created_at": "2026-08-29T22:43:23-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "4969fba96d98cb9c6050d10cd3976d7761f27647",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "a5924747b2f03dac107194d32ba8b20251050b2c"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "El revisor no corrio la suite de pruebas: su confinamiento le permite exactamente una escritura fuera del repositorio, que es su informe, y el runner de pruebas crea temporales aunque se le apague el bytecode y el cache. Verifico el rango con la comprobacion de formato de git y leyendo las pruebas de sincronizacion de documentos. El generador si corrio la suite completa antes del commit, en verde."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:62f9ac0a19bc5912de0dd5a1a4b72c8700d29a596a354d048260664002623e6b",
+      "report_hash": "sha256:93762af2f1fb96d1cf1969af2a4a5a216c532f60af178a9cf6d2a992b7867f46",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
