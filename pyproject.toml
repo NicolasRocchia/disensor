@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "disensor"
 version = "0.9.4"
-description = "Adversarial plan & code review with a declared residue. Emits, validates and CI-enforces residue declarations (residue/v0.4 schema)."
+description = "disensor checks the record your AI code review leaves behind: a JSON file in your repo, validated against a schema and enforced on the pull request."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

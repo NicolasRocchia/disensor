@@ -1,0 +1,75 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "130672cb-2d10-4e68-96d3-ec640d3fe73f",
+    "created_at": "2026-08-29T22:01:30-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "b2ba5a5bc6a5be59e2e969bfa9e31edebb98c715",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "a5924747b2f03dac107194d32ba8b20251050b2c"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "El revisor no pudo observar el resumen del paquete tal como lo va a mostrar PyPI, porque este commit no esta publicado y publicar queda fuera de una revision de solo lectura. Lo que si se arbitro por ejecucion: pyproject.toml parsea como TOML, el resumen mide 132 caracteres y el sdist se construye con esa metadata. Lo que queda sin arbitrar es unicamente el render de la pagina de PyPI, que no depende de este repositorio y se cierra solo en la proxima publicacion. No hay nada que un humano pueda decidir antes del merge, y por eso requires_human_attention es false."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:efb6fedefa18c0403b959a8384bd515963205e74e754f4a9c89064407d343444",
+      "report_hash": "sha256:9e8cbb2a9b681abe833952dad33a0c4fa913ce3ed0af8658d1ad549648586c15",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
