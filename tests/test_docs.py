@@ -266,3 +266,80 @@ def test_the_status_section_names_the_package_version():
         assert m.group(1) == __version__, (
             f"{path.name} dice estar en v{m.group(1)} y el paquete es {__version__}"
         )
+def counted_realities() -> dict[str, int]:
+    """Los numeros reales, contados de las cosas que la prosa afirma contar."""
+    import json
+
+    ordinal = json.loads((ROOT / "spec" / "version_ordinality.json").read_text(encoding="utf-8"))
+    suites = {
+        p.name: len([q for q in p.glob("*.json") if q.name != "index.json"])
+        for p in sorted((ROOT / "spec" / "vectors").iterdir()) if p.is_dir()
+    }
+    return {
+        "form": len(ordinal["form"]),
+        "ordinality": len(ordinal["ordinality"]),
+        "shared": len(ordinal["form"]) + len(ordinal["ordinality"]),
+        "vectors": sum(suites.values()),
+        **{f"suite_{k}": v for k, v in suites.items()},
+    }
+
+
+# Cada afirmacion numerica vigilada, como (archivo, patron, claves esperadas).
+# Cardinalidad exacta: el patron tiene que aparecer UNA vez; la ausencia es rojo
+# (una frase reescrita que ya no matchea tiene que fallar, no pasar en cero) y
+# la duplicacion tambien. Los grupos se comparan como enteros contra lo contado.
+CLAIMS = [
+    ("plano-evidencia/README.md",
+     r"los (\d+) casos de `spec/version_ordinality\.json` \((\d+) de forma del "
+     r"identificador y (\d+) de ordinalidad\)",
+     ("shared", "form", "ordinality")),
+    ("plano-evidencia/README.md",
+     r"los (\d+) vectores de v0\.2, v0\.3 y v0\.4",
+     ("vectors",)),
+    ("README.md",
+     r"(\d+) artifacts for v0\.2, (\d+) for v0\.3 and (\d+) for v0\.4",
+     ("suite_v0.2", "suite_v0.3", "suite_v0.4")),
+    ("README.es.md",
+     r"(\d+) artefactos para v0\.2, (\d+) para v0\.3 y (\d+) para v0\.4",
+     ("suite_v0.2", "suite_v0.3", "suite_v0.4")),
+    ("README.md",
+     r"conformance runs (\d+) vectors across three suites\s+plus (\d+) shared cases",
+     ("vectors", "shared")),
+    ("README.es.md",
+     r"(\d+) vectores en tres suites más (\d+) casos compartidos",
+     ("vectors", "shared")),
+]
+
+
+def test_documented_counts_match_what_they_count():
+    """Una cifra afirmada en prosa se compara contra la cosa que dice contar.
+
+    El README del plano dijo "21 casos" durante siete casos y todas las corridas
+    de CI: nada comparaba la prosa con el archivo, y lo vio un reproductor
+    externo que corrio las dos implementaciones en frio contra el tag. Una cifra
+    que nada chequea es exactamente una afirmacion sin verificar, que es la
+    familia de defectos que esta herramienta existe para cazar.
+
+    Limite del mecanismo, dicho con la doctrina de test_docs_sync: esta es una
+    lista de afirmaciones CONOCIDAS, escritas con digitos. Vigila que lo
+    registrado no envejezca; no descubre afirmaciones numericas nuevas ni
+    cifras en palabras. Agregar una cifra a la prosa sin registrarla aca la
+    deja sin vigilar, igual que antes: el inventario es manual a proposito,
+    porque un descubridor automatico de numeros en prosa afirmaria vigilar mas
+    de lo que puede.
+    """
+    real = counted_realities()
+    for archivo, patron, claves in CLAIMS:
+        texto = (ROOT / archivo).read_text(encoding="utf-8")
+        hits = re.findall(patron, texto)
+        assert len(hits) == 1, (
+            f"{archivo}: el patron {patron!r} aparece {len(hits)} veces y tiene que "
+            "aparecer exactamente una. Cero significa que la frase se reescribio y "
+            "quedo sin vigilar; mas de una, que la afirmacion se duplico."
+        )
+        valores = hits[0] if isinstance(hits[0], tuple) else (hits[0],)
+        for valor, clave in zip(valores, claves):
+            assert int(valor) == real[clave], (
+                f"{archivo}: la prosa dice {valor} donde {clave} cuenta {real[clave]}. "
+                "La cifra envejecio: actualizar la prosa (y el desglose si lo lleva)."
+            )
