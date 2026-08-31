@@ -90,3 +90,60 @@ def test_the_help_footer_offers_every_public_gate(tmp_path, capsys):
     out = capsys.readouterr().out
     for gate in ("plan", "diff", "architecture"):
         assert gate in out
+
+
+def test_version_flag_prints_the_package_version_and_exits_zero():
+    """El primer comando que un desconocido tipea despues de instalar.
+
+    Salia con un error de uso y codigo 2: la peor primera impresion posible,
+    y se la llevo justo un reproductor externo. Se ejercita python -m disensor
+    (el codigo del checkout, no un ejecutable viejo del PATH) y se compara la
+    salida exacta: exit 0, stdout con la version del paquete, stderr vacio.
+
+    Comportamiento aceptado a conciencia, estandar de action="version":
+    `--version` con argumentos extra imprime y sale 0 sin validar el resto, y
+    `subcomando --version` sale 2, porque la bandera es del programa y no de
+    los subcomandos.
+    """
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from disensor import __version__
+
+    root = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "PYTHONPATH": str(root / "src")}
+
+    r = subprocess.run([sys.executable, "-m", "disensor", "--version"],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 0
+    assert r.stdout.strip() == f"disensor {__version__}"
+    assert r.stderr == ""
+
+    sin_args = subprocess.run([sys.executable, "-m", "disensor"],
+                              capture_output=True, text=True, env=env)
+    assert sin_args.returncode == 2
+
+
+def test_the_version_literal_matches_the_packaging_metadata():
+    """__version__ es un literal duplicado de [project].version, y eso se ata.
+
+    Sin esta guarda, un release que mueva uno solo dejaria el wheel en una
+    version y `disensor --version` diciendo otra, y los tests documentales
+    coincidirian todos en el valor equivocado porque comparan contra
+    __version__. Se lee pyproject por regex y no con tomllib porque CI corre
+    3.10, que no lo trae.
+    """
+    import re
+    from pathlib import Path
+
+    from disensor import __version__
+
+    pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'^version = "([^"]+)"$', pyproject, re.M)
+    assert m, "pyproject.toml no declara version"
+    assert m.group(1) == __version__, (
+        f"pyproject.toml dice {m.group(1)} y disensor.__version__ dice {__version__}: "
+        "el wheel y el CLI anunciarian versiones distintas"
+    )
