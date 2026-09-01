@@ -11,6 +11,7 @@ import json
 import sys
 from pathlib import Path
 
+from . import __version__
 from .brief import GATES, main_prompt
 from .gate import main_gate
 from .guide import main_guide, main_hash
@@ -72,6 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="disensor",
         description="Residue declaration of adversarial review (controlled disagreement).",
     )
+    # El primer comando que un desconocido tipea despues de instalar. Corta e
+    # imprime antes de validar el subcomando requerido, que es el estandar de
+    # argparse; sin esto salia con un error de uso y codigo 2.
+    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
     init = sub.add_parser("init", help="Scaffold a repository: config, CLAUDE.md section, filling skill and CI workflow.")

@@ -83,7 +83,11 @@ for (const version of Object.keys(SCHEMA_FILES)) {
 
 // Y el vector compartido de la forma del identificador y de la ordinalidad, que
 // es donde las dos implementaciones se habian separado sin que nada lo dijera.
-let ordinalidad = 0;
+// Dos contadores, porque son dos clases de caso: llamar "ordinality" al total
+// le mostraba a un lector externo una clasificacion distinta de la del archivo,
+// que separa la forma del identificador de la ordinalidad de las reglas.
+let casosForma = 0;
+let casosOrdinalidad = 0;
 const casos = JSON.parse(readFileSync(join(root, "spec", "version_ordinality.json"), "utf-8"));
 for (const c of casos.form) {
   let acepta = true;
@@ -92,7 +96,7 @@ for (const c of casos.form) {
     console.log(`DIVERGE form ${JSON.stringify(c.id)}: obtained valid=${acepta}, expected ${c.valid}`);
     divergences++;
   }
-  ordinalidad++;
+  casosForma++;
 }
 for (const c of casos.ordinality) {
   let obtenido: boolean | "raises";
@@ -102,7 +106,7 @@ for (const c of casos.ordinality) {
     console.log(`DIVERGE ordinality ${c.declared} from ${c.introduced}: obtained ${obtenido}, expected ${esperado}`);
     divergences++;
   }
-  ordinalidad++;
+  casosOrdinalidad++;
 }
 
 console.log(`---`);
@@ -112,9 +116,11 @@ for (const [version, cuantos] of [...noImplementadas].sort()) {
 for (const version of faltantes) {
   console.log(`NO COVERAGE: ${version} is a known version with no vectors declaring it`);
 }
+const casosCompartidos = casosForma + casosOrdinalidad;
 console.log(divergences === 0
-  ? `CONFORMANT: ${run} vectors and ${ordinalidad} ordinality cases, zero divergences`
-  : `NOT CONFORMANT: ${divergences} divergences over ${run} vectors and ${ordinalidad} ordinality cases`);
+  ? `CONFORMANT: ${run} vectors and ${casosCompartidos} shared cases `
+    + `(${casosForma} identifier-form, ${casosOrdinalidad} ordinality), zero divergences`
+  : `NOT CONFORMANT: ${divergences} divergences over ${run} vectors and ${casosCompartidos} shared cases`);
 // Una suite que este port no sabe juzgar, o una version conocida sin vectores,
 // son fallas y no notas al pie: sin esto CI queda en verde mientras el claim de
 // dos implementaciones vuelve a cubrir una version que ya no es la vigente, que
