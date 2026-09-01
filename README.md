@@ -122,7 +122,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.9.4
+      - uses: NicolasRocchia/disensor@v0.9.5
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -478,7 +478,15 @@ it says.
 
 ## Status
 
-v0.9.4, on **residue/v0.4**. This version closes residue/v0.4: the TypeScript
+v0.9.5, on **residue/v0.4**. This version carries what the first independent
+reproduction left: an external reader cloned the v0.9.4 tag, verified the frozen
+hashes and ran both implementations cold, with zero divergences, and found that
+the evidence-plane README claimed a stale count. The count is fixed with its
+breakdown said out loud, every numeric claim in these documents is now compared
+in CI against the thing it counts, `disensor --version` exists (it exited with a
+usage error, and the first command a stranger types deserves better), and the
+version literal is tied to the packaging metadata by test. The previous version
+closes residue/v0.4: the TypeScript
 port validates v0.2, v0.3 and v0.4, so the two-independent-implementations claim
 covers the version the CLI emits; conformance runs 89 vectors across three suites
 plus 28 shared cases fixing the form of a schema identifier and which rules reach
