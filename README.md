@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.9.5
+      - uses: NicolasRocchia/disensor@v0.9.6
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -531,8 +531,21 @@ it says.
 
 ## Status
 
-v0.9.5, on **residue/v0.4**. This version carries what the first independent
-reproduction left: an external reader cloned the v0.9.4 tag, verified the frozen
+v0.9.6, on **residue/v0.4**. This version fixes the gate comment for the two
+reviewer classes v0.4 added: a declaration carrying `reviewer_correlation` or
+`reviewer_hardening_gap`, which R11 and R12 require when a reviewer is declared
+with degraded independence or unverified hardening, validated and then aborted
+the gate with a `KeyError` while the comment was being rendered, also with
+`--no-comment`, so the degraded mode v0.4 made declarable broke the gate the
+first time anyone declared it honestly
+([#56](https://github.com/NicolasRocchia/disensor/issues/56)). The comment now
+names both classes and the reviewer each item is about, next to the finding
+when there is one, and a test keeps the render's table equal to the schema's
+enum. The opening line and the PyPI summary say what this is with the
+vocabulary people search for (adversarial, cross-model AI code review with a
+residue declaration), and a new section says how it relates to other
+approaches and to Adversarial Review (arXiv 2608.18167). The previous version
+carries what the first independent reproduction left: an external reader cloned the v0.9.4 tag, verified the frozen
 hashes and ran both implementations cold, with zero divergences, and found that
 the evidence-plane README claimed a stale count. The count is fixed with its
 breakdown said out loud, every numeric claim in these documents is now compared

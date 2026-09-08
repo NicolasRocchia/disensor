@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "disensor"
-version = "0.9.5"
+version = "0.9.6"
 description = "Adversarial, cross-model AI code review with a residue declaration: a CLI and a CI gate that validate the record the review leaves behind."
 readme = "README.md"
 requires-python = ">=3.10"
