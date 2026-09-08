@@ -1,0 +1,159 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "7547847a-b093-4940-b5c7-8540bf798cad",
+    "created_at": "2026-09-08T03:00:28+00:00",
+    "repository": "https://github.com/NicolasRocchia/disensor",
+    "head_commit": "a545a237e8c36cdb9b085af89fd7179b74d1df37",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "1ce7a7c800a7845a8889375b7477bfd3cfe438b3",
+    "pr": "https://github.com/NicolasRocchia/disensor/pull/55"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-code"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "GPT Astra (declarado por el operador; vía interfaz web, versión exacta no atestiguada)",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "permissions",
+          "verified": false
+        }
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Falta una guía que responda «qué es adversarial code review» antes de presentar la herramienta",
+      "description": "El revisor propone como prioridad una página que explique la práctica primero (qué se busca al separar generación y crítica, cómo es una ronda concreta, cómo verificar un hallazgo, qué hacer con un falso positivo, límites), después el problema del registro que queda, y recién ahí disensor. Con títulos sugeridos en los dos idiomas y sin duplicar /how-it-works/, que sigue explicando el funcionamiento específico.",
+      "location": "disensor-web: src/content/docs/ (página nueva en los dos idiomas)",
+      "final_state": "debt_recorded",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado contra el sitio: ninguna página explica la práctica antes que la herramienta; /how-it-works/ y /method/ parten de disensor. Es trabajo del repositorio del sitio, no de este PR, así que acá queda como deuda con dueño."
+      },
+      "debt_id": "disensor-web-guia-adversarial-code-review"
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Ruta española distinta (/es/revision-adversarial/) para la guía propuesta",
+      "description": "El revisor propone /adversarial-code-review/ en inglés y /es/revision-adversarial/ en español. Es una parte del remedio de h1, no de la guía en sí.",
+      "location": "disensor-web: rutas de la página nueva",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "external_source",
+        "detail": "El conmutador de idioma de Starlight arma la URL del otro idioma reemplazando el prefijo de locale de la ruta actual (utils/localizedUrl.ts, usado por components/LanguageSelect.astro, en @astrojs/starlight 0.41): desde /adversarial-code-review/ mandaría a /es/adversarial-code-review/, y Starlight generaría además esa ruta como página de respaldo con el contenido inglés. Todo el sitio usa el mismo slug en los dos idiomas. Lo refutado es la ruta; el vocabulario español va en el título y el texto."
+      },
+      "evidence": {
+        "text": "@astrojs/starlight/components/LanguageSelect.astro: return localizedUrl(Astro.url, locale, context.trailingSlash).pathname; la función vive en utils/localizedUrl.ts y solo cambia el prefijo de locale de la ruta actual."
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La categoría no es visible en la primera pantalla y los títulos de página no son descriptivos fuera del sitio",
+      "description": "El revisor propone sumar una línea visible del tipo «Versioned evidence for adversarial AI code review» sin reemplazar el mensaje actual, y títulos de página que se entiendan fuera del contexto del sitio, con un ejemplo para /how-it-works/.",
+      "location": "disensor-web: src/i18n/textos.ts, src/content/docs/how-it-works.mdx, method.md y sus versiones en español",
+      "final_state": "debt_recorded",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado contra textos.ts: el rótulo sobre el h1 dice «CLI · GitHub Action · JSON artifact» y el título de /how-it-works/ es «What disensor does, explained slowly». Copy del sitio, se decide y se hace allá. Se toma el rótulo propuesto; el título de how-it-works se ajusta conservando la voz de la página en lugar de reemplazarla."
+      },
+      "debt_id": "disensor-web-rotulo-y-titulos"
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Enlaces con texto descriptivo hacia la guía desde la portada, /method/ y /how-it-works/, y aprovechar la difusión que ya existe",
+      "description": "Depende de h1. El revisor menciona además un post de Reddit sobre la declaración de residuo que habría aparecido en una búsqueda sin la marca.",
+      "location": "disensor-web: portada, method, how-it-works y barra lateral",
+      "final_state": "debt_recorded",
+      "verification": {
+        "against": "repository",
+        "detail": "Los enlaces solo tienen sentido cuando exista la guía de h1. La mención al post de Reddit no se verificó: el entorno del generador no tenía acceso a ese sitio."
+      },
+      "debt_id": "disensor-web-enlaces-a-la-guia"
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Incoherencia: la comparación con Adversarial Review decía que disensor no orquesta ni corre modelos, y disensor round sí corre al revisor",
+      "description": "La subsección «Relation to Adversarial Review» afirmaba que disensor no orquesta ni corre modelos, mientras que /how-it-works/ y la portada documentan que desde la 0.9 disensor round puede ejecutar el paso del revisor. La distinción correcta es la que ya tenía el resto de la documentación: el gate valida el registro sin ejecutar modelos; el comando de ronda sí puede invocar al revisor.",
+      "location": "README.md, README.es.md, docs/notes/arxiv-2608.18167.md; la misma frase en el sitio, /method/ y /es/method/",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado: la portada del sitio dice «since 0.9 disensor round orchestrates it with the reviewer installed on your machine» (src/i18n/textos.ts) y el README tiene la sección «The orchestrated round». La frase incoherente era del generador, agregada en este mismo PR."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Commit a545a23 de este PR: la oración pasa a distinguir el gate, que no corre modelos, de la ronda opcional, que corre al revisor y no juzga el informe. Verificado releyendo contra textos.ts y contra «What it does not do», y con tests/test_docs.py y tests/test_docs_sync.py en verde. El mismo ajuste en el sitio va en el repositorio hermano."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "principal_refutation",
+        "finding_ref": "h2",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "El generador refutó la ruta española propuesta citando el código de Starlight. La refutación es verificable leyendo utils/localizedUrl.ts del paquete instalado en el repositorio del sitio, y queda declarada para que el árbitro pueda no darla por buena.",
+        "evidence": {
+          "text": "@astrojs/starlight/components/LanguageSelect.astro llama a localizedUrl(Astro.url, locale, ...), que reemplaza el prefijo de locale de la ruta actual y no consulta qué páginas existen."
+        }
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no ejecutó nada: ni la suite de pruebas ni el build del sitio. El generador corrió las dos en verde (pytest, npm test, npm run build con sus chequeos posteriores, astro check) antes y después de la corrección de h5. El revisor tampoco vio esa corrección: no hubo segunda pasada."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "La ronda no fue la empaquetada. La consigna fue una pregunta del operador por interfaz web y su texto no se conservó, así que no hay prompt_hash. El informe del revisor cubre la sección sobre Adversarial Review, idéntica en el README y en /method/, y no menciona pyproject.toml ni docs/notes/arxiv-2608.18167.md: esos dos archivos del rango no tienen revisión atestiguada más allá de la lectura del propio generador. Y el endurecimiento del revisor no está verificado: corrió por interfaz web, sin adaptador probado contra un repositorio hostil, leyendo un repositorio público que incluye consignas y guías dirigidas a agentes. No se declara como hardening unverified con su ítem reviewer_hardening_gap porque el renderizador del gate, también en el pin v0.9.4, no conoce esa clase y aborta (issue #56, https://github.com/NicolasRocchia/disensor/issues/56); queda dicho acá, con atención humana requerida, hasta que el arreglo llegue al pin."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 5,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 3,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 1,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
