@@ -86,3 +86,22 @@ def test_the_comment_names_the_degraded_reviewer_in_both_profiles(degradada, pro
         linea = next(line for line in body.splitlines() if CLASS_NAME[klass] in line)
         assert f"(reviewer {rid})" in linea, linea
         assert "requires human attention" in linea, linea
+
+
+@pytest.mark.parametrize("profile", ["full", "minimized"])
+def test_a_finding_ref_does_not_hide_the_reviewer(degradada, profile):
+    """Hallazgo de la ronda del PR #57: el esquema admite `finding_ref` y
+    `reviewer_ref` en el mismo ítem, y el primero tapaba al segundo."""
+    for item in degradada["residue"]["items"]:
+        if item["class"] in ("reviewer_correlation", "reviewer_hardening_gap"):
+            item["finding_ref"] = "h1"
+    assert validate_artifact(degradada) == [], "las dos referencias juntas son válidas: el bug era del render"
+    degradada["profile"] = profile
+    if profile == "minimized":
+        for item in degradada["residue"]["items"]:
+            item.pop("description", None)
+    body = render_comment([degradada], {}, [])
+    rid = degradada["actors"]["reviewers"][0]["reviewer_id"]
+    for klass in ("reviewer_correlation", "reviewer_hardening_gap"):
+        linea = next(line for line in body.splitlines() if CLASS_NAME[klass] in line)
+        assert f"(finding h1, reviewer {rid})" in linea, linea

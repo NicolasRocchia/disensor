@@ -33,14 +33,16 @@ STATE_NAME = {
 def _item_line(item: dict, profile: str) -> str:
     klass = CLASS_NAME[item["class"]]
     attention = " **(requires human attention)**" if item.get("requires_human_attention") else ""
-    # What the item is about: a finding, or the reviewer the two reviewer classes
-    # name (R11, R12). The reviewer goes on the line in every profile, because
-    # without it the item does not say which reviewer was degraded.
-    ref = ""
+    # What the item is about: the finding it was born from, the reviewer the two
+    # reviewer classes name (R11, R12), or both: the schema allows both on one
+    # item, and the reviewer goes on the line in every profile, because without
+    # it the item does not say which reviewer was degraded.
+    about = []
     if item.get("finding_ref"):
-        ref = f" (finding {item['finding_ref']})"
-    elif item.get("reviewer_ref"):
-        ref = f" (reviewer {item['reviewer_ref']})"
+        about.append(f"finding {item['finding_ref']}")
+    if item.get("reviewer_ref"):
+        about.append(f"reviewer {item['reviewer_ref']}")
+    ref = f" ({', '.join(about)})" if about else ""
     detail = ""
     if profile == "full" and item.get("description"):
         detail = f": {item['description']}"
