@@ -1,0 +1,91 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "6b969ccb-9afb-4c9d-bb73-71502dbfae54",
+    "created_at": "2026-09-08T12:24:33+00:00",
+    "repository": "https://github.com/NicolasRocchia/disensor",
+    "head_commit": "bd9b88425b00e66388c314abd6f3478d8586896e",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "ae29eb6a58346a085a53b5159194edf529994020",
+    "pr": "https://github.com/NicolasRocchia/disensor/pull/57"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-code"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "GPT 6 Astra, esfuerzo muy alto, vía la aplicación de escritorio de Codex (declarado por el operador)",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true
+        },
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "finding_ref oculta al revisor que el ítem debería identificar",
+      "description": "El esquema admite finding_ref y reviewer_ref en el mismo ítem, y el elif del render descartaba el revisor cuando existía el hallazgo: en las dos clases de revisor el comentario decía «(finding h1)» y no de qué revisor hablaba, en los dos perfiles. El revisor lo reprodujo sobre example_2 y example_3 con un revisor degradado, los dos ítems que exigen R11 y R12 y finding_ref h1 en cada uno: validate_artifact devolvió [] y el comentario omitió «(reviewer r1)».",
+      "location": "src/disensor/render.py, _item_line: la referencia del ítem (líneas 36 a 43 en f6dbfb2)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido por el generador con la misma receta sobre example_2: declaración degradada válida con finding_ref h1 en los dos ítems de revisor, validate_artifact en [] y render_artifact sin el revisor en full y en minimized."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "Commit bd9b884 de este PR: la referencia del ítem lista hallazgo y revisor cuando hay los dos, «(finding h1, reviewer r1)», y los ítems con una sola referencia se ven igual que antes. tests/test_render.py::test_a_finding_ref_does_not_hide_the_reviewer en los dos perfiles, escrito antes del arreglo y fallando con él ausente; suite completa en verde después (457 passed, 6 skipped)."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no tenía la rama en su clon: reconstruyó los cuatro archivos del rango en memoria a partir del diff del PR y verificó que sus hashes de blob coincidieran con los del diff. No ejecutó la suite completa ni el test integral nuevo del gate, porque sus fixtures crean archivos y repositorios temporales y la consigna prohíbe crear archivos; sí corrió las tres comprobaciones nuevas del render por llamada directa, reprodujo el KeyError original y su corrección, comprobó que 24 vectores válidos conservaran su salida anterior y una selección de tests de reglas, v0.4 y vectores (140 passed, 3 skipped). No comprobó la publicación real del comentario en GitHub. El generador corrió la suite completa antes y después de la corrección de h1 (455 y 457 passed, 6 skipped) y el gate en local con --no-comment; la publicación real la ejercita el CI de este PR. El revisor no vio la corrección de h1: no hubo segunda pasada. La consigna fue la empaquetada (prompt_hash), precedida por un párrafo del generador con el objetivo del cambio y seguida por el diff del rango pegado."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "El endurecimiento del revisor no está verificado: corrió por la aplicación de escritorio de Codex y no por la receta verified del catálogo (codex exec con sus flags), sin adaptador probado contra un repositorio hostil. El confinamiento fue por instrucción de solo lectura más un audit hook en los scripts que rechazaba escrituras y subprocesos, y el operador verificó el árbol limpio después de la ronda. No se declara como hardening unverified con su ítem reviewer_hardening_gap porque el renderizador del gate pineado (v0.9.5) no conoce esa clase y aborta: es el arreglo de este mismo PR (issue #56, https://github.com/NicolasRocchia/disensor/issues/56). Queda dicho acá, con atención humana requerida, hasta que el pin lleve el arreglo."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
