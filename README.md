@@ -11,11 +11,12 @@ ends up as a JSON file in your repo, next to the code it judges.
 
 *Este documento también está [en español](https://github.com/NicolasRocchia/disensor/blob/main/README.es.md).*
 
-Residue declaration of adversarial review, with validation and a CI gate.
-Reference implementation of the artifact defined by the **controlled
-disagreement** method: one model generates, a model from another family attacks,
-the generator verifies every finding, and the cycle ends when each finding has
-been resolved, refuted with evidence, or escalated to a human.
+Adversarial, cross-model AI code review that ends in a residue declaration: a
+CLI and a CI gate that validate the record the review leaves behind. Reference
+implementation of the artifact defined by the **controlled disagreement**
+method: one model generates, a model from another family attacks, the
+generator verifies every finding, and the cycle ends when each finding has been
+resolved, refuted with evidence, or escalated to a human.
 
 The artifact this repo defines and enforces records how each review event ended:
 the findings with their terminal state, and the **residue**: what the cycle
