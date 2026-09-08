@@ -335,9 +335,12 @@ concerns are close, so the difference is worth stating.
 AR is an **orchestration protocol**: a main coding agent works with a reviewer
 and a critic, the critic audits the review through structured disagreement
 before the main agent edits, and the result is measured by pass rate and F1 on
-benchmarks. disensor neither orchestrates nor runs models: it defines and
-validates the **artifact** any review cycle ends with, and applies it as a gate
-in CI.
+benchmarks. The gate neither orchestrates nor runs models: disensor defines
+the **artifact** any review cycle ends with, validates it, and enforces it in
+CI. The optional `disensor round` does run the reviewer step, with a reviewer
+installed on your machine, and never judges what it returns; the dialogue
+between reviewer and critic that AR orchestrates is not something disensor
+does.
 
 AR reports a **false-consensus** failure mode, agents converging on agreement
 without sufficient evidence, and addresses it inside the protocol by making the
