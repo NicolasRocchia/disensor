@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "disensor"
 version = "0.9.5"
-description = "disensor checks the record your AI code review leaves behind: a JSON file in your repo, validated against a schema and enforced on the pull request."
+description = "Adversarial, cross-model AI code review with a residue declaration: a CLI and a CI gate that validate the record the review leaves behind."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Nicolas Rocchia", email = "nicolasrocchia@gmail.com" }]
 dependencies = ["jsonschema>=4.18"]
-keywords = ["code review", "adversarial review", "ci", "github action", "llm", "ai", "residue declaration", "software quality"]
+keywords = ["code review", "adversarial review", "adversarial code review", "cross-model code review", "multi-model code review", "maker-checker", "ci", "github action", "llm", "ai", "residue declaration", "software quality"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",

@@ -11,11 +11,12 @@ ends up as a JSON file in your repo, next to the code it judges.
 
 *Este documento también está [en español](https://github.com/NicolasRocchia/disensor/blob/main/README.es.md).*
 
-Residue declaration of adversarial review, with validation and a CI gate.
-Reference implementation of the artifact defined by the **controlled
-disagreement** method: one model generates, a model from another family attacks,
-the generator verifies every finding, and the cycle ends when each finding has
-been resolved, refuted with evidence, or escalated to a human.
+Adversarial, cross-model AI code review that ends in a residue declaration: a
+CLI and a CI gate that validate the record the review leaves behind. Reference
+implementation of the artifact defined by the **controlled disagreement**
+method: one model generates, a model from another family attacks, the
+generator verifies every finding, and the cycle ends when each finding has been
+resolved, refuted with evidence, or escalated to a human.
 
 The artifact this repo defines and enforces records how each review event ended:
 the findings with their terminal state, and the **residue**: what the cycle
@@ -301,6 +302,58 @@ read the schema for the current surface. Note that a hashed `repository` does
 not help if `event.pr` carries the URL. The schema says as much about the
 extension space: an identifier-shaped key can still carry a message. Treat
 `minimized` as a reduction of surface, not as a guarantee that nothing leaves.
+
+## How this relates to other approaches
+
+Most of the vocabulary people use to search this space describes the
+**review**: who reviews, with how many models, in what order. disensor sits one
+step later. It defines and validates the **record** the review ends with, and
+enforces it on the pull request. So it shares the review side with each of
+these terms and differs in what it adds.
+
+- **Cross-model, multi-model code review.** The method requires it: the reviewer has to come from a model family other than the generator's (R4), and since residue/v0.4 the declaration states the independence the round actually had. What disensor adds is that the outcome is written down, versioned and gated, whichever models took part.
+- **Maker-checker.** The same separation between who builds and who certifies, with one difference in what the checker signs: not "approved" but the list of what was not closed. The human arbiter (R0) is the last checker, and without one the artifact does not validate.
+- **Second-opinion review.** A reviewer from another family is a second opinion by construction. disensor does not stop at the opinion: every finding has to reach a terminal state, and a refutation needs evidence, not a rebuttal.
+- **AI reviewing AI-generated code.** The case the method was written for. Its known limit is stated above: the gate detects the empty field and the generic marker, not the false declaration, so human sampling of merged pull requests stays part of the design.
+- **Model diversity, decorrelated reviewer.** The reason behind R4 is decorrelation: two models of the same lineage tend to fail in the same places. The size of that effect is not measured, and [`docs/antecedentes.md`](docs/antecedentes.md) says so; the rule is a plausible design, not a demonstrated result.
+
+Existing tools cover the review side well: Augment Code's guide to adversarial
+code review, the
+[`alecnielsen/adversarial-review`](https://github.com/alecnielsen/adversarial-review)
+loop between Claude and Codex, and the review features of assistants such as
+GitHub Copilot. Any of them can feed a residue declaration; none of them
+replaces it, because none leaves a versioned, gated record of what the review
+could not close.
+
+### Relation to Adversarial Review (arXiv 2608.18167)
+
+Qiu, E. S. and Gill, J. (2026), *Adversarial Review: Structured Disagreement
+for Grounded Agentic Code Review*,
+[arXiv:2608.18167](https://arxiv.org/abs/2608.18167). The names overlap and the
+concerns are close, so the difference is worth stating.
+
+AR is an **orchestration protocol**: a main coding agent works with a reviewer
+and a critic, the critic audits the review through structured disagreement
+before the main agent edits, and the result is measured by pass rate and F1 on
+benchmarks. The gate neither orchestrates nor runs models: disensor defines
+the **artifact** any review cycle ends with, validates it, and enforces it in
+CI. The optional `disensor round` does run the reviewer step, with a reviewer
+installed on your machine, and never judges what it returns; the dialogue
+between reviewer and critic that AR orchestrates is not something disensor
+does.
+
+AR reports a **false-consensus** failure mode, agents converging on agreement
+without sufficient evidence, and addresses it inside the protocol by making the
+critic ground its disagreement in evidence. disensor attacks the same problem
+from the other side: the declaration lists **residue, not coverage**, a human
+arbiter is mandatory (R0), and generator and reviewer must come from
+**different families** (R4). Disagreement is not a step of the protocol here:
+it is what stays recorded when the cycle does not close by itself.
+
+The two are complementary: an AR cycle can end in a residue declaration, and
+what the critic could not settle with evidence is exactly what the declaration
+carries to a human. Reading notes, with the abstract and the BibTeX entry, in
+[`docs/notes/arxiv-2608.18167.md`](docs/notes/arxiv-2608.18167.md).
 
 ## What each number promises
 

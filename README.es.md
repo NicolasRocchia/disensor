@@ -11,7 +11,7 @@ como un archivo JSON en tu repo, al lado del código que juzga.
 
 *This document is also available [in English](https://github.com/NicolasRocchia/disensor/blob/main/README.md).*
 
-Declaración de residuo de revisión adversarial, con validación y gate de CI. Implementación de referencia del artefacto definido a partir del método de **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo hallazgo quedó resuelto, refutado con evidencia o escalado a un humano.
+Revisión adversarial de código con IA entre modelos de familias distintas, que termina en una declaración de residuo: un CLI y un gate de CI que validan el registro que la revisión deja. Implementación de referencia del artefacto definido a partir del método de **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo hallazgo quedó resuelto, refutado con evidencia o escalado a un humano.
 
 El artefacto que este repo define y hace cumplir registra cómo terminó cada evento de revisión: los hallazgos con su estado terminal, y el **residuo**: lo que el ciclo no pudo cerrar por sí mismo y descansa sobre el juicio de alguien. La declaración lista residuo, no cobertura: dirige el escrutinio del revisor humano en lugar de leerse como sello de calidad.
 
@@ -209,6 +209,28 @@ El gate de CI no corre modelos, no pide claves de API y no manda código a ning�
 En el perfil `minimized`, R9 remueve los campos del hallazgo que el protocolo define, el `text` y el `link` de toda evidencia, la `description` del ítem de residuo y un `repository` que empiece con `http`. El esquema exige además que todo valor bajo `extensions` sea opaco (un hash `sha256:`, un número, un booleano, `null` o contenedores de esos) y que toda clave tenga forma de identificador: un nombre, no un mensaje.
 
 **El perfil angosta el canal de fuga; no lo cierra.** R9 no alcanza a todo string del artefacto. `residue.declaration`, `event.pr`, `verification.detail`, `human_arbiter.id` y `lead_acceptance` son algunos de los campos que siguen admitiendo prosa libre, y la lista no pretende ser exhaustiva: la superficie vigente está en el esquema. Ojo con que un `repository` hasheado no sirve de nada si `event.pr` lleva la URL. El propio esquema lo dice del espacio de extensión: una clave con forma de identificador todavía puede llevar un mensaje. `minimized` es una reducción de superficie, no la garantía de que no sale nada.
+
+## Cómo se relaciona con otros enfoques
+
+Casi todo el vocabulario con el que se busca en este espacio describe la **revisión**: quién revisa, con cuántos modelos, en qué orden. disensor está un paso después. Define y valida el **registro** con el que la revisión termina, y lo hace cumplir en el pull request. Así que comparte el lado de la revisión con cada uno de estos términos y se diferencia en lo que agrega.
+
+- **Revisión de código entre modelos (cross-model, multi-model code review).** El método la exige: el revisor tiene que venir de una familia de modelo distinta de la del generador (R4), y desde residue/v0.4 la declaración dice qué independencia tuvo realmente la ronda. Lo que disensor agrega es que el resultado queda escrito, versionado y con gate, participen los modelos que participen.
+- **Maker-checker.** La misma separación entre quien construye y quien certifica, con una diferencia en lo que firma el que certifica: no "aprobado" sino la lista de lo que no cerró. El árbitro humano (R0) es el último checker, y sin él el artefacto no valida.
+- **Segunda opinión (second-opinion review).** Un revisor de otra familia es una segunda opinión por construcción. disensor no se queda en la opinión: cada hallazgo tiene que llegar a un estado terminal, y una refutación necesita evidencia, no una réplica.
+- **IA que revisa código generado por IA.** El caso para el que se escribió el método. Su límite conocido está dicho más arriba: el gate detecta el campo vacío y el marcador genérico, no la declaración falsa, así que el muestreo humano de PR mergeados sigue siendo parte del diseño.
+- **Diversidad de modelos, revisor decorrelacionado.** La razón detrás de R4 es la decorrelación: dos modelos del mismo linaje tienden a fallar en los mismos lugares. La magnitud de ese efecto no está medida, y [`docs/antecedentes.md`](docs/antecedentes.md) lo dice; la regla es un diseño plausible, no un resultado demostrado.
+
+Las herramientas que ya existen cubren bien el lado de la revisión: la guía de revisión adversarial de código de Augment Code, el loop [`alecnielsen/adversarial-review`](https://github.com/alecnielsen/adversarial-review) entre Claude y Codex, y las funciones de revisión de asistentes como GitHub Copilot. Cualquiera puede alimentar una declaración de residuo; ninguna la reemplaza, porque ninguna deja un registro versionado y con gate de lo que la revisión no pudo cerrar.
+
+### Relación con Adversarial Review (arXiv 2608.18167)
+
+Qiu, E. S. y Gill, J. (2026), *Adversarial Review: Structured Disagreement for Grounded Agentic Code Review*, [arXiv:2608.18167](https://arxiv.org/abs/2608.18167). Los nombres se superponen y las preocupaciones son vecinas, así que conviene decir la diferencia.
+
+AR es un **protocolo de orquestación**: un agente principal trabaja con un revisor y un crítico, el crítico audita la revisión mediante desacuerdo estructurado antes de que el agente principal edite, y el resultado se mide por pass rate y F1 en benchmarks. El gate no orquesta ni corre modelos: disensor define el **artefacto** con el que termina cualquier ciclo de revisión, lo valida y lo hace cumplir en CI. El `disensor round` opcional sí corre el paso del revisor, con uno instalado en tu máquina, y nunca juzga lo que devuelve; el diálogo entre revisor y crítico que AR orquesta no es algo que disensor haga.
+
+AR reporta un modo de falla de **falso consenso**, agentes que convergen en un acuerdo sin evidencia suficiente, y lo ataca dentro del protocolo obligando al crítico a fundar su desacuerdo en evidencia. disensor ataca el mismo problema desde el otro lado: la declaración lista **residuo, no cobertura**, el árbitro humano es obligatorio (R0) y generador y revisor tienen que ser de **familias distintas** (R4). Acá el desacuerdo no es un paso del protocolo: es lo que queda registrado cuando el ciclo no cierra solo.
+
+Son complementarios: un ciclo AR puede terminar en una declaración de residuo, y lo que el crítico no pudo zanjar con evidencia es exactamente lo que la declaración le lleva a un humano. Notas de lectura, con el abstract y la entrada BibTeX, en [`docs/notes/arxiv-2608.18167.md`](docs/notes/arxiv-2608.18167.md).
 
 ## Qué promete cada número
 
