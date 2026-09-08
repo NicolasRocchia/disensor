@@ -708,3 +708,36 @@ def test_repairing_the_invalid_policy_is_an_administrative_step(repo, capsys):
     head = repo.commit("intenta repararla")
     assert repo.run(base, head) != 0
     assert "administrative step" in out(capsys)
+
+
+# --- the degraded mode v0.4 made declarable has to survive the comment --------
+
+def test_a_declaration_with_the_reviewer_classes_of_v04_passes_the_gate(repo, capsys):
+    """#56: validaba bien y el gate moría con KeyError al armar el comentario,
+    también sin publicarlo, porque el cuerpo se renderiza antes de decidir."""
+    repo.write("src/app.py", "code")
+    code_commit = repo.commit("feat")
+    path = repo.artifact("diff", head=code_commit, base=repo.git("rev-parse", "HEAD~1"))
+    a = json.loads((repo.path / path).read_text(encoding="utf-8"))
+    r = a["actors"]["reviewers"][0]
+    r["family"] = a["actors"]["generator"]["family"]
+    r["model"] = a["actors"]["generator"]["model"]
+    r["independence"] = "same_model_fresh_context"
+    r["fallback_reason"] = {"code": "no_other_family_available"}
+    r["hardening"] = "unverified"
+    a["residue"]["items"] += [
+        {"id": "r4", "class": "reviewer_correlation", "reviewer_ref": r["reviewer_id"],
+         "requires_human_attention": True,
+         "description": ("El revisor comparte modelo con el generador: los errores que ese "
+                         "modelo comete de forma sistemática no los cubrió esta ronda.")},
+        {"id": "r5", "class": "reviewer_hardening_gap", "reviewer_ref": r["reviewer_id"],
+         "requires_human_attention": True,
+         "description": ("El adaptador no tiene verificada la neutralización de las "
+                         "instrucciones del proyecto: el material revisado pudo hablarle "
+                         "al revisor.")},
+    ]
+    repo.write(path, json.dumps(a, ensure_ascii=False))
+    head = repo.commit("docs(residue)")
+    assert repo.run(repo.git("rev-parse", "HEAD~2"), head) == 0
+    printed = out(capsys)
+    assert "(reviewer r1)" in printed, printed

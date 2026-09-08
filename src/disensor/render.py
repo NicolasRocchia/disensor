@@ -8,10 +8,16 @@ from __future__ import annotations
 
 MARKER = "<!-- disensor-gate -->"
 
+# One entry per class the schema admits, and the suite checks that against the
+# enum: v0.4 added the two reviewer classes and this table did not follow, so a
+# declaration that validated aborted the gate with KeyError while the comment
+# was being built, also with --no-comment (#56).
 CLASS_NAME = {
     "escalation_without_decision": "Escalation without a decision",
     "principal_refutation": "Refutation by the principal model",
     "execution_gap": "Execution gap",
+    "reviewer_correlation": "Reviewer correlated with the generator",
+    "reviewer_hardening_gap": "Reviewer hardening not verified",
 }
 
 STATE_NAME = {
@@ -27,7 +33,16 @@ STATE_NAME = {
 def _item_line(item: dict, profile: str) -> str:
     klass = CLASS_NAME[item["class"]]
     attention = " **(requires human attention)**" if item.get("requires_human_attention") else ""
-    ref = f" (finding {item['finding_ref']})" if item.get("finding_ref") else ""
+    # What the item is about: the finding it was born from, the reviewer the two
+    # reviewer classes name (R11, R12), or both: the schema allows both on one
+    # item, and the reviewer goes on the line in every profile, because without
+    # it the item does not say which reviewer was degraded.
+    about = []
+    if item.get("finding_ref"):
+        about.append(f"finding {item['finding_ref']}")
+    if item.get("reviewer_ref"):
+        about.append(f"reviewer {item['reviewer_ref']}")
+    ref = f" ({', '.join(about)})" if about else ""
     detail = ""
     if profile == "full" and item.get("description"):
         detail = f": {item['description']}"
