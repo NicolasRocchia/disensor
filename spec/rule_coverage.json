@@ -1,0 +1,19 @@
+{
+  "comment": "Rule coverage over the shared vector corpus. Every rule label a validator can emit has to be named by at least one MUST-FAIL vector, or be listed here as exempt. A rule at zero is a rule a verifier can leave unimplemented without any vector noticing, because the exact comparison of fired labels has nothing to compare. The criterion was proposed by Kenne Ives on public-agent-conformance@w3.org, messages 2026Sep/0010 (5 September 2026) and 2026Sep/0014 (8 September 2026). This file declares only WHICH rules are exempt and what each scenario needs from its base. The registry itself is read from the source of each implementation on purpose: a shared registry would let a port skip a rule and still pass. Each implementation writes and runs its own proof, in both directions. The base is the first MUST-PASS vector of the suite, in filename order, that satisfies base_needs, and it has to validate clean against its own schema first, so every error afterwards comes from the scenario. Applied to that base, the scenario has to be rejected by the schema with at least one error at schema_path and with no error anywhere else: every reported path has to be schema_path or an ancestor of it. That is what keeps a rejection caused by unrelated noise from passing as proof. Paths are compared with any leading slash removed, because one implementation reports a JSON Pointer and the other a slash-joined path, and one violation may surface as more than one error when the validator also reports the enclosing conditional. Then the rule has to still fire when the schema layer is skipped. See tests/test_rule_coverage.py and plano-evidencia/scripts/conformidad.ts.",
+  "exempt": [
+    {
+      "rule": "R3",
+      "reason": "the schema requires abbreviated_path.used to be false when the change touches protected cases, so an artifact that would fire R3 is invalid by shape and never reaches the rules layer",
+      "schema_path": "^event/abbreviated_path/used$",
+      "base_needs": {},
+      "vector": "schema_abbreviated_path_on_protected_case"
+    },
+    {
+      "rule": "R8",
+      "reason": "the schema requires requires_human_attention to be true in an interpretive refutation, so an artifact that would fire R8 is invalid by shape and never reaches the rules layer",
+      "schema_path": "^residue/items/[0-9]+/requires_human_attention$",
+      "base_needs": { "residue_item_class": "principal_refutation" },
+      "vector": "schema_interpretive_without_human_attention"
+    }
+  ]
+}
