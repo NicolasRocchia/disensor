@@ -216,6 +216,29 @@ def test_cada_regla_tiene_un_vector_mustfail_o_una_exencion():
     )
 
 
+def test_the_port_and_the_reference_emit_the_same_rule_registry():
+    """El censo mide el registro de esta implementacion; el del port no lo miraba nadie.
+
+    Si el port pierde o renombra una regla que hoy no tiene cobertura negativa,
+    ningun vector lo dice, porque no hay ninguno que la nombre, y los dos censos
+    pasarian a hablar de registros distintos. Es el mismo agujero que el runner
+    ya cerro para las versiones con su linea NO COVERAGE.
+    """
+    fuente = (ROOT / "plano-evidencia" / "src" / "validar.ts").read_text(encoding="utf-8")
+    entrecomilladas = set(re.findall(r'"(R\d+)"', fuente))
+    sueltas = set(re.findall(r"\bR\d+\b", fuente))
+    assert sueltas <= entrecomilladas, (
+        f"validar.ts nombra {sorted(sueltas - entrecomilladas)} fuera de un literal entre "
+        "comillas dobles, asi que el censo del port no la ve."
+    )
+    del_port = sorted(entrecomilladas, key=lambda r: int(r[1:]))
+    assert del_port == _registro(), (
+        f"la referencia emite {_registro()} y el port {del_port}. Dos implementaciones que "
+        "dicen seguir el mismo contrato tienen registros distintos, y la que perdio una "
+        "regla sin cobertura negativa pasa la suite igual."
+    )
+
+
 @pytest.mark.parametrize("version", sorted(SCHEMA_FILES), ids=lambda v: v.split("/")[1])
 @pytest.mark.parametrize("exenta", EXENTAS, ids=lambda e: e["rule"])
 def test_una_regla_exenta_es_inalcanzable_y_no_esta_muerta(exenta, version):
