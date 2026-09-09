@@ -1,4 +1,4 @@
-"""Tests of rules R0 to R10 and of the gate checks.
+"""Tests of rules R0 to R13 and of the gate checks.
 
 The positives are the spec examples. The negatives are mutations of those
 examples: each rule has to reject exactly what it promises to reject.

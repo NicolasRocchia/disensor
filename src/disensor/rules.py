@@ -1,8 +1,8 @@
-"""Validation rules for the residue artifact (schema v0.3).
+"""Validation rules for the residue artifact, per declared schema version.
 
 Two layers, in the spirit of section 12.2 of the protocol:
   1. JSON Schema: shape and conditional fields.
-  2. Structural rules R0 to R10: coherence a schema cannot express.
+  2. Structural rules R0 to R13: coherence a schema cannot express.
 
 Honest limit, declared in the protocol: the machine detects the empty field
 and the generic marker, not the false declaration. Human sampling remains

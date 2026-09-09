@@ -3,8 +3,8 @@
 The vectors are the shared source of truth across implementations of the
 validator (the Python reference, the TypeScript one of the evidence plane,
 and those to come). Each vector is an artifact plus the expected verdict:
-valid or not, and the set of rule labels that must fire ("schema" for shape
-errors, "R0" to "R10" for structural rules).
+valid or not, and the set of rule labels that must fire (the label "schema"
+for shape errors, R0 to R13 for structural rules).
 
 Labels are compared, not messages: messages are free per implementation;
 labels cannot diverge.

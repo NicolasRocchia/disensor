@@ -275,11 +275,13 @@ def counted_realities() -> dict[str, int]:
         p.name: len([q for q in p.glob("*.json") if q.name != "index.json"])
         for p in sorted((ROOT / "spec" / "vectors").iterdir()) if p.is_dir()
     }
+    reglas = set(re.findall(r'"(R\d+)"', (ROOT / "src" / "disensor" / "rules.py").read_text(encoding="utf-8")))
     return {
         "form": len(ordinal["form"]),
         "ordinality": len(ordinal["ordinality"]),
         "shared": len(ordinal["form"]) + len(ordinal["ordinality"]),
         "vectors": sum(suites.values()),
+        "last_rule": max(int(r[1:]) for r in reglas),
         **{f"suite_{k}": v for k, v in suites.items()},
     }
 
@@ -308,6 +310,18 @@ CLAIMS = [
     ("README.es.md",
      r"(\d+) vectores en tres suites más (\d+) casos compartidos",
      ("vectors", "shared")),
+    # El rango de reglas escrito en la prosa de la fuente. Decia R0 a R10 con
+    # trece implementadas: la misma clase de cifra que envejecio en el README
+    # del plano, en tres docstrings a la vez y sin nada que la comparara.
+    ("src/disensor/rules.py",
+     r"Structural rules R0 to R(\d+): coherence a schema cannot express",
+     ("last_rule",)),
+    ("src/disensor/vectors.py",
+     r"for shape errors, R0 to R(\d+) for structural rules",
+     ("last_rule",)),
+    ("tests/test_rules.py",
+     r"Tests of rules R0 to R(\d+) and of the gate checks",
+     ("last_rule",)),
 ]
 
 
