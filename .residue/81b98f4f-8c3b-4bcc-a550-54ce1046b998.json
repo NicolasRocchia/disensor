@@ -1,0 +1,82 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "81b98f4f-8c3b-4bcc-a550-54ce1046b998",
+    "created_at": "2026-09-09T15:24:00-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "608c5f36b8275a71a365f3e3fb01c1c843cda4be",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "f3295cacef8d35d757bdc6454de206187bf503e5",
+    "pr": "https://github.com/NicolasRocchia/disensor/pull/60"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "El revisor no pudo correr el typecheck de TypeScript. El Node de esta máquina es v16.20.2 y el lanzador ESM que instala el paquete de TypeScript no tiene extensión, así que `npm run typecheck` aborta con ERR_UNKNOWN_FILE_EXTENSION antes de compilar nada. El fallo es del entorno y no dice nada sobre el código: el job de CI corre Node 22 y ahí el comando es el que vale. El generador sí obtuvo el resultado en esta máquina invocando el compilador por su archivo .js (`node node_modules/typescript/lib/tsc.js --noEmit`, salida vacía y código 0), pero eso es verificación del generador y no del revisor, y por eso queda declarado como brecha. El revisor sí corrió la suite de Python (466 passed, 5 skipped) y el runner de conformidad (89 vectores, 28 casos compartidos, 14 reglas cubiertas, cero divergencias)."
+      },
+      {
+        "id": "r2",
+        "class": "escalation_without_decision",
+        "requires_human_attention": true,
+        "description": "Queda abierta la decisión de fondo sobre R3 y R8, y este evento no la cierra. Las dos son reglas que ningún artefacto válido puede alcanzar, porque el esquema de las tres versiones prohíbe la condición que cada una prueba y las reglas no se evalúan cuando la forma falla. Este cambio registra la exención y la prueba en las dos implementaciones, que es lo que faltaba, pero no resuelve si corresponde borrarlas por muertas o dejar de taparlas en la versión siguiente del esquema para que el vector se pueda escribir. Se escaló al árbitro humano al planificar el cambio y quedó por escrito en el issue #59 y en el cuerpo del PR; no hay decisión tomada."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:74846582e548402ebe50d22562ac95275b60352d834c0d7d383fd2ad0caaa9b4",
+      "report_hash": "sha256:131239d0cf9d2f5a1cd871f3898cec813df57606aa71621ff1945566eec81e34",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
