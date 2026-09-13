@@ -64,21 +64,55 @@ REPOSITORIO_HERMANO = "disensor-web"
 
 # --- git ---------------------------------------------------------------------
 
-def _git(*args: str) -> tuple[int, str]:
+class RevisionAusente(RuntimeError):
+    """Una revision que la medicion necesita no existe en este clon.
+
+    Sin esto, un `--at` mal escrito o un clon superficial al que le falta un
+    head viejo no abortaban: cada fallo de git se convertia en "la ruta no
+    resuelve" o "no es ancestro", y el informe salia con codigo 0 y numeros
+    verosimiles (hallazgo de la segunda ronda sobre este script).
+    """
+
+
+def _git(*args: str) -> tuple[int, str, str]:
     p = subprocess.run(["git", *args], cwd=RAIZ, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
-    return p.returncode, p.stdout.strip()
+    return p.returncode, p.stdout.strip(), p.stderr.strip()
+
+
+def _commit(ref: str) -> str:
+    """El OID completo de un commit, o RevisionAusente si no hay tal cosa."""
+    codigo, salida, error = _git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+    if codigo != 0 or not salida:
+        raise RevisionAusente(f"{ref!r} no resuelve a un commit en este clon: {error or 'sin salida'}")
+    return salida
 
 
 def _tipo_de_objeto(commit: str, ruta: str) -> str | None:
-    """blob, tree, o None si la ruta no existe en ese commit."""
-    codigo, salida = _git("cat-file", "-t", f"{commit}:{ruta}")
-    return salida if codigo == 0 else None
+    """blob, tree, o None si la ruta no existe en ese commit.
+
+    El commit tiene que haber pasado por `_commit` antes: asi un fallo de
+    cat-file solo puede significar que la ruta no esta, no que falte historia.
+    """
+    codigo, salida, error = _git("cat-file", "-t", f"{commit}:{ruta}")
+    if codigo == 0:
+        return salida
+    # La unica falla que ES un resultado: "fatal: path '...' does not exist in
+    # '...'". Una revision invalida dice otra cosa, y se propaga.
+    if error.startswith("fatal: path ") and " does not exist in " in error:
+        return None
+    raise RevisionAusente(f"cat-file sobre {commit!r}:{ruta!r} fallo por otra cosa: {error}")
 
 
 def _es_ancestro(commit: str, de: str) -> bool:
-    codigo, _ = _git("merge-base", "--is-ancestor", commit, de)
-    return codigo == 0
+    """True si `commit` es ancestro de `de`. Solo 0 y 1 son respuestas de git;
+    cualquier otro codigo es un error y se propaga."""
+    codigo, _, error = _git("merge-base", "--is-ancestor", commit, de)
+    if codigo == 0:
+        return True
+    if codigo == 1:
+        return False
+    raise RevisionAusente(f"merge-base no pudo comparar {commit!r} con {de!r}: {error}")
 
 
 def _commits_despues(head: str, ruta: str, hasta: str) -> int | None:
@@ -88,8 +122,10 @@ def _commits_despues(head: str, ruta: str, hasta: str) -> int | None:
     cuenta. Es coherente con el resto de la medicion, que compara `location`
     como texto, y es un limite que se declara y no se disimula.
     """
-    codigo, salida = _git("rev-list", "--count", f"{head}..{hasta}", "--", ruta)
-    return int(salida) if codigo == 0 and salida else None
+    codigo, salida, error = _git("rev-list", "--count", f"{head}..{hasta}", "--", ruta)
+    if codigo != 0 or not salida:
+        raise RevisionAusente(f"rev-list {head}..{hasta} fallo: {error}")
+    return int(salida)
 
 
 # --- corpus ------------------------------------------------------------------
@@ -111,12 +147,18 @@ def cargar(directorio: Path, en_commit: str | None = None) -> list[dict]:
             salida.append(json.loads(archivo.read_text(encoding="utf-8")))
     else:
         relativo = directorio.resolve().relative_to(RAIZ).as_posix()
-        _, listado = _git("ls-tree", "--name-only", en_commit, f"{relativo}/")
+        codigo, listado, error = _git("ls-tree", "--name-only", en_commit, f"{relativo}/")
+        if codigo != 0:
+            raise RevisionAusente(f"ls-tree de {relativo!r} en {en_commit!r} fallo: {error}")
         for ruta in sorted(listado.splitlines()):
             if not ruta.endswith(".json"):
                 continue
-            _, contenido = _git("show", f"{en_commit}:{ruta}")
+            codigo, contenido, error = _git("show", f"{en_commit}:{ruta}")
+            if codigo != 0:
+                raise RevisionAusente(f"show de {ruta!r} en {en_commit!r} fallo: {error}")
             salida.append(json.loads(contenido))
+    if not salida:
+        raise RevisionAusente(f"no hay declaraciones en {directorio} ({'arbol de trabajo' if en_commit is None else en_commit})")
     salida.sort(key=lambda d: (_fecha(d["event"]["created_at"]), d["event"]["event_id"]))
     return salida
 
@@ -183,7 +225,24 @@ def clasificar(texto: str, head: str) -> tuple[str, list[str], bool]:
 
 # --- medicion ----------------------------------------------------------------
 
-def medir(declaraciones: list[dict], hasta: str) -> dict:
+def medir(declaraciones: list[dict], etiqueta_hasta: str) -> dict:
+    # Toda revision que la medicion va a consultar existe, o no se mide. Un
+    # head ausente en un clon superficial no es "la ruta no resuelve": es
+    # historia que falta, y el informe no puede fingir que la miro.
+    hasta = _commit(etiqueta_hasta)
+    ausentes = []
+    for d in declaraciones:
+        try:
+            _commit(d["event"]["head_commit"])
+        except RevisionAusente:
+            ausentes.append(f"{d['event']['event_id'][:8]} -> {d['event']['head_commit'][:12]}")
+    if ausentes:
+        raise RevisionAusente(
+            f"{len(ausentes)} declaracion(es) apuntan a un head_commit que este clon no tiene "
+            f"(clon superficial o historia reescrita): {', '.join(ausentes)}. La medicion "
+            "necesita el historial completo; git fetch --unshallow y volver a correr."
+        )
+
     filas = []
     for d in declaraciones:
         ev = d["event"]
@@ -235,10 +294,10 @@ def medir(declaraciones: list[dict], hasta: str) -> dict:
                      "final_state": b["final_state"], "created_at": b["created_at"]})
         a["later_findings_same_location"].sort(key=lambda x: (x["created_at"], x["event_id"], x["finding_id"]))
 
-    return {"rows": filas, "summary": resumir(declaraciones, filas, hasta)}
+    return {"rows": filas, "summary": resumir(declaraciones, filas, etiqueta_hasta, hasta)}
 
 
-def resumir(declaraciones: list[dict], filas: list[dict], hasta: str) -> dict:
+def resumir(declaraciones: list[dict], filas: list[dict], etiqueta_hasta: str, hasta: str) -> dict:
     fechas = sorted(_fecha(d["event"]["created_at"]) for d in declaraciones)
     head_de = {d["event"]["event_id"]: d["event"]["head_commit"] for d in declaraciones}
     hallazgos = [h for d in declaraciones for h in d.get("findings", [])]
@@ -291,8 +350,8 @@ def resumir(declaraciones: list[dict], filas: list[dict], hasta: str) -> dict:
     ancestria = sum(1 for a, b in pares if _es_ancestro(a["head_commit"], head_de[b["event_id"]]))
 
     return {
-        "measured_at": hasta,
-        "measured_at_oid": _git("rev-parse", hasta)[1],
+        "measured_at": etiqueta_hasta,
+        "measured_at_oid": hasta,
         "declarations": len(declaraciones),
         "window": {"first": fechas[0].isoformat(), "last": fechas[-1].isoformat(), "days": round(dias, 3)},
         "findings": len(hallazgos),
@@ -407,7 +466,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--directory", type=Path, default=RAIZ / ".residue")
     args = ap.parse_args(argv)
 
-    resultado = medir(cargar(args.directory, args.corpus_at), args.at)
+    try:
+        if args.corpus_at is not None:
+            _commit(args.corpus_at)
+        resultado = medir(cargar(args.directory, args.corpus_at), args.at)
+    except RevisionAusente as e:
+        # Un error de git no es una medicion. Se sale distinto de cero y sin
+        # informe, para que nadie pegue numeros que no miran lo que dicen mirar.
+        print(f"longitudinal: no se midio. {e}", file=sys.stderr)
+        return 2
     resultado["summary"]["corpus_read_from"] = args.corpus_at or "working tree"
     imprimir(resultado)
     if args.json:
