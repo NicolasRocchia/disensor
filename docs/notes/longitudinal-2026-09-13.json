@@ -2735,14 +2735,15 @@
       "incorporated": 88
     },
     "pairs_earlier_later_same_location": 90,
+    "pairs_where_earlier_head_is_ancestor_of_later_head": 90,
     "pairs_with_earlier_in_state_of_interest": 2,
     "rate": {
-      "months_of_corpus": 0.89,
+      "months_of_corpus": 0.91,
       "months_to_ten_pairs_linear": 0.1,
-      "months_to_ten_pairs_of_interest_linear": 4.4,
-      "note": "linear extrapolation over the whole window; pairs grow with the square of the corpus, so this is an upper bound on the wait, not a forecast",
-      "pairs_of_interest_per_month": 2.255,
-      "pairs_per_month": 101.458
+      "months_to_ten_pairs_of_interest_linear": 4.5,
+      "note": "linear extrapolation over the whole window, not a bound in either direction: a pair only appears when a later finding repeats an existing location string exactly, so if new declarations use new strings the count stays flat and the wait is unbounded; if they repeat old ones the count can grow faster than linear",
+      "pairs_of_interest_per_month": 2.203,
+      "pairs_per_month": 99.14
     },
     "refuted": {
       "findings": 4,
@@ -2795,7 +2796,7 @@
       }
     },
     "window": {
-      "days": 27,
+      "days": 27.631,
       "first": "2026-08-13T00:15:00-03:00",
       "last": "2026-09-09T15:24:00-03:00"
     }
