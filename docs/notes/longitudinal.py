@@ -15,10 +15,22 @@ unibles a un archivo hoy, cuantos pares (anterior, posterior en la misma ruta)
 hay, y de que forma estan escritas las `location` que ningun programa
 resuelve.
 
+Dos definiciones que conviene tener a la vista:
+
+- "Posterior" es `created_at` estrictamente mayor. Un empate de fecha no forma
+  par. Como control, el resumen cuenta en cuantos pares el head del anterior
+  es ademas ancestro en git del head del posterior.
+- "Commits que tocaron la ruta" cuenta la ruta como texto exacto: un renombre
+  corta la cuenta. Es la misma identidad textual con la que se compara
+  `location`.
+
 Lo que NO hace, a proposito:
 
 - No infiere outcomes. Que un archivo haya cambiado despues no quiere decir
   que la refutacion estuviera mal. Se reportan coincidencias, no conclusiones.
+- No acota la espera. La tasa que imprime es una extrapolacion lineal de la
+  ventana medida: si las proximas declaraciones usan `location` nuevas, no
+  aparece ningun par y la espera no tiene cota.
 - No toca el esquema ni propone un campo. La taxonomia de las rutas que no
   resuelven es el insumo para decidir la forma de `location` mas adelante, no
   la decision.
@@ -70,6 +82,12 @@ def _es_ancestro(commit: str, de: str) -> bool:
 
 
 def _commits_despues(head: str, ruta: str, hasta: str) -> int | None:
+    """Commits entre `head` y `hasta` que tocan exactamente esa ruta.
+
+    Identidad textual de la ruta, no del archivo: un renombre corta la
+    cuenta. Es coherente con el resto de la medicion, que compara `location`
+    como texto, y es un limite que se declara y no se disimula.
+    """
     codigo, salida = _git("rev-list", "--count", f"{head}..{hasta}", "--", ruta)
     return int(salida) if codigo == 0 and salida else None
 
@@ -222,6 +240,7 @@ def medir(declaraciones: list[dict], hasta: str) -> dict:
 
 def resumir(declaraciones: list[dict], filas: list[dict], hasta: str) -> dict:
     fechas = sorted(_fecha(d["event"]["created_at"]) for d in declaraciones)
+    head_de = {d["event"]["event_id"]: d["event"]["head_commit"] for d in declaraciones}
     hallazgos = [h for d in declaraciones for h in d.get("findings", [])]
     estados: dict[str, int] = {}
     for h in hallazgos:
@@ -258,16 +277,24 @@ def resumir(declaraciones: list[dict], filas: list[dict], hasta: str) -> dict:
     refutaciones = _con_posterior(("refuted_verifiable", "refuted_interpretive"))
     cambiados = [f for f in resuelven if (f["commits_touching_after_head"] or 0) > 0]
 
-    dias = max((fechas[-1] - fechas[0]).days, 1)
+    # Dias con fraccion: truncar a dias enteros acortaba la ventana y sesgaba
+    # todas las tasas publicadas (hallazgo de la ronda sobre este script).
+    dias = (fechas[-1] - fechas[0]).total_seconds() / 86400
     meses = dias / 30.4375
-    por_mes = len(pares) / meses
-    por_mes_interes = len(pares_de_interes) / meses
+    por_mes = len(pares) / meses if meses > 0 else None
+    por_mes_interes = len(pares_de_interes) / meses if meses > 0 else None
+
+    # Posterioridad por `created_at` estrictamente mayor. Un empate no forma
+    # par. Como control, se cuenta en cuantos pares el head del anterior es
+    # ademas ancestro en git del head del posterior: si las dos nociones
+    # difieren, el numero lo dice.
+    ancestria = sum(1 for a, b in pares if _es_ancestro(a["head_commit"], head_de[b["event_id"]]))
 
     return {
         "measured_at": hasta,
         "measured_at_oid": _git("rev-parse", hasta)[1],
         "declarations": len(declaraciones),
-        "window": {"first": fechas[0].isoformat(), "last": fechas[-1].isoformat(), "days": dias},
+        "window": {"first": fechas[0].isoformat(), "last": fechas[-1].isoformat(), "days": round(dias, 3)},
         "findings": len(hallazgos),
         "findings_by_state": dict(sorted(estados.items())),
         "findings_with_location": len(filas),
@@ -286,6 +313,7 @@ def resumir(declaraciones: list[dict], filas: list[dict], hasta: str) -> dict:
         "location_strings_in_more_than_one_declaration": sum(
             1 for s in eventos_por_ubicacion.values() if len(s) > 1),
         "pairs_earlier_later_same_location": len(pares),
+        "pairs_where_earlier_head_is_ancestor_of_later_head": ancestria,
         "pairs_with_earlier_in_state_of_interest": len(pares_de_interes),
         "pairs_by_earlier_state": {
             e: sum(1 for a, _ in pares if a["final_state"] == e)
@@ -297,12 +325,14 @@ def resumir(declaraciones: list[dict], filas: list[dict], hasta: str) -> dict:
         "resolving_locations_changed_after_head": len(cambiados),
         "rate": {
             "months_of_corpus": round(meses, 2),
-            "pairs_per_month": round(por_mes, 3),
-            "pairs_of_interest_per_month": round(por_mes_interes, 3),
+            "pairs_per_month": round(por_mes, 3) if por_mes is not None else None,
+            "pairs_of_interest_per_month": round(por_mes_interes, 3) if por_mes_interes is not None else None,
             "months_to_ten_pairs_linear": round(10 / por_mes, 1) if por_mes else None,
             "months_to_ten_pairs_of_interest_linear": round(10 / por_mes_interes, 1) if por_mes_interes else None,
-            "note": "linear extrapolation over the whole window; pairs grow with the square of "
-                    "the corpus, so this is an upper bound on the wait, not a forecast",
+            "note": "linear extrapolation over the whole window, not a bound in either direction: "
+                    "a pair only appears when a later finding repeats an existing location string "
+                    "exactly, so if new declarations use new strings the count stays flat and the "
+                    "wait is unbounded; if they repeat old ones the count can grow faster than linear",
         },
     }
 
@@ -339,6 +369,8 @@ def imprimir(resultado: dict) -> None:
           f"{s['location_strings_in_more_than_one_declaration']}")
     print(f"pairs (earlier finding, later finding, same location string): "
           f"{s['pairs_earlier_later_same_location']}")
+    print(f"  where the earlier head is also a git ancestor of the later head: "
+          f"{s['pairs_where_earlier_head_is_ancestor_of_later_head']}")
     print(f"  with the earlier one refuted or debt_recorded: {s['pairs_with_earlier_in_state_of_interest']}")
     print("  by state of the earlier one: " + (", ".join(f"{k} {v}" for k, v in s["pairs_by_earlier_state"].items()) or "none"))
     d, r = s["debt_recorded"], s["refuted"]
