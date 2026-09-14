@@ -1,0 +1,2804 @@
+{
+  "rows": [
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 7,
+      "created_at": "2026-08-14T03:31:32+00:00",
+      "event_id": "aabede1f-171f-4833-ab98-8a3718c992ee",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "d97195f6104afc430710c8bc829a9aca25a0a49d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-14T10:13:32+00:00",
+          "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-14T10:13:32+00:00",
+          "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        }
+      ],
+      "location": "docs/antecedentes.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 7,
+      "created_at": "2026-08-14T03:31:32+00:00",
+      "event_id": "aabede1f-171f-4833-ab98-8a3718c992ee",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "d97195f6104afc430710c8bc829a9aca25a0a49d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-14T10:13:32+00:00",
+          "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-14T10:13:32+00:00",
+          "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        }
+      ],
+      "location": "docs/antecedentes.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 52,
+      "created_at": "2026-08-14T03:31:32+00:00",
+      "event_id": "aabede1f-171f-4833-ab98-8a3718c992ee",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "d97195f6104afc430710c8bc829a9aca25a0a49d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-14T10:13:32+00:00",
+          "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        },
+        {
+          "created_at": "2026-08-21T15:47:16-03:00",
+          "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:03:23-03:00",
+          "event_id": "882d4206-2823-44e9-82a7-2fcc280ceaff",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-14T03:31:32+00:00",
+      "event_id": "aabede1f-171f-4833-ab98-8a3718c992ee",
+      "final_state": "debt_recorded",
+      "finding_id": "h4",
+      "form": "path_with_annotation",
+      "head_commit": "d97195f6104afc430710c8bc829a9aca25a0a49d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "spec/residue.schema.json ($defs/evidence, $defs/finding/allOf[2])",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "spec/residue.schema.json"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-14T03:31:32+00:00",
+      "event_id": "aabede1f-171f-4833-ab98-8a3718c992ee",
+      "final_state": "refuted_verifiable",
+      "finding_id": "h5",
+      "form": "path_with_annotation",
+      "head_commit": "d97195f6104afc430710c8bc829a9aca25a0a49d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "spec/residue.schema.json ($defs/evidence)",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "spec/residue.schema.json"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-14T10:13:32+00:00",
+      "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+      "final_state": "debt_recorded",
+      "finding_id": "h1",
+      "form": "paths_list",
+      "head_commit": "f521a0439358cb21618dfa5b7e6e463848879ff2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "README.md, spec/residue.schema.json (properties/profile), src/disensor/rules.py (R9)",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.md",
+        "spec/residue.schema.json",
+        "src/disensor/rules.py"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 3,
+      "created_at": "2026-08-14T10:13:32+00:00",
+      "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "f521a0439358cb21618dfa5b7e6e463848879ff2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "docs/antecedentes.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 3,
+      "created_at": "2026-08-14T10:13:32+00:00",
+      "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "f521a0439358cb21618dfa5b7e6e463848879ff2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "docs/antecedentes.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 51,
+      "created_at": "2026-08-14T10:13:32+00:00",
+      "event_id": "51dcaca3-cf44-474f-8640-5a6519dd9ddc",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "f521a0439358cb21618dfa5b7e6e463848879ff2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-21T15:47:16-03:00",
+          "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:03:23-03:00",
+          "event_id": "882d4206-2823-44e9-82a7-2fcc280ceaff",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-15T09:46:22-03:00",
+      "event_id": "aa7ed92e-1fa9-4794-91aa-402c4e5ed695",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "path_with_annotation",
+      "head_commit": "0c26aa68ce0ee395d805a19bf9dcb53600da9309",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/src/index.ts (ingestar, POST /v1/artefactos)",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "plano-evidencia/src/index.ts"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-15T09:46:22-03:00",
+      "event_id": "aa7ed92e-1fa9-4794-91aa-402c4e5ed695",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "paths_list",
+      "head_commit": "0c26aa68ce0ee395d805a19bf9dcb53600da9309",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/GUIDE.md:1, pyproject.toml:8, tests/test_guide.py:22",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "pyproject.toml",
+        "src/disensor/GUIDE.md",
+        "tests/test_guide.py"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-15T09:46:22-03:00",
+      "event_id": "aa7ed92e-1fa9-4794-91aa-402c4e5ed695",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "paths_list",
+      "head_commit": "0c26aa68ce0ee395d805a19bf9dcb53600da9309",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "README.md:147, plano-evidencia/README.md:8, spec/vectors/index.json",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.md",
+        "plano-evidencia/README.md",
+        "spec/vectors/index.json"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-15T11:34:44-03:00",
+      "event_id": "d0545d00-d4f4-4200-b862-5e8c9fb6bd4e",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "path_with_annotation",
+      "head_commit": "9de63184ad80aa35364a64e7f12a2d4f8a8814a8",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": ".github/workflows/release.yml (trigger workflow_dispatch, paso checkout)",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        ".github/workflows/release.yml"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-15T11:34:44-03:00",
+      "event_id": "d0545d00-d4f4-4200-b862-5e8c9fb6bd4e",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "path_with_annotation",
+      "head_commit": "9de63184ad80aa35364a64e7f12a2d4f8a8814a8",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": ".github/workflows/release.yml (job unico con id-token: write ejecutando python -m build)",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        ".github/workflows/release.yml"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 11,
+      "created_at": "2026-08-20T15:03:34-03:00",
+      "event_id": "a8b2c95c-394e-4d92-a91c-67c18d6b10fe",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "bb311d1296c451dcad62f10d3c4847d4683bc155",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-20T16:42:38-03:00",
+          "event_id": "62bcf207-9566-42ee-a519-750e6b2cc5d1",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-20T16:42:38-03:00",
+          "event_id": "62bcf207-9566-42ee-a519-750e6b2cc5d1",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        },
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        },
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h5"
+        },
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "tests/test_docs.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-20T16:42:38-03:00",
+      "event_id": "62bcf207-9566-42ee-a519-750e6b2cc5d1",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "paths_list",
+      "head_commit": "1cfe759fa3cd51817b3774505f7596b8d76c4891",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/cli.py, tests/test_docs.py",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "src/disensor/cli.py",
+        "tests/test_docs.py"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 9,
+      "created_at": "2026-08-20T16:42:38-03:00",
+      "event_id": "62bcf207-9566-42ee-a519-750e6b2cc5d1",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "1cfe759fa3cd51817b3774505f7596b8d76c4891",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        },
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h5"
+        },
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "tests/test_docs.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 9,
+      "created_at": "2026-08-20T16:42:38-03:00",
+      "event_id": "62bcf207-9566-42ee-a519-750e6b2cc5d1",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "1cfe759fa3cd51817b3774505f7596b8d76c4891",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        },
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "incorporated",
+          "finding_id": "h5"
+        },
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "tests/test_docs.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 43,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:03:23-03:00",
+          "event_id": "882d4206-2823-44e9-82a7-2fcc280ceaff",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "paths_list",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T18:59:06-03:00",
+          "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        },
+        {
+          "created_at": "2026-08-24T13:50:07-03:00",
+          "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "paths_list",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T18:59:06-03:00",
+          "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        },
+        {
+          "created_at": "2026-08-24T13:50:07-03:00",
+          "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "paths_list",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T18:59:06-03:00",
+          "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        },
+        {
+          "created_at": "2026-08-24T13:50:07-03:00",
+          "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h5",
+      "form": "paths_list",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T18:59:06-03:00",
+          "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        },
+        {
+          "created_at": "2026-08-24T13:50:07-03:00",
+          "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h6",
+      "form": "paths_list",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T18:59:06-03:00",
+          "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        },
+        {
+          "created_at": "2026-08-24T13:50:07-03:00",
+          "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h7",
+      "form": "paths_list",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T18:59:06-03:00",
+          "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        },
+        {
+          "created_at": "2026-08-24T13:50:07-03:00",
+          "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h8",
+      "form": "paths_list",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/init.py, docs/ejemplo-workflow.yml",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "docs/ejemplo-workflow.yml",
+        "src/disensor/init.py"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 35,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "incorporated",
+      "finding_id": "h9",
+      "form": "resolves_as_is",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h7"
+        }
+      ],
+      "location": ".residue/",
+      "object_type_in_own_head": "tree",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 8,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "debt_recorded",
+      "finding_id": "h10",
+      "form": "resolves_as_is",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T21:19:03-03:00",
+          "event_id": "8cc6f0c1-5114-407c-bc10-298a474fee24",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        }
+      ],
+      "location": "src/disensor/GUIDE.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "owner_decision",
+      "finding_id": "h11",
+      "form": "other_repository",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "repositorio hermano NicolasRocchia/disensor-web, scripts/traer-docs.mjs",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 44,
+      "created_at": "2026-08-21T15:47:16-03:00",
+      "event_id": "d6551670-6cde-44ea-8303-8aa391e4bbc3",
+      "final_state": "refuted_verifiable",
+      "finding_id": "h12",
+      "form": "resolves_as_is",
+      "head_commit": "9693f3d6a9e468c91b0702f17c168d900b2faa24",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "README.es.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T16:12:50-03:00",
+      "event_id": "f5647611-e7dd-48f4-9416-6d8e04eabcd5",
+      "final_state": "debt_recorded",
+      "finding_id": "h1",
+      "form": "paths_list",
+      "head_commit": "aa233e9629a1e8fb220dce78ded0f0ca3a242f3e",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "README.md, README.es.md, src/disensor/GUIDE.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md",
+        "src/disensor/GUIDE.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-21T16:12:50-03:00",
+      "event_id": "f5647611-e7dd-48f4-9416-6d8e04eabcd5",
+      "final_state": "debt_recorded",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "aa233e9629a1e8fb220dce78ded0f0ca3a242f3e",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_docs_sync.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-21T16:12:50-03:00",
+      "event_id": "f5647611-e7dd-48f4-9416-6d8e04eabcd5",
+      "final_state": "debt_recorded",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "aa233e9629a1e8fb220dce78ded0f0ca3a242f3e",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_docs_sync.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T17:20:00-03:00",
+      "event_id": "a6d86ab0-4adb-452f-b814-30663db65dc5",
+      "final_state": "owner_decision",
+      "finding_id": "h1",
+      "form": "paths_list",
+      "head_commit": "7fcb48b42202955aec6e58686c513456c1b1b01d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/GUIDE.md, src/disensor/GUIDE.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "src/disensor/GUIDE.es.md",
+        "src/disensor/GUIDE.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-21T17:20:00-03:00",
+      "event_id": "a6d86ab0-4adb-452f-b814-30663db65dc5",
+      "final_state": "debt_recorded",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "7fcb48b42202955aec6e58686c513456c1b1b01d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T18:59:06-03:00",
+          "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        }
+      ],
+      "location": "tests/test_guide.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-21T17:20:00-03:00",
+      "event_id": "a6d86ab0-4adb-452f-b814-30663db65dc5",
+      "final_state": "debt_recorded",
+      "finding_id": "h3",
+      "form": "paths_list",
+      "head_commit": "7fcb48b42202955aec6e58686c513456c1b1b01d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/GUIDE.md, src/disensor/GUIDE.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "src/disensor/GUIDE.es.md",
+        "src/disensor/GUIDE.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-23T18:59:06-03:00",
+      "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "paths_list",
+      "head_commit": "4c667da0142fad120e4aa6e32b1c7073f673f2c2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/guide.py, tests/test_guide.py",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "src/disensor/guide.py",
+        "tests/test_guide.py"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 10,
+      "created_at": "2026-08-23T18:59:06-03:00",
+      "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "4c667da0142fad120e4aa6e32b1c7073f673f2c2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-23T20:29:46-03:00",
+          "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+          "final_state": "owner_decision",
+          "finding_id": "h4"
+        }
+      ],
+      "location": ".github/workflows/ci.yml",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 2,
+      "created_at": "2026-08-23T18:59:06-03:00",
+      "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "4c667da0142fad120e4aa6e32b1c7073f673f2c2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_guide.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-23T18:59:06-03:00",
+      "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "paths_list",
+      "head_commit": "4c667da0142fad120e4aa6e32b1c7073f673f2c2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-24T13:50:07-03:00",
+          "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-23T18:59:06-03:00",
+      "event_id": "c91f9d4b-4f67-491a-8aa6-3f4778ccfae4",
+      "final_state": "escalated_open",
+      "finding_id": "h5",
+      "form": "resolves_as_is",
+      "head_commit": "4c667da0142fad120e4aa6e32b1c7073f673f2c2",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": ".github/workflows/release.yml",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-23T20:29:46-03:00",
+      "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "paths_list",
+      "head_commit": "748feb7b01329c58a82a757890452360506eda60",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_docs.py, .github/workflows/ci.yml",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        ".github/workflows/ci.yml",
+        "tests/test_docs.py"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-23T20:29:46-03:00",
+      "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "748feb7b01329c58a82a757890452360506eda60",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "tests/test_docs.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-23T20:29:46-03:00",
+      "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "748feb7b01329c58a82a757890452360506eda60",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "tests/test_docs.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 9,
+      "created_at": "2026-08-23T20:29:46-03:00",
+      "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+      "final_state": "owner_decision",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "748feb7b01329c58a82a757890452360506eda60",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": ".github/workflows/ci.yml",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-23T20:29:46-03:00",
+      "event_id": "0a4da8ae-2967-463a-8527-b332da383824",
+      "final_state": "incorporated",
+      "finding_id": "h5",
+      "form": "resolves_as_is",
+      "head_commit": "748feb7b01329c58a82a757890452360506eda60",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        }
+      ],
+      "location": "tests/test_docs.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": true,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-24T13:50:07-03:00",
+      "event_id": "213ba5a5-de31-403f-8ccf-45af76575509",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "paths_list",
+      "head_commit": "ab91f56703ec11e606ba5c97d5341d1409e1f46a",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "README.md, README.es.md",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-24T17:43:46-03:00",
+      "event_id": "a97a0737-54fc-4ebb-a857-5ed67c7660ef",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "e19dd7fec6fce84a70ba6bf8b5942d8abe3d5dd0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/pin.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-24T17:43:46-03:00",
+      "event_id": "a97a0737-54fc-4ebb-a857-5ed67c7660ef",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "e19dd7fec6fce84a70ba6bf8b5942d8abe3d5dd0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/pin.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-24T17:43:46-03:00",
+      "event_id": "a97a0737-54fc-4ebb-a857-5ed67c7660ef",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "e19dd7fec6fce84a70ba6bf8b5942d8abe3d5dd0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/pin.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-24T17:43:46-03:00",
+      "event_id": "a97a0737-54fc-4ebb-a857-5ed67c7660ef",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "e19dd7fec6fce84a70ba6bf8b5942d8abe3d5dd0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_pin.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/template.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 3,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h5",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        }
+      ],
+      "location": "src/disensor/reviewers.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h6",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h7",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h8",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h9",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 3,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h10",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        }
+      ],
+      "location": "src/disensor/reviewers.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 3,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h11",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        }
+      ],
+      "location": "src/disensor/reviewers.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h12",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h13",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h14",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/pack.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h15",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 3,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h16",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h3"
+        }
+      ],
+      "location": "src/disensor/reviewers.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h17",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h18",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 4,
+      "created_at": "2026-08-27T15:34:10-03:00",
+      "event_id": "d45f293f-f18b-4e2e-8989-eb6a1dab464b",
+      "final_state": "incorporated",
+      "finding_id": "h19",
+      "form": "resolves_as_is",
+      "head_commit": "b8bfa4cdf537adbb6dc96ba7ee80f0eb63319b4b",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-28T15:33:22-03:00",
+          "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+          "final_state": "incorporated",
+          "finding_id": "h4"
+        }
+      ],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-27T19:48:07-03:00",
+      "event_id": "e8b5b08d-6893-49bd-913d-35842724e9fd",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "95b99c3a967e77776637ad5825b57961d496c27d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/cli.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-27T19:48:07-03:00",
+      "event_id": "e8b5b08d-6893-49bd-913d-35842724e9fd",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "95b99c3a967e77776637ad5825b57961d496c27d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/init.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-27T19:48:07-03:00",
+      "event_id": "e8b5b08d-6893-49bd-913d-35842724e9fd",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "95b99c3a967e77776637ad5825b57961d496c27d",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/init.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 21,
+      "created_at": "2026-08-28T15:03:23-03:00",
+      "event_id": "882d4206-2823-44e9-82a7-2fcc280ceaff",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "4b24bd01fa77eb96cdee2ad123423e31b125aee3",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "README.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-28T15:33:22-03:00",
+      "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "051e923adba5ab827a5a661303186678113644b5",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-28T15:33:22-03:00",
+      "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "051e923adba5ab827a5a661303186678113644b5",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/reviewers.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-28T15:33:22-03:00",
+      "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "051e923adba5ab827a5a661303186678113644b5",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/reviewers.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-28T15:33:22-03:00",
+      "event_id": "e81a7dd8-4028-4cc3-891a-24c533f23615",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "051e923adba5ab827a5a661303186678113644b5",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-28T16:01:18-03:00",
+      "event_id": "17fc6ebb-90cb-402e-b1d0-2a29893c06d6",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "6365cf1f670ca6da6345eb661e8f587402f7ceb9",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_round.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 7,
+      "created_at": "2026-08-28T21:19:03-03:00",
+      "event_id": "8cc6f0c1-5114-407c-bc10-298a474fee24",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "b7fb74981bd838c9dbf16caa78008a377771bc00",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h13"
+        },
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h15"
+        },
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h5"
+        }
+      ],
+      "location": "plano-evidencia/src/validar.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-28T21:19:03-03:00",
+      "event_id": "8cc6f0c1-5114-407c-bc10-298a474fee24",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "b7fb74981bd838c9dbf16caa78008a377771bc00",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/GUIDE.md",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 5,
+      "created_at": "2026-08-28T21:19:03-03:00",
+      "event_id": "8cc6f0c1-5114-407c-bc10-298a474fee24",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "b7fb74981bd838c9dbf16caa78008a377771bc00",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/vectors.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 7,
+      "created_at": "2026-08-28T21:19:03-03:00",
+      "event_id": "8cc6f0c1-5114-407c-bc10-298a474fee24",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "b7fb74981bd838c9dbf16caa78008a377771bc00",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-29T00:49:54-03:00",
+          "event_id": "081473a2-47b7-49f1-bac0-e2643d24d1bd",
+          "final_state": "incorporated",
+          "finding_id": "h1"
+        },
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h14"
+        },
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h6"
+        }
+      ],
+      "location": "src/disensor/rules.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T00:19:43-03:00",
+      "event_id": "664908c7-1472-4830-9d72-4a56ebd739f8",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "a9db86c19c0d9c2508dcbf5107f2200f33ead750",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/gate.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T00:19:43-03:00",
+      "event_id": "664908c7-1472-4830-9d72-4a56ebd739f8",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "a9db86c19c0d9c2508dcbf5107f2200f33ead750",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/gate.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T00:19:43-03:00",
+      "event_id": "664908c7-1472-4830-9d72-4a56ebd739f8",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "a9db86c19c0d9c2508dcbf5107f2200f33ead750",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/gate.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T00:19:43-03:00",
+      "event_id": "664908c7-1472-4830-9d72-4a56ebd739f8",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "a9db86c19c0d9c2508dcbf5107f2200f33ead750",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/gate.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T00:19:43-03:00",
+      "event_id": "664908c7-1472-4830-9d72-4a56ebd739f8",
+      "final_state": "incorporated",
+      "finding_id": "h5",
+      "form": "resolves_as_is",
+      "head_commit": "a9db86c19c0d9c2508dcbf5107f2200f33ead750",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/gate.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 5,
+      "created_at": "2026-08-29T00:49:54-03:00",
+      "event_id": "081473a2-47b7-49f1-bac0-e2643d24d1bd",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "1d41155b1f975e330c14dca0b5aa93e700f4ed90",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h14"
+        },
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        },
+        {
+          "created_at": "2026-08-29T03:20:00-03:00",
+          "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+          "final_state": "incorporated",
+          "finding_id": "h6"
+        }
+      ],
+      "location": "src/disensor/rules.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/src/index.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/rules.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 2,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        }
+      ],
+      "location": "plano-evidencia/scripts/conformidad.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_v04.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h5",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/src/validar.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h6",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/rules.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h7",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/src/index.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h8",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/src/index.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 2,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h9",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [
+        {
+          "created_at": "2026-08-31T18:53:55-03:00",
+          "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+          "final_state": "incorporated",
+          "finding_id": "h2"
+        }
+      ],
+      "location": "plano-evidencia/scripts/conformidad.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h10",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/scripts/ingesta.test.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h11",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_v04.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h12",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_v04.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h13",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/src/validar.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h14",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/rules.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h15",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/src/validar.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h16",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_v04.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h17",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_v04.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-29T03:20:00-03:00",
+      "event_id": "8c01d56d-7e1b-4cbd-a480-b841df15e598",
+      "final_state": "incorporated",
+      "finding_id": "h18",
+      "form": "resolves_as_is",
+      "head_commit": "38618ec8b2b3c7e2dc2b26d9b800c8528fb897d0",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/scripts/ingesta.test.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-31T18:53:55-03:00",
+      "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "resolves_as_is",
+      "head_commit": "45847a358c66f113321350c8017d70ac1ce4d351",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_docs.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 1,
+      "created_at": "2026-08-31T18:53:55-03:00",
+      "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+      "final_state": "incorporated",
+      "finding_id": "h2",
+      "form": "resolves_as_is",
+      "head_commit": "45847a358c66f113321350c8017d70ac1ce4d351",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "plano-evidencia/scripts/conformidad.ts",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-31T18:53:55-03:00",
+      "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+      "final_state": "incorporated",
+      "finding_id": "h3",
+      "form": "resolves_as_is",
+      "head_commit": "45847a358c66f113321350c8017d70ac1ce4d351",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_cli_errors.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 0,
+      "created_at": "2026-08-31T18:53:55-03:00",
+      "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+      "final_state": "incorporated",
+      "finding_id": "h4",
+      "form": "resolves_as_is",
+      "head_commit": "45847a358c66f113321350c8017d70ac1ce4d351",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "tests/test_cli_errors.py",
+      "object_type_in_own_head": "blob",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-31T18:53:55-03:00",
+      "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+      "final_state": "incorporated",
+      "finding_id": "h5",
+      "form": "issue_reference",
+      "head_commit": "45847a358c66f113321350c8017d70ac1ce4d351",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "issue #18",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-08-31T18:53:55-03:00",
+      "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+      "final_state": "incorporated",
+      "finding_id": "h6",
+      "form": "issue_reference",
+      "head_commit": "45847a358c66f113321350c8017d70ac1ce4d351",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "issue #18",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": null,
+      "commits_touching_after_head": 6,
+      "created_at": "2026-08-31T18:53:55-03:00",
+      "event_id": "048b92cd-d13c-486e-b646-a6b40ee7b823",
+      "final_state": "incorporated",
+      "finding_id": "h7",
+      "form": "resolves_as_is",
+      "head_commit": "45847a358c66f113321350c8017d70ac1ce4d351",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": ".residue/",
+      "object_type_in_own_head": "tree",
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": true,
+      "resolves_in_own_head": true
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-09-08T03:00:28+00:00",
+      "event_id": "7547847a-b093-4940-b5c7-8540bf798cad",
+      "final_state": "debt_recorded",
+      "finding_id": "h1",
+      "form": "other_repository",
+      "head_commit": "a545a237e8c36cdb9b085af89fd7179b74d1df37",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "disensor-web: src/content/docs/ (página nueva en los dos idiomas)",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-09-08T03:00:28+00:00",
+      "event_id": "7547847a-b093-4940-b5c7-8540bf798cad",
+      "final_state": "refuted_verifiable",
+      "finding_id": "h2",
+      "form": "other_repository",
+      "head_commit": "a545a237e8c36cdb9b085af89fd7179b74d1df37",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "disensor-web: rutas de la página nueva",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-09-08T03:00:28+00:00",
+      "event_id": "7547847a-b093-4940-b5c7-8540bf798cad",
+      "final_state": "debt_recorded",
+      "finding_id": "h3",
+      "form": "other_repository",
+      "head_commit": "a545a237e8c36cdb9b085af89fd7179b74d1df37",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "disensor-web: src/i18n/textos.ts, src/content/docs/how-it-works.mdx, method.md y sus versiones en español",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-09-08T03:00:28+00:00",
+      "event_id": "7547847a-b093-4940-b5c7-8540bf798cad",
+      "final_state": "debt_recorded",
+      "finding_id": "h4",
+      "form": "other_repository",
+      "head_commit": "a545a237e8c36cdb9b085af89fd7179b74d1df37",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "disensor-web: portada, method, how-it-works y barra lateral",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-09-08T03:00:28+00:00",
+      "event_id": "7547847a-b093-4940-b5c7-8540bf798cad",
+      "final_state": "incorporated",
+      "finding_id": "h5",
+      "form": "mixed",
+      "head_commit": "a545a237e8c36cdb9b085af89fd7179b74d1df37",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "README.md, README.es.md, docs/notes/arxiv-2608.18167.md; la misma frase en el sitio, /method/ y /es/method/",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "README.es.md",
+        "README.md",
+        "docs/notes/arxiv-2608.18167.md"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    },
+    {
+      "all_parts_resolve_after_normalization": false,
+      "commits_touching_after_head": null,
+      "created_at": "2026-09-08T12:24:33+00:00",
+      "event_id": "6b969ccb-9afb-4c9d-bb73-71502dbfae54",
+      "final_state": "incorporated",
+      "finding_id": "h1",
+      "form": "path_with_annotation",
+      "head_commit": "bd9b88425b00e66388c314abd6f3478d8586896e",
+      "head_reachable_from_at": true,
+      "later_findings_same_location": [],
+      "location": "src/disensor/render.py, _item_line: la referencia del ítem (líneas 36 a 43 en f6dbfb2)",
+      "object_type_in_own_head": null,
+      "parts_resolving_after_normalization": [
+        "src/disensor/render.py"
+      ],
+      "resolves_in_at": false,
+      "resolves_in_own_head": false
+    }
+  ],
+  "summary": {
+    "corpus_read_from": "76de05f",
+    "debt_recorded": {
+      "findings": 14,
+      "with_later_finding_same_location": 2,
+      "with_location": 11
+    },
+    "declarations": 43,
+    "distinct_location_strings": 51,
+    "findings": 167,
+    "findings_by_state": {
+      "debt_recorded": 14,
+      "escalated_open": 3,
+      "incorporated": 142,
+      "owner_decision": 4,
+      "refuted_interpretive": 1,
+      "refuted_verifiable": 3
+    },
+    "findings_with_location": 120,
+    "findings_without_location": 47,
+    "heads_not_reachable_from_at": [],
+    "location_not_in_own_head_but_in_at": 0,
+    "location_resolves_in_own_head": 88,
+    "location_resolves_in_own_head_by_object_type": {
+      "blob": 86,
+      "tree": 2
+    },
+    "location_resolves_nowhere": 32,
+    "location_strings_in_more_than_one_declaration": 13,
+    "measured_at": "76de05f",
+    "measured_at_oid": "76de05fbd8da5ead1977a401d3fcb5d1ced17c7a",
+    "pairs_by_earlier_state": {
+      "debt_recorded": 2,
+      "incorporated": 88
+    },
+    "pairs_earlier_later_same_location": 90,
+    "pairs_where_earlier_head_is_ancestor_of_later_head": 90,
+    "pairs_with_earlier_in_state_of_interest": 2,
+    "rate": {
+      "months_of_corpus": 0.91,
+      "months_to_ten_pairs_linear": 0.1,
+      "months_to_ten_pairs_of_interest_linear": 4.5,
+      "note": "linear extrapolation over the whole window, not a bound in either direction: a pair only appears when a later finding repeats an existing location string exactly, so if new declarations use new strings the count stays flat and the wait is unbounded; if they repeat old ones the count can grow faster than linear",
+      "pairs_of_interest_per_month": 2.203,
+      "pairs_per_month": 99.14
+    },
+    "refuted": {
+      "findings": 4,
+      "with_later_finding_same_location": 0,
+      "with_location": 3
+    },
+    "resolving_locations_changed_after_head": 57,
+    "unresolved_all_parts_resolve_after_normalization": 23,
+    "unresolved_forms": {
+      "issue_reference": {
+        "all_parts_resolve_after_normalization": 0,
+        "examples": [
+          "issue #18"
+        ],
+        "findings": 2
+      },
+      "mixed": {
+        "all_parts_resolve_after_normalization": 0,
+        "examples": [
+          "README.md, README.es.md, docs/notes/arxiv-2608.18167.md; la misma frase en el sitio, /method/ y /es/method/"
+        ],
+        "findings": 1
+      },
+      "other_repository": {
+        "all_parts_resolve_after_normalization": 0,
+        "examples": [
+          "disensor-web: portada, method, how-it-works y barra lateral",
+          "disensor-web: rutas de la página nueva",
+          "disensor-web: src/content/docs/ (página nueva en los dos idiomas)"
+        ],
+        "findings": 5
+      },
+      "path_with_annotation": {
+        "all_parts_resolve_after_normalization": 5,
+        "examples": [
+          ".github/workflows/release.yml (job unico con id-token: write ejecutando python -m build)",
+          ".github/workflows/release.yml (trigger workflow_dispatch, paso checkout)",
+          "plano-evidencia/src/index.ts (ingestar, POST /v1/artefactos)"
+        ],
+        "findings": 6
+      },
+      "paths_list": {
+        "all_parts_resolve_after_normalization": 18,
+        "examples": [
+          "README.md, README.es.md",
+          "README.md, README.es.md, src/disensor/GUIDE.md",
+          "README.md, spec/residue.schema.json (properties/profile), src/disensor/rules.py (R9)"
+        ],
+        "findings": 18
+      }
+    },
+    "window": {
+      "days": 27.631,
+      "first": "2026-08-13T00:15:00-03:00",
+      "last": "2026-09-09T15:24:00-03:00"
+    }
+  }
+}

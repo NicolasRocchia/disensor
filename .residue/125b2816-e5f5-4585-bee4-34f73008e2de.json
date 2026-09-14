@@ -1,0 +1,202 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "125b2816-e5f5-4585-bee4-34f73008e2de",
+    "created_at": "2026-09-13T20:45:17-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "b85c5ebcfafde68a3ef261b6cd31425fabd4cb9c",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "76de05fbd8da5ead1977a401d3fcb5d1ced17c7a",
+    "pr": "https://github.com/NicolasRocchia/disensor/pull/63"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La espera proyectada se presentaba como cota superior sin que los datos permitieran acotarla",
+      "description": "La nota de la tasa decía que la extrapolación lineal era una cota superior de la espera porque los pares crecen con el cuadrado del corpus. Un par sólo aparece cuando un hallazgo posterior repite exactamente una location existente: si las próximas declaraciones usan textos nuevos, el numerador queda plano y la espera no tiene cota. Primera ronda, sobre 0604875.",
+      "location": "docs/notes/longitudinal.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo el cálculo de pares: sólo crece con coincidencia exacta de texto en location. El contraejemplo del revisor (declaraciones nuevas con textos nuevos) refuta la cota sin necesidad de suponer una distribución."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "docs/notes/longitudinal.py, la nota de la tasa y el docstring, revisados en la segunda y la tercera ronda"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La ventana truncaba las fracciones de día y sesgaba todas las tasas publicadas",
+      "description": "El cálculo usaba (última - primera).days, que descarta horas y minutos. La primera marca es 2026-08-13T00:15:00-03:00 y la última 2026-09-09T15:24:00-03:00: 27,631 días, publicados como 27, y de ahí 0,89 meses y las tasas derivadas. Primera ronda, sobre 0604875.",
+      "location": "docs/notes/longitudinal.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido: total_seconds() / 86400 sobre las dos marcas da 27,631 contra los 27 del snapshot. Ahora la ventana lleva la fracción y el snapshot se regeneró: 0,91 meses."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "docs/notes/longitudinal.py y docs/notes/longitudinal-2026-09-13.json regenerado, revisados en la segunda y la tercera ronda"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El orden por created_at podía no representar posterioridad causal",
+      "description": "Hipótesis sin verificar del revisor: el corpus tiene declaraciones con el mismo created_at, y el contrato de posterioridad no estaba escrito. Pedía definirlo y agregar un caso con timestamps iguales. Primera ronda, sobre 0604875.",
+      "location": "docs/notes/longitudinal.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Hay dos timestamps repetidos, en cuatro declaraciones, y ninguna de las cuatro tiene hallazgos con location, así que el empate no toca ninguna fila. Como control, en los 90 pares el head de la declaración anterior es ancestro en git del head de la posterior."
+      },
+      "remedy_adjustment": "El revisor pedía definir el contrato y agregar un caso de prueba con timestamps iguales. Se definió el contrato en el docstring (posterior es created_at estrictamente mayor; un empate no forma par) y el resumen ahora cuenta en cuántos pares el head del anterior es además ancestro del posterior, que en este corpus da 90 de 90. No se agregó caso de prueba: el brief de la tarea excluye tests para este script.",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "docs/notes/longitudinal.py, el contrato en el docstring y el control de ascendencia en el resumen, revisados en la segunda y la tercera ronda"
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Los commits que tocan una ruta pierden continuidad ante renombres",
+      "description": "Hipótesis sin verificar del revisor: rev-list --count sobre la ruta exacta no sigue renombres, y no estaba dicho si la métrica pretende identidad de archivo o identidad textual de la ruta. Primera ronda, sobre 0604875.",
+      "location": "docs/notes/longitudinal.py",
+      "final_state": "owner_decision",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto: la cuenta es por ruta como texto exacto. Es la misma identidad con la que se compara location en toda la medición."
+      },
+      "risk_record": "Se mantiene la identidad textual de la ruta. Riesgo aceptado: un renombre corta la cuenta de commits posteriores y puede subcontar. Seguir renombres cambiaría el significado de la métrica y no es lo que la medición pregunta. Queda dicho en el docstring de la función y del módulo."
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un fallo de git se convertía en un dato de la medición",
+      "description": "Un --at mal escrito, o un clon superficial al que le falta el head de una declaración vieja, no abortaban: cada fallo de cat-file se convertía en «la ruta no resuelve», cada fallo de merge-base en «no es ancestro», y el rev-parse fallido se descartaba. El informe salía con código 0 y números verosímiles: 25 heads inalcanzables y un OID truncado ref-que. Segunda ronda, sobre be6d125.",
+      "location": "docs/notes/longitudinal.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido: --at ref-que-no-existe salía con código 0 e imprimía el informe. Ahora --at, --corpus-at y el head_commit de cada declaración se resuelven a commit antes de consultar nada; si alguno falta el script sale con código 2 y sin informe. merge-base sólo responde 0 o 1, cat-file sólo cuenta como ruta ausente el mensaje exacto de git para eso, y rev-list, ls-tree y show fallan en voz alta. Probado con --at inválido, --corpus-at inválido y un corpus falso con head_commit inexistente. El snapshot commiteado no cambia byte a byte."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "docs/notes/longitudinal.py, revisado en la tercera ronda"
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Con un git de mensajes traducidos, el caso normal de ruta ausente abortaría la medición",
+      "description": "Hipótesis sin verificar del revisor: el script reconoce «ruta ausente» por el texto en inglés del diagnóstico de cat-file. Un git con catálogo de mensajes traducido cambiaría ese texto, y la primera de las 32 location que no resuelven haría abortar una medición válida. Tercera ronda, sobre b85c5eb.",
+      "location": "docs/notes/longitudinal.py",
+      "final_state": "debt_recorded",
+      "debt_id": "longitudinal-git-lc-all-c",
+      "verification": {
+        "against": "repository",
+        "detail": "No se pudo ejecutar: ni el git del revisor ni el del generador traen catálogos traducidos. Pero el código de salida es 128 tanto para ruta ausente como para revisión inválida, así que el mensaje es el único discriminador, y git traduce ese diagnóstico donde hay catálogo. La hipótesis es real en principio. Con un git traducido el script aborta con código 2 mostrando el mensaje exacto: falla en voz alta, no da números falsos. El arreglo es forzar LC_ALL=C en el entorno de los subprocesos de git, y va en el PR que sube el pin del auto-gate a 0.9.6, que necesita ronda de todos modos."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "Las cinco location que apuntan al repositorio hermano disensor-web no se pueden resolver, y no se van a poder: la medición consulta el git de este repositorio y el hermano no forma parte del entorno medido. No es un defecto del script sino un límite de la medición, y esas cinco quedan en la clase other_repository. Cualquier programa que mire un solo repositorio va a dar lo mismo. Motivo real: las rutas viven en otro repositorio que este entorno no contiene."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "Nadie ejecutó el script en Linux ni en un clon superficial real. Las tres rondas corrieron en Windows 11 sin un entorno Linux, y el confinamiento de la revisión no permite crear repositorios. El camino del head_commit ausente se probó con un corpus falso que apunta a un OID inexistente, que es el mismo código pero no un clon superficial. El script no corre en CI, así que esta brecha no la cierra ningún job."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no llegó a ver el resultado de la suite completa sobre el head final b85c5eb: pytest recolectó 471 pruebas, avanzó hasta el 22% sin fallas visibles, y el proceso sobrevivió a la ventana de captura de su herramienta, así que su salida final y su código no fueron observables. Sobre el head anterior be6d125 sí la había completado: 466 pasan y 5 se saltean. El generador la corrió sobre b85c5eb con el mismo resultado, y CI la corre en el PR. Motivo real: la ventana de captura de la herramienta del revisor, no el entorno ni un tercero."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 6,
+      "valid": {
+        "incorporated": 4,
+        "debt_recorded": 1,
+        "owner_decision": 1
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:3036ad2ea91283a329985e4e57885f8700060824360b0405b18f910d324c1e50",
+      "report_hash": "sha256:0c4fabb5fe24e91230f9cfceec819363ced32c3c8fc4748907d9b19547a55c31",
+      "tree_unchanged": true,
+      "attempts": 1
+    },
+    "dev.disensor.round.previous": [
+      {
+        "head_oid": "0604875f996051ffe9677ef1ea023422cab7f60b",
+        "report_hash": "sha256:2aa5c179faf347d99d1b3bae870fc44cc91f64416156d3c24646e97a5a663e28",
+        "pack_hash": "sha256:4ae2d2bcbce686e1a1589a46af2e7018442b7f68cf276dd13d011da159e88b26",
+        "tree_unchanged": true
+      },
+      {
+        "head_oid": "be6d125f96f5becb5bdd1c6fe87e1e767387d454",
+        "report_hash": "sha256:9d7416bd0faee580cbb9193c0936c5caa22b338c6fdb99637ffa961c16456a17",
+        "pack_hash": "sha256:1a98b9877ab6e1767bd945e1a6593c3d6d89bbd7ed4287a37aabfc8fa0a856a4",
+        "tree_unchanged": true
+      }
+    ]
+  }
+}
