@@ -80,7 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
-    init = sub.add_parser("init", help="Scaffold a repository: config, CLAUDE.md section, filling skill and CI workflow.")
+    init = sub.add_parser("init", help="Scaffold a repository: config, CLAUDE.md section, filling skill, CI workflow and the .gitignore line for the report.")
     init.add_argument("--level", "--nivel", choices=["A", "B", "C"], default="B")
     # Los tres dicen cual del par CLAUDE.md/skill se escribe, asi que no pueden
     # convivir: resolver la contradiccion por orden de rama hace que una bandera

@@ -185,3 +185,15 @@ def test_a_rejected_invocation_writes_nothing(tmp_path, monkeypatch, capsys):
     assert args.func(args) == 1
     assert list(limpio.iterdir()) == [], "una invocacion rechazada dejo archivos"
     assert "Pick one" in capsys.readouterr().out
+
+
+def test_upgrade_adds_the_gitignore_entry_once(repo: Path, monkeypatch, capsys):
+    """Una instalacion anterior no ignoraba el informe; el upgrade agrega la
+    linea y la segunda corrida la deja como esta."""
+    instalacion_vieja(repo)
+    (repo / ".gitignore").write_text("dist/\n", encoding="utf-8")
+    assert correr(repo, monkeypatch, "--upgrade") == 0
+    assert "updated .gitignore (informe-residuo.html)" in capsys.readouterr().out
+    assert correr(repo, monkeypatch, "--upgrade") == 0
+    assert "kept    .gitignore" in capsys.readouterr().out
+    assert (repo / ".gitignore").read_text(encoding="utf-8").count("informe-residuo.html") == 1

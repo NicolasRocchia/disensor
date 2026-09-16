@@ -5,7 +5,7 @@ initialized once with this command. Idempotent by design: running it again
 respects what already exists and reports what it did, so nothing is ever
 silently overwritten.
 
-It writes four pieces, each optional by flag:
+It writes five pieces, the first four optional by flag:
   1. disensor.config.json: the criticality level, versioned with the code.
   2. A CLAUDE.md section: the event-close trigger for Claude Code.
   3. A Claude Code skill with the full filling guide, loaded on demand
@@ -15,6 +15,9 @@ It writes four pieces, each optional by flag:
      the canonical repository (`disensor pin`). A tag can be moved, so it is
      not a root of trust; if there is no network at init time, the tag stays
      and the report says to run `disensor pin` later.
+  5. A .gitignore line for informe-residuo.html, the report the gate writes
+     on a green verdict: derived, never versioned, and written only when git
+     ignores it.
 
 After `pip install disensor` and `disensor init`, the user should not have
 to touch anything by hand: Claude knows when (CLAUDE.md) and how (skill),
@@ -237,6 +240,33 @@ def _write_skill(base: Path, label: str, report: list[str]) -> None:
     report.append(f"created {label}")
 
 
+GITIGNORE_ENTRY = "informe-residuo.html"
+
+
+def _write_gitignore(root: Path, report: list[str]) -> None:
+    """The report the gate writes on green is derived, never versioned.
+
+    The gate writes it only when git ignores it: `round` demands a clean tree
+    and `git status` does not list ignored files, so without this line the
+    first report would break the next round. Appended, never rewritten; the
+    file keeps its own line endings.
+    """
+    path = root / ".gitignore"
+    if path.exists():
+        text = path.read_bytes().decode("utf-8")
+        present = {line.strip() for line in text.splitlines()}
+        if GITIGNORE_ENTRY in present or "/" + GITIGNORE_ENTRY in present:
+            report.append(f"kept    .gitignore ({GITIGNORE_ENTRY} already ignored)")
+            return
+        newline = "\r\n" if "\r\n" in text else "\n"
+        joiner = "" if not text or text.endswith(("\n", "\r\n")) else newline
+        path.write_bytes((text + joiner + GITIGNORE_ENTRY + newline).encode("utf-8"))
+        report.append(f"updated .gitignore ({GITIGNORE_ENTRY})")
+        return
+    path.write_bytes((GITIGNORE_ENTRY + "\n").encode("utf-8"))
+    report.append(f"created .gitignore ({GITIGNORE_ENTRY})")
+
+
 def _write_workflow(root: Path, report: list[str]) -> None:
     path = root / ".github" / "workflows" / "disensor.yml"
     rel = path.relative_to(root)
@@ -320,6 +350,7 @@ def main_init(args) -> int:
         report.append("skipped .github/workflows/disensor.yml (--no-workflow)")
     else:
         _write_workflow(root, report)
+    _write_gitignore(root, report)
 
     for line in report:
         print(line)
@@ -431,6 +462,9 @@ def upgrade(root: Path, args) -> int:
 
     if not args.no_workflow:
         _upgrade_workflow(root, report)
+    # Idempotente y solo agrega: una instalacion anterior no tenia la entrada,
+    # y sin ella el gate no escribe el informe.
+    _write_gitignore(root, report)
 
     for line in report:
         print(line)
