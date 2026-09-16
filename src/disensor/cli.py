@@ -137,6 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
     gate.add_argument("--head", "--cabeza", default=None, help="Head SHA of the PR (defaults to the GitHub event).")
     gate.add_argument("--no-comment", "--sin-comentario", action="store_true",
                       help="Do not post a comment on the PR.")
+    gate.add_argument("--no-report", action="store_true",
+                      help="Do not write the residue report when the verdict is green.")
+    gate.add_argument("--report-out", metavar="FILE", default=None,
+                      help="Where to write the report on a green verdict (default: "
+                           "informe-residuo.html at the repository root, only if git ignores it).")
     gate.set_defaults(func=main_gate)
 
     prompt = sub.add_parser(

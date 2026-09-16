@@ -1079,14 +1079,16 @@ def attention_count(declarations: list[dict]) -> int:
     return sum(1 for d in declarations for it in d["items"] if it["attention"])
 
 
-def summary_line(declarations: list[dict], unreadable: list[Unreadable], out: Path) -> str:
+def summary_line(declarations: list[dict], unreadable: list[Unreadable], out: Path, prefix: str = "") -> str:
+    """What the command (or the gate) prints. The path is always the LAST line."""
     n, m = len(declarations), attention_count(declarations)
-    line = (f"{n} {'declaration' if n == 1 else 'declarations'}, {m} "
-            f"{'item asks' if m == 1 else 'items ask'} for human attention -> {out}")
+    lines = []
     if unreadable:
         k = len(unreadable)
-        line += f"\n{k} {'file' if k == 1 else 'files'} unreadable, listed in the report"
-    return line
+        lines.append(f"{prefix}{k} {'file' if k == 1 else 'files'} unreadable, listed in the report")
+    lines.append(f"{prefix}{n} {'declaration' if n == 1 else 'declarations'}, {m} "
+                 f"{'item asks' if m == 1 else 'items ask'} for human attention -> {out}")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -1183,3 +1185,55 @@ def iso_date(raw: str) -> date:
         return date.fromisoformat(raw)
     except ValueError as exc:
         raise ValueError(f"{raw!r} is not an ISO date (YYYY-MM-DD)") from exc
+
+
+# ---------------------------------------------------------------------------
+# The gate hook: the document is the last thing of an event
+# ---------------------------------------------------------------------------
+def ignored_by_git(path: Path, root: Path) -> bool:
+    """Whether git would ignore `path`. Anything but a clean yes is a no."""
+    try:
+        rel = path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        rel = str(path)
+    try:
+        r = subprocess.run(["git", "check-ignore", "-q", "--", rel], cwd=root,
+                           capture_output=True, text=True, check=False)
+    except OSError:
+        return False
+    return r.returncode == 0
+
+
+def after_gate(root: Path, evidence_root: str, head: str, repo_dir: Path, out: str | None = None) -> str:
+    """The report the gate writes when its verdict is green. Returns the lines to print.
+
+    Read from the git objects at `head`, the ones the gate just judged: never
+    the working tree, never the synthetic merge commit of a CI checkout. Best
+    effort and never silent: the verdict is already given, so nothing here
+    changes the exit code, but a real failure ends in one unmistakable line
+    that stays in the log of the event.
+
+    Without `out`, the destination is the default file at the root, and only if
+    git ignores it: `round` demands a clean tree and `git status` does not
+    list ignored files, so a report that git tracked as untracked would break
+    the next round. With `out`, whoever asked chose the place.
+    """
+    try:
+        if out:
+            destination = resolve_against(out, root)
+            evidence_dir = root / evidence_root
+            if inside(destination, evidence_dir):
+                return (f"[gate] report: {destination} falls inside the evidence directory, so it was "
+                        "not written: the gate would read it as an artifact and reject it")
+        else:
+            destination = root / DEFAULT_OUT
+            if not ignored_by_git(destination, root):
+                return (f"[gate] report: {DEFAULT_OUT} is not ignored by git, so it was not written (it "
+                        "would dirty the tree; `disensor init --upgrade` adds it to .gitignore, or run "
+                        "`disensor report` yourself)")
+        declarations, unreadable = read_tree(head, evidence_root, repo_dir)
+        write_html(destination, build_html(declarations, unreadable,
+                                           Source(directory=evidence_root, commit=head[:7])))
+        return summary_line(declarations, unreadable, destination, prefix="[gate] report: ")
+    except Exception as exc:  # noqa: BLE001 - reported, never raised past the verdict
+        return f"[gate] report: FAILED: {type(exc).__name__}: {exc}"

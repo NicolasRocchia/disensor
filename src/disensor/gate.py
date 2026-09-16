@@ -42,6 +42,7 @@ from pathlib import Path, PurePosixPath
 
 from . import gitctx
 from .render import MARKER, render_comment
+from .report import after_gate
 from .rules import CURRENT, load_schema, validate_artifact
 from .scope import DEFAULT_SCOPE, ScopeError, accepts_for, floor_patterns, validate_scope
 
@@ -654,9 +655,10 @@ def write_summary(body: str) -> None:
 
 
 def run_gate(directory: Path | str, config_path: Path | str, base: str | None,
-             head: str | None, repo_dir: Path, post: bool = True) -> int:
+             head: str | None, repo_dir: Path, post: bool = True,
+             report: bool = True, report_out: str | None = None) -> int:
     try:
-        return _run_gate(directory, config_path, base, head, repo_dir, post)
+        return _run_gate(directory, config_path, base, head, repo_dir, post, report, report_out)
     except (GateFailure, gitctx.GitError, ScopeError, json.JSONDecodeError) as exc:
         body = (
             f"{MARKER}\n## Residue declaration\n\n**The gate could not reach a verdict.**\n\n- {exc}\n\n"
@@ -668,7 +670,8 @@ def run_gate(directory: Path | str, config_path: Path | str, base: str | None,
         return 1
 
 
-def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) -> int:
+def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
+              report: bool = True, report_out: str | None = None) -> int:
     # El rango y la politica se resuelven con la misma funcion que usa
     # `disensor round`: dos implementaciones de esta decision divergirian, y
     # divergirian justo en los casos que importan (politica del destino,
@@ -898,6 +901,12 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool) ->
     print(body)
     print(f"\n[gate] {'FAILED' if failed else 'OK'}: {len(valid)} valid artifact(s), "
           f"{len(errors_by_file)} with errors, {len(gate_errors)} global error(s)")
+    # The document is the last thing of an event: with a green verdict, the
+    # report of the declarations at the judged head, read from the same git
+    # objects. It never touches the verdict (best effort, never silent), and
+    # its line is the last one of the output.
+    if not failed and report:
+        print(after_gate(root, evidence_root, head_oid, repo_dir, report_out))
     return 1 if failed else 0
 
 
@@ -909,4 +918,6 @@ def main_gate(args) -> int:
         head=args.head,
         repo_dir=Path.cwd(),
         post=not args.no_comment,
+        report=not getattr(args, "no_report", False),
+        report_out=getattr(args, "report_out", None),
     )

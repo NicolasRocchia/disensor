@@ -177,8 +177,8 @@ def test_unreadable_files_are_listed_and_never_stop_the_report(tmp_path, monkeyp
     monkeypatch.chdir(tmp_path)
     assert run(["report"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("1 declaration,")
     assert "4 files unreadable" in out
+    assert out.strip().splitlines()[-1].startswith("1 declaration,")  # the path is always the last line
     page = (tmp_path / "informe-residuo.html").read_text(encoding="utf-8")
     for name in ("roto.json", "vacio.json", "evento-lista.json", "hallazgos-texto.json"):
         assert name in page
