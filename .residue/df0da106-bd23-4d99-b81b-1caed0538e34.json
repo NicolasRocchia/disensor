@@ -1,0 +1,184 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "df0da106-bd23-4d99-b81b-1caed0538e34",
+    "created_at": "2026-09-16T10:26:36-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "1e36257779b4933814445423188ec099a78017ee",
+    "gate": "plan",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    }
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:e542463911f99ee61304a9b5b9c315c656e4000432ac16aa6115b1cab9025450"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El chequeo de forma dejaba pasar declaraciones malformadas que hacían abortar el informe entero",
+      "description": "El predicado de admisión del plan (objeto con schema y event no vacíos) deja pasar un event que es una lista, un findings que no es lista, o actors y metrics que no son objetos, y la normalización planeada (espejo de construir() del prototipo: ev.get sobre lo que venga) revienta con ese archivo. Un archivo malformado o a medio escribir se llevaba el informe entero en vez de ir a la lista de archivos no leíbles, que es la invariante del brief.",
+      "location": "plan: report.py, read_directory y normalización",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado contra el texto del plan y contra cargar() y construir() de Disensor-Docs/app-evidencia/disensor_report.py: el chequeo mira schema y event y después opera sobre event como mapping. El plan pasa a normalizar cada archivo adentro de una frontera estructural (TypeError, AttributeError, KeyError, ValueError, IndexError) que manda el archivo a no leíbles con motivo, y el test 6 suma los dos casos."
+      },
+      "fix_verification": {
+        "type": "pending_in_diff_gate"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Las dos vías de generación automática convertían cualquier fallo del informe en éxito silencioso",
+      "description": "El hook local tragaba toda excepción sin cambiar el código de salida ni dejar señal, y el bloque del Action colapsaba el código 3 (no se pudo escribir, excepción del render, defecto de empaquetado) en built=false igual que los códigos 1 y 2, que no son fallo. El informe podía desaparecer justo cuando la automatización se rompe, sin que nadie lo viera.",
+      "location": "plan: generación automática, hook local y action.yml",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado contra main_validate en src/disensor/cli.py (un solo canal de estado: válido o no) y contra el bloque yaml del plan. El revisor pidió elegir una política; la elegida es mejor esfuerzo pero nunca silencioso."
+      },
+      "remedy_adjustment": "El revisor proponía que el fallo del informe hiciera no cero al comando de cierre, o que se degradara explícitamente a mejor esfuerzo con una señal aparte y testeable. Se eligió lo segundo: el comando de cierre contesta una sola pregunta y su código no cambia por el informe, pero un fallo real termina en una línea inconfundible, la última de la salida, y un test la fija. El dueño decidió además que en CI un fallo del informe sea ruidoso (anotación de error y línea en el comentario) sin poner el job en rojo; esa parte viaja con la fase 2. Después de la ronda el anclaje local cambió de validate al gate en verde, por decisión del dueño; la política de fallos es la misma.",
+      "fix_verification": {
+        "type": "pending_in_diff_gate"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El enlace al artifact del run no es un informe navegable desde el PR",
+      "description": "La URL que expone actions/upload-artifact es una descarga zip que exige sesión en GitHub y vive mientras el run esté retenido (90 días por defecto): el árbitro descarga, descomprime y abre, y un lector sin acceso al repositorio no puede verlo. El plan lo presentaba como el lugar donde el árbitro mira el PR.",
+      "location": "plan: CI, action.yml, línea del comentario",
+      "final_state": "owner_decision",
+      "verification": {
+        "against": "external_source",
+        "detail": "Verificado contra el README y el action.yml oficiales de actions/upload-artifact: la URL exige sesión, es una descarga, y vale mientras el artifact, el run y el repositorio existan; retención de 90 días por defecto."
+      },
+      "risk_record": "El dueño cortó el cambio en fases (2026-09-16): este PR es la vista de un solo dev en su máquina, y todo lo de CI (artifact del run, línea con el enlace, política de fallos en CI, GHES) pasa a la fase 2, que se decide con el informe ya en uso. Riesgo aceptado mientras tanto: el árbitro de un PR no tiene enlace y abre el informe desde su clon. Cuando el enlace exista será una descarga con sesión y retención, y así se va a documentar; hospedar el HTML queda descartado porque viola la restricción de cero infraestructura."
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La contención de --out no definía la canonicalización de rutas",
+      "description": "El plan rechazaba una salida dentro del directorio de evidencia sin decir si las rutas se comparan de forma lexical o resueltas, cómo se canonicaliza una salida que todavía no existe, ni qué pasa con un symlink o una junction hacia o desde el directorio. Una comparación lexical y una resuelta dan resultados distintos en seguridad y en usabilidad. Hipótesis del revisor, verificada.",
+      "location": "plan: contrato del comando, --out",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado sobre el texto del plan: no especificaba el algoritmo. El plan fija Path.resolve() de las dos rutas más is_relative_to, y tests con .., alias absoluto y symlink al directorio (saltado si el sistema no permite crearlos)."
+      },
+      "fix_verification": {
+        "type": "pending_in_diff_gate"
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El reemplazo secuencial de marcadores podía reescribir datos escapados",
+      "description": "Si render() reemplaza los marcadores @@...@@ uno después de otro, un cuerpo insertado primero que contenga el literal de un marcador posterior se vuelve a escanear y ese dato se reescribe. Depende del orden y de la implementación, que no existían. Hipótesis del revisor, verificada como riesgo real de la implementación planeada.",
+      "location": "plan: report.py, render",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado sobre el texto del plan, que hablaba de reemplazar marcadores sin fijar una sola pasada. El plan pasa a sustituir con re.sub en una única pasada sobre la plantilla, y un test mete un título con todos los marcadores y afirma que llega intacto."
+      },
+      "fix_verification": {
+        "type": "pending_in_diff_gate"
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Interpretar las fechas sin zona horaria como hora local hacía el orden y las edades dependientes de la máquina",
+      "description": "El plan decía que una fecha naive se toma como hora local, así que el mismo corpus podía ordenar y envejecer distinto en una estación de Buenos Aires y en un runner UTC. El corpus actual no tiene fechas naive ni inválidas, así que hoy no es alcanzable, pero el esquema no impide que aparezcan. Hipótesis del revisor, verificada.",
+      "location": "plan: report.py, orden y edades",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor midió las 44 fechas del corpus (ninguna naive, ninguna inválida) y el generador lo confirmó con su propia medición. El plan fija naive = UTC, marcado en el informe, con test; y después de la ronda las edades pasaron a calcularse al abrir el informe, que es reproducible por commit."
+      },
+      "fix_verification": {
+        "type": "pending_in_diff_gate"
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "upload-artifact v4 no corre en GitHub Enterprise Server y el plan no lo decía",
+      "description": "La documentación oficial de actions/upload-artifact dice que v4 y posteriores no están soportados en GHES. El plan no definía las plataformas soportadas, así que el paso de subida podía fallar el job en un GHES sin que nada lo advirtiera. El repositorio no promete GHES en ningún documento. Hipótesis del revisor, verificada.",
+      "location": "plan: CI, action.yml",
+      "final_state": "owner_decision",
+      "verification": {
+        "against": "external_source",
+        "detail": "Verificado contra el README oficial de actions/upload-artifact (v4+ no soportado en GHES) y contra README.md, README.es.md, action.yml y gate.py de este repositorio, que no mencionan GHES; post_comment usa GITHUB_API_URL, que es lo único generalizable."
+      },
+      "risk_record": "Viaja con la fase 2 por el corte del dueño (2026-09-16). Queda especificado en el plan: la subida se condiciona a github.server_url igual a https://github.com, en GHES el gate sigue igual y el informe no se sube, y el README lo dirá. Riesgo aceptado hasta entonces: ninguno en este PR, porque este PR no toca action.yml."
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "La ronda revisó un plan: los hallazgos se verificaron contra el texto del plan, el prototipo, el código existente del repositorio y las fuentes oficiales, pero ninguna de las correcciones incorporadas (h1, h2, h4, h5, h6) tiene todavía código que ejecutar. Su verificación queda para la compuerta de diff del mismo PR, que es la que va a correr los tests que el plan compromete. Motivo real: las piezas no existían al momento de la ronda; no es un entorno irreproducible ni un tercero."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 7,
+      "valid": {
+        "incorporated": 5,
+        "debt_recorded": 0,
+        "owner_decision": 2
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:ae2f4631b30220b7bac91e3fe66a4bed29282a7259c760d4e558dd050dda73ce",
+      "report_hash": "sha256:fb10fd0ec70949acb212724f16bd612ef345b1d5f3c13164d2ec00862dbf049f",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
