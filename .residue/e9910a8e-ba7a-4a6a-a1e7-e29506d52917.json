@@ -1,0 +1,75 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "e9910a8e-ba7a-4a6a-a1e7-e29506d52917",
+    "created_at": "2026-09-16T11:40:18-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "13bef699c0c9763734f7b0fec8ef6aec38892dbb",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "fea7e9e7d8b12ec282777e740c542d5f2b4e2be5"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "El revisor no pudo correr el typecheck del plano de evidencia: la máquina tiene Node 16 y el CI usa Node 22, y el lanzador de TypeScript instalado no arranca en Node 16. La conformidad (89 vectores y 28 casos compartidos, sin divergencias) y los tests de ingesta sí corrieron y pasaron; el job conformidad-ts del PR es el que cierra el typecheck. El revisor tampoco construyó el wheel, por no escribir fuera del informe; el generador sí lo construyó localmente y verificó que report.html viaja adentro, que es lo que esta release necesita para que el comando funcione instalado desde PyPI."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:4e8d811e956e7a0b3e26ca499471fe267e7a22e9d9d9ddce43e6316294a3b465",
+      "report_hash": "sha256:ae8f11298f48ed923c2c74e1dc79474f0210836e84cc6728d38d941bbf255f49",
+      "tree_unchanged": true,
+      "attempts": 1
+    }
+  }
+}
