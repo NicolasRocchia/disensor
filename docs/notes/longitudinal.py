@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -75,8 +76,12 @@ class RevisionAusente(RuntimeError):
 
 
 def _git(*args: str) -> tuple[int, str, str]:
+    # LC_ALL=C: `_tipo_de_objeto` reconoce "la ruta no esta" por el texto en
+    # ingles del diagnostico de cat-file, y un git traducido diria otra cosa y
+    # abortaria la medicion. Deuda longitudinal-git-lc-all-c del evento 125b2816.
     p = subprocess.run(["git", *args], cwd=RAIZ, capture_output=True, text=True,
-                       encoding="utf-8", errors="replace")
+                       encoding="utf-8", errors="replace",
+                       env={**os.environ, "LC_ALL": "C", "LANGUAGE": "C"})
     return p.returncode, p.stdout.strip(), p.stderr.strip()
 
 
