@@ -124,7 +124,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.9.6
+      - uses: NicolasRocchia/disensor@v0.10.0
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -564,7 +564,17 @@ it says.
 
 ## Status
 
-v0.9.6, on **residue/v0.4**. This version fixes the gate comment for the two
+v0.10.0, on **residue/v0.4**. This version adds `disensor report`: one
+self-contained HTML file that reads every declaration of the repository and
+answers what stayed open (declared open on a date, with no later evidence of
+closure, because the artifact has no field for closure), each declaration with
+its residue first, the corpus as declared, and the critical and major findings
+that changed the code. It reads without validating, loads nothing from the
+network, and is a pure function of the declarations: two runs over the same
+commit give identical bytes. Nobody types it: when `disensor gate` reaches a
+green verdict it writes `informe-residuo.html` at the repository root from the
+git objects it judged, only if git ignores the file, and `disensor init` leaves
+that line in `.gitignore`. The previous version fixes the gate comment for the two
 reviewer classes v0.4 added: a declaration carrying `reviewer_correlation` or
 `reviewer_hardening_gap`, which R11 and R12 require when a reviewer is declared
 with degraded independence or unverified hardening, validated and then aborted
