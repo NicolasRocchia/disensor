@@ -1,4 +1,4 @@
-"""Command line interface: disensor {init, new, validate, gate}.
+"""Command line interface: disensor {init, new, validate, gate, report, ...}.
 
 v0.1 was published with Spanish subcommands and flags; they remain as
 aliases (nuevo, validar, and the Spanish long flags) so existing scripts
@@ -18,6 +18,7 @@ from .guide import main_guide, main_hash
 from .init import main_init
 from .pack import main_pack
 from .pin import main_pin
+from .report import DEFAULT_DIRECTORY, DEFAULT_OUT, iso_date, main_report
 from .reviewers import main_reviewer
 from .round import main_round
 from .rules import validate_artifact
@@ -273,6 +274,31 @@ def build_parser() -> argparse.ArgumentParser:
     rrm = racc.add_parser("remove", help="Remove a registered reviewer.")
     rrm.add_argument("id")
     rrm.set_defaults(func=main_reviewer)
+
+    report = sub.add_parser(
+        "report",
+        help="Write a self-contained HTML report of the residue declarations: what stayed open, "
+             "each declaration, the corpus and the cases.",
+        description=(
+            "Reads the declarations of a directory and writes ONE HTML file: CSS and JS inline, no "
+            "network, opens with a double click and travels by mail. It reads, it does not validate: "
+            "a file that is not the shape of a declaration is listed at the end and the rest goes on. "
+            "The report cannot say that a residue item closed, because the artifact has no field for "
+            "that; it says 'declared open on <date>, no later evidence of closure'. Exit codes: 0 "
+            "written; 1 the directory holds no declaration; 2 the directory does not exist; 3 the "
+            "output could not be written or was refused."
+        ),
+    )
+    report.add_argument("--residue", "--directory", "--directorio", default=DEFAULT_DIRECTORY,
+                        help="Directory of declarations, relative to the repository root (default: .residue).")
+    report.add_argument("--out", "--output", "--salida", default=DEFAULT_OUT, metavar="FILE",
+                        help=f"Output file, relative to the repository root (default: {DEFAULT_OUT}).")
+    report.add_argument("--open", action="store_true", help="Open the report in the system browser.")
+    report.add_argument("--since", type=iso_date, default=None, metavar="DATE",
+                        help="Only declarations whose event.created_at falls on or after this date "
+                             "(YYYY-MM-DD). A declaration whose date cannot be read is kept and marked.")
+    report.add_argument("--quiet", action="store_true", help="Print nothing on success.")
+    report.set_defaults(func=main_report)
 
     guide = sub.add_parser(
         "guide",
