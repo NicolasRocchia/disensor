@@ -388,3 +388,62 @@ def test_the_open_view_names_the_absence_of_closure_and_the_latest_declaration(t
     assert "sin evidencia posterior de cierre" in page
     assert "última declaración" in page
     assert 'data-orden="0"' in page
+
+
+def git_repo(path: Path) -> None:
+    git = lambda *a: subprocess.run(["git", *a], cwd=path, capture_output=True, text=True, check=True)
+    path.mkdir(parents=True, exist_ok=True)
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "report@test")
+    git("config", "user.name", "report")
+    git("config", "commit.gpgsign", "false")
+
+
+def commit_all(path: Path, message: str) -> str:
+    git = lambda *a: subprocess.run(["git", *a], cwd=path, capture_output=True, text=True, check=True)
+    git("add", "-A")
+    git("commit", "-q", "-m", message)
+    return git("rev-parse", "--short", "HEAD").stdout.strip()
+
+
+def test_the_footer_names_the_repository_of_the_directory_not_the_one_the_command_runs_in(
+        tmp_path, monkeypatch):
+    """Ronda de diff: con --residue absoluto hacia otro checkout, el pie decia el
+    commit del repositorio actual, o sea una procedencia falsa. La procedencia
+    es la del repositorio donde vive el directorio, y sin repositorio no hay
+    commit que nombrar."""
+    here, there = tmp_path / "aca", tmp_path / "alla"
+    git_repo(here)
+    write(here, "README.md", "aca")
+    sha_here = commit_all(here, "aca")
+    git_repo(there)
+    write(there / ".residue", "a.json", example("example_2_diff_gate.json"))
+    sha_there = commit_all(there, "alla")
+    assert sha_here != sha_there
+    monkeypatch.chdir(here)
+    assert run(["report", "--quiet", "--residue", str(there / ".residue")]) == 0
+    page = (here / "informe-residuo.html").read_text(encoding="utf-8")
+    assert f"en el commit <code>{sha_there}</code>" in page
+    assert sha_here not in page
+    loose = tmp_path / "suelto"
+    write(loose, "b.json", example("example_2_diff_gate.json"))
+    assert run(["report", "--quiet", "--residue", str(loose)]) == 0
+    page = (here / "informe-residuo.html").read_text(encoding="utf-8")
+    assert "Generado desde <code>suelto</code> " in page and "en el commit" not in page
+
+
+def test_a_destination_git_tracks_is_never_overwritten(tmp_path, monkeypatch, capsys):
+    """El informe es derivado y nunca versionado: un --out equivocado no se
+    lleva un archivo trackeado."""
+    git_repo(tmp_path)
+    write(tmp_path, "README.md", "intacto")
+    write(tmp_path / ".residue", "a.json", example("example_2_diff_gate.json"))
+    commit_all(tmp_path, "base")
+    monkeypatch.chdir(tmp_path)
+    assert run(["report", "--out", "README.md"]) == 3
+    assert "git tracks" in capsys.readouterr().err
+    assert (tmp_path / "README.md").read_text(encoding="utf-8") == "intacto"
+    # un archivo que existe pero git no trackea se regenera, como el informe mismo
+    write(tmp_path, "viejo.html", "x")
+    assert run(["report", "--quiet", "--out", "viejo.html"]) == 0
+    assert "Residuo declarado" in (tmp_path / "viejo.html").read_text(encoding="utf-8")

@@ -829,3 +829,10 @@ def test_a_failing_report_is_loud_and_leaves_the_verdict_alone(repo, capsys, mon
     last = out(capsys).strip().splitlines()[-1]
     assert last.startswith("[gate] report: FAILED: RuntimeError: template missing"), last
     assert not (repo.path / "informe-residuo.html").exists()
+
+
+def test_report_out_on_a_file_git_tracks_is_refused(repo, capsys):
+    base, head = declared_pr(repo)
+    assert repo.run(base, head, report_out="README.md") == 0
+    assert (repo.path / "README.md").read_text(encoding="utf-8") == "start"
+    assert "git tracks" in out(capsys).strip().splitlines()[-1]

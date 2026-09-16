@@ -1120,25 +1120,56 @@ def inside(path: Path, directory: Path) -> bool:
         return False
 
 
-def describe_source(directory: Path, root: Path, since: date | None = None, total: int | None = None) -> Source:
-    """The footer's origin for the working-tree reader: the commit, and how far the tree is from it."""
+def describe_source(directory: Path, since: date | None = None, total: int | None = None) -> Source:
+    """The footer's origin for the working-tree reader.
+
+    The commit is the one the directory's OWN repository is at, and the count
+    is how far that directory is from it. An absolute `--residue` can point at
+    another checkout, and its provenance is that repository's, never the one
+    the command runs in; a directory that lives in no repository has no commit
+    to name, and the footer names only the directory.
+    """
+    label = directory.name or str(directory)
     try:
-        rel = directory.resolve().relative_to(root.resolve()).as_posix()
+        source_root = gitctx.repo_root(directory)
+    except (gitctx.GitError, OSError):
+        return Source(directory=label, since=since, total=total)
+    try:
+        rel = directory.resolve().relative_to(source_root.resolve()).as_posix()
     except ValueError:
-        rel = directory.name or str(directory)
+        rel = label
     commit = None
     uncommitted = 0
     try:
-        commit = gitctx._git(["rev-parse", "--short", "HEAD"], root).strip() or None
+        commit = gitctx._git(["rev-parse", "--short", "HEAD"], source_root).strip() or None
         status = subprocess.run(
             ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", rel],
-            cwd=root, capture_output=True, text=True, check=False,
+            cwd=source_root, capture_output=True, text=True, check=False,
         )
         if status.returncode == 0:
             uncommitted = len([f for f in status.stdout.split("\0") if f])
     except (gitctx.GitError, OSError):
         commit = None
     return Source(directory=rel, commit=commit, uncommitted=uncommitted, since=since, total=total)
+
+
+def tracked_by_git(path: Path) -> bool:
+    """Whether git tracks `path` in the repository it lives in. Anything but a clean yes is a no.
+
+    The report is derived and never versioned, so it never overwrites a file
+    that is: a mistyped `--out` must not take a tracked file with it.
+    """
+    parent = path.parent
+    if not parent.exists():
+        return False
+    try:
+        root = gitctx.repo_root(parent)
+        rel = path.resolve().relative_to(root.resolve()).as_posix()
+        r = subprocess.run(["git", "ls-files", "--error-unmatch", "--", rel], cwd=root,
+                           capture_output=True, text=True, check=False)
+    except (gitctx.GitError, OSError, ValueError):
+        return False
+    return r.returncode == 0
 
 
 def _err(message: str) -> None:
@@ -1156,6 +1187,10 @@ def main_report(args) -> int:
         _err(f"report: --out {out} falls inside the evidence directory {directory}. An HTML there would be "
              "read by the gate as an artifact and rejected; write it anywhere else")
         return NOT_WRITTEN
+    if tracked_by_git(out):
+        _err(f"report: --out {out} is a file git tracks, so it was not written: the report is derived and "
+             "never versioned")
+        return NOT_WRITTEN
     declarations, unreadable = read_directory(directory)
     if not declarations and not unreadable:
         _err(f"report: {directory} has no declarations")
@@ -1166,7 +1201,7 @@ def main_report(args) -> int:
         # A declaration whose date cannot be read is kept and marked: a filter
         # that dropped it would hide data instead of naming what it cannot tell.
         declarations = [d for d in declarations if d["date"] is None or d["date"].date() >= since]
-    source = describe_source(directory, root, since=since, total=total if since else None)
+    source = describe_source(directory, since=since, total=total if since else None)
     try:
         write_html(out, build_html(declarations, unreadable, source))
     except (OSError, KeyError, ValueError) as exc:
@@ -1225,6 +1260,9 @@ def after_gate(root: Path, evidence_root: str, head: str, repo_dir: Path, out: s
             if inside(destination, evidence_dir):
                 return (f"[gate] report: {destination} falls inside the evidence directory, so it was "
                         "not written: the gate would read it as an artifact and reject it")
+            if tracked_by_git(destination):
+                return (f"[gate] report: {destination} is a file git tracks, so it was not written: the "
+                        "report is derived and never versioned")
         else:
             destination = root / DEFAULT_OUT
             if not ignored_by_git(destination, root):
