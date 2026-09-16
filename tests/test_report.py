@@ -25,6 +25,7 @@ import pytest
 from disensor.cli import build_parser
 from disensor.report import (
     AGAINST_NAME,
+    MAX_BUCKETS,
     CLASS_NAME,
     CONFINEMENT_NAME,
     FIX_TYPE_NAME,
@@ -42,6 +43,8 @@ from disensor.report import (
     parse_created,
     read_directory,
     split_location,
+    time_series,
+    write_html,
 )
 from disensor.rules import load_schema
 
@@ -447,3 +450,62 @@ def test_a_destination_git_tracks_is_never_overwritten(tmp_path, monkeypatch, ca
     write(tmp_path, "viejo.html", "x")
     assert run(["report", "--quiet", "--out", "viejo.html"]) == 0
     assert "Residuo declarado" in (tmp_path / "viejo.html").read_text(encoding="utf-8")
+
+
+def dated(event_id: str, created: str) -> dict:
+    data = example("example_2_diff_gate.json")
+    data["event"]["event_id"] = event_id
+    data["event"]["created_at"] = created
+    return data
+
+
+def test_the_time_series_is_bounded_whatever_the_span(tmp_path):
+    """Segunda ronda de diff: un created_at del año 9999 (válido para el esquema,
+    que no chequea formatos) hacía materializar millones de días después de
+    un veredicto verde. La unidad crece con el rango y nunca hay más de
+    MAX_BUCKETS cubetas; si ni los años alcanzan, la serie es dispersa."""
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", dated("aaaaaaaa-1a2b-4c3d-8e5f-6a7b8c9d0e1f", "2026-08-13T00:15:00-03:00"))
+    write(residue, "b.json", dated("bbbbbbbb-1a2b-4c3d-8e5f-6a7b8c9d0e1f", "9999-12-31T00:00:00Z"))
+    declarations, unreadable = read_directory(residue)
+    unit, series = time_series([d for d in declarations if d["date"]])
+    assert unit == "sparse" and len(series) == 2
+    page = build_html(declarations, unreadable, Source(directory=".residue"))
+    assert "demasiado amplio para un eje continuo" in page
+    # tres años caben en semanas, diez en meses, un mes en días; nunca más de MAX_BUCKETS
+    three_years = [{"date": datetime(2023, 1, 1, tzinfo=timezone.utc), "findings": [], "items": []},
+                   {"date": datetime(2026, 1, 1, tzinfo=timezone.utc), "findings": [], "items": []}]
+    unit, series = time_series(three_years)
+    assert unit == "week" and 156 <= len(series) <= 158
+    ten_years = [{"date": datetime(2016, 1, 1, tzinfo=timezone.utc), "findings": [], "items": []},
+                 {"date": datetime(2026, 1, 1, tzinfo=timezone.utc), "findings": [], "items": []}]
+    unit, series = time_series(ten_years)
+    assert unit == "month" and len(series) == 121
+    one_month = [{"date": datetime(2026, 8, 1, tzinfo=timezone.utc), "findings": [], "items": []},
+                 {"date": datetime(2026, 8, 31, tzinfo=timezone.utc), "findings": [], "items": []}]
+    unit, series = time_series(one_month)
+    assert unit == "day" and len(series) == 31
+    wide = [{"date": datetime(1600, 1, 1, tzinfo=timezone.utc), "findings": [], "items": []},
+            {"date": datetime(1990, 1, 1, tzinfo=timezone.utc), "findings": [], "items": []}]
+    unit, series = time_series(wide)
+    assert unit == "year" and len(series) <= MAX_BUCKETS + 1
+
+
+def test_a_failed_write_leaves_the_previous_report_intact(tmp_path, monkeypatch):
+    """Escritura al lado y reemplazo atómico: un disco lleno a mitad de camino
+    no deja un archivo truncado que no es ni el viejo ni el nuevo."""
+    out = tmp_path / "informe.html"
+    write_html(out, "<p>viejo</p>")
+    original = Path.write_bytes
+
+    def disk_full(self, data):
+        if self.name.endswith(".tmp"):
+            original(self, data[: len(data) // 2])
+            raise OSError(28, "No space left on device")
+        return original(self, data)
+
+    monkeypatch.setattr(Path, "write_bytes", disk_full)
+    with pytest.raises(OSError):
+        write_html(out, "<p>nuevo y mucho mas largo que el anterior</p>")
+    assert out.read_text(encoding="utf-8") == "<p>viejo</p>"
+    assert not list(tmp_path.glob("*.tmp"))

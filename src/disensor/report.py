@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import subprocess
 import sys
@@ -406,6 +407,7 @@ class Model:
     without_location: int
     minimized: int
     by_day: list
+    unit: str                  # day, week, month, year or sparse
     reviewers: list
     versions: list
     first: datetime | None
@@ -414,6 +416,72 @@ class Model:
 
 def _chronological(rows: list) -> list:
     return sorted(rows, key=lambda r: _sort_key(r["decl"]))
+
+
+# The time series never materialises more than this many buckets. A single
+# schema-valid `created_at` in year 9999 (the validator checks no format, and
+# the report reads without validating) used to turn a green gate into an
+# allocation of millions of day records; the unit grows with the span instead.
+MAX_BUCKETS = 400
+UNIT_NAME = {"day": "día", "week": "semana", "month": "mes", "year": "año", "sparse": "día"}
+
+
+def _bucket_start(day: date, unit: str) -> date:
+    if unit == "week":
+        return day - timedelta(days=day.weekday())
+    if unit == "month":
+        return day.replace(day=1)
+    if unit == "year":
+        return day.replace(month=1, day=1)
+    return day
+
+
+def _next_bucket(start: date, unit: str) -> date:
+    if unit == "week":
+        return start + timedelta(days=7)
+    if unit == "month":
+        return start.replace(year=start.year + 1, month=1) if start.month == 12 else start.replace(month=start.month + 1)
+    if unit == "year":
+        return start.replace(year=start.year + 1)
+    return start + timedelta(days=1)
+
+
+def time_series(dated: list[dict]) -> tuple[str, list[dict]]:
+    """Declarations, findings and attention items per bucket of time, bounded.
+
+    The unit is the finest one that keeps the whole span under MAX_BUCKETS
+    (day, week, month, year); a span too wide even for years falls back to a
+    sparse series of the days that hold declarations, with no empty buckets
+    in between, and the panel says the axis is not continuous.
+    """
+    if not dated:
+        return "day", []
+    days = sorted({d["date"].date() for d in dated})
+    span = (days[-1] - days[0]).days + 1
+    unit = "sparse"
+    for candidate, length in (("day", 1), ("week", 7), ("month", 28), ("year", 365)):
+        if span / length <= MAX_BUCKETS:
+            unit = candidate
+            break
+    buckets: dict[date, dict] = {}
+    for d in dated:
+        key = _bucket_start(d["date"].date(), "day" if unit == "sparse" else unit)
+        entry = buckets.setdefault(key, {"day": key, "declarations": 0, "findings": 0, "attention": 0})
+        entry["declarations"] += 1
+        entry["findings"] += len(d["findings"])
+        entry["attention"] += sum(1 for it in d["items"] if it["attention"])
+    if unit == "sparse":
+        return unit, [buckets[k] for k in sorted(buckets)]
+    series: list[dict] = []
+    cursor = _bucket_start(days[0], unit)
+    last = _bucket_start(days[-1], unit)
+    while cursor <= last and len(series) <= MAX_BUCKETS:
+        series.append(buckets.get(cursor) or {"day": cursor, "declarations": 0, "findings": 0, "attention": 0})
+        try:
+            cursor = _next_bucket(cursor, unit)
+        except ValueError:  # past date.max: nothing after it to draw
+            break
+    return unit, series
 
 
 def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
@@ -457,20 +525,7 @@ def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
     minimized = sum(1 for d in declarations if d["profile"] == "minimized")
 
     dated = [d for d in declarations if d["date"]]
-    days: dict[date, dict] = {}
-    for d in dated:
-        day = d["date"].date()
-        entry = days.setdefault(day, {"day": day, "declarations": 0, "findings": 0, "attention": 0})
-        entry["declarations"] += 1
-        entry["findings"] += len(d["findings"])
-        entry["attention"] += sum(1 for it in d["items"] if it["attention"])
-    by_day: list[dict] = []
-    if days:
-        first_day, last_day = min(days), max(days)
-        cursor = first_day
-        while cursor <= last_day:
-            by_day.append(days.get(cursor) or {"day": cursor, "declarations": 0, "findings": 0, "attention": 0})
-            cursor += timedelta(days=1)
+    unit, by_day = time_series(dated)
 
     reviewers = Counter((r["family"], r["model"]) for d in declarations for r in d["reviewers"])
     reviewer_rows = sorted(reviewers.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -493,6 +548,7 @@ def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
         without_location=without_location,
         minimized=minimized,
         by_day=by_day,
+        unit=unit,
         reviewers=reviewer_rows,
         versions=version_rows,
         first=dates[0] if dates else None,
@@ -912,6 +968,13 @@ def render_corpus(model: Model) -> str:
         for schema, count, note in model.versions
     )
     noun = "declaración" if n == 1 else "declaraciones"
+    unit_name = UNIT_NAME.get(model.unit, "día")
+    if model.unit == "sparse":
+        series_help = ("Sólo los días con declaraciones: el rango es demasiado amplio para un eje continuo. "
+                       "Altura: hallazgos de ese día. Ámbar: días que dejaron residuo con atención humana.")
+    else:
+        series_help = (f"Altura: hallazgos de ese {unit_name}. Ámbar: los que dejaron residuo con atención "
+                       f"humana. El punto de abajo marca los que tienen declaración.")
     stacked = _stacked_bar(segments, total) if total else '<div class="vacio">Sin hallazgos declarados.</div>'
     days = _day_bars(model.by_day) if model.by_day else '<div class="vacio">Sin fechas legibles.</div>'
     return f"""
@@ -928,9 +991,8 @@ def render_corpus(model: Model) -> str:
         <div class="leyenda">{legend}</div>
       </div>
       <div class="panel">
-        <h3>Hallazgos por día</h3>
-        <p class="ayuda">Altura: hallazgos de ese día. Ámbar: días que dejaron residuo con atención humana.
-          El punto de abajo marca los días con declaración.</p>
+        <h3>Hallazgos por {unit_name}</h3>
+        <p class="ayuda">{series_help}</p>
         <figure>{days}</figure>
       </div>
       <div class="panel p-7">
@@ -1070,9 +1132,20 @@ def build_html(declarations: list[dict], unreadable: list[Unreadable], source: S
 
 
 def write_html(out: Path, page: str) -> None:
-    """UTF-8, LF, no BOM: the file has to hash the same on every platform."""
+    """UTF-8, LF, no BOM: the file has to hash the same on every platform.
+
+    Written next to the destination and moved into place, so a write that
+    fails halfway (disk full, interruption) leaves the previous report intact
+    instead of a truncated file that is neither the old one nor the new one.
+    """
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_bytes(page.replace("\r\n", "\n").encode("utf-8"))
+    tmp = out.with_name(out.name + ".tmp")
+    try:
+        tmp.write_bytes(page.replace("\r\n", "\n").encode("utf-8"))
+        os.replace(tmp, out)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
 
 
 def attention_count(declarations: list[dict]) -> int:
