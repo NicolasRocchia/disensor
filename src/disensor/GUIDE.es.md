@@ -36,7 +36,10 @@ sus errores.
    valida mientras queden marcadores: es a propósito.
 5. `disensor validate .residue/<id>.json`. Corregí hasta que imprima VALID.
 6. Commiteá el artefacto solo: `docs(residuo): declara evento <id-corto>`. Nunca
-   mezclado con cambios de código.
+   mezclado con cambios de código. Después, `disensor gate --no-comment --base
+   <rama destino> --head HEAD`: en verde escribe `informe-residuo.html` en la
+   raíz del repositorio, el informe de todas las declaraciones con el residuo
+   primero. Abrilo antes del pull request.
 
 Declará lo que pasó, no lo que debería haber pasado. Un evento sin hallazgos y
 con una declaración expresa de ausencia es un dato válido, no un fracaso.

@@ -32,7 +32,10 @@ their errors.
    does not validate while markers remain: that is intentional.
 5. `disensor validate .residue/<id>.json`. Fix until it prints VALID.
 6. Commit the artifact alone: `docs(residue): declare event <short-id>`.
-   Never mixed with code changes.
+   Never mixed with code changes. Then `disensor gate --no-comment --base
+   <target branch> --head HEAD`: on a green verdict it writes
+   `informe-residuo.html` at the repository root, the report of every
+   declaration with the residue first. Open it before the pull request.
 
 Declare what happened, not what should have happened. An event without
 findings and with an express declaration of absence is valid data, not a
