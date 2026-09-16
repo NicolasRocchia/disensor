@@ -1,0 +1,165 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "bb2b3c73-b309-4498-9cff-06b91b7f4a60",
+    "created_at": "2026-09-16T11:23:22-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "586c6de5882bcaa92e9d273fe2351c8d86294981",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "1e36257779b4933814445423188ec099a78017ee"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Con un --residue externo el pie atribuía las declaraciones al commit del repositorio actual",
+      "description": "describe_source resolvía HEAD y el estado sin commitear en el repositorio donde corría el comando aunque el directorio leído viviera en otro checkout: un informe portable, que se manda por mail, afirmaba una procedencia falsa. Primera ronda, sobre b9a3635.",
+      "location": "src/disensor/report.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido con dos repositorios y un directorio suelto: el pie decía el commit del repositorio actual. Ahora la procedencia sale del repositorio donde vive el directorio (repo_root sobre el directorio, HEAD y status ahí) y un directorio fuera de todo repositorio no nombra ningún commit; el test cubre los tres casos."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "src/disensor/report.py y tests/test_report.py, revisados en la segunda y la tercera ronda"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "--out y --report-out pisaban cualquier destino existente, incluso un archivo trackeado",
+      "description": "write_html escribía sin mirar el destino, así que un --out equivocado se llevaba un fuente versionado. El revisor lo dejó como hipótesis (la ayuda decía que la opción elige un destino) y pidió una política. Primera ronda, sobre b9a3635.",
+      "location": "src/disensor/report.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado en write_html y en el resto del paquete (prompt y pack --output tampoco guardan). La política elegida sale de la doctrina del informe: es derivado y nunca versionado, así que nunca pisa un archivo que git trackea; un existente sin trackear se regenera, como el informe mismo. Tests en el comando y en el gate."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "src/disensor/report.py y tests/test_report.py, revisados en la segunda y la tercera ronda"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un created_at del año 9999 agotaba la memoria después de un veredicto verde",
+      "description": "El gráfico de hallazgos por día materializaba un registro por cada día entre la primera y la última declaración. El validador no chequea el formato date-time, así que un created_at del año 9999 es válido para el esquema, y el informe lee sin validar: después de un gate verde, millones de días y un SVG proporcional. El except del hook no es frontera para una memoria agotada. Segunda ronda, sobre ef45fba.",
+      "location": "src/disensor/report.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor mostró que el validador acepta el año 9999 sin errores y que el bucle era lineal en el rango; el generador reprodujo la aceptación. La serie pasa a elegir la unidad más fina que entra en cuatrocientas cubetas (día, semana, mes, año) y a dibujarse dispersa cuando ni los años alcanzan; el test junta 2026 con 9999 y prueba rangos de un mes, tres años, diez años y cuatro siglos."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "src/disensor/report.py (time_series) y tests/test_report.py, revisados en la tercera ronda"
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La escritura no era atómica y un fallo a mitad de camino dejaba un informe truncado",
+      "description": "write_html truncaba el destino antes de terminar de escribir, así que un disco lleno o una interrupción dejaban ni el informe viejo ni el nuevo. Hipótesis del revisor, no inducida. Segunda ronda, sobre ef45fba.",
+      "location": "src/disensor/report.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Verificado con un fallo inyectado en la escritura: el informe anterior sobrevivía sólo escribiendo al lado y moviendo encima con os.replace. El test deja el archivo temporal a medias y afirma que el anterior queda intacto y que no queda ningún .tmp."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "src/disensor/report.py (write_html) y tests/test_report.py, revisados en la tercera ronda"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El HTML generado no tiene tests de navegador: la suite prueba el escape, la CSP, los marcadores, el orden, la serie acotada y los bytes reproducibles sobre el texto, y el revisor no lo abrió en ninguna de las tres rondas. Lo ejercitó el generador a mano, en el navegador integrado, a escritorio y a 375 px, con las pestañas, el orden, el buscador y los enlaces; la CSP y la lectura sin JS quedan sin verificación interactiva. Motivo real: no hay navegador en la suite, y agregarlo es otra decisión."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las tres rondas y la suite corrieron en Windows con Python 3.14. Los jobs de Ubuntu con 3.10 y 3.12 y el de conformidad TypeScript corren en el CI del PR, después de esta declaración y no antes; el código evita a propósito las f-strings anidadas que 3.10 rechaza, pero eso lo confirma el CI. Las dos pruebas reales de endurecimiento siguen salteadas por ser opt-in con costo, y ejercitan el adaptador del revisor, no este cambio."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 4,
+      "valid": {
+        "incorporated": 4,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "pack_hash": "sha256:023414158412a2f9fb4b350ee4fdbbc963b00b28af6c8d2d3bc2a5cb51b9c88c",
+      "report_hash": "sha256:43ed169404dfc80f7950f1b603cf2f63f81b7b00c2722d8550405a13406f491d",
+      "tree_unchanged": true,
+      "attempts": 1
+    },
+    "dev.disensor.round.previous": [
+      {
+        "head_oid": "b9a3635a73021fd5c661b8dff92dc6277bd5d30b",
+        "report_hash": "sha256:671e673cf09c3323dc48c7d257e353fdeada9d4997177b52511e170528112e38",
+        "pack_hash": "sha256:56c7bb618eb3a79a862ef1f7d7df43a291e3da340cff29a142607f5d319988c9",
+        "tree_unchanged": true
+      },
+      {
+        "head_oid": "ef45fba83a41cb42ca2fbc81d0f0fcaa5b67d1c9",
+        "report_hash": "sha256:f84e1ff7e44df63a6ebb5169325228efd0e7d0f9e824012ac7ed6cfaf713eed6",
+        "pack_hash": "sha256:0a5ffb990460fb87d45dfc1ceac998a2272fe46f3e01eeb620a62ee7a34217e3",
+        "tree_unchanged": true
+      }
+    ]
+  }
+}

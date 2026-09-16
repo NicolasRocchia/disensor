@@ -33,7 +33,7 @@ paper is in Spanish; the glossary at the end maps its terminology to the schema.
 
 - `spec/residue.schema.json`: the artifact schema (JSON Schema 2020-12), version residue/v0.4. Superseded versions keep their own frozen resource next to it.
 - `spec/examples/`: three example artifacts, including a real anonymised event and the minimized profile with no free text.
-- `src/disensor/`: Python package with the validator (rules R0 to R13), the CI gate (checks G1 to G9), the PR comment rendering, artifact and repository scaffolding (`init`), and the packaged filling guide (`GUIDE.md`).
+- `src/disensor/`: Python package with the validator (rules R0 to R13), the CI gate (checks G1 to G9), the PR comment rendering, the HTML residue report (`report`), artifact and repository scaffolding (`init`), and the packaged filling guide (`GUIDE.md`).
 - `action.yml`: composite GitHub Action, ready to use.
 - `docs/integracion-claude-code.md` (Spanish only): how the real flow (Claude Code plus a reviewer from another family) emits the artifact at the close of each event.
 - `docs/antecedentes.md` (Spanish only): where the method sits relative to the literature (residual doubt and defeaters, design rationale and its capture bottleneck, multi-agent adversarial review, governance runtimes, supply chain provenance), with the verification status of each reference.
@@ -56,7 +56,8 @@ disensor prompt --gate diff            # the adversarial brief, to hand to a rev
 disensor pack --gate diff --base main --head HEAD          # the full package, if you drive the round yourself
 disensor new --gate diff --level B     # template prefilled in .residue/
 disensor validate .residue/<id>.json   # schema + rules R0 to R13
-disensor gate --no-comment             # what CI will run, locally
+disensor gate --no-comment --base main --head HEAD   # what CI will run, locally; green writes the report
+disensor report --open                 # the residue report, in the system browser
 
 disensor guide                         # the filling guide, for any agent or human
 disensor guide --lang es               # the same guide in Spanish
@@ -181,6 +182,38 @@ declaration records the independence it actually had, why it settled for less,
 and a residue item saying that the errors the model shares with itself were not
 covered. Worse than the real thing, and infinitely better than not being able to
 declare what happened.
+
+## The residue report
+
+`disensor report` reads the declarations and writes one self-contained HTML
+file: CSS and JS inline, no network, a Content-Security-Policy that forbids
+loading anything, system fonts. It opens with a double click, travels by mail
+and works on a machine without internet. It reads, it does not validate: a file
+that is not the shape of a declaration is listed at the end and the rest goes
+on. The residue comes first and the coverage goes in grey: the incorporated
+findings describe the record, not the quality of the code, and nothing in the
+page can be read as a seal of approval. The first view, Abierto, gathers
+everything that asked for a decision across the whole repository, oldest
+first. The artifact has no field to say that something closed, so the view
+does not say "open": it says "declared open on <date>, no later evidence of
+closure", and explains why at the top (issue #6). The report is a pure function
+of the declarations: no generation timestamp, the footer names the commit it
+was read from, and two runs over the same commit give identical bytes.
+
+Nobody has to type the command for the report to exist. When `disensor gate`
+reaches a green verdict it writes `informe-residuo.html` at the repository
+root, read from the same git objects it judged, and the last line of its output
+is the path. It writes it only when git ignores the file (`disensor init` and
+`init --upgrade` add the line to `.gitignore`), because `disensor round` demands
+a clean tree. Best effort and never silent: a failure of the report never
+changes the verdict, and ends in a `[gate] report: FAILED` line. `--report-out`
+picks another destination and `--no-report` skips it. The command itself is
+for the rest: the directory as it is on disk, a date range, another file.
+
+```bash
+disensor report --open                                       # every declaration, in the system browser
+disensor report --since 2026-09-01 --out /tmp/residuo.html   # recent ones only, somewhere else
+```
 
 ## What the gate enforces
 

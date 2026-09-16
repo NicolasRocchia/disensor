@@ -4,3 +4,5 @@ dist/
 build/
 .pytest_cache/
 node_modules/
+# derived from .residue/ by disensor report and by the gate on green; never versioned
+informe-residuo.html

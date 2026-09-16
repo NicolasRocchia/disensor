@@ -21,7 +21,7 @@ Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversa
 
 - `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.4. Las versiones superadas conservan su propio recurso congelado al lado.
 - `spec/examples/`: tres artefactos de ejemplo, incluido un evento real anonimizado y el perfil minimizado sin texto libre.
-- `src/disensor/`: paquete Python con el validador (reglas R0 a R13), el gate de CI (chequeos G1 a G9), el render del comentario de PR, el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
+- `src/disensor/`: paquete Python con el validador (reglas R0 a R13), el gate de CI (chequeos G1 a G9), el render del comentario de PR, el informe HTML de residuo (`report`), el scaffolding de artefactos y el de repositorios (`init`), y la guía de llenado empaquetada (`GUIDE.md`).
 - `action.yml`: GitHub Action compuesta, lista para usar.
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
 - `docs/antecedentes.md`: dónde se ubica el método respecto de la literatura (residual doubt y defeaters, design rationale y su capture bottleneck, revisión adversarial multi-agente, governance runtimes, provenance de cadena de suministro), con el estado de verificación de cada referencia.
@@ -44,7 +44,8 @@ disensor prompt --gate diff            # la consigna adversarial, para pegarle a
 disensor pack --gate diff --base main --head HEAD          # el paquete completo, si manejás la ronda vos
 disensor new --gate diff --level B     # plantilla prellenada en .residue/
 disensor validate .residue/<id>.json   # schema + reglas R0 a R13
-disensor gate --no-comment             # lo que va a correr CI, en local
+disensor gate --no-comment --base main --head HEAD   # lo que va a correr CI, en local; en verde escribe el informe
+disensor report --open                 # el informe de residuo, en el navegador
 
 disensor guide                         # la guía de llenado, para cualquier agente o humano
 disensor guide --lang es               # la misma guía, en castellano
@@ -146,6 +147,17 @@ declarable: la declaración registra la independencia que de hecho tuvo, por qu�
 se conformó con menos, y un ítem de residuo que dice que los errores que el
 modelo comparte consigo mismo no los cubrió esa ronda. Peor que lo real, e
 infinitamente mejor que no poder declarar lo que pasó.
+
+## El informe de residuo
+
+`disensor report` lee las declaraciones y escribe un solo archivo HTML autocontenido: CSS y JS inline, sin red, con una Content-Security-Policy que prohíbe cargar cualquier cosa, tipografía del sistema. Se abre con doble clic, viaja por mail y funciona en una máquina sin internet. Lee, no valida: un archivo que no tiene la forma de una declaración se lista al final y el resto sigue. El residuo va primero y la cobertura en gris: los hallazgos incorporados describen el registro, no la calidad del código, y nada en la página se puede leer como un sello de aprobación. La primera vista, Abierto, junta todo lo que pidió una decisión en todo el repositorio, lo más viejo arriba. El artefacto no tiene un campo para decir que algo se cerró, así que la vista no dice "abierto": dice "declarado abierto el <fecha>, sin evidencia posterior de cierre", y lo explica arriba (issue #6). El informe es una función pura de las declaraciones: sin fecha de generación, el pie nombra el commit del que se leyó, y dos corridas sobre el mismo commit dan bytes idénticos.
+
+Nadie tiene que tipear el comando para que el informe exista. Cuando `disensor gate` llega a un veredicto verde escribe `informe-residuo.html` en la raíz del repositorio, leído de los mismos objetos git que juzgó, y la última línea de su salida es la ruta. Lo escribe sólo si git ignora el archivo (`disensor init` e `init --upgrade` agregan la línea al `.gitignore`), porque `disensor round` exige árbol limpio. Mejor esfuerzo y nunca en silencio: un fallo del informe no cambia el veredicto y termina en una línea `[gate] report: FAILED`. `--report-out` elige otro destino y `--no-report` lo saltea. El comando queda para lo demás: el directorio tal como está en disco, un rango de fechas, otro archivo.
+
+```bash
+disensor report --open                                       # todas las declaraciones, en el navegador
+disensor report --since 2026-09-01 --out /tmp/residuo.html   # sólo las recientes, en otro lado
+```
 
 ## Qué hace cumplir el gate
 

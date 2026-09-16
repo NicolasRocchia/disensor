@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>Residuo declarado</title>
+<style>
+:root{
+  --ground:#EBEEF0; --surface:#FFFFFF; --surface-2:#F5F7F8; --surface-3:#E4E9EC;
+  --line:#D3DADE; --line-soft:#E6EBEE;
+  --ink:#0F171C; --ink-2:#44545E; --ink-3:#6C7E89;
+  --open:#9A4F14; --open-ink:#7C3F10; --open-soft:#F6E7D6; --open-line:#D79A54;
+  --o1:#6F380D; --o2:#9A4F14; --o3:#BC7233; --o4:#DBA262;
+  --mark:#43606E; --mark-2:#6E8B99; --mark-3:#A6BCC7; --mark-4:#D2DEE4;
+  --focus:#1F5C7A;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --serif:ui-serif,Georgia,"Times New Roman",serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,Menlo,"Liberation Mono",monospace;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0D1317; --surface:#141B20; --surface-2:#1A232A; --surface-3:#222D35;
+  --line:#2A363E; --line-soft:#212B32;
+  --ink:#E7EEF2; --ink-2:#A6B7C1; --ink-3:#7A8D98;
+  --open:#E2A55D; --open-ink:#EFC08A; --open-soft:#2E2318; --open-line:#9A6E37;
+  --o1:#F2CB98; --o2:#E2A55D; --o3:#BE8241; --o4:#96652F;
+  --mark:#83A4B4; --mark-2:#5D7C8B; --mark-3:#405663; --mark-4:#2A3841;
+  --focus:#6FB2D2;
+}}
+:root[data-theme="dark"]{
+  --ground:#0D1317; --surface:#141B20; --surface-2:#1A232A; --surface-3:#222D35;
+  --line:#2A363E; --line-soft:#212B32;
+  --ink:#E7EEF2; --ink-2:#A6B7C1; --ink-3:#7A8D98;
+  --open:#E2A55D; --open-ink:#EFC08A; --open-soft:#2E2318; --open-line:#9A6E37;
+  --o1:#F2CB98; --o2:#E2A55D; --o3:#BE8241; --o4:#96652F;
+  --mark:#83A4B4; --mark-2:#5D7C8B; --mark-3:#405663; --mark-4:#2A3841;
+  --focus:#6FB2D2;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+a{color:inherit}
+h1,h2,h3,h4{margin:0;font-weight:600;text-wrap:balance}
+button{font:inherit;color:inherit}
+code{font-family:var(--mono);font-size:.92em}
+.mudo,.gris{color:var(--ink-3)}
+
+/* ---------- cabecera ---------- */
+.barra{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);
+  border-bottom:1px solid var(--line)}
+.barra-in{max-width:1120px;margin:0 auto;padding:12px 20px 0}
+.marca{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.marca h1{font-family:var(--serif);font-size:19px;letter-spacing:-.01em}
+.marca .repo{font-family:var(--mono);font-size:12px;color:var(--ink-2);word-break:break-all}
+.marca .meta{font-size:12px;color:var(--ink-3);margin-left:auto;font-variant-numeric:tabular-nums}
+.pestanas{display:flex;gap:2px;margin-top:12px;overflow-x:auto;scrollbar-width:none}
+.pestanas::-webkit-scrollbar{display:none}
+.pestana{appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+  padding:8px 12px;cursor:pointer;color:var(--ink-3);white-space:nowrap;font-size:13px;font-weight:500}
+.pestana:hover{color:var(--ink)}
+.pestana[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.pestana .n{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:5px}
+.pestana[aria-selected="true"] .n{color:var(--ink-2)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+/* Sin JS no hay pestañas: las cuatro vistas se leen apiladas y las herramientas
+   de filtro no aparecen, porque no harían nada. */
+html:not(.js) .pestanas,html:not(.js) .tools{display:none}
+html.js .vista:not(.activa){display:none}
+html:not(.js) .vista{padding-bottom:28px;border-bottom:1px solid var(--line)}
+
+main{max-width:1120px;margin:0 auto;padding:22px 20px 40px}
+.intro{max-width:64ch;margin-bottom:20px}
+.intro h2{font-family:var(--serif);font-size:16px;margin-bottom:6px}
+.intro p{margin:0;color:var(--ink-2);font-size:13px}
+.nota{border-left:2px solid var(--open-line);padding:8px 0 8px 12px;margin:14px 0 22px;
+  color:var(--ink-2);font-size:12.5px;max-width:70ch}
+.nota b{color:var(--ink);font-weight:500}
+.reciente{font-size:12.5px;color:var(--ink-2);margin:-4px 0 18px;max-width:70ch}
+.reciente code{color:var(--ink)}
+.reciente .edad:not(:empty)::before{content:", "}
+
+/* ---------- herramientas ---------- */
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+.buscar{flex:1 1 220px;min-width:0;display:flex;align-items:center;gap:8px;background:var(--surface);
+  border:1px solid var(--line);border-radius:3px;padding:6px 10px}
+.buscar input{flex:1;min-width:0;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;outline:none}
+.buscar span{color:var(--ink-3);font-family:var(--mono);font-size:11px}
+.filtro{appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:3px;
+  padding:6px 10px;font-size:12px;cursor:pointer;color:var(--ink-2)}
+.filtro[aria-pressed="true"]{background:var(--surface-3);color:var(--ink);border-color:var(--ink-3)}
+.conmutador{display:inline-flex;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:var(--surface)}
+.conmutador button{appearance:none;border:0;background:none;padding:5px 11px;cursor:pointer;font-size:12px;color:var(--ink-2)}
+.conmutador button[aria-pressed="true"]{background:var(--ink);color:var(--ground)}
+.conmutador span{padding:5px 0 5px 10px;font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+
+/* ---------- grupos y filas ---------- */
+.grupo{margin-bottom:26px}
+.grupo-cab{display:flex;align-items:baseline;gap:10px;padding-bottom:6px;border-bottom:1px solid var(--line);
+  margin-bottom:2px}
+.grupo-cab h3{font-size:13px;letter-spacing:.02em}
+.grupo-cab .c{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.grupo-cab .d{font-size:12px;color:var(--ink-3);margin-left:auto;text-align:right}
+.fila{display:grid;grid-template-columns:112px 1fr;gap:0 14px;padding:11px 12px 11px 10px;background:var(--surface);
+  border-bottom:1px solid var(--line-soft);border-left:2px solid var(--line);position:relative}
+.fila.sola{grid-template-columns:1fr}
+.fila:last-child{border-bottom:0}
+.fila.abierta{border-left-color:var(--open-line);background:linear-gradient(90deg,var(--open-soft),var(--surface) 70px)}
+.fila .cuando{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;
+  padding-top:1px}
+.fila .cuando .rotulo{display:block;font-family:var(--sans);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--ink-3)}
+.fila .cuando .edad{display:block;color:var(--ink-3);opacity:.8}
+.fila .cuerpo{min-width:0}
+.fila .tit{font-size:13.5px;color:var(--ink);margin-bottom:3px}
+.fila .tit.mudo{color:var(--ink-3)}
+.fila .txt{font-size:12.5px;color:var(--ink-2);overflow-wrap:anywhere}
+.fila .txt.mudo{color:var(--ink-3)}
+.fila .txt.verificado{margin-top:6px;color:var(--ink-3)}
+.fila .txt.verificado b{color:var(--ink-2);font-weight:500}
+.fila .pie{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;
+  font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.fila .pie b{font-weight:500;color:var(--ink-2)}
+.fila .pie a.ref{text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+.fila .pie a.ref:hover{color:var(--ink)}
+
+.etq{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;
+  padding:1px 5px;border:1px solid var(--line);border-radius:2px;color:var(--ink-2);white-space:nowrap}
+.etq.abierto{border-color:var(--open-line);color:var(--open-ink);background:var(--open-soft)}
+.etq.plana{border:0;padding:1px 0;color:var(--ink-3)}
+.etq.ultima{border-style:dashed;color:var(--ink-2)}
+:root[data-theme="dark"] .etq.abierto,
+:root:not([data-theme="light"]) .etq.abierto{color:var(--open)}
+
+/* medidor de severidad: forma, no semáforo; el mismo gris para las cuatro */
+.sev{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.sev .seg{display:flex;gap:1.5px}
+.sev i{width:4px;height:9px;background:var(--mark-4);display:block;border-radius:.5px}
+.sev i.on{background:var(--mark)}
+.sev b{font-weight:500;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--ink-3)}
+
+/* ---------- declaraciones ---------- */
+.decl{background:var(--surface);border:1px solid var(--line-soft);border-left:2px solid var(--line);
+  margin-bottom:6px}
+.decl.abierta{border-left-color:var(--open-line)}
+.decl > summary{cursor:pointer;list-style:none;padding:11px 14px;display:grid;
+  grid-template-columns:110px 96px 1fr auto;gap:4px 14px;align-items:center}
+.decl > summary::-webkit-details-marker{display:none}
+.decl > summary:hover{background:var(--surface-2)}
+.decl:target{outline:2px solid var(--focus);outline-offset:2px}
+.decl .fecha{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.decl .resumen{font-size:13px;color:var(--ink-2);min-width:0}
+.decl .resumen b{color:var(--ink);font-weight:500}
+.decl .cifras{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:right;white-space:nowrap}
+.detalle{padding:4px 14px 18px;border-top:1px solid var(--line-soft)}
+.ficha{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px 22px;
+  padding:14px 0;margin:0 0 6px;border-bottom:1px solid var(--line-soft)}
+.ficha div{min-width:0}
+.ficha dt{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-bottom:2px}
+.ficha dd{margin:0;font-family:var(--mono);font-size:12px;color:var(--ink);overflow-wrap:anywhere}
+.sub{font-family:var(--serif);font-size:13.5px;margin:18px 0 8px;padding-bottom:4px;
+  border-bottom:1px solid var(--line-soft)}
+.ausencia{margin:0;font-size:12.5px;color:var(--ink-2);max-width:78ch}
+.halla{padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.halla:last-child{border-bottom:0}
+.halla .cab{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-bottom:4px}
+.halla .cab .id{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.halla h4{margin:0;font-size:13.5px;font-weight:500;flex:1 1 260px;min-width:0}
+.halla h4.mudo{color:var(--ink-3);font-weight:400}
+.halla p{margin:4px 0 0;font-size:12.5px;color:var(--ink-2);max-width:78ch}
+.halla p.mudo{color:var(--ink-3)}
+.halla .campo{margin-top:6px;font-size:12px;color:var(--ink-2);max-width:78ch}
+.halla .campo b{font-weight:500;color:var(--ink-3);font-family:var(--mono);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.04em;display:block}
+.cerrados > summary{cursor:pointer;font-size:12px;color:var(--ink-3);padding:8px 0;list-style:none}
+.cerrados > summary::-webkit-details-marker{display:none}
+.cerrados > summary:hover{color:var(--ink)}
+.ruta{font-family:var(--mono);font-size:11px;color:var(--ink-3);overflow-wrap:anywhere}
+
+/* ---------- corpus ---------- */
+.rejilla{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;margin-bottom:22px}
+.panel{grid-column:span 12}
+@media (min-width:860px){.p-7{grid-column:span 7}.p-5{grid-column:span 5}}
+.panel{background:var(--surface);border:1px solid var(--line-soft);padding:16px 16px 14px}
+.panel h3{font-size:12.5px;margin-bottom:2px}
+.panel .ayuda{font-size:11.5px;color:var(--ink-3);margin:0 0 12px;max-width:52ch}
+.panel figure{margin:0}
+.panel svg{display:block;width:100%;height:auto;overflow:visible}
+.leyenda{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:11.5px;color:var(--ink-2)}
+.leyenda span{display:inline-flex;align-items:center;gap:5px}
+.leyenda i{width:9px;height:9px;border-radius:1px;display:block}
+.leyenda b{font-family:var(--mono);font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line-soft);vertical-align:baseline}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:500}
+td.num{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2);width:1%;
+  white-space:nowrap}
+td.ruta{font-family:var(--mono);font-size:11.5px}
+td.gris{font-size:11.5px}
+.tabla-scroll{overflow-x:auto}
+.barras{display:grid;grid-template-columns:minmax(0,auto) 1fr 2.5em;gap:3px 10px;align-items:center}
+.barras .n{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:22ch}
+.barras .b{height:11px;background:var(--mark-4);position:relative;border-radius:1px}
+.barras .b i{position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--mark-2);border-radius:1px;display:block}
+.barras .b.alto i{background:var(--mark)}
+.barras .v{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:right;
+  font-variant-numeric:tabular-nums}
+.vacio{padding:26px 14px;text-align:center;color:var(--ink-3);font-size:13px;background:var(--surface);
+  border:1px dashed var(--line);max-width:70ch;margin:0 auto}
+
+/* ---------- cierre ---------- */
+.cierre{max-width:1120px;margin:0 auto;padding:0 20px}
+.cierre .panel{margin-bottom:18px}
+footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--ink-3);font-size:11.5px}
+@media (max-width:640px){
+  .decl > summary{grid-template-columns:1fr auto;gap:2px 10px}
+  .decl .compuerta{display:none}
+  .fila{grid-template-columns:1fr;gap:6px}
+  .fila .cuando{display:flex;flex-wrap:wrap;gap:0 8px;align-items:baseline}
+  .fila .cuando .rotulo,.fila .cuando .edad{display:inline}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<script>document.documentElement.classList.add("js");</script>
+
+<div class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <h1>Residuo declarado</h1>
+      <span class="repo">@@REPO@@</span>
+      <span class="meta">@@PERIODO@@</span>
+    </div>
+    <div class="pestanas" role="tablist" id="pestanas">@@PESTANAS@@</div>
+  </div>
+</div>
+
+<main>
+  <section class="vista activa" id="v-abierto" role="tabpanel" aria-labelledby="t-abierto">@@ABIERTO@@</section>
+  <section class="vista" id="v-declaraciones" role="tabpanel" aria-labelledby="t-declaraciones">@@DECLARACIONES@@</section>
+  <section class="vista" id="v-corpus" role="tabpanel" aria-labelledby="t-corpus">@@CORPUS@@</section>
+  <section class="vista" id="v-casos" role="tabpanel" aria-labelledby="t-casos">@@CASOS@@</section>
+</main>
+<div class="cierre">@@ILEGIBLES@@</div>
+<footer>@@PIE@@</footer>
+
+<script>
+/* Interacción solamente. Este script nunca construye markup a partir de datos:
+   alterna atributos, mueve nodos que ya existen y escribe texto con
+   textContent. Todo lo que se lee de las declaraciones lo escribió Python,
+   escapado. */
+(function(){
+  "use strict";
+  var $ = function(sel, root){ return (root || document).querySelector(sel); };
+  var $$ = function(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  /* pestañas */
+  var VISTAS = ["abierto", "declaraciones", "corpus", "casos"];
+  function activar(id){
+    VISTAS.forEach(function(v){
+      var tab = $("#t-" + v), panel = $("#v-" + v);
+      if(tab) tab.setAttribute("aria-selected", String(v === id));
+      if(panel) panel.classList.toggle("activa", v === id);
+    });
+  }
+  var pestanas = $("#pestanas");
+  if(pestanas) pestanas.addEventListener("click", function(e){
+    var b = e.target.closest(".pestana");
+    if(b){ activar(b.dataset.v); window.scrollTo({top: 0}); }
+  });
+  /* un enlace a una declaración (#d-<id>) muestra la pestaña que la contiene y la abre */
+  document.addEventListener("click", function(e){
+    var a = e.target.closest('a[href^="#d-"]');
+    if(!a) return;
+    var el = document.getElementById(a.getAttribute("href").slice(1));
+    if(!el) return;
+    activar("declaraciones");
+    el.open = true;
+  });
+  if(location.hash.indexOf("#d-") === 0){
+    var objetivo = document.getElementById(location.hash.slice(1));
+    if(objetivo){ activar("declaraciones"); objetivo.open = true; objetivo.scrollIntoView(); }
+  }
+
+  /* edades: "hace N días" es verdad en el momento de abrir el informe, no de generarlo */
+  var HOY = new Date();
+  $$("[data-fecha]").forEach(function(el){
+    var t = new Date(el.dataset.fecha);
+    if(isNaN(t)) return;
+    var n = Math.round((HOY - t) / 86400000);
+    var texto = n < 1 ? "hoy" : n === 1 ? "hace 1 día" : n < 60 ? "hace " + n + " días" : "hace " + Math.round(n / 30) + " meses";
+    el.textContent = texto;
+  });
+
+  /* orden de Abierto: mueve las filas de cada grupo por su índice cronológico */
+  function ordenar(sentido){
+    $$("#v-abierto .grupo .filas").forEach(function(cont){
+      var filas = $$(".fila", cont);
+      filas.sort(function(a, b){
+        var d = Number(a.dataset.orden) - Number(b.dataset.orden);
+        return sentido === "antiguo" ? d : -d;
+      });
+      filas.forEach(function(f){ cont.appendChild(f); });
+    });
+    $$("[data-orden-nota]").forEach(function(el){ el.hidden = el.dataset.ordenNota !== sentido; });
+    $$("#v-abierto .conmutador button").forEach(function(b){
+      b.setAttribute("aria-pressed", String(b.dataset.orden === sentido));
+    });
+  }
+  $$("#v-abierto .conmutador button").forEach(function(b){
+    b.addEventListener("click", function(){ ordenar(b.dataset.orden); });
+  });
+
+  /* declaraciones: buscador y filtro por atención humana */
+  var q = $("#q"), fAtencion = $("#f-atencion"), soloAtencion = false;
+  function filtrarDecls(){
+    var t = q ? q.value.trim().toLowerCase() : "";
+    var visibles = 0;
+    $$("#lista .decl").forEach(function(d){
+      var ok = (!soloAtencion || d.dataset.atencion === "1") && (!t || d.dataset.q.indexOf(t) !== -1);
+      d.hidden = !ok;
+      if(ok) visibles++;
+    });
+    var vacio = $("#sin-coincidencia");
+    if(vacio) vacio.hidden = visibles > 0;
+  }
+  if(q) q.addEventListener("input", filtrarDecls);
+  if(fAtencion) fAtencion.addEventListener("click", function(){
+    soloAtencion = !soloAtencion;
+    fAtencion.setAttribute("aria-pressed", String(soloAtencion));
+    filtrarDecls();
+  });
+
+  /* casos: filtro por texto */
+  var qc = $("#qc");
+  if(qc) qc.addEventListener("input", function(){
+    var t = qc.value.trim().toLowerCase(), visibles = 0;
+    $$("#lista-casos .fila").forEach(function(f){
+      var ok = !t || f.dataset.q.indexOf(t) !== -1;
+      f.hidden = !ok;
+      if(ok) visibles++;
+    });
+    var vacio = $("#sin-caso");
+    if(vacio) vacio.hidden = visibles > 0;
+  });
+})();
+</script>
+</body>
+</html>

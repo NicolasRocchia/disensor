@@ -88,6 +88,7 @@ def test_init_is_idempotent(repo, monkeypatch):
         repo / "CLAUDE.md",
         repo / ".claude" / "skills" / "disensor" / "SKILL.md",
         repo / ".github" / "workflows" / "disensor.yml",
+        repo / ".gitignore",
     ]
     run_init(repo, monkeypatch)
     before = {str(p): p.read_text(encoding="utf-8") for p in pieces}
@@ -192,3 +193,28 @@ def test_global_and_only_skill_do_not_pretend_to_agree(tmp_path, monkeypatch, ca
     args = build_parser().parse_args(["init", "--claude-global", "--only-skill", "--no-workflow"])
     assert args.func(args) == 1
     assert "Pick one" in capsys.readouterr().out
+
+
+# --- the report the gate writes on green has to be ignored, or it breaks the next round
+
+def test_init_ignores_the_report_creating_the_gitignore_when_there_is_none(repo, monkeypatch, capsys):
+    run_init(repo, monkeypatch)
+    assert (repo / ".gitignore").read_bytes() == b"informe-residuo.html\n"
+    assert "created .gitignore (informe-residuo.html)" in capsys.readouterr().out
+
+
+def test_init_appends_the_report_to_an_existing_gitignore_keeping_its_endings(repo, monkeypatch, capsys):
+    """Sin salto final y con CRLF: se agrega una linea con el fin de linea del
+    archivo, sin reescribir lo que ya habia."""
+    (repo / ".gitignore").write_bytes(b"__pycache__/\r\ndist/")
+    run_init(repo, monkeypatch)
+    assert (repo / ".gitignore").read_bytes() == b"__pycache__/\r\ndist/\r\ninforme-residuo.html\r\n"
+    assert "updated .gitignore (informe-residuo.html)" in capsys.readouterr().out
+
+
+def test_init_keeps_a_gitignore_that_already_ignores_the_report(repo, monkeypatch, capsys):
+    original = b"# mio\n/informe-residuo.html\n"
+    (repo / ".gitignore").write_bytes(original)
+    run_init(repo, monkeypatch)
+    assert (repo / ".gitignore").read_bytes() == original
+    assert "kept    .gitignore" in capsys.readouterr().out
