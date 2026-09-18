@@ -32,7 +32,12 @@ def _load(name: str) -> dict:
         return json.load(f)
 
 
-def _labels(errors: list[str]) -> list[str]:
+def rule_labels(errors: list[str]) -> list[str]:
+    """Los labels de regla que dispararon, extraidos de los mensajes.
+
+    Publica: las implementaciones del validador comparan labels entre si,
+    no mensajes, y este es el punto por el que los leen.
+    """
     tags = set()
     for e in errors:
         if e.startswith("[") and "]" in e:
@@ -365,7 +370,7 @@ def generate(target: Path) -> int:
     for name, artifact, expected_valid, minimum_rules in cases():
         errors = validate_artifact(artifact)
         valid = not errors
-        labels = _labels(errors)
+        labels = rule_labels(errors)
         assert valid == expected_valid, f"{name}: expected valid={expected_valid}, got {valid}: {errors}"
         missing = minimum_rules - set(labels)
         assert not missing, f"{name}: missing rules {missing} in {labels}"

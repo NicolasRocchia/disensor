@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from disensor.rules import validate_artifact
-from disensor.vectors import _labels
+from disensor.vectors import rule_labels
 
 VECTORS = Path(__file__).resolve().parents[1] / "spec" / "vectors"
 
@@ -24,7 +24,7 @@ def test_vector(path):
         vector = json.load(f)
     errors = validate_artifact(vector["artifact"])
     assert (not errors) == vector["expected"]["valid"], errors
-    assert _labels(errors) == vector["expected"]["rules"], errors
+    assert rule_labels(errors) == vector["expected"]["rules"], errors
 
 
 def test_packaged_schema_matches_the_spec():
