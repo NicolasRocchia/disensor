@@ -6,3 +6,5 @@ build/
 node_modules/
 # derived from .residue/ by disensor report and by the gate on green; never versioned
 informe-residuo.html
+# salida del emisor de objetos de evidencia; se regenera, nunca se versiona
+salida-42/
