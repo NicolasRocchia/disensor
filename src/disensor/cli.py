@@ -188,12 +188,17 @@ def build_parser() -> argparse.ArgumentParser:
     pack.add_argument("--head", "--cabeza", default=None, help="Head of the range (a diff gate needs it).")
     pack.add_argument("--material", default=None,
                       help="File with the plan or decision under review, or - for standard input.")
-    pack.add_argument("--branch", default=None, help="Branch name, for the reviewer's context.")
+    pack.add_argument("--branch", default=None,
+                      help="Branch name, for the reviewer's context. Delivery only: not in the hash.")
     pack.add_argument("--report", default=None,
                       help="Absolute path, outside the repository, where the reviewer must write.")
-    pack.add_argument("--repository", default=None, help="Repository path (defaults to the working directory).")
+    pack.add_argument("--repository", default=None,
+                      help="Path of the repository (defaults to the working directory). The package "
+                           "names it by its origin URL, normalised, and resolves --base and --head "
+                           "against it.")
     pack.add_argument("--output", "--salida", metavar="FILE",
-                      help="Write the package to a file, keeping the bytes its hash is computed over.")
+                      help="Write the package to a file, keeping its bytes. The pack_hash printed is "
+                           "of the canonical package, delivery lines excluded.")
     pack.set_defaults(func=main_pack)
 
     rnd = sub.add_parser(

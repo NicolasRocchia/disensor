@@ -34,10 +34,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import gitctx
-from .brief import brief_hash
+from . import __version__, gitctx
+from .brief import brief_text, hash_of
 from .gate import GateFailure, classify_requirement, resolve_context
-from .pack import pack_hash, pack_text, read_material
+from .pack import canonical_pack_text, deliver, material_hash, pack_hash, read_material
 from .reviewers import (
     CATALOG,
     ReviewerError,
@@ -46,7 +46,14 @@ from .reviewers import (
     load_registry,
 )
 
-RESULT_VERSION = "disensor/round-result/v1"
+# v2: `pack_hash` es canonico. El v1 hasheaba el paquete tal como se entrego,
+# con la ruta local del worktree, la rama y la ruta temporal del informe
+# adentro, asi que nadie fuera de esa maquina podia recomputarlo (#73).
+# El ordinal FIJA LA FORMA del texto canonico: quien recomputa el hash
+# necesita esta forma y el brief que `prompt_hash` nombra, y nada mas. Si la
+# forma cambia, esto sube a v3 junto con `ROUND_RESULT_ORDINAL` en
+# template.py; el golden de tests/test_pack.py rompe si se cambia una sola.
+RESULT_VERSION = "disensor/round-result/v2"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
 # tener que leer prosa para saber que paso, y "no se requiere ronda" no puede
@@ -353,6 +360,14 @@ def main_round(args) -> int:
 
 
 def _round(args, repo: Path) -> int:
+    # Un documento de material no entra al paquete de una compuerta diff, asi
+    # que hashearlo pondria en el resultado, y de ahi en la declaracion, un
+    # `material_hash` de algo que el revisor nunca vio.
+    if args.gate == "diff" and args.material:
+        raise RoundError(
+            "a diff gate has no material document: its material is the range. "
+            "--material is for plan and architecture"
+        )
     # --- Paso cero: la politica decide, no el agente -------------------------
     if args.gate == "diff":
         ctx = resolve_context(args.directory, args.config, args.base, args.head, repo)
@@ -404,25 +419,28 @@ def _round(args, repo: Path) -> int:
             "to do with unfinished work is not its call"
         )
 
-    # --- El paquete y el destino del informe ---------------------------------
-    # Se lee UNA vez, aca, y se reparte: el paquete se arma una vez por intento
-    # y volver a leer `-` devolveria vacio del segundo en adelante.
+    # --- El material y el paquete canonico -----------------------------------
+    # El material se lee UNA vez, aca: volver a leer `-` devolveria vacio del
+    # segundo intento en adelante. El brief tambien, y de esa unica lectura
+    # salen el paquete y `prompt_hash`. Y el paquete canonico se arma ANTES de
+    # correr a nadie: cada intento recibe este texto mas su entrega, asi que el
+    # hash que va al resultado es el de los bytes que el revisor vio, y no el
+    # de un brief que pudo cambiar en disco mientras el revisor trabajaba.
     material_text = read_material(args.material) if args.material else None
-    package = pack_text(
+    brief = brief_text(args.gate)
+    canonical = canonical_pack_text(
         args.gate,
-        repository=str(repo),
+        repository=repository,
         base=merge_base or None,
         head=head or None,
         material_text=material_text,
-        branch=_branch(repo),
-        report=None,
+        brief=brief,
     )
+    hashes = {"prompt_hash": hash_of(brief), "pack_hash": pack_hash(canonical)}
+    if material_text is not None:
+        hashes["material_hash"] = material_hash(material_text)
 
     registry = load_registry()
-    # Paquete de referencia para el resultado cuando ningun revisor contesta:
-    # el de cada intento se arma adentro del bucle, con su propia ruta de
-    # informe, asi que sin intento exitoso no hay uno del cual hablar.
-    paquete = package
     generator_family = args.generator_family
     generator_model = args.generator_model or ""
     chain = chain_for(registry, generator_family, generator_model)
@@ -494,15 +512,12 @@ def _round(args, repo: Path) -> int:
                 })
                 continue
             candidato = Path(tmp) / f"report-{numero}-{entry['id']}.md"
-            paquete = pack_text(
-                args.gate,
-                repository=str(repo),
-                base=merge_base or None,
-                head=head or None,
-                material_text=material_text,
-                branch=_branch(repo),
-                report=str(candidato),
-            )
+            # El revisor corre desde un directorio temporal y solo sabe donde
+            # esta el codigo por este texto: la ruta local del checkout viaja
+            # como entrega, junto con la ruta de su informe, fuera del hash.
+            # El hash cubre el texto canonico, con la identidad del repositorio
+            # y sin la rama: lo unico que otro puede recomputar.
+            paquete = deliver(canonical, checkout=str(repo), report=str(candidato))
             intento = run_reviewer(entry, paquete, candidato, args.timeout)
             intento["independence"] = independence
             attempts.append(intento)
@@ -542,14 +557,14 @@ def _round(args, repo: Path) -> int:
                 estado("round: every registered reviewer failed. See the attempts in the result.")
             _emit(args, _result(
                 args, repository, base, head, merge_base, target_tip,
-                paquete, None, None, attempts,
+                hashes, None, None, attempts,
             ), repo)
             return CHAIN_EXHAUSTED
 
         entry, independence = usado
         resultado = _result(
             args, repository, base, head, merge_base, target_tip,
-            paquete, entry, independence, attempts, report_path=destino,
+            hashes, entry, independence, attempts, report_path=destino,
             report_digest=file_hash(destino),
         )
 
@@ -572,15 +587,8 @@ def _round(args, repo: Path) -> int:
     return OK
 
 
-def _branch(repo: Path) -> str:
-    try:
-        return gitctx._git(["rev-parse", "--abbrev-ref", "HEAD"], repo).strip()
-    except Exception:
-        return ""
-
-
 def _result(
-    args, repository, base, head, merge_base, target_tip, package,
+    args, repository, base, head, merge_base, target_tip, hashes,
     entry, independence, attempts, report_path=None, report_digest=None,
 ) -> dict:
     """What the runner saw, separated from what it was told.
@@ -589,8 +597,16 @@ def _result(
     trip: everything under `observed` was measured by the runner, everything
     under `declared` came from the registry and nobody verified it.
     """
+    # Los hashes vienen calculados de antes de correr al revisor, sobre el
+    # texto que se le entrego: recomputables desde lo que el propio resultado
+    # dice (gate, repositorio, anclas, la forma que `result_version` fija, el
+    # brief que `prompt_hash` nombra y, para plan o arquitectura, el
+    # material). La version de disensor es procedencia, no contrato: es el
+    # literal del codigo que corrio, y en un checkout entre releases es el de
+    # la ultima publicada, que puede no contener este codigo.
     return {
         "result_version": RESULT_VERSION,
+        "disensor_version": __version__,
         "gate": args.gate,
         "repository": repository,
         "anchors": {
@@ -629,10 +645,7 @@ def _result(
                 "prove which model answered."
             ),
         },
-        "hashes": {
-            "prompt_hash": brief_hash(args.gate),
-            "pack_hash": pack_hash(package),
-        },
+        "hashes": hashes,
     }
 
 

@@ -1,0 +1,116 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c544bf19-bcf6-4dc2-85ba-fed8ff62e196",
+    "created_at": "2026-09-21T18:48:32-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "686a308f4baac752f7499e8f165faed63bee74bc",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "fb9f8eb77f997622f0f6f2facdd2c5adae08c182"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El resultado estampa la versión del paquete como si identificara el código, y desde un checkout entre releases no lo hace",
+      "description": "Primera ronda del runner, sobre 0dd2bea. El resultado v2 lleva `disensor_version: 0.10.0`, y el tag `v0.10.0` apunta a `e608d88`, que no contiene `3eb1491`: quien instale esa versión recibe la implementación v1 y no puede rehacer el paquete canónico. La declaración conservaba solo el ordinal. El docstring de pack.py prometía «la misma versión de disensor».",
+      "location": "src/disensor/round.py (_result, disensor_version); src/disensor/pack.py (docstring de canonical_pack_hash); src/disensor/template.py (from_round, extensión)",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado con `git tag --points-at e608d88` (v0.10.0), `git merge-base --is-ancestor 3eb1491 e608d88` (exit 1) y `disensor --version` sobre el checkout (0.10.0). El hecho es cierto; el remedio propuesto no."
+      },
+      "final_state": "incorporated",
+      "remedy_adjustment": "El revisor pedía asignar una versión de paquete nueva antes de emitir resultados. En este repo el bump va en su propio PR y dos pruebas lo atan al README y al pin de la Action. Se cambió el contrato en vez de la versión: los bytes canónicos los determinan la forma del paquete, que fija `result_version`, y el brief, que identifica `prompt_hash`; `disensor_version` queda como procedencia. Un golden pinea la forma al ordinal 2 con un brief inyectado (commit 686a308).",
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_pack.py::test_the_canonical_shape_is_pinned_to_the_result_version"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La declaración no alcanza para reproducir el paquete canónico a través de versiones: el ordinal no está atado a un renderer congelado",
+      "description": "Segunda ronda del runner, sobre 686a308. `canonical_pack_text` renderiza siempre con la forma instalada y el brief instalado; `result_version` nombra una forma pero ningún código la congela, así que una implementación con forma v3 no puede recomputar un `pack_hash` v2. El revisor sostuvo además que un hash no devuelve los bytes del brief.",
+      "location": "src/disensor/pack.py (canonical_pack_text, canonical_pack_hash); src/disensor/round.py (RESULT_VERSION); tests/test_pack.py (golden)",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto en su núcleo: no existe un renderer por ordinal y el golden solo detecta que la forma cambió. Eso es requisito de la fase 2 de #73, donde vive el verificador (G10), y se difiere ahí. Lo del brief no se acepta: un hash identifica, no devuelve; es la misma propiedad que `prompt_hash` tiene desde la 0.5 y que la guía enuncia como «from the same version». El verificador consigue el brief instalando la versión que lo empaquetó, y `prompt_hash` le dice si es ese."
+      },
+      "final_state": "debt_recorded",
+      "debt_id": "pack-shape-frozen-per-ordinal"
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "El revisor no corrió los dos smoke tests de hardening, que son opt-in con costo (DISENSOR_SMOKE=1). Usan una consigna propia y no el paquete, así que no ejercitan la línea nueva de entrega; el cambio no toca las recetas del catálogo ni el adaptador. La suite completa corrió en las dos rondas del runner (520 pasados, 5 saltados) y en CI."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 1,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:46710c6812fd275b51153447c591179dc43f309456f9efa1f88257094ca1ad0a",
+      "report_hash": "sha256:b7d97e8d8744450ea1d15bdf685296e4a47ef8dfeff7feadc471bc252b551861"
+    },
+    "dev.disensor.round.previous": [
+      {
+        "result_version": 2,
+        "head_oid": "0dd2bea956479e83381db3dc38bbc5681c2147a7",
+        "merge_base_oid": "fb9f8eb77f997622f0f6f2facdd2c5adae08c182",
+        "pack_hash": "sha256:d82e875f682171fc0a5d3a31311cd99d3b8d9a5daeb27f97c5caaadb7ecff9fe",
+        "report_hash": "sha256:75e0ea1c9fd58f622adf2fd372527160665fe5b5a364023fc3bcff69bc4d9a9d"
+      }
+    ]
+  }
+}

@@ -125,10 +125,20 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     the record already claimed something that did not happen. The anchors come
     from the result, literally, and a moved HEAD is refused here.
     """
-    if resultado.get("result_version") != ROUND_RESULT_VERSION:
+    version = resultado.get("result_version")
+    if version != ROUND_RESULT_VERSION:
+        if version == "disensor/round-result/v1":
+            # Con nombre, porque es el caso que va a pasar: un resultado guardado
+            # antes del cambio. Su pack_hash llevaba la ruta local del worktree,
+            # la rama y la ruta temporal del informe, y no se puede convertir:
+            # la ronda se corre de nuevo.
+            raise RoundMismatch(
+                "the result is a v1 round: its pack_hash covered the local path of the "
+                "worktree, the branch name and the temporary path of the report, so nobody "
+                "but that machine could recompute it. Run the round again with this disensor"
+            )
         raise RoundMismatch(
-            f"the result declares {resultado.get('result_version')!r} and this disensor reads "
-            f"{ROUND_RESULT_VERSION}"
+            f"the result declares {version!r} and this disensor reads {ROUND_RESULT_VERSION}"
         )
     anclas = resultado.get("anchors", {})
     observado = resultado.get("observed", {})
@@ -249,14 +259,25 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     if items:
         a["residue"] = {"items": items}
 
-    a["extensions"] = {
-        "dev.disensor.round": {
-            "pack_hash": hashes.get("pack_hash"),
-            "report_hash": observado.get("report_hash"),
-            "tree_unchanged": observado.get("tree_unchanged"),
-            "attempts": len(observado.get("attempts", [])),
-        }
+    # Solo lo que un tercero puede contrastar: los hashes. `tree_unchanged` era
+    # un literal (si el arbol cambia no hay resultado) y ya viaja como
+    # `confinement.verified: false`; la cantidad de intentos no deja rastro en
+    # ningun lado. El ordinal de la version va en numero, no en texto, para que
+    # el perfil minimizado lo admita y un lector distinga un pack_hash v1, que
+    # nadie puede recomputar, de uno canonico. Con el ordinal y `prompt_hash`
+    # del revisor la declaracion lleva lo que hace falta para recomputar: la
+    # forma del paquete y el brief. La version de disensor queda en el
+    # resultado y no entra aca: es texto, el perfil minimizado exige valores
+    # opacos, y es procedencia, no contrato (un checkout entre releases lleva
+    # el literal de la ultima publicada); el campo `run` de v0.5 la llevara.
+    ronda = {
+        "result_version": ROUND_RESULT_ORDINAL,
+        "pack_hash": hashes.get("pack_hash"),
+        "report_hash": observado.get("report_hash"),
     }
+    if hashes.get("material_hash"):
+        ronda["material_hash"] = hashes["material_hash"]
+    a["extensions"] = {"dev.disensor.round": ronda}
     return a
 
 
@@ -268,7 +289,8 @@ FILL_HARDENING = (
     "FILL_IN: the adapter's hardening is not verified, so the material under review could "
     "have addressed the reviewer before the brief did. Say what you did about it."
 )
-ROUND_RESULT_VERSION = "disensor/round-result/v1"
+ROUND_RESULT_VERSION = "disensor/round-result/v2"
+ROUND_RESULT_ORDINAL = 2
 
 
 def _fallback_from(resultado: dict) -> dict:

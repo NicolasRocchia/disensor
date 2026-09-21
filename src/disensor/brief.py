@@ -54,9 +54,14 @@ def brief_text(gate: str) -> str:
     return f"{head.rstrip()}\n\n{SEPARATOR.strip()}\n\n{_read('_common.md').strip()}\n\n{body.strip()}\n"
 
 
+def hash_of(text: str) -> str:
+    """The `sha256:<hex>` of a text: the one form every hash in a declaration takes."""
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def brief_hash(gate: str) -> str:
     """The `sha256:<hex>` of the packaged brief, ready for `prompt_hash`."""
-    return "sha256:" + hashlib.sha256(brief_text(gate).encode("utf-8")).hexdigest()
+    return hash_of(brief_text(gate))
 
 
 def emit(data: bytes, output: str | None, note: str = "") -> int:

@@ -184,11 +184,38 @@ def test_both_degradations_get_one_item_each(repo: Path, informe: Path):
 
 def test_the_observed_data_travels_in_the_extension_space(repo: Path, informe: Path):
     """Lo que el runner midio queda registrado, pero fuera de los campos del
-    protocolo: no es una prueba nueva, es metadato de la corrida."""
+    protocolo: no es una prueba nueva, es metadato de la corrida.
+
+    Solo lo que un tercero puede contrastar. `tree_unchanged` era un literal y
+    ya viaja como `confinement.verified: false`; la cantidad de intentos no deja
+    rastro en ningun lado. Se fueron con #73, y el ordinal de la version del
+    resultado entro en su lugar, en numero para que el perfil minimizado lo
+    admita: distingue un pack_hash v1, que nadie puede recomputar, de uno
+    canonico.
+    """
     a = from_round(resultado_de(repo, informe), "diff", "B", "full", repo)
     ext = a["extensions"]["dev.disensor.round"]
+    assert set(ext) == {"result_version", "pack_hash", "report_hash"}
+    assert ext["result_version"] == 2
     assert ext["pack_hash"].startswith("sha256:")
-    assert ext["tree_unchanged"] is True
+    assert ext["report_hash"].startswith("sha256:")
+
+
+def test_the_material_hash_travels_when_the_round_had_one(repo: Path, informe: Path):
+    r = resultado_de(repo, informe, gate="plan", hashes={"material_hash": "sha256:" + "c" * 64})
+    a = from_round(r, "plan", "B", "full", repo)
+    assert a["extensions"]["dev.disensor.round"]["material_hash"] == "sha256:" + "c" * 64
+
+
+def test_a_v1_result_is_refused_with_the_reason(repo: Path, informe: Path):
+    """Un resultado guardado antes del cambio no se convierte: se corre de nuevo.
+
+    Su pack_hash llevaba la ruta local del worktree, la rama y la ruta temporal
+    del informe, y no hay forma de sacarselas despues.
+    """
+    r = resultado_de(repo, informe, result_version="disensor/round-result/v1")
+    with pytest.raises(RoundMismatch, match="v1 round.*Run the round again"):
+        from_round(r, "diff", "B", "full", repo)
 
 
 def test_the_cli_reports_a_mismatch_without_a_traceback(repo: Path, informe: Path, tmp_path, capsys, monkeypatch):
@@ -241,7 +268,7 @@ def test_the_declared_generator_travels_from_the_round(tmp_path, monkeypatch):
     from disensor.template import from_round, template
 
     resultado = {
-        "result_version": "disensor/round-result/v1",
+        "result_version": ROUND_RESULT_VERSION,
         "gate": "diff",
         "repository": None,
         "anchors": {},
