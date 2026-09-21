@@ -264,10 +264,12 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     # `confinement.verified: false`; la cantidad de intentos no deja rastro en
     # ningun lado. El ordinal de la version va en numero, no en texto, para que
     # el perfil minimizado lo admita y un lector distinga un pack_hash v1, que
-    # nadie puede recomputar, de uno canonico. La version de disensor queda en
-    # el resultado y no entra aca: es texto, y el perfil minimizado exige
-    # valores opacos; identifica la distribucion que armo el paquete, y es el
-    # campo `run` de v0.5 el que va a llevarla como corresponde.
+    # nadie puede recomputar, de uno canonico. Con el ordinal y `prompt_hash`
+    # del revisor la declaracion lleva lo que hace falta para recomputar: la
+    # forma del paquete y el brief. La version de disensor queda en el
+    # resultado y no entra aca: es texto, el perfil minimizado exige valores
+    # opacos, y es procedencia, no contrato (un checkout entre releases lleva
+    # el literal de la ultima publicada); el campo `run` de v0.5 la llevara.
     ronda = {
         "result_version": ROUND_RESULT_ORDINAL,
         "pack_hash": hashes.get("pack_hash"),

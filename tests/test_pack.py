@@ -310,3 +310,25 @@ def test_a_diff_package_has_no_material_document(tmp_path: Path, monkeypatch, ca
     )
     assert args.func(args) == 1
     assert "no material document" in capsys.readouterr().out
+
+
+def test_the_canonical_shape_is_pinned_to_the_result_version():
+    """La forma del texto canónico es lo que `result_version` fija (#73).
+
+    Quien recomputa `pack_hash` necesita dos cosas: la forma del paquete y el
+    brief. El brief lo identifica `prompt_hash`; la forma, el ordinal del
+    resultado, y no la versión del paquete: un checkout entre releases lleva
+    el literal de la última publicada, que puede no contener este código. Si
+    este test rompe, la forma cambió: subí `RESULT_VERSION` en round.py y
+    `ROUND_RESULT_ORDINAL` en template.py, y recién después el valor de acá.
+    """
+    from disensor.round import RESULT_VERSION
+    from disensor.template import ROUND_RESULT_ORDINAL, ROUND_RESULT_VERSION
+
+    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v2"
+    assert ROUND_RESULT_ORDINAL == 2
+    # Brief inyectado: solo la forma entra al hash.
+    diff = canonical_pack_text("diff", repository="r", base="a", head="b", brief="B\n")
+    plan = canonical_pack_text("plan", repository="r", material_text="M\n", brief="B\n")
+    assert pack_hash(diff) == "sha256:e8dc109541ba98236e271fc60524eee91a8d1f3148138f0b2d9357958a44a3d2"
+    assert pack_hash(plan) == "sha256:a70ca2efc12dec4c55a98256cb3bad24381d4ff7191509ceedc77c36d0ad66ea"

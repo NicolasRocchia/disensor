@@ -49,6 +49,10 @@ from .reviewers import (
 # v2: `pack_hash` es canonico. El v1 hasheaba el paquete tal como se entrego,
 # con la ruta local del worktree, la rama y la ruta temporal del informe
 # adentro, asi que nadie fuera de esa maquina podia recomputarlo (#73).
+# El ordinal FIJA LA FORMA del texto canonico: quien recomputa el hash
+# necesita esta forma y el brief que `prompt_hash` nombra, y nada mas. Si la
+# forma cambia, esto sube a v3 junto con `ROUND_RESULT_ORDINAL` en
+# template.py; el golden de tests/test_pack.py rompe si se cambia una sola.
 RESULT_VERSION = "disensor/round-result/v2"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
@@ -595,9 +599,11 @@ def _result(
     """
     # Los hashes vienen calculados de antes de correr al revisor, sobre el
     # texto que se le entrego: recomputables desde lo que el propio resultado
-    # dice (gate, repositorio, anclas y, para plan o arquitectura, el
-    # material). La version de disensor viaja porque el texto del paquete es
-    # de esta version, y quien quiera rehacerlo tiene que saber cual.
+    # dice (gate, repositorio, anclas, la forma que `result_version` fija, el
+    # brief que `prompt_hash` nombra y, para plan o arquitectura, el
+    # material). La version de disensor es procedencia, no contrato: es el
+    # literal del codigo que corrio, y en un checkout entre releases es el de
+    # la ultima publicada, que puede no contener este codigo.
     return {
         "result_version": RESULT_VERSION,
         "disensor_version": __version__,

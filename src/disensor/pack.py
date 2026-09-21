@@ -18,11 +18,16 @@ The hash of the brief is not the hash of the package. `prompt_hash` in a
 declaration means "this is the brief the reviewer was given", and it stays the
 canonical brief so anyone can recompute it from the same version. The package
 adds the repository and the range or the material, so it carries its own
-`pack_hash`, and that one covers the CANONICAL package: what a third party can
-rebuild from the declaration and the same version of disensor with its packaged
-brief untouched (an edited brief is legitimate, and it shows: `prompt_hash`
-changes with it). It never covers the effective prompt: the reviewer's own
-system context is not ours to hash.
+`pack_hash`, and that one covers the CANONICAL package. Two things determine
+its bytes, and both travel in the declaration: the SHAPE of the package, which
+`result_version` of the round fixes (v2 is this shape; a change to it is a new
+ordinal, and a golden test in `tests/test_pack.py` makes sure nobody changes
+one without the other), and the BRIEF, which `prompt_hash` identifies (an
+edited brief is legitimate, and it shows there). The version of the package is
+not part of that contract: a checkout between releases carries the literal of
+the last release, so a third party rebuilds from the ordinal and the brief, not
+from a version number. `pack_hash` never covers the effective prompt: the
+reviewer's own system context is not ours to hash.
 
 The package the reviewer receives is the canonical text plus its delivery:
 where the report goes, where the checkout is on this machine, which branch is
@@ -220,10 +225,11 @@ def canonical_pack_hash(
 ) -> str:
     """The `pack_hash` a round records: `pack_hash` of `canonical_pack_text`.
 
-    With the declaration (gate, repository, base and head) and the same version
-    of disensor, a third party rebuilds exactly that text and compares. A plan
-    or an architecture round needs the material as well, and `material_hash`
-    says whether the document in hand is the one.
+    With the declaration (gate, repository, base and head), the shape that its
+    `result_version` names and the brief whose hash is its `prompt_hash`, a
+    third party rebuilds exactly that text and compares. A plan or an
+    architecture round needs the material as well, and `material_hash` says
+    whether the document in hand is the one.
     """
     return pack_hash(canonical_pack_text(
         gate, repository=repository, base=base, head=head, material_text=material_text,
