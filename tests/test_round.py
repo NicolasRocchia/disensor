@@ -272,10 +272,16 @@ def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
     repo: Path, monkeypatch, tmp_path, capsys,
 ):
     """El circuito entero con un revisor falso: sin red, sin costo, y verificable."""
+    from disensor import __version__, gitctx
+    from disensor.pack import canonical_pack_hash
+
     (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
     head = git(repo, "rev-parse", "HEAD")
+    # Con remoto, para que el paquete lleve la identidad canonica y no el
+    # directorio de esta maquina.
+    git(repo, "remote", "add", "origin", "https://github.com/mio/repo.git")
     # egress local: un script de prueba no manda nada a ningun lado, y un
     # egreso desconocido exigiria consentimiento, que es lo correcto.
     registro = {"reviewers": [dict(
@@ -291,6 +297,18 @@ def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
     assert r["declared"]["independence"] == "cross_family"
     assert r["observed"]["report_hash"].startswith("sha256:")
     assert (tmp_path / "informe.md").read_text(encoding="utf-8") == "informe legitimo"
+
+    # El resultado es v2 y dice con que version se armo el paquete.
+    assert r["result_version"] == "disensor/round-result/v2"
+    assert r["disensor_version"] == __version__
+    assert r["repository"] == gitctx.normalize_repository("https://github.com/mio/repo.git")
+    # Y su pack_hash se recomputa desde el propio resultado: sin la ruta local
+    # del worktree, sin la rama y sin la ruta temporal del informe (#73).
+    assert r["hashes"]["pack_hash"] == canonical_pack_hash(
+        "diff", repository=r["repository"],
+        base=r["anchors"]["merge_base_oid"], head=r["anchors"]["head_oid"],
+    )
+    assert "material_hash" not in r["hashes"], "una ronda de diff no tiene material propio"
 
 
 def test_hardening_is_derived_from_the_catalog_not_read_from_the_file():
@@ -458,6 +476,16 @@ sys.exit(0)
         "el segundo revisor de la cadena tiene que recibir el material igual que el primero"
     )
 
+    # El material no vive en git: viaja su hash, y el del paquete se recomputa
+    # con el material en la mano (#73).
+    from disensor.pack import canonical_pack_hash, material_hash
+
+    r = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
+    assert r["hashes"]["material_hash"] == material_hash(material)
+    assert r["hashes"]["pack_hash"] == canonical_pack_hash(
+        "plan", repository=r["repository"], material_text=material,
+    )
+
 
 def test_an_existing_report_destination_is_not_overwritten(repo: Path, monkeypatch, tmp_path, capsys):
     """Lo que haya en ese archivo es de otro: perderlo en silencio para dejar un
@@ -592,3 +620,63 @@ def test_a_custom_reviewer_named_like_a_recipe_stays_in_the_chain():
 
     propio = {"id": "codex", "source": "assistant", "model": "m", "command": ["mio", "{pack}"]}
     assert stale_model_entry(propio) is None
+
+
+def test_the_reviewer_is_told_where_the_checkout_is(repo: Path, monkeypatch, tmp_path, capsys):
+    """El revisor corre desde un directorio temporal y solo sabe donde esta el
+    codigo por el paquete. La identidad canonica reemplazo a la ruta local en
+    el hash (#73), pero la ruta tiene que seguir viajando, como entrega; y lo
+    que se hashea es exactamente lo entregado menos esas lineas, sin una
+    segunda lectura del brief despues de la revision."""
+    import re
+
+    from disensor import gitctx
+    from disensor.pack import canonical_pack_text, deliver, pack_hash
+
+    ECO_DEL_PAQUETE = """import sys
+from pathlib import Path
+Path(sys.argv[1]).write_bytes(sys.stdin.buffer.read())
+sys.exit(0)
+"""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    git(repo, "remote", "add", "origin", "git@github.com:mio/repo.git")
+    registro = {"reviewers": [dict(
+        entrada("eco", "openai", revisor_falso(tmp_path, "eco", ECO_DEL_PAQUETE), stdin="pack"),
+        egress="local",
+    )]}
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+
+    paquete = (tmp_path / "informe.md").read_text(encoding="utf-8")
+    raiz = str(gitctx.repo_root(repo))
+    assert f"Local checkout: {raiz}" in paquete
+    assert f"Repository: {gitctx.normalize_repository('git@github.com:mio/repo.git')}" in paquete
+    assert "Branch:" not in paquete, "la rama local no identifica nada"
+    # La linea entera despues de la sangria: una ruta temporal puede llevar
+    # espacios (un usuario llamado "Juan Perez") y seguir siendo una ruta.
+    informe = re.search(r"^ {4}(.+report-1-eco\.md)$", paquete, re.M)
+    assert informe, "el paquete le dice al revisor donde escribir"
+
+    r = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    canonico = canonical_pack_text(
+        "diff", repository=r["repository"],
+        base=r["anchors"]["merge_base_oid"], head=r["anchors"]["head_oid"],
+    )
+    assert paquete == deliver(canonico, checkout=raiz, report=informe.group(1))
+    assert r["hashes"]["pack_hash"] == pack_hash(canonico)
+
+
+def test_a_diff_round_refuses_a_material_document(repo: Path, monkeypatch, tmp_path, capsys):
+    """El material de una compuerta diff es el rango. Un documento pasado ademas
+    no entra al paquete, y hashearlo dejaria en la declaracion un
+    `material_hash` de algo que el revisor nunca vio."""
+    material = tmp_path / "plan.md"
+    material.write_text("# un plan que nadie va a ver\n", encoding="utf-8")
+    registro = {"reviewers": [dict(
+        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    assert correr(repo, registro, monkeypatch, tmp_path, material=str(material)) == ronda.ERROR
+    assert "material" in capsys.readouterr().err
+    assert not (tmp_path / "resultado.json").exists()
