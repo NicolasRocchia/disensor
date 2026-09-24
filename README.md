@@ -311,6 +311,40 @@ two-step one, it does not eliminate it. Whoever can merge a relaxation uses it
 on the next PR. And none of this protects against a workflow that was modified,
 skipped or replaced. Only the platform resolves that.
 
+### Outside GitHub
+
+The verdict does not depend on GitHub; the comment does. With `--base`,
+`--head` and `--no-comment`, the gate needs no `GITHUB_*` variable and makes no
+network call: it decides from the git objects of the range, so any CI that can
+run Python over a checkout of the repository can host it. It takes four things:
+
+- **The range, from the CI's own variables.** `--base` is the tip of the target
+  branch, where the policy is read from, and `--head` is the last commit of the
+  change. In a GitLab merge request pipeline, the target branch is fetched by
+  name (`git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"`) and `--base`
+  is `FETCH_HEAD`; `--head` is `CI_COMMIT_SHA`, or
+  `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA` in a merged results pipeline, where
+  `CI_COMMIT_SHA` is the temporary merge commit. Not
+  `CI_MERGE_REQUEST_DIFF_BASE_SHA`: that is the merge base, and the policy would
+  be read from an older commit than the tip of the target.
+- **The whole history**, the equivalent of `fetch-depth: 0`: without it there
+  is no merge base and the gate fails closed. In GitLab, `GIT_DEPTH: "0"`.
+- **`--no-comment`, and the verdict by exit code**: 0 is green, and 1 is red or
+  a gate that could not decide. The body the comment would carry goes to
+  stdout, and on a green verdict `--report-out <file>` writes the HTML report
+  where the CI can archive it.
+- **The same deployment requirements, under the names each platform gives
+  them**: a required check that runs on the head of every change, the
+  configuration and the pipeline definition owned outside the audited
+  repository, and the executable pinned to an exact version of the package,
+  run the way `action.yml` runs it (`python -I -m`), because the working
+  directory is the checkout being judged.
+
+What does not travel is the pull request comment and the job summary, which
+write to GitHub; whoever wants them on another platform builds them from
+stdout. A minimal GitLab CI job is in
+[`docs/ejemplo-gitlab-ci.yml`](https://github.com/NicolasRocchia/disensor/blob/main/docs/ejemplo-gitlab-ci.yml).
+
 ## What it does not do
 
 The CI gate runs no models, asks for no API keys and sends no code to any

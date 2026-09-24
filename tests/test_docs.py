@@ -41,6 +41,18 @@ def test_documented_action_version_matches_the_package():
             )
 
 
+def test_the_gitlab_example_installs_the_version_being_shipped():
+    """Fuera de GitHub no hay Action que pinear: el ejemplo de GitLab fija el
+    paquete por version exacta, y esa version tiene que ser la que se publica,
+    igual que el pin de la Action en los otros documentos (#72)."""
+    texto = (ROOT / "docs" / "ejemplo-gitlab-ci.yml").read_text(encoding="utf-8")
+    versiones = re.findall(r"disensor==([0-9]+\.[0-9]+\.[0-9]+)", texto)
+    assert versiones, "el ejemplo de GitLab no fija la version del paquete"
+    assert set(versiones) == {__version__}, (
+        f"el ejemplo de GitLab instala {versiones} y el paquete es {__version__}"
+    )
+
+
 NUL = chr(0)
 
 
