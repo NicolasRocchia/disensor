@@ -45,7 +45,7 @@
         "class": "execution_gap",
         "requires_human_attention": false,
         "gap_reason": "environment_not_reproducible",
-        "description": "Lo propio de Windows (la búsqueda en el directorio de trabajo, PATHEXT y `NoDefaultCurrentDirectoryInExePath`) se ejecutó solo en Windows 11 con Python 3.14 y git 2.53. El CI corre en Ubuntu con Python 3.10 y 3.12. En Windows con Python 3.10 a 3.12, `os.path.isabs` acepta `\tools` como absoluta: el código usa `PureWindowsPath` para no depender de eso y la prueba parametrizada de `is_absolute` corre en cualquier plataforma, pero esa combinación no se ejecutó. Tampoco se ejecutó con git anterior a 2.36, que lee `core.fsmonitor` como ruta: que el valor vacío lo apague ahí sale de la lectura de su código fuente (config.c de 2.35.1) en la revisión previa al commit, no de una corrida."
+        "description": "Lo propio de Windows (la búsqueda en el directorio de trabajo, PATHEXT y `NoDefaultCurrentDirectoryInExePath`) se ejecutó solo en Windows 11 con Python 3.14 y git 2.53. El CI corre en Ubuntu con Python 3.10 y 3.12. En Windows con Python 3.10 a 3.12, `os.path.isabs` acepta `\\tools` como absoluta: el código usa `PureWindowsPath` para no depender de eso y la prueba parametrizada de `is_absolute` corre en cualquier plataforma, pero esa combinación no se ejecutó. Tampoco se ejecutó con git anterior a 2.36, que lee `core.fsmonitor` como ruta: que el valor vacío lo apague ahí sale de la lectura de su código fuente (config.c de 2.35.1) en la revisión previa al commit, no de una corrida."
       },
       {
         "id": "r2",
