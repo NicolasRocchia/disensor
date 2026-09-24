@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -317,34 +318,137 @@ def _inside(path: Path, repo: Path) -> bool:
         return False
 
 
-def _report_destination(args, repo: Path) -> Path:
+def _report_destination(args, repo: Path) -> Path | None:
     """Where the report goes, never inside the repository under review.
 
     A file written into the reviewed tree dirties exactly what the round is
     measuring, and the default used to do it. Refusing an explicit in-repo path
     matters as much: the caller would get a result claiming the tree was
     untouched while their own flag was the thing touching it.
+
+    Checked before anybody runs (#80). None is the default: a private directory
+    that is created only when there is a report to put in it.
     """
-    if args.report:
-        destino = Path(args.report).expanduser()
-        # Un destino que ya existe no se pisa. La ronda escribe una sola vez y
-        # lo que hubiera ahi es de otro: perderlo en silencio para dejar un
-        # informe es exactamente lo que una herramienta que promete no tocar
-        # nada no puede hacer.
-        if destino.exists():
-            raise RoundError(
-                f"--report {destino} already exists. The round does not overwrite: move it, "
-                "delete it, or point somewhere else"
-            )
-        if _inside(destino, repo):
-            raise RoundError(
-                f"--report {destino} is inside the repository under review. The report has to "
-                "live outside it: written in, it dirties the very tree the round measures"
-            )
-        return destino
-    # Un destino por corrida y no una ruta fija: dos rondas simultaneas escribian
-    # sobre el mismo archivo y una podia terminar hasheando el informe de la otra.
-    return Path(tempfile.mkdtemp(prefix="disensor-report-")) / f"report-{args.gate}.md"
+    if not args.report:
+        return None
+    # El informe es un archivo, y la salida estandar ya lleva el resultado:
+    # `-` terminaba en un archivo llamado asi en el directorio de trabajo.
+    if args.report == "-":
+        raise RoundError(
+            "--report - is not supported: the report is a file, and standard output carries "
+            "the result. Point --report at a path outside the repository, or leave it out"
+        )
+    destino = Path(args.report).expanduser()
+    # Un destino que ya existe no se pisa. La ronda escribe una sola vez y lo
+    # que hubiera ahi es de otro: perderlo en silencio para dejar un informe es
+    # exactamente lo que una herramienta que promete no tocar nada no puede
+    # hacer. `lexists` y no `exists`: un enlace roto tambien es de otro.
+    if os.path.lexists(destino):
+        raise RoundError(
+            f"--report {destino} already exists. The round does not overwrite: move it, "
+            "delete it, or point somewhere else"
+        )
+    if _inside(destino, repo):
+        raise RoundError(
+            f"--report {destino} is inside the repository under review. The report has to "
+            "live outside it: written in, it dirties the very tree the round measures"
+        )
+    # Los directorios que falten se crean al escribir; pero si el ancestro mas
+    # cercano que existe es un archivo, el informe no va a tener donde ir, y eso
+    # se sabe antes de pagar la corrida.
+    ancestro = destino.parent
+    while not os.path.lexists(ancestro) and ancestro != ancestro.parent:
+        ancestro = ancestro.parent
+    if not ancestro.is_dir():
+        raise RoundError(
+            f"--report {destino}: {ancestro} is not a directory, so the report would have "
+            "nowhere to go"
+        )
+    return destino
+
+
+def _result_destination(args, repo: Path) -> Path | None:
+    """Where the result goes: a file outside the repository, or standard output (None).
+
+    `-` is standard output, the convention anyone tries and the one `--material -`
+    already follows; it used to create a file literally named `-`. Checked before
+    anybody runs, like the report (#80): a destination that cannot take the
+    result used to fail after the reviewer had been paid for.
+    """
+    if not args.result or args.result == "-":
+        return None
+    destino = Path(args.result).expanduser()
+    if _inside(destino, repo):
+        raise RoundError(
+            f"--result {args.result} is inside the repository under review: writing it there "
+            "dirties the tree the round measures. Use a path outside, or standard output"
+        )
+    if destino.is_dir():
+        raise RoundError(f"--result {destino} is a directory. Name the file the result goes to")
+    if not destino.parent.is_dir():
+        raise RoundError(
+            f"--result {destino}: the directory {destino.parent} does not exist, and the result "
+            "would be lost after the round"
+        )
+    return destino
+
+
+def _place_report(report: Path, pedido: Path | None, repo: Path, gate: str) -> Path:
+    """Copy the report out of the round's private directory.
+
+    An explicit destination was checked before the reviewer ran; it is checked
+    again here and created exclusively, because a round takes minutes and
+    whatever appeared there meanwhile is somebody else's. When the copy cannot
+    be made, the error names the report where the reviewer left it, and the
+    caller keeps that directory: the run was already paid for, and losing its
+    report with the temporary directory was the other half of #80. A second
+    copy as a rescue could fail as well, and then it took the only one with it.
+    """
+    try:
+        datos = report.read_bytes()
+        if pedido is None:
+            # Un destino por corrida y no una ruta fija: dos rondas simultaneas
+            # escribian sobre el mismo archivo y una podia terminar hasheando el
+            # informe de la otra.
+            destino = Path(tempfile.mkdtemp(prefix="disensor-report-")) / f"report-{gate}.md"
+            destino.write_bytes(datos)
+            return destino
+    except OSError as exc:
+        raise RoundError(
+            f"the report could not be copied out of the round ({exc.strerror or exc}). "
+            f"{_paid_for(report)}"
+        ) from exc
+    if _inside(pedido, repo):
+        motivo = "it resolves inside the repository under review now"
+    else:
+        motivo = _write_new(pedido, datos)
+        if motivo is None:
+            return pedido
+    raise RoundError(f"--report {pedido}: {motivo}. {_paid_for(report)}")
+
+
+def _write_new(path: Path, datos: bytes) -> str | None:
+    """Create `path` with `datos`, never over something that exists. None if it worked."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return f"its directory could not be created ({exc.strerror or exc})"
+    creado = False
+    try:
+        with open(path, "xb") as f:
+            creado = True
+            f.write(datos)
+    except FileExistsError:
+        return "it appeared during the round, and it is not overwritten"
+    except OSError as exc:
+        # Lo creo el runner y quedo a medias: no se deja un informe cortado.
+        if creado:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        return f"it could not be written ({exc.strerror or exc})"
+    return None
 
 
 def main_round(args) -> int:
@@ -421,6 +525,20 @@ def _round(args, repo: Path) -> int:
             raise RoundError(f"a {args.gate} gate needs --material")
         base = head = merge_base = target_tip = ""
         repository = gitctx.canonical_repository(repo) or str(repo)
+
+    # --- Los destinos, antes de correr a nadie -------------------------------
+    # Se miraban despues del bucle de revisores: un --report que ya existia o
+    # un --result adentro del repositorio fallaban con la corrida pagada y el
+    # material ya enviado, y el informe se borraba con el temporal (#80). Los
+    # chequeos son los de siempre; lo que cambia es cuando corren.
+    informe_pedido = _report_destination(args, repo)
+    destino_resultado = _result_destination(args, repo)
+    if (informe_pedido is not None and destino_resultado is not None
+            and informe_pedido.resolve() == destino_resultado.resolve()):
+        raise RoundError(
+            "--report and --result name the same file: the result would overwrite the report "
+            "whose hash it declares"
+        )
 
     # --- Precondicion: arbol limpio ------------------------------------------
     # La ronda de diff revisa COMMITS YA HECHOS. Comparar estados antes y
@@ -503,7 +621,11 @@ def _round(args, repo: Path) -> int:
     # Directorio privado y unico, fuera del repositorio: una ruta compartida
     # deja una carrera entre el chequeo de que no existe y su creacion, y un
     # informe dentro del repositorio ensuciaria el arbol que se esta midiendo.
-    with tempfile.TemporaryDirectory(prefix="disensor-round-") as tmp:
+    # Se borra al terminar salvo en un caso: si el informe no se pudo copiar a
+    # su destino, se queda ahi, porque es la unica copia de una corrida pagada.
+    tmp = tempfile.mkdtemp(prefix="disensor-round-")
+    conservar = False
+    try:
         # Un archivo POR INTENTO. Con una ruta compartida, un revisor que
         # escribe y despues falla deja su informe ahi, y el siguiente que sale
         # con codigo 0 sin escribir nada lo hereda: el resultado nombraria a
@@ -546,45 +668,62 @@ def _round(args, repo: Path) -> int:
         # Al reves, una ronda exitosa escribia despues de haber medido y el
         # resultado declaraba tree_unchanged sobre un arbol que el propio runner
         # acababa de ensuciar.
-        destino = _report_destination(args, repo)
+        destino = None
         if usado is not None:
-            destino.parent.mkdir(parents=True, exist_ok=True)
-            destino.write_bytes(report.read_bytes())
+            try:
+                destino = _place_report(report, informe_pedido, repo, args.gate)
+            except RoundError:
+                conservar = True
+                raise
+    finally:
+        if not conservar:
+            shutil.rmtree(tmp, ignore_errors=True)
 
+    # De aca en adelante la corrida ya se pago: si algo falla, el mensaje dice
+    # donde quedo el informe, que es lo unico que no se vuelve a pedir gratis.
+    try:
         despues = tree_state(repo)
-        if despues != antes:
-            estado(
-                "round: the working tree changed during the round. The declaration is not "
-                "written: a reviewer that writes is not a reviewer that only reads, and what "
-                "it touched has to be looked at before anything is declared."
-            )
-            return TREE_MODIFIED
-
-        if usado is None:
-            sin_permiso = [a for a in attempts if a["outcome"] == "no_consent"]
-            if sin_permiso:
-                estado(
-                    "round: no reviewer ran because sending this repository's material was not "
-                    "authorised. Authorise the one you want with `disensor reviewer consent "
-                    f"{sin_permiso[0]['id']}`, or register a local reviewer, whose material "
-                    "never leaves the machine."
-                )
-            else:
-                estado("round: every registered reviewer failed. See the attempts in the result.")
-            _emit(args, _result(
-                args, repository, base, head, merge_base, target_tip,
-                hashes, None, None, attempts,
-            ), repo)
-            return CHAIN_EXHAUSTED
-
-        entry, independence = usado
-        resultado = _result(
-            args, repository, base, head, merge_base, target_tip,
-            hashes, entry, independence, attempts, report_path=destino,
-            report_digest=file_hash(destino),
+    except (RoundError, gitctx.GitError) as exc:
+        if destino is None:
+            raise
+        raise RoundError(f"{exc}. {_paid_for(destino)}") from exc
+    if despues != antes:
+        estado(
+            "round: the working tree changed during the round. The declaration is not "
+            "written: a reviewer that writes is not a reviewer that only reads, and what "
+            "it touched has to be looked at before anything is declared."
         )
+        if destino is not None:
+            estado(f"round: {_paid_for(destino)}")
+        return TREE_MODIFIED
 
-    _emit(args, resultado, repo)
+    if usado is None:
+        sin_permiso = [a for a in attempts if a["outcome"] == "no_consent"]
+        if sin_permiso:
+            estado(
+                "round: no reviewer ran because sending this repository's material was not "
+                "authorised. Authorise the one you want with `disensor reviewer consent "
+                f"{sin_permiso[0]['id']}`, or register a local reviewer, whose material "
+                "never leaves the machine."
+            )
+        else:
+            estado("round: every registered reviewer failed. See the attempts in the result.")
+        _emit(_result(
+            args, repository, base, head, merge_base, target_tip,
+            hashes, None, None, attempts,
+        ), destino_resultado, repo)
+        return CHAIN_EXHAUSTED
+
+    entry, independence = usado
+    resultado = _result(
+        args, repository, base, head, merge_base, target_tip,
+        hashes, entry, independence, attempts, report_path=destino,
+        report_digest=file_hash(destino),
+    )
+    try:
+        _emit(resultado, destino_resultado, repo)
+    except RoundError as exc:
+        raise RoundError(f"{exc}. {_paid_for(destino)}") from exc
     estado(
         f"round: reviewed by {entry['id']} ({entry['family']}, {independence}, "
         f"hardening {entry.get('hardening', 'unverified')}). Report at {destino}"
@@ -668,28 +807,60 @@ def _result(
 def estado(*args, **kwargs) -> None:
     """Diagnostics go to stderr, always.
 
-    Without `--result` the structured result is written to stdout, and the CLI
-    help offers exactly that as a pipe. Any prose printed to the same channel
-    lands after the JSON and `json.load` rejects it as extra data: the
-    machine-readable path advertised in the help would not parse.
+    Without `--result`, or with `--result -`, the structured result is written
+    to stdout, and the CLI help offers exactly that as a pipe. Any prose printed
+    to the same channel lands after the JSON and `json.load` rejects it as extra
+    data: the machine-readable path advertised in the help would not parse.
     """
     kwargs.setdefault("file", sys.stderr)
     print(*args, **kwargs)
 
 
-def _emit(args, resultado: dict, repo: Path | None = None) -> None:
+def _paid_for(destino: Path) -> str:
+    return f"The round already ran: its report is at {destino}"
+
+
+def _emit(resultado: dict, destino: Path | None, repo: Path) -> None:
+    """Write the result to its file, or to stdout when there is none (None)."""
     data = (json.dumps(resultado, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
-    if args.result and repo is not None and _inside(Path(args.result), repo):
+    if destino is None:
+        # Un pipe cerrado del otro lado no puede terminar en un traceback: el
+        # error sube como los demas, y quien lo recibe nombra el informe.
+        try:
+            buffer = getattr(sys.stdout, "buffer", None)
+            if buffer is None:
+                sys.stdout.write(data.decode("utf-8"))
+                sys.stdout.flush()
+            else:
+                buffer.write(data)
+                buffer.flush()
+        except OSError as exc:
+            raise RoundError(
+                f"the result could not be written to standard output ({exc.strerror or exc})"
+            ) from exc
+        return
+    # Se vuelve a mirar al escribir: el resultado va despues del ultimo git
+    # status, y un destino que ahora resolviera adentro ensuciaria el arbol que
+    # el propio resultado declara intacto.
+    if _inside(destino, repo):
         raise RoundError(
-            f"--result {args.result} is inside the repository under review: writing it there "
-            "dirties the tree the round just measured. Use a path outside, or a pipe"
+            f"--result {destino} is inside the repository under review: writing it there "
+            "dirties the tree the round just measured. Use a path outside, or standard output"
         )
-    if args.result:
-        Path(args.result).write_bytes(data)
-    else:
-        buffer = getattr(sys.stdout, "buffer", None)
-        if buffer is None:
-            sys.stdout.write(data.decode("utf-8"))
-        else:
-            buffer.write(data)
-            buffer.flush()
+    # Un temporal al lado y un reemplazo, nunca una escritura sobre lo que haya:
+    # si durante la ronda el destino paso a ser un enlace, por ejemplo al
+    # informe, se reemplaza el enlace y no se trunca lo que apunta. Y un
+    # resultado a medias no queda nunca con el nombre del destino.
+    temporal = None
+    try:
+        fd, temporal = tempfile.mkstemp(prefix=".disensor-result-", dir=destino.parent)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+        os.replace(temporal, destino)
+    except OSError as exc:
+        if temporal is not None:
+            try:
+                os.unlink(temporal)
+            except OSError:
+                pass
+        raise RoundError(f"--result {destino} could not be written ({exc.strerror or exc})") from exc

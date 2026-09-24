@@ -225,9 +225,12 @@ def build_parser() -> argparse.ArgumentParser:
     rnd.add_argument("--config", default="disensor.config.json")
     rnd.add_argument("--directory", "--directorio", default=".residue")
     rnd.add_argument("--repository", default=None)
-    rnd.add_argument("--report", default=None, help="Where to leave the reviewer's report.")
+    rnd.add_argument("--report", default=None,
+                     help="Where to leave the reviewer's report: a file that does not exist yet, "
+                          "outside the repository (default: a private temporary directory).")
     rnd.add_argument("--result", default=None,
-                     help="File for the structured result. Outside the repository, or use a pipe.")
+                     help="File for the structured result, outside the repository. Left out or "
+                          "-, the result goes to standard output, for a pipe.")
     rnd.add_argument("--timeout", type=int, default=900)
     rnd.add_argument("--check", action="store_true",
                      help="Only answer whether a round is required, without running one.")
