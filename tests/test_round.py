@@ -742,3 +742,284 @@ def test_a_diff_round_refuses_a_material_document(repo: Path, monkeypatch, tmp_p
     assert correr(repo, registro, monkeypatch, tmp_path, material=str(material)) == ronda.ERROR
     assert "material" in capsys.readouterr().err
     assert not (tmp_path / "resultado.json").exists()
+
+
+# --- Los destinos, antes de correr a nadie (#80) --------------------------------
+
+def anota_y_escribe(antes: str = "") -> str:
+    """Un revisor que deja una marca por invocacion al lado de su script.
+
+    `antes` es codigo que corre durante la ronda, para simular lo que pasa
+    mientras el revisor trabaja.
+    """
+    return (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "with open(Path(__file__).with_name('llamadas.txt'), 'a', encoding='utf-8') as f:\n"
+        "    f.write('x')\n"
+        f"{antes}"
+        "Path(sys.argv[1]).write_text('informe legitimo', encoding='utf-8')\n"
+    )
+
+
+def llamadas(tmp_path: Path) -> int:
+    marca = tmp_path / "llamadas.txt"
+    return len(marca.read_text(encoding="utf-8")) if marca.exists() else 0
+
+
+def un_cambio(repo: Path) -> None:
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+
+
+def que_anota(tmp_path: Path, antes: str = "") -> dict:
+    return {"reviewers": [dict(
+        entrada("anota", "openai", revisor_falso(tmp_path, "anota", anota_y_escribe(antes))),
+        egress="local",
+    )]}
+
+
+def _ocupado(repo: Path, tmp: Path) -> dict:
+    (tmp / "ocupado.md").write_text("de otro", encoding="utf-8")
+    return {"report": tmp / "ocupado.md"}
+
+
+def _bajo_un_archivo(repo: Path, tmp: Path) -> dict:
+    (tmp / "archivo.txt").write_text("x", encoding="utf-8")
+    return {"report": tmp / "archivo.txt" / "sub" / "informe.md"}
+
+
+DESTINOS_INVALIDOS = {
+    "el informe ya existe": (_ocupado, "already exists"),
+    "el informe adentro del repositorio": (
+        lambda repo, tmp: {"report": repo / "adentro.md"}, "inside the repository"),
+    "el informe por la salida estandar": (lambda repo, tmp: {"report": "-"}, "--report -"),
+    "el informe bajo un archivo": (_bajo_un_archivo, "is not a directory"),
+    "el resultado adentro del repositorio": (
+        lambda repo, tmp: {"result": repo / "resultado.json"}, "inside the repository"),
+    "el resultado en un directorio que no existe": (
+        lambda repo, tmp: {"result": tmp / "no-existe" / "r.json"}, "does not exist"),
+    "el resultado es un directorio": (lambda repo, tmp: {"result": tmp}, "is a directory"),
+    "informe y resultado en el mismo archivo": (
+        lambda repo, tmp: {"report": tmp / "mismo.json", "result": tmp / "mismo.json"},
+        "the same file"),
+}
+
+
+@pytest.mark.parametrize("caso", list(DESTINOS_INVALIDOS))
+def test_an_invalid_destination_fails_before_the_reviewer_runs(
+    caso, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Los chequeos corrian despues del bucle de revisores: la corrida se pagaba,
+    el material salia, y el informe se borraba con el temporal (#80)."""
+    un_cambio(repo)
+    armar, motivo = DESTINOS_INVALIDOS[caso]
+    extra = armar(repo, tmp_path)
+    assert correr(repo, que_anota(tmp_path), monkeypatch, tmp_path, **extra) == ronda.ERROR
+    assert motivo in capsys.readouterr().err
+    assert llamadas(tmp_path) == 0, "el revisor no se invoca si su informe o el resultado no tienen donde ir"
+    assert git(repo, "status", "--porcelain") == ""
+    if caso == "el informe ya existe":
+        assert (tmp_path / "ocupado.md").read_text(encoding="utf-8") == "de otro"
+
+
+@pytest.mark.parametrize("afuera", [False, True], ids=["parado adentro", "parado afuera"])
+def test_result_dash_is_standard_output(afuera, repo: Path, monkeypatch, tmp_path, capsys):
+    """`--result -` es la salida estandar, igual que omitir el flag.
+
+    Parado adentro fallaba despues de la ronda; parado afuera, con --repository,
+    creaba un archivo llamado `-` en el directorio de trabajo (#80).
+    """
+    from disensor.cli import build_parser
+
+    un_cambio(repo)
+    monkeypatch.setattr(ronda, "load_registry", lambda: que_anota(tmp_path))
+    donde = tmp_path / "afuera" if afuera else repo
+    donde.mkdir(exist_ok=True)
+    args = build_parser().parse_args([
+        "round", "--gate", "diff", "--generator-family", "anthropic",
+        "--base", "main", "--head", "HEAD", "--repository", str(repo),
+        "--report", str(tmp_path / "informe.md"), "--result", "-",
+    ])
+    monkeypatch.chdir(donde)
+    assert args.func(args) == OK
+    assert json.loads(capsys.readouterr().out)["declared"]["reviewer_id"] == "anota"
+    assert not (donde / "-").exists()
+    assert llamadas(tmp_path) == 1
+    assert git(repo, "status", "--porcelain") == ""
+
+
+def _informe_nombrado(err: str) -> Path:
+    """La ruta que el mensaje da como el lugar donde quedo el informe."""
+    import re
+
+    hallado = re.search(r"its report is at (.+?)\s*$", err, re.M)
+    assert hallado, err
+    return Path(hallado.group(1))
+
+
+def _conservado(err: str) -> str:
+    """El informe que la ronda conservo en su directorio privado, que la prueba borra."""
+    import shutil
+
+    nombrado = _informe_nombrado(err)
+    assert nombrado.parent.name.startswith("disensor-round-"), nombrado
+    contenido = nombrado.read_text(encoding="utf-8")
+    shutil.rmtree(nombrado.parent)
+    return contenido
+
+
+def test_a_report_destination_that_appears_during_the_round_is_not_overwritten(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """El destino se valida antes y se crea en exclusiva despues: lo que aparecio
+    en el medio es de otro. El informe no se pierde: queda donde lo dejo el
+    revisor, y el mensaje dice donde."""
+    un_cambio(repo)
+    ocupa = tmp_path / "informe.md"
+    antes = f"Path({str(ocupa)!r}).write_text('de otro', encoding='utf-8')\n"
+    assert correr(repo, que_anota(tmp_path, antes), monkeypatch, tmp_path) == ronda.ERROR
+    err = capsys.readouterr().err
+    assert "appeared during the round" in err
+    assert ocupa.read_text(encoding="utf-8") == "de otro"
+    assert _conservado(err) == "informe legitimo"
+
+
+def test_when_the_report_cannot_be_copied_the_only_copy_is_kept(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Una copia de rescate podia fallar igual que la primera, y entonces el
+    directorio privado se borraba con la unica copia adentro."""
+    import tempfile
+
+    un_cambio(repo)
+    original = tempfile.mkdtemp
+
+    def sin_lugar(*args, **kwargs):
+        if kwargs.get("prefix") == "disensor-report-":
+            raise OSError(28, "No space left on device")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(ronda.tempfile, "mkdtemp", sin_lugar)
+    from disensor.cli import build_parser
+
+    monkeypatch.setattr(ronda, "load_registry", lambda: que_anota(tmp_path))
+    args = build_parser().parse_args([
+        "round", "--gate", "diff", "--generator-family", "anthropic",
+        "--base", "main", "--head", "HEAD", "--repository", str(repo),
+        "--result", str(tmp_path / "r.json"),
+    ])
+    monkeypatch.chdir(repo)
+    assert args.func(args) == ronda.ERROR
+    err = capsys.readouterr().err
+    assert "could not be copied out of the round" in err
+    assert _conservado(err) == "informe legitimo"
+    assert not (tmp_path / "r.json").exists()
+
+
+def test_the_result_does_not_write_through_a_link(repo: Path, monkeypatch, tmp_path, capsys):
+    """El resultado se escribe en un temporal y reemplaza el nombre: si el destino
+    es un enlace a otro archivo, el enlace se reemplaza y el otro queda como estaba."""
+    import os
+
+    un_cambio(repo)
+    ajeno = tmp_path / "ajeno.txt"
+    ajeno.write_text("de otro", encoding="utf-8")
+    resultado = tmp_path / "r.json"
+    os.link(ajeno, resultado)
+    assert correr(repo, que_anota(tmp_path), monkeypatch, tmp_path, result=resultado) == OK
+    assert ajeno.read_text(encoding="utf-8") == "de otro"
+    assert json.loads(resultado.read_text(encoding="utf-8"))["declared"]["reviewer_id"] == "anota"
+
+
+def test_a_result_turned_into_a_link_to_the_report_leaves_the_report_alone(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Durante la ronda, el destino del resultado pasa a ser un enlace simbolico al
+    destino del informe: escribir a traves de el truncaba el informe ya hasheado."""
+    import os
+
+    try:
+        os.symlink(tmp_path / "prueba-destino", tmp_path / "prueba-enlace")
+    except (OSError, NotImplementedError):
+        pytest.skip("esta maquina no crea enlaces simbolicos sin privilegios")
+    un_cambio(repo)
+    informe, resultado = tmp_path / "informe.md", tmp_path / "r.json"
+    antes = f"import os\nos.symlink({str(informe)!r}, {str(resultado)!r})\n"
+    code = correr(repo, que_anota(tmp_path, antes), monkeypatch, tmp_path, result=resultado)
+    assert code == OK, capsys.readouterr().err
+    assert informe.read_text(encoding="utf-8") == "informe legitimo"
+    assert not resultado.is_symlink()
+    r = json.loads(resultado.read_text(encoding="utf-8"))
+    assert r["observed"]["report_hash"] == ronda.file_hash(informe)
+
+
+def test_a_result_that_lands_in_the_tree_is_seen_by_the_last_check(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """h1 de la ronda de este PR: el resultado se escribia por ruta despues del
+    ultimo git status. Si entre los chequeos y la escritura el destino pasaba a
+    caer adentro del repositorio (su directorio cambiado por un enlace), el
+    runner ensuciaba el arbol con un resultado que decia tree_unchanged.
+
+    La carrera se simula haciendo que los chequeos crean que el destino esta
+    afuera: la escritura cae adentro, y ahora pasa antes del ultimo chequeo, que
+    la ve y retira el resultado.
+    """
+    un_cambio(repo)
+    real = ronda._inside
+    monkeypatch.setattr(
+        ronda, "_inside", lambda path, r: False if Path(path).name == "r.json" else real(path, r),
+    )
+    code = correr(repo, que_anota(tmp_path), monkeypatch, tmp_path, result=repo / "r.json")
+    assert code == ronda.TREE_MODIFIED
+    assert not (repo / "r.json").exists(), "un resultado que afirma un arbol intacto se retira"
+    assert git(repo, "status", "--porcelain") == ""
+    assert _informe_nombrado(capsys.readouterr().err) == tmp_path / "informe.md"
+
+
+def test_a_closed_pipe_names_the_report(repo: Path, monkeypatch, tmp_path, capsys):
+    """Con el resultado por stdout, un pipe cerrado del otro lado terminaba en un
+    traceback, sin decir donde quedo el informe de una corrida ya pagada."""
+    un_cambio(repo)
+
+    class PipeCerrado:
+        def write(self, _):
+            raise BrokenPipeError(32, "Broken pipe")
+
+        def flush(self):
+            pass
+
+    class Salida:
+        buffer = PipeCerrado()
+
+    monkeypatch.setattr(ronda.sys, "stdout", Salida())
+    assert correr(repo, que_anota(tmp_path), monkeypatch, tmp_path, result="-") == ronda.ERROR
+    err = capsys.readouterr().err
+    assert "standard output" in err
+    assert _informe_nombrado(err) == tmp_path / "informe.md"
+
+
+def test_a_result_that_cannot_be_written_names_the_report(repo: Path, monkeypatch, tmp_path, capsys):
+    """Validado antes, el destino del resultado se vuelve un directorio durante la
+    ronda: la corrida ya se pago, y el mensaje dice donde quedo el informe."""
+    un_cambio(repo)
+    resultado = tmp_path / "r.json"
+    antes = f"Path({str(resultado)!r}).mkdir()\n"
+    code = correr(repo, que_anota(tmp_path, antes), monkeypatch, tmp_path, result=resultado)
+    assert code == ronda.ERROR
+    err = capsys.readouterr().err
+    assert "could not be written" in err
+    assert _informe_nombrado(err).read_text(encoding="utf-8") == "informe legitimo"
+
+
+def test_a_tree_changed_by_the_reviewer_names_the_report(repo: Path, monkeypatch, tmp_path, capsys):
+    """Sin declaracion, pero con el informe a mano: hay que leer que toco."""
+    un_cambio(repo)
+    antes = f"Path({str(repo / 'tocado.txt')!r}).write_text('x', encoding='utf-8')\n"
+    assert correr(repo, que_anota(tmp_path, antes), monkeypatch, tmp_path) == ronda.TREE_MODIFIED
+    err = capsys.readouterr().err
+    assert "working tree changed" in err
+    assert _informe_nombrado(err) == tmp_path / "informe.md"
+    assert not (tmp_path / "resultado.json").exists()

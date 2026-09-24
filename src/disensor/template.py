@@ -101,9 +101,9 @@ def main_new(args) -> int:
     else:
         a = template(args.gate, args.level, args.profile, Path.cwd())
     path = directory / f"{a['event']['event_id']}.json"
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(a, f, ensure_ascii=False, indent=2)
-        f.write("\n")
+    # Bytes y no modo texto: en Windows el modo texto escribe CRLF, y sin
+    # .gitattributes la declaracion se versionaba asi (#82).
+    path.write_bytes((json.dumps(a, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
     print(f"Template created: {path}")
     print("Fill in the FILL_IN_ fields and the findings of the event; then: disensor validate", path)
     print("Note: the template does not validate until filled in. That is intentional.")

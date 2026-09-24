@@ -112,6 +112,12 @@ CLASIFICACION = {
     ("10ef1bac", "r2"): ("ninguno", OPT_IN, "smoke tests de endurecimiento",
                          "opt-in con costo (DISENSOR_SMOKE=1)",
                          ("prueba de plataforma que corre en el CI", "salteadas que no son brechas")),
+    ("a2dae540", "r1"): (RC, None, "el confinamiento se mantuvo e impidio correr la suite",
+                         "pytest escribe su caché dentro del repositorio y la consigna no le "
+                         "permite escribir ahí", ()),
+    ("a2dae540", "r2"): ("ninguno", VIOLACION,
+                         "escribio en una ruta que git ignora; el #53 lo separa del valor",
+                         "No es una brecha de ejecución: es una violación de confinamiento", ()),
 }
 
 # La tabla se valida antes de medir nada: una categoria o una familia mal

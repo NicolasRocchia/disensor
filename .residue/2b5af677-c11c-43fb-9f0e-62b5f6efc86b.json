@@ -1,0 +1,133 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "2b5af677-c11c-43fb-9f0e-62b5f6efc86b",
+    "created_at": "2026-09-24T17:09:45-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "18bca8cc59d94932604c24192dd80130731c6ad3",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "69215b88b9ef97849593f6450d7adef80091c5bf"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El resultado se escribía por ruta después del último git status, y un destino que en el medio pasara a caer adentro del repositorio lo ensuciaba con un resultado que decía tree_unchanged",
+      "description": "Primera ronda del runner, sobre ed79949. `_emit` miraba que el destino del resultado quedara afuera del repositorio y después creaba el temporal y reemplazaba el nombre por ruta, ya pasado el último `tree_state`. Si entre el chequeo y la escritura el directorio del destino pasaba a ser un enlace hacia el repositorio, el runner escribía adentro después de medir y el resultado declaraba el árbol intacto. El revisor lo alcanza con un adaptador que deja un proceso corriendo, o con otro proceso local que pueda escribir en ese directorio.",
+      "location": "src/disensor/round.py (_emit; _round, el orden entre la escritura del resultado y el último tree_state)",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado leyendo `_round` desde el último `tree_state(repo)` hasta `_emit`: el chequeo `_inside` y la escritura por ruta quedaban después de medir. La carrera ya existía antes de este PR: el código anterior miraba y escribía igual, por ruta y después del chequeo."
+      },
+      "final_state": "incorporated",
+      "remedy_adjustment": "El revisor pedía atar el directorio que se chequea al que se usa para escribir, y eso necesita manejar el directorio por descriptor (dir_fd), que Python no ofrece en Windows. Se aplicó lo que ya valía para el informe: el resultado a un archivo se escribe antes del último chequeo del árbol, y si el árbol cambió se retira (commit 1855de3). Una escritura que cae en una ruta que git ignora sigue sin verse, que es el límite que el propio resultado declara en `tree_check`. Por stdout el resultado sale después del chequeo, porque ahí no hay archivo que retirar.",
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_a_result_that_lands_in_the_tree_is_seen_by_the_last_check"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Un enlace de evidencia con el esquema en mayúsculas dejaba de ser enlace",
+      "description": "Primera ronda del runner, sobre ed79949. `_LINKABLE` distinguía mayúsculas, así que `HTTPS://` salía como texto en el comentario, cuando el esquema de una URL no las distingue y el render anterior enlazaba cualquier valor.",
+      "location": "src/disensor/render.py (_LINKABLE, _evidence_link)",
+      "verification": {
+        "against": "execution",
+        "detail": "Verificado corriendo `_evidence_link` con `HTTPS://ejemplo.invalid/A`, que devolvía texto, y con la API de markdown de GitHub en modo gfm, que conserva `HTTPS://` como enlace (commit 18bca8c)."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_render.py::test_the_evidence_link_shows_its_destination"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "El revisor corrió la suite completa en las dos rondas (591 y 592 pasados, 6 salteados) sin forzar las salteadas: los dos smoke tests de endurecimiento, opt-in con costo (DISENSOR_SMOKE=1), que no ejercitan este cambio; la prueba de permiso de ejecución en POSIX, que no aplica en Windows y corre en el CI de Ubuntu; y tres `index.json` de las suites de vectores, que la parametrización recorre y saltea porque no son vectores. Las pruebas de LF de #82 muerden solo en Windows, donde corrieron el revisor y el generador; las de CRLF muerden en Linux y corren en el CI."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "Lo que el gate muestra en GitHub no se observó de punta a punta. El render del comentario lo verificó el generador con la API de markdown de GitHub en modo gfm, sin publicar nada; el revisor razonó sobre el código. El resumen del job no se vio renderizado: se asume que GitHub lo lee igual que el comentario. El comentario real lo arma recién un gate con este cambio, cuando suba el pin del auto-gate: el de este PR lo arma la 0.10.0."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "requires_human_attention": true,
+        "gap_reason": "other",
+        "description": "No es una brecha de ejecución: es una escritura del revisor adentro del repositorio, y va acá porque ninguna clase del esquema la describe, como en a2dae540. En la primera ronda el revisor corrió la suite sin evitar la caché de pytest, que escribió `.pytest_cache/v/cache/nodeids` a las 16:58:35, adentro de la ronda; el bytecode no se puede distinguir, porque las corridas posteriores del generador lo reescribieron. Son rutas que git ignora, así que el git status del runner no lo vio. La consigna empaquetada dice que correr la suite está bien, y el paquete dice que la única escritura permitida es el informe: se contradicen, y el revisor siguió la primera. En la segunda ronda corrió con PYTHONDONTWRITEBYTECODE=1 y -p no:cacheprovider, y no escribió nada en el checkout."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:099e87a5f19e23aa1ef8ae58d3f5c2db6c09a0e2ecf1857dd858e07992f303ba",
+      "report_hash": "sha256:61cf8472f450f2200641219c16353491e1586b7d0c4265c06b311644cadd8be6"
+    },
+    "dev.disensor.round.previous": [
+      {
+        "result_version": 2,
+        "head_oid": "ed79949df6d2f9f08cdae2f48ddc177d0f2b0ef4",
+        "merge_base_oid": "69215b88b9ef97849593f6450d7adef80091c5bf",
+        "pack_hash": "sha256:da7dc77d9eedf3e877992028b6aabf0384d88850f768eb30937d1e6a19a741da",
+        "report_hash": "sha256:f3fbce64fb122b501a65b7861ca9d9ca68ab7f877ae43179c18ae06b4b0f04e0"
+      }
+    ]
+  }
+}

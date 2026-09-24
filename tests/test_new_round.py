@@ -229,6 +229,25 @@ def test_the_cli_reports_a_mismatch_without_a_traceback(repo: Path, informe: Pat
     assert "new:" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize("con_ronda", [False, True], ids=["new", "new --round"])
+def test_the_declaration_is_written_in_lf(con_ronda, repo: Path, informe: Path, tmp_path, monkeypatch):
+    """template.py abria en modo texto: en Windows la declaracion salia en CRLF y,
+    sin .gitattributes, se versionaba asi (#82).
+
+    Solo muerde en Windows: en Linux, donde corre el CI, el modo texto no traduce.
+    """
+    monkeypatch.chdir(repo)
+    argv = ["new", "--gate", "diff"]
+    if con_ronda:
+        archivo = tmp_path / "resultado.json"
+        archivo.write_text(json.dumps(resultado_de(repo, informe)), encoding="utf-8")
+        argv += ["--round", str(archivo)]
+    args = build_parser().parse_args(argv)
+    assert args.func(args) == 0
+    [declaracion] = (repo / ".residue").iterdir()
+    assert b"\r" not in declaracion.read_bytes()
+
+
 def test_a_diff_round_cannot_be_declared_as_a_plan(repo: Path, informe: Path):
     """Reetiquetar la compuerta haria que la declaracion cubriera algo que
     nadie reviso: el artefacto identifica la revision que ocurrio."""
