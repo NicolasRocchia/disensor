@@ -8,7 +8,7 @@ disensor:
     GIT_DEPTH: "0"   # sin la historia completa no hay merge base y el gate falla cerrado
   script:
     # -I como en action.yml: el directorio de trabajo es el checkout que se juzga.
-    - python -I -m pip install --quiet "disensor==0.10.0"
+    - python -I -m pip install --quiet "disensor==0.11.0"
     - git fetch --quiet origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
     - >-
       python -I -m disensor gate --no-comment --base FETCH_HEAD
