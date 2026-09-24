@@ -336,6 +336,19 @@ not help if `event.pr` carries the URL. The schema says as much about the
 extension space: an identifier-shaped key can still carry a message. Treat
 `minimized` as a reduction of surface, not as a guarantee that nothing leaves.
 
+**On a checkout you do not trust**, run disensor with the full path of an
+interpreter you trust and `-I`: `/path/to/venv/bin/python -I -m disensor ...`
+(on Windows, `C:\path\to\venv\Scripts\python.exe -I -m disensor ...`). The
+`disensor` command that pip installs starts Python without isolation, so
+`PYTHONPATH` and `PYTHONUSERBASE` decide what gets imported before disensor
+runs, and a relative value points into the directory you are in; `-I` turns
+that off, as it does in the Action. The full path matters on Windows: `cmd.exe`
+looks for a bare `python` or `disensor` in the current directory before the
+PATH. `-I` also ignores the user site, so disensor has to be installed in that
+environment, not with `pip install --user`. And clone the repository yourself:
+a directory that arrives with its `.git` inside brings a git configuration that
+every git command obeys there, disensor's included.
+
 ## How this relates to other approaches
 
 Most of the vocabulary people use to search this space describes the
