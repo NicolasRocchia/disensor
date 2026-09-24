@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 from . import gitctx
-from .render import MARKER, render_comment
+from .render import MARKER, md_literal, render_comment
 from .report import after_gate
 from .rules import CURRENT, load_schema, validate_artifact
 from .scope import DEFAULT_SCOPE, ScopeError, accepts_for, floor_patterns, validate_scope
@@ -891,7 +891,9 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
     if coverage_notes:
         body += "\n\nScope applied:\n" + "\n".join(f"- {n}" for n in coverage_notes)
     if warnings:
-        body += "\n\nWarnings:\n" + "\n".join(f"- {w}" for w in warnings)
+        # Un aviso puede citar la declaracion (el reviewer_id) o la
+        # configuracion del head: el mismo escape que el resto del comentario (#85).
+        body += "\n\nWarnings:\n" + "\n".join(f"- {md_literal(w)}" for w in warnings)
 
     write_summary(body)
     if post:
