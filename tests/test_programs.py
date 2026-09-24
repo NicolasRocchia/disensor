@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -197,12 +198,14 @@ def caminos(repo: Path) -> list:
     ]
 
 
-def test_every_git_call_of_the_package_runs_by_absolute_path(repo: Path, monkeypatch):
+def test_every_git_call_of_the_package_runs_by_absolute_path_and_read_only(repo: Path, monkeypatch):
     """Cada camino que llama a git, corrido de verdad, con el argv y el entorno registrados.
 
     El PATH del proceso lleva una entrada relativa a propósito: tiene que
     quedar afuera del entorno que recibe git.
     """
+    from disensor import gitctx
+
     todos = caminos(repo)
     llamadas = []
     real = subprocess.run
@@ -221,5 +224,25 @@ def test_every_git_call_of_the_package_runs_by_absolute_path(repo: Path, monkeyp
 
     for argv, env in llamadas:
         assert Path(argv[0]).is_absolute() and Path(argv[0]).stem.lower() == "git", argv
+        assert argv[1:1 + len(gitctx.READ_ONLY)] == gitctx.READ_ONLY, argv[1:]
         assert env is not None, f"{argv[1:]} heredó el entorno sin sanear"
         assert all(programs.is_absolute(e) for e in env["PATH"].split(os.pathsep)), argv[1:]
+
+
+def test_no_git_call_of_the_package_consults_the_filesystem_monitor(repo: Path, tmp_path: Path):
+    """`status`, `ls-files` y `check-ignore` leen el índice y consultan el monitor (#77).
+
+    El monitor de esta prueba solo deja una marca al lado suyo, fuera del repo.
+    Verificado: sin `core.fsmonitor=` vacío, `tree_state`, `tracked_by_git` e
+    `ignored_by_git` la dejan.
+    """
+    monitor = tmp_path / "monitor.py"
+    monitor.write_text(
+        'import pathlib, sys\npathlib.Path(sys.argv[0]).with_name("consultado").write_text("x")\n',
+        encoding="utf-8",
+    )
+    python = sys.executable.replace("\\", "/")
+    git(repo, "config", "core.fsmonitor", f"'{python}' '{monitor.as_posix()}'")
+    for camino in caminos(repo):
+        camino()
+    assert not (tmp_path / "consultado").exists()

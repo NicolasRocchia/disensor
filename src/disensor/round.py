@@ -65,10 +65,14 @@ TREE_MODIFIED = 5
 UNDECIDABLE = 6
 
 STATUS_ARGS = [
+    # `gitctx.run_git` antepone READ_ONLY: mirar el arbol no escribe el indice
+    # ni consulta el monitor del sistema de archivos (#77).
     "status", "--porcelain=v1", "-z",
     "--untracked-files=all",
     # Sin esto un submodulo sucio pasa desapercibido, y la configuracion del
-    # usuario puede cambiar el default.
+    # usuario puede cambiar el default. Se queda en `none` a proposito: `dirty`
+    # perderia las escrituras dentro de un submodulo y no evitaria los filtros,
+    # que el status del propio superproyecto tambien aplica.
     "--ignore-submodules=none",
 ]
 

@@ -17,21 +17,36 @@ from pathlib import Path
 
 from . import programs
 
+# Toda llamada a git del paquete es una lectura, y una lectura no tiene por que
+# ejecutar nada que nombre la configuracion (#77). Sin el lock opcional, git no
+# reescribe el indice, y reescribirlo dispara post-index-change desde donde
+# diga core.hooksPath, que en una config global relativa (`.githooks`,
+# `.husky`) apunta adentro del repositorio leido. Y el monitor del sistema de
+# archivos es un programa que consulta todo lo que lee el indice, no solo
+# `status`: `ls-files` y `check-ignore` tambien. Vacio lo apaga tanto en el git
+# que lo trata como ruta como en el que lo trata como booleano. Los dos llegan
+# a los submodulos: el flag por GIT_OPTIONAL_LOCKS y `-c` por
+# GIT_CONFIG_PARAMETERS.
+READ_ONLY = ["--no-optional-locks", "-c", "core.fsmonitor="]
+
+
 class GitError(Exception):
     """A git command failed or answered something the gate cannot rely on."""
 
 
 def run_git(args: list[str], cwd: Path, *, text: bool = True) -> subprocess.CompletedProcess:
-    """git by its absolute path, with an environment that points nowhere relative (#75).
+    """git by its absolute path, read-only, with an environment that points nowhere relative.
 
     Every git call of the package goes through here. The program is found in
     the absolute entries of PATH and never in the working directory, which is
-    the repository being read; git gets a PATH it cannot turn back into that
-    directory when it starts helpers of its own. Never raises on a non-zero
-    exit: each caller decides what one means.
+    the repository being read (#75); git gets a PATH it cannot turn back into
+    that directory when it starts helpers of its own; and it runs with
+    `READ_ONLY` in front, so reading does not write the index or consult the
+    filesystem monitor (#77). Never raises on a non-zero exit: each caller
+    decides what one means.
     """
     return subprocess.run(
-        [programs.require("git"), *args],
+        [programs.require("git"), *READ_ONLY, *args],
         capture_output=True, text=text, cwd=cwd, check=False, env=programs.child_env(),
     )
 
