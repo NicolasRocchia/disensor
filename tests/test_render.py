@@ -271,6 +271,10 @@ def test_the_evidence_link_shows_its_destination():
     assert destino == link.replace("&", "&amp;")
     assert _evidence_link("javascript:alert(1)") == "javascript:alert(1)", "solo http(s) es enlace"
     assert _evidence_link("src/x.cs#L41") == "src/x.cs#L41"
+    # h2 de la ronda de este PR: el esquema no distingue mayusculas.
+    assert _evidence_link("HTTPS://ejemplo.invalid/A") == (
+        "[HTTPS\\://ejemplo.invalid/A](<HTTPS://ejemplo.invalid/A>)"
+    )
 
 
 def test_error_lines_escape_what_they_quote_from_the_declaration():

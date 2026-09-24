@@ -26,7 +26,9 @@ _BACKTICKS = re.compile(r"`+")
 # vuelve a leer como markdown, y un `<!--` ahi escondia texto (medido).
 _MAX_FENCE = 80
 _BLOCK_START = re.compile(r"^( {0,3})([-+#]|[0-9]{1,9}(?=[.)]))")
-_LINKABLE = re.compile(r"^https?://")  # como el informe HTML: solo http(s) es enlace
+# Solo http(s) es enlace, como en el informe HTML; el esquema no distingue
+# mayusculas, y GitHub conserva `HTTPS://` como enlace (medido).
+_LINKABLE = re.compile(r"^https?://", re.IGNORECASE)
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 
