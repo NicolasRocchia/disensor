@@ -1,0 +1,19 @@
+# Un job minimo de GitLab CI para el gate de disensor. Ver "Fuera de GitHub" en
+# "Requisitos de despliegue" de README.es.md: los requisitos son los mismos.
+disensor:
+  image: python:3.12
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    GIT_DEPTH: "0"   # sin la historia completa no hay merge base y el gate falla cerrado
+  script:
+    # -I como en action.yml: el directorio de trabajo es el checkout que se juzga.
+    - python -I -m pip install --quiet "disensor==0.10.0"
+    - git fetch --quiet origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - >-
+      python -I -m disensor gate --no-comment --base FETCH_HEAD
+      --head "${CI_MERGE_REQUEST_SOURCE_BRANCH_SHA:-$CI_COMMIT_SHA}"
+      --report-out "$CI_PROJECT_DIR/informe-residuo.html"
+  artifacts:
+    when: on_success
+    paths: [informe-residuo.html]

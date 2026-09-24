@@ -41,6 +41,18 @@ def test_documented_action_version_matches_the_package():
             )
 
 
+def test_the_gitlab_example_installs_the_version_being_shipped():
+    """Fuera de GitHub no hay Action que pinear: el ejemplo de GitLab fija el
+    paquete por version exacta, y esa version tiene que ser la que se publica,
+    igual que el pin de la Action en los otros documentos (#72)."""
+    texto = (ROOT / "docs" / "ejemplo-gitlab-ci.yml").read_text(encoding="utf-8")
+    versiones = re.findall(r"disensor==([0-9]+\.[0-9]+\.[0-9]+)", texto)
+    assert versiones, "el ejemplo de GitLab no fija la version del paquete"
+    assert set(versiones) == {__version__}, (
+        f"el ejemplo de GitLab instala {versiones} y el paquete es {__version__}"
+    )
+
+
 NUL = chr(0)
 
 
@@ -304,11 +316,15 @@ CLAIMS = [
     ("README.es.md",
      r"(\d+) artefactos para v0\.2, (\d+) para v0\.3 y (\d+) para v0\.4",
      ("suite_v0.2", "suite_v0.3", "suite_v0.4")),
+    # La afirmacion de conformidad vive en "Conformance between implementations"
+    # desde que el diario de releases se mudo al CHANGELOG (#68): es sobre el
+    # estado de las suites, no sobre una release. La entrada 0.9.4 del CHANGELOG
+    # la conserva como historia, y ahi no se vigila, porque describe esa version.
     ("README.md",
-     r"conformance runs (\d+) vectors across three suites\s+plus (\d+) shared cases",
+     r"In total, conformance runs (\d+) vectors across three suites\s+plus (\d+) shared cases",
      ("vectors", "shared")),
     ("README.es.md",
-     r"(\d+) vectores en tres suites más (\d+) casos compartidos",
+     r"En total, la conformidad corre (\d+) vectores en tres suites\s+más (\d+) casos compartidos",
      ("vectors", "shared")),
     # El rango de reglas escrito en la prosa de la fuente. Decia R0 a R10 con
     # trece implementadas: la misma clase de cifra que envejecio en el README

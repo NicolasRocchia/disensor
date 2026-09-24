@@ -20,10 +20,17 @@ from disensor.guide import guide_text
 from disensor.init import (
     BLOCK_VERSION,
     CLAUDE_HEADING,
+    KNOWN_BLOCKS,
+    RUNBOOK,
     SKILL_FRONTMATTER,
     UPGRADE_CONFLICT,
+    _block_hash,
 )
 from disensor.pin import PinError
+
+# Lo que escribia init con la marca v0.9, exacto, sacado de los tags: la seccion
+# de 0.9.0 y 0.9.1, la de 0.9.2 a 0.10.0 y la skill de 0.9.0 a 0.10.0.
+BLOQUES = Path(__file__).resolve().parent / "bloques"
 
 # La seccion que escribia la version anterior, EXACTA. El reconocimiento es
 # por hash del bloque entero, asi que una version abreviada no serviria: el
@@ -228,6 +235,55 @@ def test_upgrade_leaves_crlf_files_in_crlf(repo: Path, monkeypatch):
         assert f"disensor:block v{BLOCK_VERSION}".encode("utf-8") in datos, "no se actualizo"
         assert re.search(rb"(?<!\r)\n", datos) is None, f"{ruta}: un salto sin su retorno de carro"
     assert (repo / "CLAUDE.md").read_bytes().startswith(b"# Mi proyecto\r\n\r\nReglas de la casa.\r\n")
+
+
+def instalacion_09(repo: Path, seccion: str) -> Path:
+    """Un repositorio como lo dejaba init con la marca v0.9."""
+    bloque = (BLOQUES / seccion).read_bytes().decode("utf-8")
+    (repo / "CLAUDE.md").write_bytes(("# Mi proyecto\n\nReglas de la casa.\n\n" + bloque).encode("utf-8"))
+    skill = repo / ".claude" / "skills" / "disensor" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_bytes((BLOQUES / "skill-0.9.txt").read_bytes())
+    return skill
+
+
+@pytest.mark.parametrize("seccion", ["claude-0.9.0.txt", "claude-0.9.2.txt"])
+def test_a_0_9_installation_is_upgraded(seccion, repo: Path, monkeypatch, capsys):
+    """El runbook y la seccion dicen ahora quien da el consentimiento de envio
+    (#84), y eso tiene que llegar a las instalaciones que ya existen.
+
+    La marca no alcanza para reconocer el bloque: la seccion cambio en la 0.9.2
+    sin que la marca dejara de decir v0.9, y hasta esta version una instalacion
+    de 0.9.0 se reportaba "current" con el texto viejo. Se reconocen por hash.
+    """
+    for texto, tipo in (((BLOQUES / seccion).read_bytes(), "claude"),
+                        ((BLOQUES / "skill-0.9.txt").read_bytes(), "skill")):
+        assert _block_hash(texto.decode("utf-8")) in KNOWN_BLOCKS[tipo]
+    skill = instalacion_09(repo, seccion)
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    salida = capsys.readouterr().out
+    assert f"upgraded CLAUDE.md (v0.9 -> v{BLOCK_VERSION})" in salida
+    assert f"(runbook v0.9 -> runbook v{BLOCK_VERSION})" in salida
+    claude = (repo / "CLAUDE.md").read_text(encoding="utf-8")
+    assert claude.startswith("# Mi proyecto\n\nReglas de la casa.\n\n")
+    assert f"disensor:block v{BLOCK_VERSION}" in claude and "reviewer consent" in claude
+    assert skill.read_text(encoding="utf-8") == SKILL_FRONTMATTER + RUNBOOK
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    assert "upgraded" not in capsys.readouterr().out, "la segunda corrida no tiene nada que hacer"
+
+
+@pytest.mark.parametrize("cual", ["seccion", "skill"])
+def test_an_edited_0_9_block_is_left_alone(cual, repo: Path, monkeypatch, capsys):
+    """Con la marca v0.9 y una linea del usuario adentro, no se reconoce y no se toca."""
+    skill = instalacion_09(repo, "claude-0.9.2.txt")
+    ruta, marca = (repo / "CLAUDE.md", b"Two rules") if cual == "seccion" else (skill, b"Never paste")
+    original = ruta.read_bytes()
+    assert marca in original
+    ruta.write_bytes(original.replace(marca, b"OJO, lo nuestro. " + marca, 1))
+    antes = ruta.read_bytes()
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == UPGRADE_CONFLICT
+    assert ruta.read_bytes() == antes
+    assert "CONFLICT" in capsys.readouterr().out
 
 
 def test_upgrade_adds_the_gitignore_entry_once(repo: Path, monkeypatch, capsys):

@@ -37,6 +37,11 @@ their errors.
    `informe-residuo.html` at the repository root, the report of every
    declaration with the residue first. Open it before the pull request.
 
+Sending the material to a reviewer outside this machine needs the consent of
+the owner of the repository, and an agent never gives it: it does not run
+`disensor reviewer consent`. When `disensor round` exits with 4 because that
+consent is missing, the agent stops and asks the owner to give it.
+
 Declare what happened, not what should have happened. An event without
 findings and with an express declaration of absence is valid data, not a
 failure.

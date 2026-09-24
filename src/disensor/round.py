@@ -643,9 +643,12 @@ def _round(args, repo: Path) -> int:
                     "id": entry["id"],
                     "outcome": "no_consent",
                     "independence": independence,
+                    # A quien le habla este texto es al que corre la ronda, que
+                    # muchas veces es un agente: la decision es del dueño (#84).
                     "detail": (
                         f"sending the material of {repository} to {entry.get('provider') or 'a third party'} "
-                        f"was not authorised. Run: disensor reviewer consent {entry['id']}"
+                        "was not authorised. That is the owner's decision; they authorise it with: "
+                        f"disensor reviewer consent {entry['id']}"
                     ),
                 })
                 continue
@@ -737,9 +740,10 @@ def _round(args, repo: Path) -> int:
         if sin_permiso:
             estado(
                 "round: no reviewer ran because sending this repository's material was not "
-                "authorised. Authorise the one you want with `disensor reviewer consent "
-                f"{sin_permiso[0]['id']}`, or register a local reviewer, whose material "
-                "never leaves the machine."
+                "authorised. That is the owner's decision: they authorise the one they want "
+                f"with `disensor reviewer consent {sin_permiso[0]['id']}`, or register a local "
+                "reviewer, whose material never leaves the machine. An agent stops here and "
+                "asks them."
             )
         else:
             estado("round: every registered reviewer failed. See the attempts in the result.")

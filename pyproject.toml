@@ -25,6 +25,7 @@ classifiers = [
 Homepage = "https://disensor.dev"
 Repository = "https://github.com/NicolasRocchia/disensor"
 Issues = "https://github.com/NicolasRocchia/disensor/issues"
+Changelog = "https://github.com/NicolasRocchia/disensor/blob/main/CHANGELOG.md"
 Paper = "https://doi.org/10.5281/zenodo.21633495"
 
 [project.optional-dependencies]

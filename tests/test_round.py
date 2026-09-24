@@ -433,6 +433,9 @@ def test_a_cloud_reviewer_without_consent_for_this_repository_is_skipped(
     salida = capsys.readouterr().err
     assert "was not authorised" in salida
     assert "disensor reviewer consent" in salida
+    # El que corre la ronda suele ser un agente: el texto le dice que la
+    # decision es del dueño, no que corra el comando (#84).
+    assert "owner's decision" in salida and "An agent stops here" in salida
 
 
 def test_a_local_reviewer_needs_no_consent(repo: Path, monkeypatch, tmp_path):

@@ -40,6 +40,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PARES = [
     (ROOT / "README.md", ROOT / "README.es.md"),
     (ROOT / "src" / "disensor" / "GUIDE.md", ROOT / "src" / "disensor" / "GUIDE.es.md"),
+    # Una entrada por version en cada idioma: si una se atrasa, la forma difiere (#68).
+    (ROOT / "CHANGELOG.md", ROOT / "CHANGELOG.es.md"),
 ]
 
 CERCA = re.compile(r"^```(\w*)")

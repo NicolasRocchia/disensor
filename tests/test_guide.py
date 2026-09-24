@@ -212,3 +212,20 @@ def test_the_spanish_guide_says_the_runbook_is_english_only(capsys):
     salida = run(capsys, "guide", "--lang", "es")
     assert salida.startswith("> Nota")
     assert "# Running a review event" in salida
+
+
+def test_every_text_an_agent_reads_says_who_gives_the_consent():
+    """#84, opcion 3. Un agente que recibio la aprobacion de la ronda en el chat
+    corrio `disensor reviewer consent` por su cuenta: el comando no distingue ese
+    caso del otro, asi que lo dicen los textos que el agente lee. La guia en los
+    dos idiomas, el runbook que instala init y la seccion de CLAUDE.md."""
+    from disensor.init import CLAUDE_SECTION, RUNBOOK
+
+    textos = {"guia en": guide_text("en"), "guia es": guide_text("es"),
+              "runbook": RUNBOOK, "seccion": CLAUDE_SECTION}
+    for nombre, texto in textos.items():
+        plano = " ".join(texto.split())
+        assert "disensor reviewer consent" in plano, nombre
+    assert "stops and asks the owner" in " ".join(guide_text("en").split())
+    assert "se detiene y le pide al dueño" in " ".join(guide_text("es").split())
+    assert "Never run that command yourself" in " ".join(RUNBOOK.split())
