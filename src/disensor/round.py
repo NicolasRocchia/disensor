@@ -681,13 +681,43 @@ def _round(args, repo: Path) -> int:
 
     # De aca en adelante la corrida ya se pago: si algo falla, el mensaje dice
     # donde quedo el informe, que es lo unico que no se vuelve a pedir gratis.
+    def despues_de_pagar(exc: Exception) -> RoundError:
+        return RoundError(str(exc) if destino is None else f"{exc}. {_paid_for(destino)}")
+
+    if usado is None:
+        resultado = _result(
+            args, repository, base, head, merge_base, target_tip, hashes, None, None, attempts,
+        )
+    else:
+        entry, independence = usado
+        resultado = _result(
+            args, repository, base, head, merge_base, target_tip,
+            hashes, entry, independence, attempts, report_path=destino,
+            report_digest=file_hash(destino),
+        )
+
+    # El resultado a un archivo se escribe ANTES del ultimo chequeo del arbol,
+    # como el informe. Escrito despues, un destino que entre el chequeo y la
+    # escritura pasara a caer adentro del repositorio (su directorio cambiado
+    # por un enlace, por ejemplo) quedaba ensuciando el arbol con un resultado
+    # que declaraba tree_unchanged, y ningun chequeo lo veia. Si el arbol
+    # cambio, el resultado se retira. Por stdout sale despues: no se retira.
+    escrito = False
+    if destino_resultado is not None:
+        try:
+            _emit(resultado, destino_resultado, repo)
+        except RoundError as exc:
+            raise despues_de_pagar(exc) from exc
+        escrito = True
     try:
         despues = tree_state(repo)
     except (RoundError, gitctx.GitError) as exc:
-        if destino is None:
-            raise
-        raise RoundError(f"{exc}. {_paid_for(destino)}") from exc
+        if escrito:
+            _withdraw(destino_resultado)
+        raise despues_de_pagar(exc) from exc
     if despues != antes:
+        if escrito:
+            _withdraw(destino_resultado)
         estado(
             "round: the working tree changed during the round. The declaration is not "
             "written: a reviewer that writes is not a reviewer that only reads, and what "
@@ -696,6 +726,11 @@ def _round(args, repo: Path) -> int:
         if destino is not None:
             estado(f"round: {_paid_for(destino)}")
         return TREE_MODIFIED
+    if destino_resultado is None:
+        try:
+            _emit(resultado, None, repo)
+        except RoundError as exc:
+            raise despues_de_pagar(exc) from exc
 
     if usado is None:
         sin_permiso = [a for a in attempts if a["outcome"] == "no_consent"]
@@ -708,22 +743,8 @@ def _round(args, repo: Path) -> int:
             )
         else:
             estado("round: every registered reviewer failed. See the attempts in the result.")
-        _emit(_result(
-            args, repository, base, head, merge_base, target_tip,
-            hashes, None, None, attempts,
-        ), destino_resultado, repo)
         return CHAIN_EXHAUSTED
 
-    entry, independence = usado
-    resultado = _result(
-        args, repository, base, head, merge_base, target_tip,
-        hashes, entry, independence, attempts, report_path=destino,
-        report_digest=file_hash(destino),
-    )
-    try:
-        _emit(resultado, destino_resultado, repo)
-    except RoundError as exc:
-        raise RoundError(f"{exc}. {_paid_for(destino)}") from exc
     estado(
         f"round: reviewed by {entry['id']} ({entry['family']}, {independence}, "
         f"hardening {entry.get('hardening', 'unverified')}). Report at {destino}"
@@ -818,6 +839,19 @@ def estado(*args, **kwargs) -> None:
 
 def _paid_for(destino: Path) -> str:
     return f"The round already ran: its report is at {destino}"
+
+
+def _withdraw(resultado: Path) -> None:
+    """Remove a result that turned out false: it says the tree was unchanged."""
+    try:
+        resultado.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        estado(
+            f"round: the result at {resultado} could not be withdrawn ({exc.strerror or exc}). "
+            "It says the tree was unchanged, and it was not: delete it before using it."
+        )
 
 
 def _emit(resultado: dict, destino: Path | None, repo: Path) -> None:

@@ -955,6 +955,30 @@ def test_a_result_turned_into_a_link_to_the_report_leaves_the_report_alone(
     assert r["observed"]["report_hash"] == ronda.file_hash(informe)
 
 
+def test_a_result_that_lands_in_the_tree_is_seen_by_the_last_check(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """h1 de la ronda de este PR: el resultado se escribia por ruta despues del
+    ultimo git status. Si entre los chequeos y la escritura el destino pasaba a
+    caer adentro del repositorio (su directorio cambiado por un enlace), el
+    runner ensuciaba el arbol con un resultado que decia tree_unchanged.
+
+    La carrera se simula haciendo que los chequeos crean que el destino esta
+    afuera: la escritura cae adentro, y ahora pasa antes del ultimo chequeo, que
+    la ve y retira el resultado.
+    """
+    un_cambio(repo)
+    real = ronda._inside
+    monkeypatch.setattr(
+        ronda, "_inside", lambda path, r: False if Path(path).name == "r.json" else real(path, r),
+    )
+    code = correr(repo, que_anota(tmp_path), monkeypatch, tmp_path, result=repo / "r.json")
+    assert code == ronda.TREE_MODIFIED
+    assert not (repo / "r.json").exists(), "un resultado que afirma un arbol intacto se retira"
+    assert git(repo, "status", "--porcelain") == ""
+    assert _informe_nombrado(capsys.readouterr().err) == tmp_path / "informe.md"
+
+
 def test_a_closed_pipe_names_the_report(repo: Path, monkeypatch, tmp_path, capsys):
     """Con el resultado por stdout, un pipe cerrado del otro lado terminaba en un
     traceback, sin decir donde quedo el informe de una corrida ya pagada."""
