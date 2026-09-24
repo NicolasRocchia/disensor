@@ -29,9 +29,10 @@ import hashlib
 import json
 import re
 import os
-import shutil
 import subprocess
 from pathlib import Path
+
+from . import programs
 
 PLACEHOLDERS = {"{pack}", "{report}"}
 
@@ -191,8 +192,14 @@ def _is_known_placeholder(arg: str) -> bool:
 
 
 def resolve_executable(command: list[str]) -> str | None:
-    """Absolute path of what would actually run, so the owner sees it."""
-    return shutil.which(command[0])
+    """Absolute path of what would actually run, so the owner sees it.
+
+    From the absolute entries of PATH, or an absolute path taken as is, and
+    never from the working directory (#75): on Windows `shutil.which` looked
+    there first and answered a relative path, which this global registry then
+    kept and ran from wherever the next round started.
+    """
+    return programs.find(command[0])
 
 
 def executable_fingerprint(path: str) -> str | None:
@@ -254,6 +261,12 @@ def build_entry(
             "declaracion afirma otra cosa"
         )
     ruta = resolve_executable(command)
+    if ruta is None and os.path.dirname(command[0]) and not programs.is_absolute(command[0]):
+        raise ReviewerError(
+            f"{command[0]!r} is a relative path. The registry is global, so the program has to "
+            "be on PATH or given as an absolute path: a relative one would name a different "
+            "program depending on the directory each round starts from"
+        )
     if ruta is None:
         raise ReviewerError(
             f"{command[0]!r} is not on PATH. An entry that cannot run is worse than no entry: "

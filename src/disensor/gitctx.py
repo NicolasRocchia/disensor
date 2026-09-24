@@ -15,15 +15,44 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+from . import programs
+
+# Toda llamada a git del paquete es una lectura, y una lectura no tiene por que
+# ejecutar nada que nombre la configuracion (#77). Sin el lock opcional, git no
+# reescribe el indice, y reescribirlo dispara post-index-change desde donde
+# diga core.hooksPath, que en una config global relativa (`.githooks`,
+# `.husky`) apunta adentro del repositorio leido. Y el monitor del sistema de
+# archivos es un programa que consulta todo lo que lee el indice, no solo
+# `status`: `ls-files` y `check-ignore` tambien. Vacio lo apaga tanto en el git
+# que lo trata como ruta como en el que lo trata como booleano. Los dos llegan
+# a los submodulos: el flag por GIT_OPTIONAL_LOCKS y `-c` por
+# GIT_CONFIG_PARAMETERS.
+READ_ONLY = ["--no-optional-locks", "-c", "core.fsmonitor="]
+
 
 class GitError(Exception):
     """A git command failed or answered something the gate cannot rely on."""
 
 
-def _git(args: list[str], cwd: Path) -> str:
-    r = subprocess.run(
-        ["git", *args], capture_output=True, text=True, cwd=cwd, check=False,
+def run_git(args: list[str], cwd: Path, *, text: bool = True) -> subprocess.CompletedProcess:
+    """git by its absolute path, read-only, with an environment that points nowhere relative.
+
+    Every git call of the package goes through here. The program is found in
+    the absolute entries of PATH and never in the working directory, which is
+    the repository being read (#75); git gets a PATH it cannot turn back into
+    that directory when it starts helpers of its own; and it runs with
+    `READ_ONLY` in front, so reading does not write the index or consult the
+    filesystem monitor (#77). Never raises on a non-zero exit: each caller
+    decides what one means.
+    """
+    return subprocess.run(
+        [programs.require("git"), *READ_ONLY, *args],
+        capture_output=True, text=text, cwd=cwd, check=False, env=programs.child_env(),
     )
+
+
+def _git(args: list[str], cwd: Path) -> str:
+    r = run_git(args, cwd)
     if r.returncode != 0:
         raise GitError(f"git {' '.join(args)}: {r.stderr.strip() or 'failed'}")
     return r.stdout
@@ -68,10 +97,7 @@ def merge_base(base: str, head: str, cwd: Path) -> str:
 
 
 def is_ancestor(ancestor: str, descendant: str, cwd: Path) -> bool:
-    r = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
-        capture_output=True, text=True, cwd=cwd, check=False,
-    )
+    r = run_git(["merge-base", "--is-ancestor", ancestor, descendant], cwd)
     if r.returncode not in (0, 1):
         raise GitError(f"could not compare {ancestor[:7]} and {descendant[:7]}: {r.stderr.strip()}")
     return r.returncode == 0
@@ -131,10 +157,7 @@ def list_tree(rev: str, prefix: str, cwd: Path) -> list[str]:
 
 
 def show_text(rev: str, path: str, cwd: Path) -> str:
-    r = subprocess.run(
-        ["git", "show", f"{rev}:{path}"],
-        capture_output=True, cwd=cwd, check=False,
-    )
+    r = run_git(["show", f"{rev}:{path}"], cwd, text=False)
     if r.returncode != 0:
         raise GitError(f"could not read {path} at {rev[:7]}")
     return r.stdout.decode("utf-8")
@@ -153,10 +176,7 @@ def canonical_repository(cwd: Path) -> str:
     stays: a mirror on a different service shares the commits and is NOT the
     same repository, which is the case this identity exists to separate.
     """
-    r = subprocess.run(
-        ["git", "config", "--get", "remote.origin.url"],
-        capture_output=True, text=True, cwd=cwd, check=False,
-    )
+    r = run_git(["config", "--get", "remote.origin.url"], cwd)
     return normalize_repository(r.stdout.strip() if r.returncode == 0 else "")
 
 

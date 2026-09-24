@@ -31,7 +31,6 @@ import html
 import json
 import os
 import re
-import subprocess
 import sys
 import webbrowser
 from collections import Counter
@@ -1215,9 +1214,8 @@ def describe_source(directory: Path, since: date | None = None, total: int | Non
     uncommitted = 0
     try:
         commit = gitctx._git(["rev-parse", "--short", "HEAD"], source_root).strip() or None
-        status = subprocess.run(
-            ["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", rel],
-            cwd=source_root, capture_output=True, text=True, check=False,
+        status = gitctx.run_git(
+            ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", rel], source_root,
         )
         if status.returncode == 0:
             uncommitted = len([f for f in status.stdout.split("\0") if f])
@@ -1238,8 +1236,7 @@ def tracked_by_git(path: Path) -> bool:
     try:
         root = gitctx.repo_root(parent)
         rel = path.resolve().relative_to(root.resolve()).as_posix()
-        r = subprocess.run(["git", "ls-files", "--error-unmatch", "--", rel], cwd=root,
-                           capture_output=True, text=True, check=False)
+        r = gitctx.run_git(["ls-files", "--error-unmatch", "--", rel], root)
     except (gitctx.GitError, OSError, ValueError):
         return False
     return r.returncode == 0
@@ -1305,8 +1302,7 @@ def ignored_by_git(path: Path, root: Path) -> bool:
     except ValueError:
         rel = str(path)
     try:
-        r = subprocess.run(["git", "check-ignore", "-q", "--", rel], cwd=root,
-                           capture_output=True, text=True, check=False)
+        r = gitctx.run_git(["check-ignore", "-q", "--", rel], root)
     except OSError:
         return False
     return r.returncode == 0

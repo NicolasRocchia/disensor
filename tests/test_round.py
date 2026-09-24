@@ -9,6 +9,7 @@ por alguien que no la escribió.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -224,6 +225,67 @@ def correr(repo: Path, registro: dict, monkeypatch, tmp_path: Path, **extra):
     args = build_parser().parse_args(argv)
     monkeypatch.chdir(repo)
     return args.func(args)
+
+
+def test_tree_state_does_not_rewrite_the_index(repo: Path):
+    """Mirar el árbol no escribe el índice (#77).
+
+    Con la entrada del índice desactualizada, un `git status` común la refresca
+    y reescribe el índice, y reescribirlo dispara post-index-change desde donde
+    diga core.hooksPath. Verificado: sin `--no-optional-locks` esta prueba falla.
+    """
+    indice = repo / ".git" / "index"
+    st = (repo / "a.py").stat()
+    os.utime(repo / "a.py", ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    antes = indice.read_bytes()
+    assert ronda.tree_state(repo) == ""
+    assert indice.read_bytes() == antes
+
+
+def test_tree_state_does_not_consult_the_filesystem_monitor(repo: Path, tmp_path: Path):
+    """El monitor del sistema de archivos es un programa que nombra la configuración (#77).
+
+    El monitor de esta prueba solo deja una marca al lado suyo, fuera del repo.
+    Verificado: sin `core.fsmonitor=` vacío, la marca aparece.
+    """
+    monitor = tmp_path / "monitor.py"
+    monitor.write_text(
+        'import pathlib, sys\npathlib.Path(sys.argv[0]).with_name("consultado").write_text("x")\n',
+        encoding="utf-8",
+    )
+    python = sys.executable.replace("\\", "/")
+    git(repo, "config", "core.fsmonitor", f"'{python}' '{monitor.as_posix()}'")
+    assert ronda.tree_state(repo) == ""
+    assert not (tmp_path / "consultado").exists()
+
+
+def test_a_relative_executable_from_an_old_registry_does_not_run(tmp_path):
+    """Antes de #75, `reviewer add` podía guardar `.\\codex.CMD`: eso no se corre."""
+    comando = revisor_falso(tmp_path, "viejo", ESCRIBE_Y_SALE_BIEN)
+    vieja = entrada("viejo", "openai", comando, executable=str(Path(".") / "viejo.cmd"))
+    informe = tmp_path / "informe.md"
+    intento = run_reviewer(vieja, "paquete", informe, timeout=30)
+    assert intento["outcome"] == "not_runnable"
+    assert "relative path" in intento["detail"]
+    assert not informe.exists()
+
+
+def test_a_relative_executable_has_no_verified_hardening(tmp_path, monkeypatch):
+    """Una ruta relativa no ata ningún binario, aunque el que encuentre hoy coincida.
+
+    El archivo existe y su hash es el registrado: sin el rechazo de la ruta
+    relativa, la entrada saldría `verified` y esta prueba fallaría.
+    """
+    from disensor.reviewers import executable_fingerprint
+    from disensor.round import effective_hardening
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "binario-de-prueba").write_bytes(b"bytes que coinciden")
+    vieja = entrada_catalogada("codex")
+    vieja["executable"] = str(Path(".") / "binario-de-prueba")
+    vieja["executable_hash"] = executable_fingerprint(vieja["executable"])
+    assert vieja["executable_hash"] is not None
+    assert effective_hardening(vieja) == "unverified"
 
 
 def test_a_dirty_tree_stops_the_round(repo: Path, monkeypatch, tmp_path, capsys):

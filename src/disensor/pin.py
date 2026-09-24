@@ -11,12 +11,11 @@ place, so neither trap is reachable.
 """
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 from pathlib import Path
 
-from . import __version__
+from . import __version__, programs
 
 ACTION_REPOSITORY = "https://github.com/NicolasRocchia/disensor"
 
@@ -53,14 +52,17 @@ def resolve_tag_commit(version: str, runner=subprocess.run) -> str:
     tag = f"refs/tags/v{version}"
     try:
         r = runner(
-            ["git", "ls-remote", ACTION_REPOSITORY, tag, tag + "^{}"],
+            # By absolute path and with a PATH of absolute entries, like every
+            # git call of the package (#75). Resolving inside the try keeps a
+            # missing git on the graceful path below.
+            [programs.require("git"), "ls-remote", ACTION_REPOSITORY, tag, tag + "^{}"],
             capture_output=True, text=True, check=False,
             # A blackholed network hangs ls-remote forever and a hung init is
             # worse than a tag pin; and git must never stop to ask a human
             # for credentials on a public repository (both findings of the
             # 0.7.0 round).
             timeout=30,
-            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            env={**programs.child_env(), "GIT_TERMINAL_PROMPT": "0"},
         )
     except subprocess.TimeoutExpired as exc:
         raise PinError(

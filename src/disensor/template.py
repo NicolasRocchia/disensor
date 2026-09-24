@@ -10,7 +10,6 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
-import subprocess
 import sys
 import uuid
 
@@ -20,7 +19,7 @@ from .rules import CURRENT
 
 
 def _git(args: list[str], cwd: Path) -> str:
-    r = subprocess.run(["git", *args], capture_output=True, text=True, cwd=cwd, check=False)
+    r = gitctx.run_git(args, cwd)
     return r.stdout.strip() if r.returncode == 0 else ""
 
 

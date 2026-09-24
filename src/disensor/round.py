@@ -28,13 +28,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-from . import __version__, gitctx
+from . import __version__, gitctx, programs
 from .brief import brief_text, hash_of
 from .gate import GateFailure, classify_requirement, resolve_context
 from .pack import canonical_pack_text, deliver, material_hash, pack_hash, read_material
@@ -66,10 +65,14 @@ TREE_MODIFIED = 5
 UNDECIDABLE = 6
 
 STATUS_ARGS = [
+    # `gitctx.run_git` antepone READ_ONLY: mirar el arbol no escribe el indice
+    # ni consulta el monitor del sistema de archivos (#77).
     "status", "--porcelain=v1", "-z",
     "--untracked-files=all",
     # Sin esto un submodulo sucio pasa desapercibido, y la configuracion del
-    # usuario puede cambiar el default.
+    # usuario puede cambiar el default. Se queda en `none` a proposito: `dirty`
+    # perderia las escrituras dentro de un submodulo y no evitaria los filtros,
+    # que el status del propio superproyecto tambien aplica.
     "--ignore-submodules=none",
 ]
 
@@ -80,9 +83,7 @@ class RoundError(Exception):
 
 def tree_state(repo: Path) -> str:
     """The tree as git sees it right now, with flags that do not depend on config."""
-    out = subprocess.run(
-        ["git", *STATUS_ARGS], cwd=repo, capture_output=True, text=True, check=False,
-    )
+    out = gitctx.run_git(STATUS_ARGS, repo)
     if out.returncode != 0:
         raise RoundError(f"git status failed: {out.stderr.strip()}")
     return out.stdout
@@ -195,8 +196,10 @@ def effective_hardening(entry: dict) -> str:
     # receta intacta para que un programa cualquiera corriera declarado como el
     # adaptador probado.
     esperado = entry.get("executable_hash")
-    ruta = entry.get("executable") or shutil.which(entry["command"][0])
-    if not esperado or not ruta:
+    ruta = entry.get("executable") or programs.find(entry["command"][0])
+    # Una ruta relativa, como las que se registraban antes de #75, nombra lo que
+    # haya en el directorio de trabajo de cada corrida: no ata ningun binario.
+    if not esperado or not ruta or not programs.is_absolute(ruta):
         return "unverified"
     return "verified" if executable_fingerprint(ruta) == esperado else "unverified"
 
@@ -210,9 +213,22 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     # La ruta absoluta y no el nombre: en Windows un CLI instalado por npm es un
     # .CMD que subprocess no encuentra por nombre, y la corrida fallaria con un
     # error que parece "el revisor no anda" cuando en realidad nunca arranco.
-    executable = entry.get("executable") or shutil.which(entry["command"][0])
+    executable = entry.get("executable") or programs.find(entry["command"][0])
     if not executable:
         return {"id": entry["id"], "outcome": "not_found", "detail": "executable not on PATH"}
+    # Las entradas registradas antes de #75 pueden guardar una ruta relativa al
+    # directorio donde se corrio `reviewer add`. Correrla aca ejecutaria lo que
+    # ese nombre encuentre desde el directorio de esta corrida.
+    if not programs.is_absolute(executable):
+        return {
+            "id": entry["id"],
+            "outcome": "not_runnable",
+            "detail": (
+                f"the registered executable {executable!r} is a relative path, so it would run "
+                "whatever that name finds from the current directory. Remove the reviewer and "
+                "add it again"
+            ),
+        }
 
     # El binario que corre tiene que ser el que el dueño aprobo. La entrada
     # guarda su hash justamente para eso, y no compararlo lo volvia decorativo:
