@@ -28,10 +28,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from pathlib import Path
 
-from . import __version__
+from . import __version__, gitctx
 from .guide import guide_text
 from .pin import PinError, pin_text, resolve_tag_commit
 
@@ -187,10 +186,7 @@ V01_CONFIG_KEYS = {"nivel_criticidad", "nivel_A_habilitado"}
 
 
 def _is_git_repo(cwd: Path) -> bool:
-    r = subprocess.run(
-        ["git", "rev-parse", "--is-inside-work-tree"],
-        capture_output=True, text=True, cwd=cwd, check=False,
-    )
+    r = gitctx.run_git(["rev-parse", "--is-inside-work-tree"], cwd)
     return r.returncode == 0 and r.stdout.strip() == "true"
 
 

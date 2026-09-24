@@ -9,10 +9,13 @@ endings (the CRLF incident family).
 """
 from __future__ import annotations
 
+import os
 import subprocess
+from pathlib import Path
 
 import pytest
 
+from disensor import programs
 from disensor.cli import build_parser
 from disensor.pin import PinError, pin_text, resolve_tag_commit
 
@@ -30,7 +33,12 @@ def fake_runner(returncode: int, stdout: str = "", stderr: str = ""):
     call stops looking like the one production must make.
     """
     def run(cmd, **kwargs):
-        assert cmd[:2] == ["git", "ls-remote"]
+        # git por ruta absoluta y con un PATH sin entradas relativas (#75).
+        assert Path(cmd[0]).is_absolute() and Path(cmd[0]).stem.lower() == "git", cmd[0]
+        assert cmd[1] == "ls-remote"
+        assert all(
+            programs.is_absolute(e) for e in kwargs.get("env", {}).get("PATH", "").split(os.pathsep)
+        ), "the child PATH keeps only absolute entries"
         assert kwargs.get("capture_output") is True, "production reads r.stdout"
         assert kwargs.get("text") is True, "production parses stdout as str"
         assert kwargs.get("timeout"), "ls-remote without a timeout hangs forever"

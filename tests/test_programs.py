@@ -11,6 +11,7 @@ ejecuta, solo se mira qué ruta se resuelve.
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -150,3 +151,75 @@ def test_an_absolute_windows_path_is_found_even_if_pathext_does_not_name_its_ext
     ruta = programa(tmp_path / "bin")
     monkeypatch.setenv("PATHEXT", ".CMD")
     assert programs.find(str(ruta)) == str(ruta)
+
+
+# ---------------------------------------------------------------------------
+# Todas las llamadas a git del paquete
+# ---------------------------------------------------------------------------
+def git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=repo, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+
+
+@pytest.fixture()
+def repo(tmp_path: Path) -> Path:
+    d = tmp_path / "repo"
+    d.mkdir()
+    git(d, "init", "-q", "-b", "main")
+    (d / "a.txt").write_text("a\n", encoding="utf-8")
+    git(d, "add", "-A")
+    git(d, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
+    return d
+
+
+def caminos(repo: Path) -> list:
+    """Cada camino del paquete que llama a git, contra un repo de prueba."""
+    from disensor import gitctx, init, report, template
+    from disensor import round as ronda
+
+    head = git(repo, "rev-parse", "HEAD")
+    (repo / ".residue").mkdir(exist_ok=True)
+    return [
+        lambda: gitctx.repo_root(repo),
+        lambda: gitctx.resolve_commit("HEAD", repo),
+        lambda: gitctx.merge_base(head, head, repo),
+        lambda: gitctx.is_ancestor(head, head, repo),
+        lambda: gitctx.changed_paths(head, head, repo),
+        lambda: gitctx.show_text(head, "a.txt", repo),
+        lambda: gitctx.canonical_repository(repo),
+        lambda: ronda.tree_state(repo),
+        lambda: report.tracked_by_git(repo / "a.txt"),
+        lambda: report.ignored_by_git(repo / "a.txt", repo),
+        lambda: report.describe_source(repo / ".residue"),
+        lambda: template._git(["rev-parse", "HEAD"], repo),
+        lambda: init._is_git_repo(repo),
+    ]
+
+
+def test_every_git_call_of_the_package_runs_by_absolute_path(repo: Path, monkeypatch):
+    """Cada camino que llama a git, corrido de verdad, con el argv y el entorno registrados.
+
+    El PATH del proceso lleva una entrada relativa a propósito: tiene que
+    quedar afuera del entorno que recibe git.
+    """
+    todos = caminos(repo)
+    llamadas = []
+    real = subprocess.run
+
+    def registrar(argv, *args, **kwargs):
+        llamadas.append((list(argv), kwargs.get("env")))
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", registrar)
+    monkeypatch.setenv("PATH", "." + os.pathsep + os.environ["PATH"])
+
+    for camino in todos:
+        antes = len(llamadas)
+        camino()
+        assert len(llamadas) > antes, "el camino no llamó a git por subprocess.run"
+
+    for argv, env in llamadas:
+        assert Path(argv[0]).is_absolute() and Path(argv[0]).stem.lower() == "git", argv
+        assert env is not None, f"{argv[1:]} heredó el entorno sin sanear"
+        assert all(programs.is_absolute(e) for e in env["PATH"].split(os.pathsep)), argv[1:]

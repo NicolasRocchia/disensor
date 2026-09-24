@@ -80,9 +80,7 @@ class RoundError(Exception):
 
 def tree_state(repo: Path) -> str:
     """The tree as git sees it right now, with flags that do not depend on config."""
-    out = subprocess.run(
-        ["git", *STATUS_ARGS], cwd=repo, capture_output=True, text=True, check=False,
-    )
+    out = gitctx.run_git(STATUS_ARGS, repo)
     if out.returncode != 0:
         raise RoundError(f"git status failed: {out.stderr.strip()}")
     return out.stdout
