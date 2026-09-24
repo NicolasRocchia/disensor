@@ -226,6 +226,35 @@ def correr(repo: Path, registro: dict, monkeypatch, tmp_path: Path, **extra):
     return args.func(args)
 
 
+def test_a_relative_executable_from_an_old_registry_does_not_run(tmp_path):
+    """Antes de #75, `reviewer add` podía guardar `.\\codex.CMD`: eso no se corre."""
+    comando = revisor_falso(tmp_path, "viejo", ESCRIBE_Y_SALE_BIEN)
+    vieja = entrada("viejo", "openai", comando, executable=str(Path(".") / "viejo.cmd"))
+    informe = tmp_path / "informe.md"
+    intento = run_reviewer(vieja, "paquete", informe, timeout=30)
+    assert intento["outcome"] == "not_runnable"
+    assert "relative path" in intento["detail"]
+    assert not informe.exists()
+
+
+def test_a_relative_executable_has_no_verified_hardening(tmp_path, monkeypatch):
+    """Una ruta relativa no ata ningún binario, aunque el que encuentre hoy coincida.
+
+    El archivo existe y su hash es el registrado: sin el rechazo de la ruta
+    relativa, la entrada saldría `verified` y esta prueba fallaría.
+    """
+    from disensor.reviewers import executable_fingerprint
+    from disensor.round import effective_hardening
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "binario-de-prueba").write_bytes(b"bytes que coinciden")
+    vieja = entrada_catalogada("codex")
+    vieja["executable"] = str(Path(".") / "binario-de-prueba")
+    vieja["executable_hash"] = executable_fingerprint(vieja["executable"])
+    assert vieja["executable_hash"] is not None
+    assert effective_hardening(vieja) == "unverified"
+
+
 def test_a_dirty_tree_stops_the_round(repo: Path, monkeypatch, tmp_path, capsys):
     """La ronda de diff revisa commits que ya existen."""
     (repo / "b.py").write_text("y = 2\n", encoding="utf-8")

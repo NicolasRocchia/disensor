@@ -91,6 +91,16 @@ def test_an_executable_not_on_path_is_refused():
         build_entry("fantasma", "other", "x", ["no-existe-este-binario"], from_catalog=False)
 
 
+def test_a_relative_path_with_a_directory_is_refused_at_registration(tmp_path, monkeypatch):
+    """El registro es global: una ruta relativa nombraría otro programa en cada directorio (#75)."""
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tools" / "revisor.py").write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ReviewerError, match="relative path"):
+        build_entry("relativo", "other", "m", [str(Path("tools") / "revisor.py"), "{pack}"],
+                    from_catalog=False)
+
+
 def test_the_entry_records_the_executable_and_its_hash():
     """Si el binario cambia, el consentimiento y el endurecimiento dejan de valer."""
     entry = build_entry("propio", "other", "m", [sys.executable, "-c", "pass"],
