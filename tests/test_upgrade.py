@@ -187,6 +187,49 @@ def test_a_rejected_invocation_writes_nothing(tmp_path, monkeypatch, capsys):
     assert "Pick one" in capsys.readouterr().out
 
 
+def instalacion_vieja_en_bytes(repo: Path, fin: bytes) -> None:
+    """La misma instalacion, escrita en bytes y con el final de linea pedido."""
+    def con(texto: str) -> bytes:
+        return texto.encode("utf-8").replace(b"\n", fin)
+
+    (repo / "CLAUDE.md").write_bytes(con("# Mi proyecto\n\nReglas de la casa.\n\n" + CLAUDE_0_7))
+    skill = repo / ".claude" / "skills" / "disensor" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_bytes(con(SKILL_FRONTMATTER + guide_text()))
+
+
+REESCRITOS = ("CLAUDE.md", ".claude/skills/disensor/SKILL.md")
+
+
+def test_upgrade_leaves_lf_files_in_lf(repo: Path, monkeypatch):
+    """`_upgrade_claude` y `_upgrade_skill` reescribian con write_text: en Windows,
+    CLAUDE.md y la skill volvian en CRLF en cada actualizacion (#82).
+
+    Solo muerde en Windows: en Linux, donde corre el CI, el modo texto no traduce.
+    """
+    instalacion_vieja_en_bytes(repo, b"\n")
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    for ruta in REESCRITOS:
+        datos = (repo / ruta).read_bytes()
+        assert f"disensor:block v{BLOCK_VERSION}".encode("utf-8") in datos, "no se actualizo"
+        assert b"\r" not in datos, f"{ruta} salio con retornos de carro"
+    assert (repo / "CLAUDE.md").read_bytes().startswith(b"# Mi proyecto\n\nReglas de la casa.\n")
+
+
+def test_upgrade_leaves_crlf_files_in_crlf(repo: Path, monkeypatch):
+    """Muerde en cualquier sistema: el modo texto leia CRLF como LF y, en Linux,
+    reescribia el archivo entero en LF."""
+    import re
+
+    instalacion_vieja_en_bytes(repo, b"\r\n")
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    for ruta in REESCRITOS:
+        datos = (repo / ruta).read_bytes()
+        assert f"disensor:block v{BLOCK_VERSION}".encode("utf-8") in datos, "no se actualizo"
+        assert re.search(rb"(?<!\r)\n", datos) is None, f"{ruta}: un salto sin su retorno de carro"
+    assert (repo / "CLAUDE.md").read_bytes().startswith(b"# Mi proyecto\r\n\r\nReglas de la casa.\r\n")
+
+
 def test_upgrade_adds_the_gitignore_entry_once(repo: Path, monkeypatch, capsys):
     """Una instalacion anterior no ignoraba el informe; el upgrade agrega la
     linea y la segunda corrida la deja como esta."""

@@ -218,3 +218,45 @@ def test_init_keeps_a_gitignore_that_already_ignores_the_report(repo, monkeypatc
     run_init(repo, monkeypatch)
     assert (repo / ".gitignore").read_bytes() == original
     assert "kept    .gitignore" in capsys.readouterr().out
+
+
+# --- line endings (#82): init writes bytes, like the .gitignore above
+
+PIECES = (
+    "disensor.config.json",
+    "CLAUDE.md",
+    ".claude/skills/disensor/SKILL.md",
+    ".github/workflows/disensor.yml",
+    ".gitignore",
+)
+
+
+def test_init_writes_lf_and_keeps_an_lf_claude_md_as_it_was(repo, monkeypatch):
+    """El modo texto escribia CRLF en Windows: las piezas nuevas salian en CRLF y un
+    CLAUDE.md en LF volvia entero en CRLF, las lineas que ya estaban incluidas.
+
+    Solo muerde en Windows: en Linux, donde corre el CI, el modo texto no traduce.
+    """
+    original = b"# Mi proyecto\n\nReglas de la casa.\n"
+    (repo / "CLAUDE.md").write_bytes(original)
+    run_init(repo, monkeypatch)
+    for piece in PIECES:
+        assert b"\r" not in (repo / piece).read_bytes(), f"{piece} salio con retornos de carro"
+    assert (repo / "CLAUDE.md").read_bytes().startswith(original)
+
+
+def test_init_appends_to_a_crlf_claude_md_in_crlf(repo, monkeypatch):
+    """Lo que init agrega toma el final de linea del archivo, como en el .gitignore.
+
+    Muerde en cualquier sistema: el modo texto leia CRLF como LF y, en Linux,
+    reescribia el archivo entero en LF.
+    """
+    import re
+
+    original = b"# Mi proyecto\r\n\r\nReglas de la casa.\r\n"
+    (repo / "CLAUDE.md").write_bytes(original)
+    run_init(repo, monkeypatch)
+    datos = (repo / "CLAUDE.md").read_bytes()
+    assert datos.startswith(original)
+    assert CLAUDE_HEADING.encode("utf-8") in datos
+    assert re.search(rb"(?<!\r)\n", datos) is None, "quedo un salto de linea sin su retorno de carro"

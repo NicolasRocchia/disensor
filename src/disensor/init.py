@@ -190,6 +190,22 @@ def _is_git_repo(cwd: Path) -> bool:
     return r.returncode == 0 and r.stdout.strip() == "true"
 
 
+# Todo lo que init escribe va en bytes, como `_write_gitignore` y el pin (#82).
+# El modo texto convierte CRLF en LF al leer y, en Windows, cada LF en CRLF al
+# escribir: un CLAUDE.md en LF al que init le agregaba su seccion volvia entero
+# en CRLF, lineas ajenas incluidas, y `--upgrade` lo repetia en cada
+# actualizacion. Un archivo nuevo va en LF; en uno que ya existe, lo que init
+# agrega toma el final de linea que el archivo ya usa, y lo demas no se toca.
+def _read_as_is(path: Path) -> tuple[str, str]:
+    """The text as it is on disk, and the line ending it uses."""
+    text = path.read_bytes().decode("utf-8")
+    return text, "\r\n" if "\r\n" in text else "\n"
+
+
+def _write(path: Path, text: str) -> None:
+    path.write_bytes(text.encode("utf-8"))
+
+
 def _write_config(root: Path, level: str, report: list[str]) -> None:
     path = root / "disensor.config.json"
     if path.exists():
@@ -207,22 +223,23 @@ def _write_config(root: Path, level: str, report: list[str]) -> None:
             report.append(f"kept    {path.name} (already exists)")
         return
     config = {"criticality_level": level, "level_A_enabled": False}
-    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    _write(path, json.dumps(config, indent=2) + "\n")
     report.append(f"created {path.name} (criticality_level={level})")
 
 
 def _write_claude(path: Path, section: str, label: str, report: list[str]) -> None:
     if path.exists():
-        content = path.read_text(encoding="utf-8")
+        content, newline = _read_as_is(path)
         if CLAUDE_HEADING in content:
             report.append(f"kept    {label} (disensor section already present)")
             return
-        joiner = "" if content.endswith("\n\n") else ("\n" if content.endswith("\n") else "\n\n")
-        path.write_text(content + joiner + section, encoding="utf-8")
+        plain = content.replace("\r\n", "\n")
+        joiner = "" if plain.endswith("\n\n") else ("\n" if plain.endswith("\n") else "\n\n")
+        _write(path, content + (joiner + section).replace("\n", newline))
         report.append(f"updated {label} (disensor section appended)")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(section, encoding="utf-8")
+    _write(path, section)
     report.append(f"created {label}")
 
 
@@ -232,7 +249,7 @@ def _write_skill(base: Path, label: str, report: list[str]) -> None:
         report.append(f"kept    {label} (already exists)")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(SKILL_FRONTMATTER + RUNBOOK, encoding="utf-8")
+    _write(path, SKILL_FRONTMATTER + RUNBOOK)
     report.append(f"created {label}")
 
 
@@ -270,7 +287,7 @@ def _write_workflow(root: Path, report: list[str]) -> None:
         report.append(f"kept    {rel} (already exists)")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(WORKFLOW, encoding="utf-8")
+    _write(path, WORKFLOW)
     # The README requires pinning by SHA, so the scaffold should not leave the
     # user out of compliance with the tool's own doctrine. Resolution needs
     # network; without it the tag stays and the report says what is missing.
@@ -388,7 +405,7 @@ def _upgrade_claude(path: Path, section: str, label: str, report: list[str]) -> 
     if not path.exists():
         report.append(f"absent {label} (run init without --upgrade to create it)")
         return 0
-    content = path.read_text(encoding="utf-8")
+    content, newline = _read_as_is(path)
     if CLAUDE_HEADING not in content:
         report.append(f"absent {label} (no disensor section to upgrade)")
         return 0
@@ -411,7 +428,8 @@ def _upgrade_claude(path: Path, section: str, label: str, report: list[str]) -> 
         )
         return UPGRADE_CONFLICT
 
-    path.write_text(content[:inicio] + section.rstrip("\n") + "\n" + content[fin:], encoding="utf-8")
+    nuevo = (section.rstrip("\n") + "\n").replace("\n", newline)
+    _write(path, content[:inicio] + nuevo + content[fin:])
     report.append(f"upgraded {label} (v{version or 'pre-0.8'} -> v{BLOCK_VERSION})")
     return 0
 
@@ -477,7 +495,7 @@ def _upgrade_skill(root: Path, report: list[str]) -> int:
     if not path.exists():
         report.append("absent .claude/skills/disensor/SKILL.md")
         return 0
-    actual = path.read_text(encoding="utf-8")
+    actual, newline = _read_as_is(path)
     if _managed_version(actual) == BLOCK_VERSION:
         report.append(f"current .claude/skills/disensor/SKILL.md (block v{BLOCK_VERSION})")
         return 0
@@ -488,7 +506,7 @@ def _upgrade_skill(root: Path, report: list[str]) -> int:
             "this disensor does not recognise. Nothing was touched"
         )
         return UPGRADE_CONFLICT
-    path.write_text(SKILL_FRONTMATTER + RUNBOOK, encoding="utf-8")
+    _write(path, (SKILL_FRONTMATTER + RUNBOOK).replace("\n", newline))
     report.append(f"upgraded .claude/skills/disensor/SKILL.md (guide -> runbook v{BLOCK_VERSION})")
     return 0
 
