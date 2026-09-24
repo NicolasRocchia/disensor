@@ -1,0 +1,14 @@
+## disensor: residue declaration at event close
+
+Before closing a plan, a diff or an architecture decision that crosses the
+impact bar, run the round with `disensor round` and declare it with
+`disensor new --round`. The full procedure, including what every exit code
+means and when to stop and ask, is the disensor skill
+(`.claude/skills/disensor/SKILL.md`); any other agent gets the same text from
+`disensor guide`, which prints the runbook and the filling guide.
+
+Two rules that do not depend on remembering the rest: the material is never
+pasted between models by hand, and a tree that changed during a round is not
+declared, it is reported.
+
+<!-- disensor:block v0.9 -->

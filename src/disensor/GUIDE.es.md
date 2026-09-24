@@ -41,6 +41,11 @@ sus errores.
    raíz del repositorio, el informe de todas las declaraciones con el residuo
    primero. Abrilo antes del pull request.
 
+Mandar el material a un revisor fuera de esta máquina necesita el consentimiento
+del dueño del repositorio, y un agente nunca lo da: no corre
+`disensor reviewer consent`. Cuando `disensor round` sale con 4 porque falta ese
+consentimiento, el agente se detiene y le pide al dueño que lo dé.
+
 Declará lo que pasó, no lo que debería haber pasado. Un evento sin hallazgos y
 con una declaración expresa de ausencia es un dato válido, no un fracaso.
 
