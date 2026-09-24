@@ -437,7 +437,7 @@ verdict (valid or not, and the rule labels that must fire). Every validator
 implementation has to pass them identically: the Python reference runs them in
 its suite (`tests/test_vectors.py`) and the TypeScript port of the evidence
 plane runs them with `npm run conformidad`. Labels are compared, not messages.
-The vectors are regenerated with `python -m disensor.vectors <directory>`. The generator produces the current schema version and refuses to write over a suite that declares another one: overwriting a historical suite would erase the only negative coverage those rules have. The runner fails if a known version has no vectors declaring it, because otherwise a version can be claimed as supported without anything checking it, which is exactly how v0.2 got here. `spec/version_ordinality.json` carries the other shared vectors: the form of a schema identifier and which rules reach which declaration, both verified by both implementations.
+The vectors are regenerated with `python -m disensor.vectors <directory>`. The generator produces the current schema version and refuses to write over a suite that declares another one: overwriting a historical suite would erase the only negative coverage those rules have. The runner fails if a known version has no vectors declaring it, because otherwise a version can be claimed as supported without anything checking it, which is exactly how v0.2 got here. `spec/version_ordinality.json` carries the other shared vectors: the form of a schema identifier and which rules reach which declaration, both verified by both implementations. In total, conformance runs 89 vectors across three suites plus 28 shared cases.
 
 Each vector is validated under the schema of the version it declares. The
 TypeScript port implements the rules of **v0.2, v0.3 and v0.4**, so the
@@ -577,78 +577,18 @@ it says.
 
 ## Status
 
-v0.10.0, on **residue/v0.4**. This version adds `disensor report`: one
-self-contained HTML file that reads every declaration of the repository and
-answers what stayed open (declared open on a date, with no later evidence of
-closure, because the artifact has no field for closure), each declaration with
-its residue first, the corpus as declared, and the critical and major findings
-that changed the code. It reads without validating, loads nothing from the
-network, and is a pure function of the declarations: two runs over the same
-commit give identical bytes. Nobody types it: when `disensor gate` reaches a
-green verdict it writes `informe-residuo.html` at the repository root from the
-git objects it judged, only if git ignores the file, and `disensor init` leaves
-that line in `.gitignore`. The previous version fixes the gate comment for the two
-reviewer classes v0.4 added: a declaration carrying `reviewer_correlation` or
-`reviewer_hardening_gap`, which R11 and R12 require when a reviewer is declared
-with degraded independence or unverified hardening, validated and then aborted
-the gate with a `KeyError` while the comment was being rendered, also with
-`--no-comment`, so the degraded mode v0.4 made declarable broke the gate the
-first time anyone declared it honestly
-([#56](https://github.com/NicolasRocchia/disensor/issues/56)). The comment now
-names both classes and the reviewer each item is about, next to the finding
-when there is one, and a test keeps the render's table equal to the schema's
-enum. The opening line and the PyPI summary say what this is with the
-vocabulary people search for (adversarial, cross-model AI code review with a
-residue declaration), and a new section says how it relates to other
-approaches and to Adversarial Review (arXiv 2608.18167). The previous version
-carries what the first independent reproduction left: an external reader cloned the v0.9.4 tag, verified the frozen
-hashes and ran both implementations cold, with zero divergences, and found that
-the evidence-plane README claimed a stale count. The count is fixed with its
-breakdown said out loud, every numeric claim in these documents is now compared
-in CI against the thing it counts, `disensor --version` exists (it exited with a
-usage error, and the first command a stranger types deserves better), and the
-version literal is tied to the packaging metadata by test. The previous version
-closes residue/v0.4: the TypeScript
-port validates v0.2, v0.3 and v0.4, so the two-independent-implementations claim
-covers the version the CLI emits; conformance runs 89 vectors across three suites
-plus 28 shared cases fixing the form of a schema identifier and which rules reach
-which declaration, and it fails when a known version has no vectors declaring it;
-the Level A floor is enforced; referential integrity enters as R13, guarded so it
-does not reach frozen versions; the frozen resources are verified by content and
-not only by name; and which rules reach which declaration stopped depending on
-the order the lines happen to be written in. The previous version writes down
-when the gate Action's own pin goes up: it travels in the next PR of real work, except when the release
-fixes gate security or changes the schema version, and it says out loud that
-this is a convention rather than a control
-([#17](https://github.com/NicolasRocchia/disensor/issues/17)). The previous
-version makes `disensor guide` hand over the
-event runbook as well as the artifact filling guide, so an agent that is not
-Claude Code gets from one command the same material the Claude Code skill
-carries, which is what the documentation had been promising since the round
-became orchestrated ([#30](https://github.com/NicolasRocchia/disensor/issues/30)).
-`--runbook` and `--filling` ask for one of the two, and `init --only-skill`
-writes that runbook without the `CLAUDE.md` section, for a repository whose
-agent is another one. The previous version orchestrates the round: `disensor round` packages the material, runs a reviewer registered on your machine, captures the report and anchors the result to the commits it actually reviewed, and `disensor new --round` builds the declaration from it. Any assistant with a command line can be the reviewer; the packaged catalogue is a shortcut, not a list of what is allowed. residue/v0.4 makes a round without a second model family declarable as the degraded mode it is, instead of impossible to declare at all, and each schema version is now validated under its own rules. `disensor init --upgrade` brings an older installation up to this procedure without touching anything you edited. The previous version added `disensor pin`, which freezes the Action to the commit SHA of its release tag. The long-form documentation is bilingual
-since v0.6.3: `README.md` is the English one that PyPI renders, `README.es.md`
-is the Spanish, and the filling guide ships in both languages. This version
-makes the packaged Spanish guide reachable with `disensor guide --lang es`.
-Releases are published to PyPI via Trusted
-Publishing (OIDC, `release.yml`): no tokens on any machine. v0.4 rewrote the
-gate so that it derives the PR scope from git (see "What the gate enforces") and
-v0.5 ships the packaged adversarial brief with a reproducible hash; the move to
-residue/v0.3 hardens three points of the artifact, closing issues
-[#5](https://github.com/NicolasRocchia/disensor/issues/5),
-[#7](https://github.com/NicolasRocchia/disensor/issues/7) and
-[#8](https://github.com/NicolasRocchia/disensor/issues/8). See "Schema
-migration: residue/v0.2 to residue/v0.3". Decision closed in v0.2: schema keys
-and CLI in English (Spanish remains as CLI aliases). The schema may change;
-each version from residue/v0.2 onwards is frozen under its own identifier, and a
-declaration keeps being validated under the rules that judged it when it was
-emitted. The Spanish-keyed residuo/v0.1 is recognised and refused with migration
-instructions, not validated. No version is
-committed to as the point where the schema stabilises: when there is a contract
-ratified as stable, it will be said here. Open decision: the definitive licence
-(MIT today; Apache-2.0 under consideration for its patent grant).
+v0.10.0, on **residue/v0.4**. What each version changed is in
+[CHANGELOG.md](https://github.com/NicolasRocchia/disensor/blob/main/CHANGELOG.md),
+newest first.
+
+The schema may change; each version from residue/v0.2 onwards is frozen under
+its own identifier, and a declaration keeps being validated under the rules
+that judged it when it was emitted. The Spanish-keyed residuo/v0.1 is
+recognised and refused with migration instructions, not validated. No version
+is committed to as the point where the schema stabilises: when there is a
+contract ratified as stable, it will be said here. Open decision: the
+definitive licence (MIT today; Apache-2.0 under consideration for its patent
+grant).
 
 ## Licence
 
