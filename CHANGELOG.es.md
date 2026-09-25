@@ -11,6 +11,44 @@ oración cierra con punto, y las referencias a secciones del README pasaron a
 ser enlaces. Las versiones que ese párrafo no describía (0.9.1, 0.6.5, 0.6.2,
 0.3.0 y 0.1.0) no tienen entrada, y no hubo 0.8.0.
 
+## 0.11.0 (2026-09-24)
+
+Esta versión endurece lo que disensor hace en la máquina que lo corre y lo que
+muestra el comentario del pull request, todavía sobre residue/v0.4. El
+comentario del gate y el resumen del job muestran el texto de cada declaración
+como se escribió: GitHub ya no lo lee como markdown, así que una declaración no
+puede traer énfasis, un enlace que dice algo distinto de su destino, una fórmula
+ni un comentario HTML que esconda texto, y `evidence.link` muestra su destino
+([#85](https://github.com/NicolasRocchia/disensor/issues/85)). `disensor round`
+mira adónde van su informe y su resultado antes de correr a ningún revisor,
+`--result -` escribe a la salida estándar, el informe ya no se pierde con el
+directorio temporal de la ronda, y si algo falla después de la ronda el mensaje
+dice dónde quedó el informe
+([#80](https://github.com/NicolasRocchia/disensor/issues/80)). Los programas se
+corren por ruta absoluta, git lee el repositorio sin reescribir su índice ni
+consultar el monitor del sistema de archivos, y el README dice cómo correr
+disensor sobre un checkout que no es de confianza
+([#75](https://github.com/NicolasRocchia/disensor/issues/75),
+[#77](https://github.com/NicolasRocchia/disensor/issues/77),
+[#76](https://github.com/NicolasRocchia/disensor/issues/76)). `disensor new` e
+`init` escriben LF, y un archivo que ya existe conserva sus finales de línea
+([#82](https://github.com/NicolasRocchia/disensor/issues/82)). El `pack_hash` de
+una ronda es canónico, así que se puede recomputar lejos de la máquina que
+corrió la ronda, y el resultado de la ronda pasa a v2
+([#73](https://github.com/NicolasRocchia/disensor/issues/73), fase 1). La guía,
+el runbook y la sección de `CLAUDE.md` dicen que el consentimiento para mandar
+material fuera de la máquina lo da el dueño, e `init --upgrade` reconoce todos
+los bloques que escribió la 0.9
+([#84](https://github.com/NicolasRocchia/disensor/issues/84), opción 3). El
+diario de releases sale del README a este archivo, y el README dice cómo correr
+el gate fuera de GitHub
+([#68](https://github.com/NicolasRocchia/disensor/issues/68),
+[#72](https://github.com/NicolasRocchia/disensor/issues/72)). `tools/` publica
+el emisor de los 42 objetos de evidencia reportados al grupo comunitario de la
+W3C ([#67](https://github.com/NicolasRocchia/disensor/pull/67)), y el censo de
+`gap_reason` que mide el alcance de residue/v0.5
+([#83](https://github.com/NicolasRocchia/disensor/pull/83)).
+
 ## 0.10.0 (2026-09-16)
 
 Esta versión suma `disensor report`: un solo archivo HTML autocontenido que lee

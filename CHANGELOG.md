@@ -11,6 +11,44 @@ sentence ends with a full stop, and the references to README sections became
 links. The versions that paragraph did not describe (0.9.1, 0.6.5, 0.6.2,
 0.3.0 and 0.1.0) have no entry, and there was no 0.8.0.
 
+## 0.11.0 (2026-09-24)
+
+This version hardens what disensor does on the machine that runs it and what the
+pull request comment shows, still on residue/v0.4. The gate comment and the job
+summary show the text of each declaration as it was written: GitHub no longer
+reads it as markdown, so a declaration cannot bring emphasis, a link that says
+something other than its destination, a formula or an HTML comment that hides
+text, and `evidence.link` shows its destination
+([#85](https://github.com/NicolasRocchia/disensor/issues/85)). `disensor round`
+checks where its report and its result go before running any reviewer,
+`--result -` writes to standard output, the report is never lost with the
+round's temporary directory, and if something fails after the round the message
+says where the report is
+([#80](https://github.com/NicolasRocchia/disensor/issues/80)). Programs are run
+by absolute path, git reads the repository without rewriting its index or asking
+the filesystem monitor, and the README says how to run disensor over a checkout
+that is not trusted
+([#75](https://github.com/NicolasRocchia/disensor/issues/75),
+[#77](https://github.com/NicolasRocchia/disensor/issues/77),
+[#76](https://github.com/NicolasRocchia/disensor/issues/76)). `disensor new` and
+`init` write LF, and a file that already exists keeps its line endings
+([#82](https://github.com/NicolasRocchia/disensor/issues/82)). The `pack_hash`
+of a round is canonical, so it can be recomputed away from the machine that ran
+the round, and the round result moves to v2
+([#73](https://github.com/NicolasRocchia/disensor/issues/73), phase 1). The
+guide, the runbook and the `CLAUDE.md` section say that the consent to send
+material out of the machine is the owner's to give, and `init --upgrade`
+recognises every block 0.9 wrote
+([#84](https://github.com/NicolasRocchia/disensor/issues/84), option 3). The
+release log moves out of the README into this file, and the README says how to
+run the gate outside GitHub
+([#68](https://github.com/NicolasRocchia/disensor/issues/68),
+[#72](https://github.com/NicolasRocchia/disensor/issues/72)). `tools/` publishes
+the emitter of the 42 evidence objects reported to the W3C community group
+([#67](https://github.com/NicolasRocchia/disensor/pull/67)), and the census of
+`gap_reason` that measures the scope of residue/v0.5
+([#83](https://github.com/NicolasRocchia/disensor/pull/83)).
+
 ## 0.10.0 (2026-09-16)
 
 This version adds `disensor report`: one self-contained HTML file that reads
