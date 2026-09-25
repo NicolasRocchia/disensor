@@ -1,0 +1,88 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "15909e7e-8865-4997-8f78-1c21e71b7943",
+    "created_at": "2026-09-24T21:07:00-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "93428ca5223c362c4e1b481979f7849278594687",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "86c64a44750fdb80261e630d91649833b9309fe3"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": false,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "El revisor corrió la suite completa (598 pasados, 6 salteados) sin forzar las salteadas: los dos smoke tests de endurecimiento, opt-in con costo (DISENSOR_SMOKE=1), que prueban la receta catalogada de Codex y que este diff no toca; la prueba de permiso de ejecución en POSIX, que no aplica en Windows y corre en el CI de Ubuntu; y tres `index.json` de las suites de vectores, que la parametrización recorre y saltea porque no son vectores."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "Lo publicado no se puede observar antes de publicarlo. El tag v0.11.0 no existe todavía, y ni el paquete en PyPI, ni una instalación limpia de disensor==0.11.0, ni la Action en ese tag, ni el Release de GitHub se pueden verificar en esta ronda. Antes del tag, el generador construye el paquete sobre el commit del merge, lo revisa con twine check y le corre una prueba de humo en un venv limpio; después, verifica la página de PyPI, una instalación limpia, los SHA256 contra los archivos que subió el workflow y que el tag apunte a ese commit."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "requires_human_attention": false,
+        "gap_reason": "other",
+        "description": "No es una brecha de ejecución: es una escritura del revisor adentro del repositorio, y va acá porque ninguna clase del esquema la describe. El revisor corrió la suite sin evitar la caché de pytest, que escribió `.pytest_cache/v/cache/nodeids` a las 21:05:42, adentro de la ronda. Es una ruta que git ignora, así que el git status del runner no la vio. Es el caso de r3 en 2b5af677, y la contradicción que lo permite, entre la consigna que acepta correr la suite y el paquete que solo permite escribir el informe, quedó abierta como #88."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:3446074b78dcab2aa654b6515922b71af6a345e2ca812f7d15fd058936ce587b",
+      "report_hash": "sha256:e5e2651acd0996db8db225793eb0621617d721ec1c32b4870868b28840f59b89"
+    }
+  }
+}
