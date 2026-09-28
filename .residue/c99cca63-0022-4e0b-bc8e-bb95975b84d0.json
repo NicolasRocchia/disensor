@@ -1,0 +1,96 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c99cca63-0022-4e0b-bc8e-bb95975b84d0",
+    "created_at": "2026-09-28T20:43:56-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "7475692a8e4dd2d5ee942c693bdf56e6a00cef06",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "09b8a7f9533882d026ca013440e535cc672ea9f0"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La salud del proceso no define que cuenta un evento con revisores mixtos",
+      "description": "El panel de salud del proceso cuenta por evento y solo lo cuenta como de otra familia, o con endurecimiento verificado, cuando todos sus revisores traen ese valor. El esquema admite varios revisores, y nada en el material revisado dice si un evento mixto cuenta cuando al menos un revisor tiene la propiedad, solo cuando todos, o de forma fraccional. El revisor lo dejo como hipotesis, no como hallazgo, porque la implementacion es coherente y no hay contrato en contra.",
+      "location": "src/disensor/report.py (_health); README.md y README.es.md, seccion del informe",
+      "final_state": "debt_recorded",
+      "debt_id": "tablero-salud-revisores-mixtos",
+      "verification": {
+        "against": "repository",
+        "detail": "_health exige el valor en todos los revisores del evento. R11 y R12 (rules.py) exigen un item de residuo por cada revisor degradado o sin endurecimiento verificado, asi que para el protocolo un evento con un revisor degradado es un evento degradado: el criterio de la implementacion es el mismo, pero no esta escrito en el README ni fijado con un vector de revisores mixtos. Queda como deuda: escribirlo y fijarlo con una prueba."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Ni el revisor ni el generador corrieron una auditoria de accesibilidad ni la vista en varios motores: no hay arnes para eso en la suite. El generador la abrio en el navegador embebido del entorno, Chromium, a ancho de telefono, y verifico por script que el ancla #tablero activa la pestana, que los cortes por antiguedad se cuentan al abrir y que la pagina no desborda; teclado, lector de pantalla, Firefox y Safari quedaron sin ejercitar."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El CI de los dos commits del PR (fa6d6e6 y 7475692) no estaba observado al escribir esta declaracion: se pushea junto con ella. La suite completa paso en local (611 pasadas, 6 salteadas, Windows, Python 3.14)."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 1,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:d124352a8f03e22eda70c613b4dd9f354a45c9df81e338bd3a4fe0ee82658a0b",
+      "report_hash": "sha256:7c740a4a036fa9bbf298badf5f531a8da8e7aa2c94b2d77406be47d536873aa3"
+    }
+  }
+}
