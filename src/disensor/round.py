@@ -333,8 +333,10 @@ class _Stopwatch:
 
     `started_at` and `finished_at` are UTC to the second, for a reader; `seconds`
     comes from the monotonic clock, for arithmetic: a wall clock can jump during
-    a run that lasts an hour, a monotonic one cannot. Whole seconds: nobody
-    calibrates a cycle on milliseconds, and the schema counts in integers.
+    a run that lasts an hour, a monotonic one cannot. Whole seconds, truncated
+    and never rounded up: the number is a floor of what the reviewer cost, and
+    a floor cannot say more than the clock did. Nobody calibrates a cycle on
+    milliseconds, and the schema counts in integers.
     """
 
     def __init__(self) -> None:
@@ -344,7 +346,7 @@ class _Stopwatch:
     def stamp(self, attempt: dict) -> dict:
         attempt["started_at"] = self.started_at
         attempt["finished_at"] = _utc_now()
-        attempt["seconds"] = max(0, round(time.monotonic() - self._t0))
+        attempt["seconds"] = max(0, int(time.monotonic() - self._t0))
         return attempt
 
 

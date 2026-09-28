@@ -1131,3 +1131,18 @@ def test_the_result_carries_the_reviewers_time_and_the_declaration_takes_it(
     a = from_round(r, "diff", "B", "full", repo)
     assert a["extensions"]["dev.disensor.round"]["reviewer_seconds"] == intento["seconds"]
     assert "extra_time_sec" not in a["metrics"]
+
+
+def test_the_seconds_are_truncated_never_rounded_up(monkeypatch):
+    """Un piso no puede pasarse: 1,9 segundos son 1, no 2. Con redondeo al
+    entero mas cercano el numero podia decir mas que el reloj (hipotesis de la
+    primera ronda del evento, incorporada)."""
+    from disensor.round import _Stopwatch
+
+    reloj = [100.0]
+    monkeypatch.setattr(ronda.time, "monotonic", lambda: reloj[0])
+    s = _Stopwatch()
+    reloj[0] = 101.9
+    assert s.stamp({})["seconds"] == 1
+    reloj[0] = 100.4
+    assert s.stamp({})["seconds"] == 0
