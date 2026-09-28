@@ -532,13 +532,20 @@ def open_rows(d: dict) -> list:
     """What one declaration left open: its residue items marked for human
     attention and its findings in a state the cycle did not close, in the
     order they were written. A finding one of those items points at
-    (`finding_ref`) is not a second row: the item is its residue record, and
-    the item's row carries the finding's title and state. In the corpus every
-    escalated finding has such an item, and counting both said "8 wait for a
-    decision" where there were five decisions to take."""
+    (`finding_ref`) folds into the item's row, which carries the finding's
+    title and state, only when both ask the same thing: the item is then the
+    residue record of that finding. In the corpus every escalated finding has
+    such an item, and counting both said "8 wait for a decision" where there
+    were five decisions to take. An item of another class that points at an
+    accepted risk or a debt hides nothing: the schema allows the reference,
+    and the risk or the debt is still an open obligation of its own."""
     items = [it for it in d["items"] if it["attention"]]
-    referenced = {it["finding_ref"] for it in items if it["finding_ref"]}
-    return items + [f for f in d["findings"] if f["state"] in OPEN_STATES and f["id"] not in referenced]
+    folded = set()
+    for it in items:
+        origin = _referenced_finding(it)
+        if origin is not None and origin["state"] in OPEN_STATES and queue_key(origin) == queue_key(it):
+            folded.add(origin["id"])
+    return items + [f for f in d["findings"] if f["state"] in OPEN_STATES and f["id"] not in folded]
 
 
 def _referenced_finding(it: dict) -> dict | None:

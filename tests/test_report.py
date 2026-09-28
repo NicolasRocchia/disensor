@@ -36,6 +36,7 @@ from disensor.report import (
     SEVERITY_LEVEL,
     SEVERITY_NAME,
     STATE_NAME,
+    E,
     Source,
     aggregate,
     build_html,
@@ -405,6 +406,36 @@ def test_the_open_view_groups_rows_by_what_they_ask_and_the_digest_sums_the_grou
     assert 'data-grupo="debt"' not in page
     # The switch orders each group by its own index: one row zero per group shown.
     assert page.count('data-orden="0"') == 3
+
+
+def test_a_finding_ref_from_an_item_that_asks_something_else_hides_nothing(tmp_path):
+    """The schema lets any residue item point at any finding, and the rules
+    only tie class to state for three states. An attention-marked
+    reviewer_correlation item pointing at an owner_decision finding is valid,
+    and the accepted risk has to stay in its group and in the digest: the row
+    folds into the item only when both ask the same thing. Found by the
+    reviewer of the round that declared this change."""
+    data = example("example_1_plan_gate.json")
+    accepted = next(f for f in data["findings"] if f["final_state"] == "owner_decision")
+    data["residue"]["items"].append({
+        "id": "r99", "class": "reviewer_correlation",
+        "reviewer_ref": data["actors"]["reviewers"][0]["reviewer_id"],
+        "finding_ref": accepted["id"], "requires_human_attention": True,
+        "description": "the reviewer shares the generator's family, for this event only",
+    })
+    from disensor.rules import validate_artifact
+    assert not validate_artifact(data)
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", data)
+    declarations, unreadable = read_directory(residue)
+    model = aggregate(declarations, unreadable)
+    groups = {key: [(r["kind"], r["id"]) for r in rows] for key, _, _, rows in model.open_groups}
+    assert groups["reviewer"] == [("item", "r99")]
+    assert groups["accepted"] == [("finding", accepted["id"])]
+    assert model.open_total == 2
+    page = build_html(declarations, unreadable, Source(directory=".residue"))
+    assert "<b>1</b> riesgo aceptado por el dueño" in page
+    assert E(accepted["risk_record"]) in page
 
 
 def test_the_block_of_the_latest_declaration_shows_what_it_left_open_and_says_when_nothing(tmp_path):
