@@ -196,7 +196,7 @@ def test_the_observed_data_travels_in_the_extension_space(repo: Path, informe: P
     a = from_round(resultado_de(repo, informe), "diff", "B", "full", repo)
     ext = a["extensions"]["dev.disensor.round"]
     assert set(ext) == {"result_version", "pack_hash", "report_hash"}
-    assert ext["result_version"] == 2
+    assert ext["result_version"] == 3
     assert ext["pack_hash"].startswith("sha256:")
     assert ext["report_hash"].startswith("sha256:")
 
@@ -215,6 +215,15 @@ def test_a_v1_result_is_refused_with_the_reason(repo: Path, informe: Path):
     """
     r = resultado_de(repo, informe, result_version="disensor/round-result/v1")
     with pytest.raises(RoundMismatch, match="v1 round.*Run the round again"):
+        from_round(r, "diff", "B", "full", repo)
+
+
+def test_a_v2_result_is_refused_with_the_reason(repo: Path, informe: Path):
+    """El preambulo del paquete cambio (#91): un resultado v2 lleva un pack_hash
+    de una forma que este disensor ya no arma, y no se convierte: se corre de
+    nuevo, como el v1."""
+    r = resultado_de(repo, informe, result_version="disensor/round-result/v2")
+    with pytest.raises(RoundMismatch, match="v2 round.*Run the round again"):
         from_round(r, "diff", "B", "full", repo)
 
 

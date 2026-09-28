@@ -325,10 +325,23 @@ def test_the_canonical_shape_is_pinned_to_the_result_version():
     from disensor.round import RESULT_VERSION
     from disensor.template import ROUND_RESULT_ORDINAL, ROUND_RESULT_VERSION
 
-    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v2"
-    assert ROUND_RESULT_ORDINAL == 2
+    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v3"
+    assert ROUND_RESULT_ORDINAL == 3
     # Brief inyectado: solo la forma entra al hash.
     diff = canonical_pack_text("diff", repository="r", base="a", head="b", brief="B\n")
     plan = canonical_pack_text("plan", repository="r", material_text="M\n", brief="B\n")
-    assert pack_hash(diff) == "sha256:e8dc109541ba98236e271fc60524eee91a8d1f3148138f0b2d9357958a44a3d2"
-    assert pack_hash(plan) == "sha256:a70ca2efc12dec4c55a98256cb3bad24381d4ff7191509ceedc77c36d0ad66ea"
+    assert pack_hash(diff) == "sha256:86dbbb566e3d05b3b1118fcbe9e3743118fe3cf3e44563715e276c490d7e42b5"
+    assert pack_hash(plan) == "sha256:4ec6671f257cc4248e7159799d286c056c02e98e0f24a9143b2e996eebe821d7"
+
+
+def test_the_confinement_distinguishes_the_addressee():
+    """El preambulo dice lo mismo que la consigna: se reporta lo dirigido a ESTA
+    revision, y lo escrito para quien trabaja en el repositorio es material (#91).
+    Eran dos redacciones de la misma regla y ya habian derivado: la del paquete
+    mandaba reportar cualquier texto que dijera "run something"."""
+    from disensor.pack import CONFINEMENT
+
+    text = " ".join(CONFINEMENT.split()).lower()
+    assert "addressed to this review" in text
+    assert "ordinary material" in text
+    assert "addressed to you" not in text

@@ -166,3 +166,20 @@ def test_output_writes_the_canonical_bytes(tmp_path):
     assert args.func(args) == 0
     assert "sha256:" + hashlib.sha256(target.read_bytes()).hexdigest() == brief_hash("diff")
     assert b"\r\n" not in target.read_bytes()
+
+
+@pytest.mark.parametrize("gate", GATES)
+def test_the_brief_reports_only_text_addressed_to_this_review(gate):
+    """Los archivos de harness del repositorio no son hallazgo por existir (#91).
+
+    `AGENTS.md`, `CLAUDE.md`, las skills, los runbooks y las declaraciones
+    previas le hablan en imperativo a quien trabaja en el repositorio, y el
+    revisor los reportaba como texto dirigido a el, escalando en cada ronda.
+    La regla distingue por destinatario: se reporta lo que se dirige a esta
+    revision, y una lista de rutas no serviria porque se esquiva renombrando.
+    """
+    text = flat(gate)
+    assert "addressed to this review" in text
+    assert "ordinary material" in text
+    assert "whoever works in the repository" in text
+    assert "addressed to you" not in text, "la regla vieja no distinguia destinatario"

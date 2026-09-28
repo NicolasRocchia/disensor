@@ -361,7 +361,7 @@ def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
     assert (tmp_path / "informe.md").read_text(encoding="utf-8") == "informe legitimo"
 
     # El resultado es v2 y dice con que version se armo el paquete.
-    assert r["result_version"] == "disensor/round-result/v2"
+    assert r["result_version"] == "disensor/round-result/v3"
     assert r["disensor_version"] == __version__
     assert r["repository"] == gitctx.normalize_repository("https://github.com/mio/repo.git")
     # Y su pack_hash se recomputa desde el propio resultado: sin la ruta local

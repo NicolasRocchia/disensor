@@ -53,7 +53,7 @@ from .reviewers import (
 # necesita esta forma y el brief que `prompt_hash` nombra, y nada mas. Si la
 # forma cambia, esto sube a v3 junto con `ROUND_RESULT_ORDINAL` en
 # template.py; el golden de tests/test_pack.py rompe si se cambia una sola.
-RESULT_VERSION = "disensor/round-result/v2"
+RESULT_VERSION = "disensor/round-result/v3"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
 # tener que leer prosa para saber que paso, y "no se requiere ronda" no puede
