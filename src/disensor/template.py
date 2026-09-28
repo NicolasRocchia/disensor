@@ -279,6 +279,9 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     # resultado y no entra aca: es texto, el perfil minimizado exige valores
     # opacos, y es procedencia, no contrato (un checkout entre releases lleva
     # el literal de la ultima publicada); el campo `run` de v0.5 la llevara.
+    # Los segundos del revisor (#98) son la excepcion a "solo hashes": no los
+    # contrasta nadie, pero el runner los midio, y sin ellos el costo de la
+    # ronda no tenia ningun numero en ningun lado.
     ronda = {
         "result_version": ROUND_RESULT_ORDINAL,
         "pack_hash": hashes.get("pack_hash"),
@@ -286,6 +289,15 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     }
     if hashes.get("material_hash"):
         ronda["material_hash"] = hashes["material_hash"]
+    # El tiempo de pared del revisor que escribio el informe, en segundos
+    # enteros: lo unico del costo de la ronda que el runner vio. No es
+    # `metrics.extra_time_sec`, que el esquema define de punta a punta
+    # (verificacion, reescritura, refutacion) y que solo la persona puede
+    # medir; es su piso, y va aca como numero para que el perfil minimizado lo
+    # admita. Un resultado anterior a #98 no lo trae, y entonces no va.
+    segundos = _reviewer_seconds(resultado)
+    if segundos is not None:
+        ronda["reviewer_seconds"] = segundos
     a["extensions"] = {"dev.disensor.round": ronda}
     return a
 
@@ -300,6 +312,18 @@ FILL_HARDENING = (
 )
 ROUND_RESULT_VERSION = "disensor/round-result/v3"
 ROUND_RESULT_ORDINAL = 3
+
+
+def _reviewer_seconds(resultado: dict) -> int | None:
+    """Seconds of the attempt that produced the report, if the runner timed it."""
+    revisor = resultado.get("declared", {}).get("reviewer_id")
+    for intento in resultado.get("observed", {}).get("attempts", []):
+        if intento.get("outcome") == "ok" and intento.get("id") == revisor:
+            segundos = intento.get("seconds")
+            if isinstance(segundos, int) and not isinstance(segundos, bool) and segundos >= 0:
+                return segundos
+            return None
+    return None
 
 
 def _fallback_from(resultado: dict) -> dict:

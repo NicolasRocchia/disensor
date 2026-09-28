@@ -315,3 +315,33 @@ def test_the_declared_generator_travels_from_the_round(tmp_path, monkeypatch):
     # Y sin ronda el modelo se pide en vez de afirmarse.
     m = template("diff", "B", "full", tmp_path)
     assert m["actors"]["generator"]["model"].startswith("FILL_IN")
+
+
+def test_the_reviewers_seconds_travel_when_the_runner_timed_them(repo: Path, informe: Path):
+    """El tiempo de pared del revisor es lo unico del costo de la ronda que el
+    runner ve, y viaja como numero en la extension. No es `extra_time_sec`:
+    ese es el ciclo de punta a punta y solo la persona lo puede medir, asi que
+    la plantilla no lo prellena ni con el piso (#98)."""
+    r = resultado_de(repo, informe, observed={"attempts": [
+        {"id": "gemini", "outcome": "failed", "seconds": 40, "independence": "cross_family"},
+        {"id": "codex", "outcome": "ok", "seconds": 137, "independence": "cross_family"},
+    ]})
+    a = from_round(r, "diff", "B", "full", repo)
+    assert a["extensions"]["dev.disensor.round"]["reviewer_seconds"] == 137
+    assert "extra_time_sec" not in a["metrics"]
+
+
+def test_a_result_timed_before_98_carries_no_seconds(repo: Path, informe: Path):
+    """Un resultado v3 guardado antes del cambio no trae la medida, y la
+    extension no la inventa: la clave no va."""
+    a = from_round(resultado_de(repo, informe), "diff", "B", "full", repo)
+    assert "reviewer_seconds" not in a["extensions"]["dev.disensor.round"]
+
+
+def test_only_the_successful_attempts_seconds_count(repo: Path, informe: Path):
+    r = resultado_de(repo, informe, observed={"attempts": [
+        {"id": "codex", "outcome": "failed", "seconds": 40, "independence": "cross_family"},
+        {"id": "codex", "outcome": "ok", "seconds": True, "independence": "cross_family"},
+    ]})
+    a = from_round(r, "diff", "B", "full", repo)
+    assert "reviewer_seconds" not in a["extensions"]["dev.disensor.round"]

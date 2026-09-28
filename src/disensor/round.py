@@ -32,6 +32,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import __version__, gitctx, programs
@@ -53,6 +55,9 @@ from .reviewers import (
 # necesita esta forma y el brief que `prompt_hash` nombra, y nada mas. Si la
 # forma cambia, esto sube a v3 junto con `ROUND_RESULT_ORDINAL` en
 # template.py; el golden de tests/test_pack.py rompe si se cambia una sola.
+# Los tiempos observados por intento (#98) no tocan la forma del paquete: son
+# campos aditivos de `observed`, y `new --round` tolera que un resultado
+# guardado antes no los traiga. Por eso no suben el ordinal.
 RESULT_VERSION = "disensor/round-result/v3"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
@@ -270,6 +275,13 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     # contesto "input is not valid UTF-8" y la corrida parecia un fallo del
     # revisor.
     entrada = package.encode("utf-8") if entry.get("stdin") == "pack" else None
+    # Lo unico del costo de la ronda que el runner puede medir es el tiempo de
+    # pared de este subproceso: la verificacion de cada hallazgo y la
+    # reescritura pasan en la sesion del asistente, fuera de aca. Por eso el
+    # numero viaja como observado del intento y no como `extra_time_sec`, que
+    # el esquema define de punta a punta (#98). Se mide tambien cuando el
+    # revisor falla o se pasa del tiempo: ese costo se pago igual.
+    reloj = _Stopwatch()
     try:
         out = subprocess.run(
             argv,
@@ -280,19 +292,21 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return {"id": entry["id"], "outcome": "timeout", "detail": f"no answer within {timeout}s"}
+        return reloj.stamp(
+            {"id": entry["id"], "outcome": "timeout", "detail": f"no answer within {timeout}s"}
+        )
     except OSError as exc:
         return {"id": entry["id"], "outcome": "not_runnable", "detail": str(exc)}
 
     salida = (out.stdout or b"").decode("utf-8", "replace")
     error = (out.stderr or b"").decode("utf-8", "replace")
     if out.returncode != 0:
-        return {
+        return reloj.stamp({
             "id": entry["id"],
             "outcome": "failed",
             "exit_code": out.returncode,
             "detail": (error or salida)[-400:].strip(),
-        }
+        })
 
     if not report.exists() and salida.strip():
         # El revisor escribio por stdout: el informe es esa salida.
@@ -302,12 +316,40 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     # informe preexistente satisfaria "existe y no esta vacio" sin que el
     # revisor lo haya tocado. Por eso el destino no existia al empezar.
     if not report.exists():
-        return {"id": entry["id"], "outcome": "no_report", "detail": "exit 0 without writing a report"}
+        return reloj.stamp(
+            {"id": entry["id"], "outcome": "no_report", "detail": "exit 0 without writing a report"}
+        )
     if report.is_symlink() or not report.is_file():
-        return {"id": entry["id"], "outcome": "bad_report", "detail": "the report is not a regular file"}
+        return reloj.stamp(
+            {"id": entry["id"], "outcome": "bad_report", "detail": "the report is not a regular file"}
+        )
     if report.stat().st_size == 0:
-        return {"id": entry["id"], "outcome": "empty_report", "detail": "the report is empty"}
-    return {"id": entry["id"], "outcome": "ok", "exit_code": 0}
+        return reloj.stamp({"id": entry["id"], "outcome": "empty_report", "detail": "the report is empty"})
+    return reloj.stamp({"id": entry["id"], "outcome": "ok", "exit_code": 0})
+
+
+class _Stopwatch:
+    """Wall time of one reviewer run, as the runner saw it.
+
+    `started_at` and `finished_at` are UTC to the second, for a reader; `seconds`
+    comes from the monotonic clock, for arithmetic: a wall clock can jump during
+    a run that lasts an hour, a monotonic one cannot. Whole seconds: nobody
+    calibrates a cycle on milliseconds, and the schema counts in integers.
+    """
+
+    def __init__(self) -> None:
+        self.started_at = _utc_now()
+        self._t0 = time.monotonic()
+
+    def stamp(self, attempt: dict) -> dict:
+        attempt["started_at"] = self.started_at
+        attempt["finished_at"] = _utc_now()
+        attempt["seconds"] = max(0, round(time.monotonic() - self._t0))
+        return attempt
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _inside(path: Path, repo: Path) -> bool:
