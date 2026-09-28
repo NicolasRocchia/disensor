@@ -658,7 +658,14 @@ def _round(args, repo: Path) -> int:
             # como entrega, junto con la ruta de su informe, fuera del hash.
             # El hash cubre el texto canonico, con la identidad del repositorio
             # y sin la rama: lo unico que otro puede recomputar.
-            paquete = deliver(canonical, checkout=str(repo), report=str(candidato))
+            # Y la nota de que la receta no carga los archivos de instrucciones
+            # del checkout, solo cuando el endurecimiento es el GANADO (la
+            # entrada ya paso por effective_hardening): para una entrada que
+            # copio el argv, o que nunca vino del catalogo, seria falsa (#91).
+            paquete = deliver(
+                canonical, checkout=str(repo), report=str(candidato),
+                instructions_disabled=(entry.get("hardening") == "verified"),
+            )
             intento = run_reviewer(entry, paquete, candidato, args.timeout)
             intento["independence"] = independence
             attempts.append(intento)

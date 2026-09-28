@@ -345,3 +345,24 @@ def test_the_confinement_distinguishes_the_addressee():
     assert "addressed to this review" in text
     assert "ordinary material" in text
     assert "addressed to you" not in text
+
+
+def test_the_delivery_says_when_the_recipe_does_not_load_instruction_files():
+    """Con la receta endurecida el revisor recibe el hecho: sus banderas no cargan
+    los archivos de instrucciones del checkout. Es entrega, fuera del hash, y
+    solo viaja cuando quien llama lo pide, que es cuando la entrada lo gano (#91).
+    """
+    from disensor.pack import INSTRUCTIONS_NOT_LOADED
+
+    canonico = canonical_pack_text("diff", repository="github.com/x/y", base="aaa", head="bbb")
+    assert INSTRUCTIONS_NOT_LOADED not in canonico, "es entrega, no forma canonica"
+    con = deliver(canonico, checkout="/x", branch="rama", instructions_disabled=True)
+    nl = chr(10)
+    assert ("Local checkout: /x" + nl + "Branch: rama" + nl + nl + INSTRUCTIONS_NOT_LOADED
+            + nl + nl + "Repository: github.com/x/y") in con
+    assert INSTRUCTIONS_NOT_LOADED not in deliver(canonico, checkout="/x", branch="rama")
+    solo = deliver(canonico, instructions_disabled=True)
+    assert solo.replace(INSTRUCTIONS_NOT_LOADED + nl + nl, "", 1) == canonico
+    # Y afirma lo que la receta hace, no algo que el runner haya observado.
+    assert "NOT loaded" not in INSTRUCTIONS_NOT_LOADED
+    assert "does not load them" in INSTRUCTIONS_NOT_LOADED
