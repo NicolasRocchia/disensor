@@ -196,18 +196,27 @@ and works on a machine without internet. It reads, it does not validate: a file
 that is not the shape of a declaration is listed at the end and the rest goes
 on. The residue comes first and the coverage goes in grey: the incorporated
 findings describe the record, not the quality of the code, and nothing in the
-page can be read as a seal of approval. The first view, Abierto, gathers
-everything that asked for a decision across the whole repository, oldest
-first. The artifact has no field to say that something closed, so the view
-does not say "open": it says "declared open on <date>, no later evidence of
-closure", and explains why at the top (issue #6). The report is a pure function
-of the declarations: no generation timestamp, the footer names the commit it
-was read from, and two runs over the same commit give identical bytes.
+page can be read as a seal of approval. The first view, Abierto, opens with a
+digest of what the whole repository left open (how many rows wait for a
+decision and since when, how many debts, how many execution gaps that ask for
+human attention), then the block of the latest declaration, also when it left
+nothing open, and then the queue, grouped by what each row asks of the reader
+rather than by the field of the schema it came from: waits for a decision,
+debt recorded, could not be executed (by the declared reason), about the
+reviewer, rests on judgement, and, folded because it asks for nothing, risk
+accepted by the owner. Inside each group the oldest goes first. A finding that
+a residue item of the same declaration points at is one row, not two. The
+artifact has no field to say that something closed, so the view does not say
+"open": it says "declared open on <date>, no later evidence of closure", and
+explains why at the top (issue #6). The report is a pure function of the
+declarations: no generation timestamp, the footer names the commit it was read
+from, and two runs over the same commit give identical bytes.
 
 Nobody has to type the command for the report to exist. When `disensor gate`
 reaches a green verdict it writes `informe-residuo.html` at the repository
-root, read from the same git objects it judged, and the last line of its output
-is the path. It writes it only when git ignores the file (`disensor init` and
+root, read from the same git objects it judged, and its output ends with the
+same digest the page opens with, what the latest declaration left open, and the
+path on the last line. It writes it only when git ignores the file (`disensor init` and
 `init --upgrade` add the line to `.gitignore`), because `disensor round` demands
 a clean tree. Best effort and never silent: a failure of the report never
 changes the verdict, and ends in a `[gate] report: FAILED` line. `--report-out`
