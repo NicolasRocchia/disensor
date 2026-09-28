@@ -11,18 +11,22 @@ ends up as a JSON file in your repo, next to the code it judges.
 
 *Este documento también está [en español](https://github.com/NicolasRocchia/disensor/blob/main/README.es.md).*
 
-Adversarial, cross-model AI code review that ends in a residue declaration: a
-CLI and a CI gate that validate the record the review leaves behind. Reference
-implementation of the artifact defined by the **controlled disagreement**
-method: one model generates, a model from another family attacks, the
-generator verifies every finding, and the cycle ends when each finding has been
-resolved, refuted with evidence, or escalated to a human.
+Not a green badge. Not a coverage score. A versioned record of what the review
+could not establish: which findings were verified and against what, which were
+refuted, what could not be executed, and what still rests on someone's
+judgement. The record says who generated the change, who reviewed it and from
+which model family, over which commits, with which brief, and who accepted the
+residual risk. It lists residue, not coverage: it aims the human reviewer's
+scrutiny instead of reading as a seal of quality. A CLI validates it, and a CI
+gate stops the pull request when the change calls for a record and the record
+is missing, generic, or does not match the change the pull request makes.
 
-The artifact this repo defines and enforces records how each review event ended:
-the findings with their terminal state, and the **residue**: what the cycle
-could not close by itself and rests on someone's judgement. The declaration
-lists residue, not coverage: it aims the human reviewer's scrutiny instead of
-reading as a seal of quality.
+The method behind it is **controlled disagreement**: one model generates, a
+model from another family attacks, the generator verifies every finding, and
+the cycle ends when each finding has been resolved, refuted with evidence, or
+escalated to a human. This repository is the reference implementation of the
+artifact that method defines, the **residue** declaration: what the cycle could
+not close by itself.
 
 Method paper: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversarial
 automatizada con un segundo asistente de código en el desarrollo de software*,
