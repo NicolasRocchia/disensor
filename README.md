@@ -208,7 +208,13 @@ accepted by the owner. Inside each group the oldest goes first. A finding that
 a residue item of the same declaration points at is one row, not two. The
 artifact has no field to say that something closed, so the view does not say
 "open": it says "declared open on <date>, no later evidence of closure", and
-explains why at the top (issue #6). The report is a pure function of the
+explains why at the top (issue #6). A fifth view, Tablero, is for whoever
+coordinates rather than reviews: what waits for a decision and since when,
+the risks the owner accepted, the debts recorded, what the declarations say of
+how each review was conducted, declarations per week and execution gaps by
+reason, opening with the same limit, because nothing in the artifact records a
+closure. It scores neither the code nor the people. The anchor `#tablero`
+opens it; Abierto stays the first view. The report is a pure function of the
 declarations: no generation timestamp, the footer names the commit it was read
 from, and two runs over the same commit give identical bytes.
 
