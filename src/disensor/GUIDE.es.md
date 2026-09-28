@@ -159,6 +159,19 @@ info), `title`, `description`, `location` (solo en el perfil completo), y:
     o `link` en vez de `text`. Y si pegaste un secreto, rotalo; no confíes en
     borrarlo. Reescribir la historia rompe los ids de commit que anclan todo el
     sistema, y git conserva el blob original igual.
+
+    Un patrón que conviene conocer antes de refutar: el revisor reporta los
+    archivos de instrucciones del propio repositorio (`AGENTS.md`, `CLAUDE.md`,
+    una skill, un runbook) o una declaración anterior en `.residue/` como
+    texto dirigido a él. Esos archivos le hablan a quien trabaja en el
+    repositorio, y la receta del catálogo con la que corre el runner es la
+    que, por sus banderas de endurecimiento, no los carga (#91). Si la ronda
+    corrió con esa receta, es `refuted_verifiable`, con `verification.against:
+    repository` y, como evidencia, la entrada del registro que corrió (su argv
+    y su `hardening`) más lo que el archivo pide de verdad y a quién. Decí qué
+    establece eso: que la receta no carga esos archivos, no que el modelo no
+    leyó nada. Un revisor que igual se dejó llevar es un hallazgo sobre el
+    revisor, y queda declarado.
   - `refuted_interpretive`: falso positivo por juicio; TIENE que aparecer además
     como ítem de residuo (R1) con `requires_human_attention: true` (R8).
   - `escalated_open`: todavía sin decisión; TIENE que aparecer además como ítem

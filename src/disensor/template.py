@@ -136,6 +136,16 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
                 "worktree, the branch name and the temporary path of the report, so nobody "
                 "but that machine could recompute it. Run the round again with this disensor"
             )
+        if version == "disensor/round-result/v2":
+            # El preambulo del paquete cambio (#91): la regla contra
+            # instrucciones en el material distingue destinatario. El
+            # pack_hash de un resultado v2 es de una forma que este disensor
+            # ya no arma, asi que no se convierte: la ronda se corre de nuevo.
+            raise RoundMismatch(
+                "the result is a v2 round: the preamble of the package changed after 0.11.0 "
+                "(#91), so the pack_hash it records is not the one this disensor would build "
+                "for the same event. Run the round again with this disensor"
+            )
         raise RoundMismatch(
             f"the result declares {version!r} and this disensor reads {ROUND_RESULT_VERSION}"
         )
@@ -288,8 +298,8 @@ FILL_HARDENING = (
     "FILL_IN: the adapter's hardening is not verified, so the material under review could "
     "have addressed the reviewer before the brief did. Say what you did about it."
 )
-ROUND_RESULT_VERSION = "disensor/round-result/v2"
-ROUND_RESULT_ORDINAL = 2
+ROUND_RESULT_VERSION = "disensor/round-result/v3"
+ROUND_RESULT_ORDINAL = 3
 
 
 def _fallback_from(resultado: dict) -> dict:

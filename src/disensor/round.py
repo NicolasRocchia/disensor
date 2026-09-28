@@ -53,7 +53,7 @@ from .reviewers import (
 # necesita esta forma y el brief que `prompt_hash` nombra, y nada mas. Si la
 # forma cambia, esto sube a v3 junto con `ROUND_RESULT_ORDINAL` en
 # template.py; el golden de tests/test_pack.py rompe si se cambia una sola.
-RESULT_VERSION = "disensor/round-result/v2"
+RESULT_VERSION = "disensor/round-result/v3"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
 # tener que leer prosa para saber que paso, y "no se requiere ronda" no puede
@@ -658,7 +658,14 @@ def _round(args, repo: Path) -> int:
             # como entrega, junto con la ruta de su informe, fuera del hash.
             # El hash cubre el texto canonico, con la identidad del repositorio
             # y sin la rama: lo unico que otro puede recomputar.
-            paquete = deliver(canonical, checkout=str(repo), report=str(candidato))
+            # Y la nota de que la receta no carga los archivos de instrucciones
+            # del checkout, solo cuando el endurecimiento es el GANADO (la
+            # entrada ya paso por effective_hardening): para una entrada que
+            # copio el argv, o que nunca vino del catalogo, seria falsa (#91).
+            paquete = deliver(
+                canonical, checkout=str(repo), report=str(candidato),
+                instructions_disabled=(entry.get("hardening") == "verified"),
+            )
             intento = run_reviewer(entry, paquete, candidato, args.timeout)
             intento["independence"] = independence
             attempts.append(intento)

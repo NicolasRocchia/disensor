@@ -361,7 +361,7 @@ def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
     assert (tmp_path / "informe.md").read_text(encoding="utf-8") == "informe legitimo"
 
     # El resultado es v2 y dice con que version se armo el paquete.
-    assert r["result_version"] == "disensor/round-result/v2"
+    assert r["result_version"] == "disensor/round-result/v3"
     assert r["disensor_version"] == __version__
     assert r["repository"] == gitctx.normalize_repository("https://github.com/mio/repo.git")
     # Y su pack_hash se recomputa desde el propio resultado: sin la ruta local
@@ -1026,3 +1026,39 @@ def test_a_tree_changed_by_the_reviewer_names_the_report(repo: Path, monkeypatch
     assert "working tree changed" in err
     assert _informe_nombrado(err) == tmp_path / "informe.md"
     assert not (tmp_path / "resultado.json").exists()
+
+
+def test_the_note_about_instruction_files_travels_only_with_earned_hardening(repo: Path, monkeypatch, tmp_path):
+    """La entrega dice que la receta no carga los archivos de instrucciones del
+    checkout SOLO con el endurecimiento ganado (#91): para una entrada que copio
+    el argv sin venir del catalogo la nota seria falsa, y viaja a un revisor que
+    la va a tomar como un hecho."""
+    from disensor.pack import INSTRUCTIONS_NOT_LOADED
+    from disensor.reviewers import executable_fingerprint
+
+    ECO = """import sys
+from pathlib import Path
+Path(sys.argv[1]).write_bytes(sys.stdin.buffer.read())
+sys.exit(0)
+"""
+    (repo / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    argv = revisor_falso(tmp_path, "eco", ECO)
+    receta = {"family": "openai", "model": "eco", "command": argv, "stdin": "pack",
+              "hardening": "verified", "egress": "local", "provider": "test"}
+    monkeypatch.setattr(ronda, "CATALOG", {"eco": receta})
+    ganada = entrada("eco", "openai", argv, source="catalog", stdin="pack", egress="local",
+                     executable_hash=executable_fingerprint(sys.executable))
+
+    uno = tmp_path / "uno"
+    uno.mkdir()
+    assert correr(repo, {"reviewers": [ganada]}, monkeypatch, uno) == OK
+    assert INSTRUCTIONS_NOT_LOADED in (uno / "informe.md").read_text(encoding="utf-8")
+
+    # Mismo argv, mismo binario, pero armada por el asistente: no la gano.
+    dos = tmp_path / "dos"
+    dos.mkdir()
+    copiada = dict(ganada, source="assistant")
+    assert correr(repo, {"reviewers": [copiada]}, monkeypatch, dos) == OK
+    assert INSTRUCTIONS_NOT_LOADED not in (dos / "informe.md").read_text(encoding="utf-8")

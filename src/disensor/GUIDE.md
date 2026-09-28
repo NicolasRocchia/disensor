@@ -155,6 +155,19 @@ info), `title`, `description`, `location` (full profile only), and:
     a secret, rotate it; do not trust deletion. A rewritten history breaks
     the commit ids the whole system anchors to, and git keeps the original
     blob anyway.
+
+    A pattern worth knowing before you refute it: the reviewer reports the
+    repository's own instruction files (`AGENTS.md`, `CLAUDE.md`, a skill, a
+    runbook) or an earlier declaration in `.residue/` as text addressed to
+    it. Those files address whoever works in the repository, and the
+    catalogued recipe the runner uses is the one whose hardening flags keep
+    them from being loaded (#91). If the round ran with that recipe, this is
+    `refuted_verifiable`, with `verification.against: repository` and, as
+    evidence, the registry entry that ran (its argv and its `hardening`) plus
+    what the file actually asks and of whom. Say what that establishes: that
+    the recipe does not load those files, not that the model read nothing. A
+    reviewer that was still swayed is a finding about the reviewer, and it
+    stays declared.
   - `refuted_interpretive`: false positive by judgment; it MUST also appear
     as a residue item (R1) with `requires_human_attention: true` (R8).
   - `escalated_open`: no decision yet; it MUST also appear as a residue
