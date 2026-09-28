@@ -1,0 +1,136 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "0ed38518-6452-4bf5-a791-19053720853b",
+    "created_at": "2026-09-28T13:18:36-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "7473f843dd674ca89aae21d172cefc2dead96f42",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "92a0b76004ef161e35f6b708b6e874029b85345d"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-6-astra",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "unverified",
+        "prompt_hash": "sha256:455c77ff82b20d170b27b4a34f7ab4f0b923e0bd9b12598244b182f048c924d6"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-6-astra",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "other"
+        },
+        "hardening": "unverified",
+        "prompt_hash": "sha256:544b5a226efe24dcefe10f04f3404cdd9d763d04d4911217618ae2ad57be5bec"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La nota de la entrega afirmaba una observación que el runner no puede hacer",
+      "description": "El plan hacía decir a la entrega 'Instruction files in the checkout: NOT loaded'. El hash del ejecutable registrado cubre el lanzador (.CMD en Windows) y no lo que termina ejecutándose, y la prueba hostil observa la respuesta del modelo, no qué archivos entraron al contexto: 'no se cargó nada' no es un hecho que el runner haya observado. Un wrapper con el argv del catálogo y hash coincidente obtendría verified y la nota sería falsa.",
+      "location": "plan, cambio 2; src/disensor/pack.py (INSTRUCTIONS_NOT_LOADED) y src/disensor/round.py junto a la comparación del hash del ejecutable",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "round.py: el comentario junto a la comparación del hash reconoce que cubre el lanzador ('es una atestación más, no una prueba'); tests/test_hardening.py afirma sobre la salida, no sobre el contexto; tests/test_round.py acepta como verified una entrada cuyo ejecutable es el intérprete con hash coincidente."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "ronda sobre el diff (r2): verificó que la nota afirma el comportamiento de la receta sin afirmar una observación de carga. tests/test_pack.py::test_the_delivery_says_when_the_recipe_does_not_load_instruction_files fija que el texto no dice 'NOT loaded'."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Faltaba actualizar la aserción del ordinal en tests/test_new_round.py",
+      "description": "El plan listaba las aserciones del ordinal a subir y omitía test_the_observed_data_travels_in_the_extension_space, que exigía result_version == 2 en la extensión: con ROUND_RESULT_ORDINAL en 3 fallaba aunque se hiciera todo lo listado.",
+      "location": "tests/test_new_round.py, test_the_observed_data_travels_in_the_extension_space",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "la aserción existía (línea 199 en main) y contrastaba con template.py, que emite ROUND_RESULT_ORDINAL en la extensión."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_new_round.py::test_the_observed_data_travels_in_the_extension_space, ahora con 3; pasa en la suite local (605 passed) y en el CI del PR (3.10 y 3.12)."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "reviewer_hardening_gap",
+        "reviewer_ref": "r1",
+        "requires_human_attention": true,
+        "description": "La ronda sobre el plan no corrió por el runner de disensor: se invocó codex exec a mano, con --dangerously-bypass-approvals-and-sandbox y sin las banderas de la receta del catálogo que apagan el descubrimiento de instrucciones del proyecto. El repositorio revisado no tiene AGENTS.md ni lo agregaba el plan; el registro de comandos del revisor muestra solo lecturas y pytest, y git status quedó limpio después. Nada de eso es la prueba hostil: el endurecimiento queda sin verificar para esta corrida."
+      },
+      {
+        "id": "r2",
+        "class": "reviewer_hardening_gap",
+        "reviewer_ref": "r2",
+        "requires_human_attention": true,
+        "description": "Lo mismo para la ronda sobre el diff, invocada de la misma forma. El confinamiento se verificó con un método propio, de ahí 'other': el diff enviado al revisor dentro de la consigna y git diff main...HEAD después de commitear son idénticos byte a byte, así que el revisor no modificó nada de lo revisado; git status mostró los mismos diez archivos antes y después."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "La eficacia semántica del cambio no se midió: ni que un revisor real deje de reportar runbooks legítimos con la consigna nueva, ni la hipótesis de r2 de que un modelo lea 'ordinary material' como exención general para instrucciones hostiles presentadas como harness. Por texto, el criterio es qué le piden a esta revisión y no cómo se presentan; r1 construyó el texto hostil que se autodeclara ordinario y la redacción nueva también obliga a reportarlo. Los tests nuevos verifican texto y entrega. Se mide solo con modelos reales, y queda anotado en #91."
+      },
+      {
+        "id": "r4",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Los dos revisores corrieron la suite completa en Windows con Python 3.14 (605 pasados, 6 salteados) sin forzar las salteadas: los dos smoke tests de endurecimiento, opt-in con costo (DISENSOR_SMOKE=1), la prueba de permiso de ejecución en POSIX y tres index.json de vectores. El CI del PR corrió en Ubuntu con 3.10 y 3.12 y pasó. Al verificar una hipótesis de r1 se vio que el smoke de endurecimiento puede pasar sin que el modelo conteste (eco del prompt, exit code ignorado, {model} sin sustituir): abierto como #92, fuera de este PR."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
