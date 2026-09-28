@@ -207,6 +207,19 @@ right terminal state: a finding recorded as incorporated when it was really
 refuted keeps every count coherent. Getting the states right is on you; the
 validator catches mismatches, not misclassification.
 
+`extra_time_sec` and `token_cost` are the cost of the cycle (section 11 of
+the protocol), and both are optional. `extra_time_sec` is end to end: the
+reviewer runs, the verification of each finding, the rewriting and the
+refutation; it excludes the implementation. Only whoever lived the cycle can
+measure that, so write it if you timed it and leave it out if you did not.
+What the runner can time is the reviewer alone: `disensor new --round` carries
+that as `reviewer_seconds` under `extensions["dev.disensor.round"]`, the wall
+time of the attempt that produced the report. It is a floor of
+`extra_time_sec`, not a value for it: copying it there would declare that the
+cycle cost what the reviewer cost. `token_cost` is filled only from what the
+reviewer or the generator reported; no recipe in the catalog reports it today,
+so it stays manual. "Count, do not estimate" applies to both.
+
 ## Minimized profile
 
 R9 strips the free text it covers: no titles, descriptions or locations in

@@ -138,7 +138,9 @@ disensor new --gate diff --level <A|B|C> --round <result>
 ```
 
 It arrives prefilled with what the runner observed: reviewer, anchors, hashes,
-and the residue items that a degraded round owes. Fill in the findings with
+the reviewer's wall time as `reviewer_seconds` in the extension space, and the
+residue items that a degraded round owes. `metrics.extra_time_sec` is the
+whole cycle, not the reviewer: fill it only if you timed it. Fill in the findings with
 their terminal states and the residue with what stayed open. `disensor guide`
 explains every field. Do not invent findings or states: the artifact declares
 what happened, not what should have happened.
