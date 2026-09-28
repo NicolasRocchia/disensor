@@ -65,18 +65,60 @@ STATE_NAME = {
     "refuted_interpretive": "Refutado interpretativo",
     "escalated_open": "Escalado abierto",
 }
-STATE_NOTE = {
-    "incorporated": "cambió el plan o el código",
-    "debt_recorded": "válido, diferido",
-    "owner_decision": "el dueño cambió el alcance o aceptó el riesgo",
-    "refuted_verifiable": "falso positivo con prueba",
-    "refuted_interpretive": "falso positivo por juicio; pasa a residuo",
-    "escalated_open": "todavía sin decisión",
-}
 # The two states the cycle closes by itself. Everything else stays open in the
 # sense of section 9 of the protocol: it rests on somebody's judgement.
 CLOSED_STATES = {"incorporated", "refuted_verifiable"}
 OPEN_STATES = ["escalated_open", "owner_decision", "debt_recorded", "refuted_interpretive"]
+
+# The open view groups by what each row asks of whoever reads it, not by the
+# field it came from: an escalated finding and an escalation item both wait for
+# a decision, and a reader deciding what to do next does not care which key of
+# the schema holds them. The admission did not change: a residue item enters
+# when its declaration marked it for human attention, a finding when its state
+# is one the cycle did not close. This is also the order of the page.
+QUEUE = [
+    ("decision", "Espera una decisión",
+     "escalaciones sin decisión y hallazgos escalados: alguien tiene que decidir"),
+    ("debt", "Deuda anotada", "hallazgos válidos y diferidos, sin evidencia de pago"),
+    ("gap:environment_not_reproducible", "No se pudo ejecutar: entorno no reproducible",
+     "huecos de ejecución que piden atención humana"),
+    ("gap:third_party_no_test_environment", "No se pudo ejecutar: tercero sin entorno de prueba",
+     "huecos de ejecución que piden atención humana"),
+    ("gap:other", "No se pudo ejecutar: otro motivo", "huecos de ejecución que piden atención humana"),
+    ("gap:unstated", "No se pudo ejecutar: motivo no declarado",
+     "huecos sin motivo, o con uno que este informe no conoce"),
+    ("reviewer", "Sobre el revisor",
+     "el revisor no fue independiente o su endurecimiento no se verificó"),
+    ("judgement", "Descansa en un juicio", "refutaciones por juicio, no por prueba"),
+    ("accepted", "Riesgo aceptado por el dueño", "no pide acción: queda quién aceptó qué"),
+    ("other", "Otro residuo", "una clase que este informe no conoce: se muestra lo que trae"),
+]
+QUEUE_TITLE = {key: title for key, title, _ in QUEUE}
+# The digest and the summary line sum these as one number: a gap is a gap
+# whatever its reason, and the reason is what the group title says.
+GAP_KEYS = [key for key, _, _ in QUEUE if key.startswith("gap:")]
+_ITEM_QUEUE = {
+    "escalation_without_decision": "decision",
+    "reviewer_correlation": "reviewer",
+    "reviewer_hardening_gap": "reviewer",
+    "principal_refutation": "judgement",
+}
+_FINDING_QUEUE = {
+    "escalated_open": "decision",
+    "debt_recorded": "debt",
+    "owner_decision": "accepted",
+    "refuted_interpretive": "judgement",
+}
+
+
+def queue_key(row: dict) -> str:
+    """The group of the open view a row belongs to (a key of QUEUE)."""
+    if row["kind"] == "item":
+        if row["class"] == "execution_gap":
+            reason = row["gap_reason"]
+            return f"gap:{reason}" if reason in GAP_REASON_NAME else "gap:unstated"
+        return _ITEM_QUEUE.get(row["class"], "other")
+    return _FINDING_QUEUE[row["state"]]
 
 CLASS_NAME = {
     "escalation_without_decision": "Escalado sin decisión",
@@ -246,6 +288,7 @@ def normalize(name: str, raw: dict) -> dict:
         evidence = f.get("evidence") or {}
         location = f.get("location")
         findings.append({
+            "kind": "finding",
             "id": str(f.get("id") or ""),
             "origin": str(f.get("origin") or ""),
             "severity": str(f.get("severity") or ""),
@@ -270,6 +313,7 @@ def normalize(name: str, raw: dict) -> dict:
         evidence = it.get("evidence") or {}
         acceptance = it.get("lead_acceptance") or {}
         items.append({
+            "kind": "item",
             "id": str(it.get("id") or ""),
             "class": str(it.get("class") or ""),
             "gap_reason": it.get("gap_reason"),
@@ -397,9 +441,10 @@ class Model:
     unreadable: list
     repositories: list
     latest: dict | None
-    open_groups: list          # [(key, title, note, rows)] rows oldest first
+    open_groups: list          # [(key, title, note, rows)] one per QUEUE entry, rows oldest first
     open_total: int
     open_from_latest: int
+    now_rows: list             # what the latest declaration left open, as written
     cases: list
     counts: dict
     by_file: list
@@ -483,21 +528,50 @@ def time_series(dated: list[dict]) -> tuple[str, list[dict]]:
     return unit, series
 
 
+def open_rows(d: dict) -> list:
+    """What one declaration left open: its residue items marked for human
+    attention and its findings in a state the cycle did not close, in the
+    order they were written. A finding one of those items points at
+    (`finding_ref`) folds into the item's row, which carries the finding's
+    title and state, only when both ask the same thing: the item is then the
+    residue record of that finding. In the corpus every escalated finding has
+    such an item, and counting both said "8 wait for a decision" where there
+    were five decisions to take. An item of another class that points at an
+    accepted risk or a debt hides nothing: the schema allows the reference,
+    and the risk or the debt is still an open obligation of its own."""
+    items = [it for it in d["items"] if it["attention"]]
+    folded = set()
+    for it in items:
+        origin = _referenced_finding(it)
+        if origin is not None and origin["state"] in OPEN_STATES and queue_key(origin) == queue_key(it):
+            folded.add(origin["id"])
+    return items + [f for f in d["findings"] if f["state"] in OPEN_STATES and f["id"] not in folded]
+
+
+def _referenced_finding(it: dict) -> dict | None:
+    if not it["finding_ref"]:
+        return None
+    return next((f for f in it["decl"]["findings"] if f["id"] == it["finding_ref"]), None)
+
+
+def open_queue(declarations: list[dict]) -> list[tuple[str, str, str, list]]:
+    """The open rows of every declaration, grouped by what they ask (QUEUE)
+    and oldest first inside each group. Empty groups stay in the list: the
+    render skips them and the digest counts them as zero."""
+    buckets: dict[str, list] = {key: [] for key, _, _ in QUEUE}
+    for d in declarations:
+        for row in open_rows(d):
+            buckets[queue_key(row)].append(row)
+    return [(key, title, note, _chronological(buckets[key])) for key, title, note in QUEUE]
+
+
 def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
     findings = [f for d in declarations for f in d["findings"]]
-    items = [it for d in declarations for it in d["items"]]
     latest = declarations[0] if declarations else None
 
-    groups = [("attention", "Pide atención humana",
-               "ítems de residuo marcados requires_human_attention",
-               _chronological([it for it in items if it["attention"]]))]
-    for state in OPEN_STATES:
-        groups.append((state, STATE_NAME[state], STATE_NOTE[state],
-                       _chronological([f for f in findings if f["state"] == state])))
+    groups = open_queue(declarations)
     open_total = sum(len(rows) for _, _, _, rows in groups)
-    open_from_latest = sum(
-        1 for _, _, _, rows in groups for r in rows if latest is not None and r["decl"] is latest
-    )
+    now_rows = open_rows(latest) if latest is not None else []
 
     cases = sorted(
         (f for f in findings
@@ -540,7 +614,8 @@ def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
         latest=latest,
         open_groups=groups,
         open_total=open_total,
-        open_from_latest=open_from_latest,
+        open_from_latest=len(now_rows),
+        now_rows=now_rows,
         cases=cases,
         counts=dict(counts),
         by_file=top_files,
@@ -637,6 +712,10 @@ def _item_row(it: dict, model: Model, index: int | None = None) -> str:
     else:
         text = ('<div class="txt mudo">Sin descripción: perfil minimizado. Quedan la clase, la atención '
                 'humana y de qué declaración salió.</div>')
+    origin = _referenced_finding(it)
+    if origin is not None and origin["title"]:
+        text += (f'<div class="txt origen"><b>{E(STATE_NAME.get(origin["state"], origin["state"]))}</b> '
+                 f'{E(origin["title"])}</div>')
     in_open = index is not None
     footer = [
         '<span class="etq abierto">pide atención humana</span>' if it["attention"] else "",
@@ -656,8 +735,13 @@ def _item_row(it: dict, model: Model, index: int | None = None) -> str:
             f'{text}<div class="pie">{pie}</div></div></div>')
 
 
-def _finding_row(f: dict, model: Model, index: int) -> str:
+def _finding_row(f: dict, model: Model, index: int | None = None) -> str:
+    """A finding as a row of the open queue (with `index`, its place in the
+    chronological order the switch moves) or of the block of the latest
+    declaration (without it: no date column, no tag, no reference back,
+    nothing the block's heading already says)."""
     d = f["decl"]
+    in_open = index is not None
     is_open = f["state"] not in CLOSED_STATES
     if f["title"]:
         title = f'<div class="tit">{E(f["title"])}</div>'
@@ -668,16 +752,18 @@ def _finding_row(f: dict, model: Model, index: int) -> str:
     footer = [
         _meter(f["severity"]),
         f'<span class="etq{" abierto" if is_open else ""}">{E(STATE_NAME.get(f["state"], f["state"]))}</span>',
-        _latest_tag(d, model),
-        "<span>sin evidencia posterior de cierre</span>",
+        _latest_tag(d, model) if in_open else "",
+        "<span>sin evidencia posterior de cierre</span>" if in_open else "",
         f"<span>deuda <b>{_link(f['debt_id'], _cut(f['debt_id'], 46))}</b></span>" if f["debt_id"] else "",
         f"<span>{E(f['location'])}</span>" if f["location"] else "",
-        _decl_ref(d),
+        _decl_ref(d) if in_open else "",
     ]
-    classes = "fila abierta" if is_open else "fila"
+    classes = "fila" + (" abierta" if is_open else "") + ("" if in_open else " sola")
+    attrs = f' data-orden="{index}"' if in_open else ""
+    when = _when(d) if in_open else ""
     body = f'<div class="txt">{E(note)}</div>' if note else ""
     pie = "".join(footer)
-    return (f'<div class="{classes}" data-orden="{index}">{_when(d)}'
+    return (f'<div class="{classes}"{attrs}>{when}'
             f'<div class="cuerpo">{title}{body}<div class="pie">{pie}</div></div></div>')
 
 
@@ -686,32 +772,97 @@ def _cut(text, limit: int) -> str:
     return text if len(text) <= limit else text[:limit - 1] + "…"
 
 
-def _group(key: str, title: str, note: str, rows_html: list[str]) -> str:
+def _group(key: str, title: str, note: str, rows_html: list[str], folded: bool = False) -> str:
     if not rows_html:
         return ""
     rows = "".join(rows_html)
-    return (f'<section class="grupo" data-grupo="{E(key)}"><div class="grupo-cab"><h3>{E(title)}</h3>'
-            f'<span class="c">{len(rows_html)}</span><span class="d">{E(note)}</span></div>'
+    head = f'<h3>{E(title)}</h3><span class="c">{len(rows_html)}</span><span class="d">{E(note)}</span>'
+    if folded:
+        return (f'<details class="grupo plegado" data-grupo="{E(key)}"><summary class="grupo-cab">{head}</summary>'
+                f'<div class="filas">{rows}</div></details>')
+    return (f'<section class="grupo" data-grupo="{E(key)}"><div class="grupo-cab">{head}</div>'
+            f'<div class="filas">{rows}</div></section>')
+
+
+def _row(r: dict, model: Model, index: int | None = None) -> str:
+    return _item_row(r, model, index) if r["kind"] == "item" else _finding_row(r, model, index)
+
+
+def _oldest(groups: dict, keys: list[str]) -> dict | None:
+    """The declaration of the oldest row across those groups, or None."""
+    heads = [groups[k][0] for k in keys if groups[k]]
+    return min(heads, key=lambda r: _sort_key(r["decl"]))["decl"] if heads else None
+
+
+def _digest(model: Model) -> str:
+    """What the whole queue asks, before any row: how many wait for a decision
+    and since when, how many debts, how many gaps. Sums of the groups below,
+    so the reader who stops here read the same numbers as the one who goes on."""
+    groups = {key: rows for key, _, _, rows in model.open_groups}
+
+    def since(d: dict | None) -> str:
+        return f", la más vieja declarada el {E(_fmt_date(d))}{_age_span(d)}" if d else ""
+
+    lines = []
+    n = len(groups["decision"])
+    if n:
+        lines.append(f'<li><b>{n}</b> {"espera" if n == 1 else "esperan"} una decisión'
+                     f'{since(_oldest(groups, ["decision"]))}.</li>')
+    n = len(groups["debt"])
+    if n:
+        lines.append(f'<li><b>{n}</b> {"deuda anotada" if n == 1 else "deudas anotadas"} sin evidencia de pago'
+                     f'{since(_oldest(groups, ["debt"]))}.</li>')
+    n = sum(len(groups[k]) for k in GAP_KEYS)
+    if n:
+        reasons = "; ".join(f"{len(groups[k])} {QUEUE_TITLE[k].split(': ', 1)[1]}" for k in GAP_KEYS if groups[k])
+        lines.append(f'<li><b>{n}</b> {"hueco" if n == 1 else "huecos"} de ejecución que '
+                     f'{"pide" if n == 1 else "piden"} atención humana: {E(reasons)}.</li>')
+    n = len(groups["reviewer"])
+    if n:
+        lines.append(f'<li><b>{n}</b> sobre el revisor: independencia o endurecimiento sin verificar.</li>')
+    n = len(groups["judgement"])
+    if n:
+        lines.append(f'<li><b>{n}</b> {"descansa" if n == 1 else "descansan"} en un juicio, no en una prueba.</li>')
+    n = len(groups["accepted"])
+    if n:
+        lines.append(f'<li><b>{n}</b> {"riesgo aceptado" if n == 1 else "riesgos aceptados"} por el dueño, '
+                     f'{"plegado" if n == 1 else "plegados"} al final: no {"pide" if n == 1 else "piden"} acción.</li>')
+    n = len(groups["other"])
+    if n:
+        lines.append(f'<li><b>{n}</b> de una clase que este informe no conoce.</li>')
+    total = model.open_total
+    head = (f'<p class="digest-cab"><b>{total}</b> '
+            f'{"ítem declarado abierto" if total == 1 else "ítems declarados abiertos"}, '
+            f'sin evidencia posterior de cierre.</p>')
+    return f'<div class="digest">{head}<ul>{"".join(lines)}</ul></div>'
+
+
+def _now(model: Model) -> str:
+    """What the latest declaration left open, always on top and also when it
+    is nothing: before a merge, this is the block to read."""
+    d = model.latest
+    if d is None:
+        return ""
+    ref = f'<a href="#d-{E(d["event_id"])}"><code>{E(d["event_id"][:8])}</code></a>'
+    when = f"{E(_fmt_date(d))}{_age_span(d)}"
+    if not model.now_rows:
+        return (f'<section class="ahora"><div class="grupo-cab"><h3>La última declaración</h3>'
+                f'<span class="d">{ref} · {when}</span></div>'
+                f'<p class="ahora-vacia">No dejó ítems abiertos: ni residuo con atención humana ni hallazgos '
+                f'sin cerrar. Lo que sí declaró está en su ficha.</p></section>')
+    n = len(model.now_rows)
+    rows = "".join(_row(r, model) for r in model.now_rows)
+    return (f'<section class="ahora"><div class="grupo-cab"><h3>Lo que dejó abierto la última declaración</h3>'
+            f'<span class="c">{n}</span><span class="d">{ref} · {when}</span></div>'
             f'<div class="filas">{rows}</div></section>')
 
 
 def render_open(model: Model) -> str:
     groups_html = []
     for key, title, note, rows in model.open_groups:
-        if key == "attention":
-            rendered = [_item_row(it, model, i) for i, it in enumerate(rows)]
-        else:
-            rendered = [_finding_row(f, model, i) for i, f in enumerate(rows)]
-        groups_html.append(_group(key, title, note, rendered))
-    latest_line = ""
-    if model.latest and model.open_from_latest:
-        d = model.latest
-        latest_line = (
-            f'<p class="reciente">{model.open_from_latest} de estos {model.open_total} ítems son de la '
-            f'declaración más reciente, <a href="#d-{E(d["event_id"])}"><code>{E(d["event_id"][:8])}</code></a> '
-            f'({E(_fmt_date(d))}{_age_span(d)}): llevan la etiqueta '
-            f'<span class="etq ultima">última declaración</span>.</p>'
-        )
+        rendered = [_row(r, model, i) for i, r in enumerate(rows)]
+        groups_html.append(_group(key, title, note, rendered, folded=(key == "accepted")))
+    digest = _digest(model) if model.open_total else ""
     empty = ""
     if not model.open_total:
         empty = ('<div class="vacio">Ninguna declaración dejó residuo abierto. Eso también se declara: '
@@ -720,12 +871,14 @@ def render_open(model: Model) -> str:
     return f"""
     <div class="intro">
       <h2>Lo que el ciclo no cerró por sí mismo</h2>
-      <p>De todo el repositorio. <span class="orden-nota" data-orden-nota="antiguo">Lo más viejo arriba, porque es lo más olvidado.</span><span class="orden-nota" data-orden-nota="reciente" hidden>Lo más reciente arriba: lo que acaba de quedar abierto.</span> Los hallazgos incorporados no están acá: no son noticia.</p>
+      <p>De todo el repositorio, agrupado por lo que le pide a quien lee y no por el campo del esquema. <span class="orden-nota" data-orden-nota="antiguo">Dentro de cada grupo, lo más viejo arriba, porque es lo más olvidado.</span><span class="orden-nota" data-orden-nota="reciente" hidden>Dentro de cada grupo, lo más reciente arriba: lo que acaba de quedar abierto.</span> Los hallazgos incorporados no están acá: no son noticia.</p>
     </div>
+    {digest}
     <div class="nota"><b>El artefacto no registra cierres.</b> Una deuda anotada hace un mes y una de ayer se ven
       igual, porque nada en el formato dice que algo se saldó después. Lo que sigue es lo declarado abierto en su
       momento, sin evidencia posterior de cierre; no una lista de pendientes vigentes. Es un hueco conocido del
       esquema (issue #6), y este informe existe en parte para hacerlo visible.</div>
+    {_now(model)}
     <div class="tools">
       <div class="conmutador" role="group" aria-label="Orden de la lista">
         <span>orden</span>
@@ -733,7 +886,6 @@ def render_open(model: Model) -> str:
         <button type="button" id="o-reciente" data-orden="reciente" aria-pressed="false">más reciente primero</button>
       </div>
     </div>
-    {latest_line}
     {groups}
     {empty}"""
 
@@ -1147,19 +1299,53 @@ def write_html(out: Path, page: str) -> None:
             tmp.unlink()
 
 
-def attention_count(declarations: list[dict]) -> int:
-    return sum(1 for d in declarations for it in d["items"] if it["attention"])
-
-
 def summary_line(declarations: list[dict], unreadable: list[Unreadable], out: Path, prefix: str = "") -> str:
-    """What the command (or the gate) prints. The path is always the LAST line."""
-    n, m = len(declarations), attention_count(declarations)
+    """What the command (or the gate) prints: the digest of the open view, and
+    what the latest declaration left open, so the terminal answers the two
+    questions the page opens with. The path is always the LAST line."""
+    n = len(declarations)
+    groups = {key: rows for key, _, _, rows in open_queue(declarations)}
+    total = sum(len(rows) for rows in groups.values())
     lines = []
     if unreadable:
         k = len(unreadable)
         lines.append(f"{prefix}{k} {'file' if k == 1 else 'files'} unreadable, listed in the report")
-    lines.append(f"{prefix}{n} {'declaration' if n == 1 else 'declarations'}, {m} "
-                 f"{'item asks' if m == 1 else 'items ask'} for human attention -> {out}")
+
+    def since(d: dict | None) -> str:
+        return f" (oldest {d['date'].strftime('%Y-%m-%d')})" if d and d["date"] else ""
+
+    parts = []
+    k = len(groups["decision"])
+    if k:
+        parts.append(f"{k} {'awaits' if k == 1 else 'await'} a decision{since(_oldest(groups, ['decision']))}")
+    k = len(groups["debt"])
+    if k:
+        parts.append(f"{k} {'debt' if k == 1 else 'debts'}{since(_oldest(groups, ['debt']))}")
+    k = sum(len(groups[g]) for g in GAP_KEYS)
+    if k:
+        parts.append(f"{k} execution {'gap' if k == 1 else 'gaps'} with human attention")
+    k = len(groups["reviewer"])
+    if k:
+        parts.append(f"{k} on the reviewer")
+    k = len(groups["judgement"])
+    if k:
+        parts.append(f"{k} resting on judgement")
+    k = len(groups["accepted"])
+    if k:
+        parts.append(f"{k} accepted {'risk' if k == 1 else 'risks'}")
+    k = len(groups["other"])
+    if k:
+        parts.append(f"{k} of a class this report does not know")
+    head = f"{prefix}{n} {'declaration' if n == 1 else 'declarations'}"
+    lines.append(f"{head}, {total} declared open: {', '.join(parts)}" if total
+                 else f"{head}, nothing declared open")
+    latest = declarations[0] if declarations else None
+    if latest is None:
+        lines[-1] += f" -> {out}"
+    else:
+        m = len(open_rows(latest))
+        left = f"{m} {'item' if m == 1 else 'items'}" if m else "nothing"
+        lines.append(f"{prefix}the latest declaration ({latest['event_id'][:8]}) left {left} open -> {out}")
     return "\n".join(lines)
 
 
