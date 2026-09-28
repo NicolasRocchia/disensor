@@ -452,6 +452,12 @@ class Model:
     minimized: int
     by_day: list
     unit: str                  # day, week, month, year or sparse
+    by_week: list              # declarations per week for the board, same shape as by_day
+    week_unit: str             # week, unless the span is too wide even for weeks
+    health: dict               # what the declarations say of how they were reviewed, per event
+    gaps_by_reason: list       # [(key, name, n)] over every execution gap, most frequent first
+    gaps_total: int
+    gaps_attention: int
     reviewers: list
     versions: list
     first: datetime | None
@@ -490,23 +496,31 @@ def _next_bucket(start: date, unit: str) -> date:
     return start + timedelta(days=1)
 
 
-def time_series(dated: list[dict]) -> tuple[str, list[dict]]:
+_UNIT_LENGTH = (("day", 1), ("week", 7), ("month", 28), ("year", 365))
+
+
+def time_series(dated: list[dict], wanted: str | None = None) -> tuple[str, list[dict]]:
     """Declarations, findings and attention items per bucket of time, bounded.
 
     The unit is the finest one that keeps the whole span under MAX_BUCKETS
     (day, week, month, year); a span too wide even for years falls back to a
     sparse series of the days that hold declarations, with no empty buckets
-    in between, and the panel says the axis is not continuous.
+    in between, and the panel says the axis is not continuous. `wanted` asks
+    for a coarser unit (the board counts declarations per week) and is
+    honoured only while it keeps the span under the bound; the caller reads
+    the unit that came back.
     """
     if not dated:
-        return "day", []
+        return wanted or "day", []
     days = sorted({d["date"].date() for d in dated})
     span = (days[-1] - days[0]).days + 1
     unit = "sparse"
-    for candidate, length in (("day", 1), ("week", 7), ("month", 28), ("year", 365)):
+    for candidate, length in _UNIT_LENGTH:
         if span / length <= MAX_BUCKETS:
             unit = candidate
             break
+    if wanted and any(wanted == c and span / n <= MAX_BUCKETS for c, n in _UNIT_LENGTH):
+        unit = wanted
     buckets: dict[date, dict] = {}
     for d in dated:
         key = _bucket_start(d["date"].date(), "day" if unit == "sparse" else unit)
@@ -565,6 +579,32 @@ def open_queue(declarations: list[dict]) -> list[tuple[str, str, str, list]]:
     return [(key, title, note, _chronological(buckets[key])) for key, title, note in QUEUE]
 
 
+def _health(declarations: list[dict]) -> dict:
+    """What the declarations say of how they were reviewed, counted per event.
+
+    A field an older schema did not have counts as not declared, never as
+    failed: the denominator of independence and hardening is the events that
+    declare them, and the render says how many do not. These numbers measure
+    the protocol, not the people; in a repository of one person they measure
+    that person, and the page says so.
+    """
+    def every(d: dict, pred) -> bool:
+        return bool(d["reviewers"]) and all(pred(r) for r in d["reviewers"])
+
+    independence = [d for d in declarations if every(d, lambda r: r["independence"] is not None)]
+    hardening = [d for d in declarations if every(d, lambda r: r["hardening"] is not None)]
+    return {
+        "events": len(declarations),
+        "cross_family": sum(1 for d in independence if every(d, lambda r: r["independence"] == "cross_family")),
+        "independence_declared": len(independence),
+        "hardening_verified": sum(1 for d in hardening if every(d, lambda r: r["hardening"] == "verified")),
+        "hardening_declared": len(hardening),
+        "confinement_verified": sum(1 for d in declarations if every(d, lambda r: r["confinement_verified"] is True)),
+        "arbiter": sum(1 for d in declarations if d["arbiter"]),
+        "absence": sum(1 for d in declarations if d["absence"]),
+    }
+
+
 def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
     findings = [f for d in declarations for f in d["findings"]]
     latest = declarations[0] if declarations else None
@@ -599,6 +639,20 @@ def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
 
     dated = [d for d in declarations if d["date"]]
     unit, by_day = time_series(dated)
+    week_unit, by_week = time_series(dated, "week")
+
+    # Every execution gap, with or without human attention: the board asks
+    # what could not be arbitrated by execution, and the reason is what the
+    # declaration says it is.
+    gap_counter: Counter = Counter()
+    gaps_attention = 0
+    for d in declarations:
+        for it in d["items"]:
+            if it["class"] == "execution_gap":
+                gap_counter[it["gap_reason"] if it["gap_reason"] in GAP_REASON_NAME else "unstated"] += 1
+                gaps_attention += 1 if it["attention"] else 0
+    gaps_by_reason = [(key, GAP_REASON_NAME.get(key, "motivo no declarado"), n)
+                      for key, n in sorted(gap_counter.items(), key=lambda kv: (-kv[1], kv[0]))]
 
     reviewers = Counter((r["family"], r["model"]) for d in declarations for r in d["reviewers"])
     reviewer_rows = sorted(reviewers.items(), key=lambda kv: (-kv[1], kv[0]))
@@ -623,6 +677,12 @@ def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
         minimized=minimized,
         by_day=by_day,
         unit=unit,
+        by_week=by_week,
+        week_unit=week_unit,
+        health=_health(declarations),
+        gaps_by_reason=gaps_by_reason,
+        gaps_total=sum(gap_counter.values()),
+        gaps_attention=gaps_attention,
         reviewers=reviewer_rows,
         versions=version_rows,
         first=dates[0] if dates else None,
@@ -1168,6 +1228,250 @@ def render_corpus(model: Model) -> str:
     </div>"""
 
 
+# ---------------------------------------------------------------------------
+# The board: for whoever coordinates, not for whoever reviews. What is waiting
+# on someone and since when, and whether the process was followed as declared.
+# Nothing here scores the code or the people: every number is a count of what
+# the declarations say, and the page opens with the limit that none of it
+# records a closure.
+# ---------------------------------------------------------------------------
+def _tile(label: str, value: str, note: str, hero: bool = False, open_: bool = True) -> str:
+    classes = "cifra" + (" hero" if hero else "") + (" abierta" if open_ else "")
+    return (f'<div class="{classes}"><span class="rotulo">{E(label)}</span><span class="valor">{value}</span>'
+            f'<span class="nota-cifra">{note}</span></div>')
+
+
+def _board_title(r: dict) -> str:
+    """What a row of the board is about: a finding by its title, an item by
+    the title of the finding it points at, or else by its class."""
+    if r["kind"] == "finding":
+        return r["title"] or "Sin título: perfil minimizado"
+    origin = _referenced_finding(r)
+    if origin is not None and origin["title"]:
+        return origin["title"]
+    return CLASS_NAME.get(r["class"], r["class"])
+
+
+def _board_text(r: dict) -> str:
+    if r["kind"] == "finding":
+        return r["risk_record"] or r["description"] or ""
+    return r["description"] or ""
+
+
+def _board_when(d: dict) -> str:
+    return f'<td class="fecha">{E(_fmt_date(d))}{_age_span(d)}</td>'
+
+
+def _board_origin(d: dict) -> str:
+    return _decl_ref(d) + (f' · {_link(d["pr"], "PR")}' if d["pr"] else "")
+
+
+def _board_decisions(rows: list) -> str:
+    if not rows:
+        return '<div class="vacio">Ninguna escalación sin decisión en todo el registro.</div>'
+    trs = []
+    for r in rows:
+        d = r["decl"]
+        since = f' data-desde="{E(_iso(d))}"' if d["date"] else ""
+        trs.append(f'<tr{since}>{_board_when(d)}<td><div class="tit">{E(_board_title(r))}</div>'
+                   f'<div class="txt">{E(_cut(_board_text(r), 240))}</div></td>'
+                   f'<td class="ref">{_board_origin(d)}</td></tr>')
+    chips = ('<div class="tools chips">'
+             '<span class="chip abierta">más de 30 días · <b data-corte="30"></b></span>'
+             '<span class="chip">7 a 30 días · <b data-corte="7"></b></span>'
+             '<span class="chip">menos de 7 días · <b data-corte="0"></b></span></div>')
+    return (f'{chips}<div class="tabla-scroll"><table><thead><tr><th>Declarado</th><th>Qué hay que decidir</th>'
+            f'<th>Origen</th></tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
+
+
+def _board_debts(rows: list) -> str:
+    if not rows:
+        return '<div class="vacio">Ninguna deuda registrada.</div>'
+    trs = []
+    for f in rows:
+        d = f["decl"]
+        ref = _link(f["debt_id"], _cut(f["debt_id"], 46)) if f["debt_id"] else '<span class="mudo">sin debt_id</span>'
+        trs.append(f'<tr>{_board_when(d)}<td><div class="tit">{E(f["title"] or "Sin título: perfil minimizado")}</div></td>'
+                   f'<td class="ref">{ref}</td><td class="ref">{_decl_ref(d)}</td></tr>')
+    return (f'<div class="tabla-scroll"><table><thead><tr><th>Declarado</th><th>Qué se debe</th><th>Referencia</th>'
+            f'<th>Origen</th></tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
+
+
+def _board_accepted(rows: list) -> str:
+    if not rows:
+        return '<div class="vacio">Ningún riesgo aceptado por el dueño.</div>'
+    trs = []
+    for f in rows:
+        d = f["decl"]
+        trs.append(f'<tr>{_board_when(d)}<td><div class="tit">{E(f["title"] or "Sin título: perfil minimizado")}</div>'
+                   f'<div class="txt">{E(_cut(f["risk_record"] or "", 240))}</div></td>'
+                   f'<td class="ref">{_decl_ref(d)}</td></tr>')
+    return (f'<div class="tabla-scroll"><table><thead><tr><th>Declarado</th><th>Riesgo y decisión</th><th>Origen</th>'
+            f'</tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
+
+
+def _gauge(name: str, note: str, n: int, total: int) -> str:
+    """One row of the process panel: a count over its denominator, the fill
+    in the neutral mark and the track a lighter step of the same ramp. Not
+    the severity meter, which is `_meter`."""
+    pct = (n / total * 100) if total else 0.0
+    small = f"<small>{E(note)}</small>" if note else ""
+    return (f'<div class="medidor"><div class="n">{E(name)}{small}</div>'
+            f'<div class="b"><i style="--w:{pct:.0f}%"></i></div><div class="v">{n} de {total}</div></div>')
+
+
+def _board_health(h: dict) -> str:
+    n = h["events"]
+    if not n:
+        return '<div class="vacio">Sin declaraciones.</div>'
+
+    def missing(declared: int) -> str:
+        k = n - declared
+        if not k:
+            return "todas las declaraciones lo traen"
+        return f'{k} {"declaración no trae" if k == 1 else "declaraciones no traen"} el campo (v0.2 y v0.3)'
+
+    return "".join([
+        _gauge("Revisor de otra familia", missing(h["independence_declared"]), h["cross_family"], h["independence_declared"]),
+        _gauge("Endurecimiento del revisor verificado", missing(h["hardening_declared"]), h["hardening_verified"], h["hardening_declared"]),
+        _gauge("Confinamiento verificado", "git status limpio después de la ronda", h["confinement_verified"], n),
+        _gauge("Árbitro humano presente", "", h["arbiter"], n),
+        _gauge("Ausencia de residuo declarada", "eventos sin ítems, con declaración expresa", h["absence"], n),
+    ])
+
+
+def _bucket_label(day: date, unit: str, short: bool = False) -> str:
+    if unit == "week":
+        week = day.isocalendar()[1]
+        return f"S{week}" if short else f"semana {week}, desde el {day.strftime('%d/%m/%Y')}"
+    if unit == "month":
+        return day.strftime("%m/%Y")
+    if unit == "year":
+        return day.strftime("%Y")
+    return day.strftime("%d/%m") if short else day.strftime("%d/%m/%Y")
+
+
+def _board_columns(series: list[dict], unit: str) -> str:
+    if not series:
+        return '<div class="vacio">Sin fechas legibles.</div>'
+    top = max(s["declarations"] for s in series) or 1
+    peak = max(range(len(series)), key=lambda i: series[i]["declarations"])
+    last = len(series) - 1
+    cols = []
+    for i, s in enumerate(series):
+        n = s["declarations"]
+        label = f'{_bucket_label(s["day"], unit)}: {n} {"declaración" if n == 1 else "declaraciones"}'
+        shown = n if n and i in (peak, last) else ""
+        cols.append(f'<div class="col{" alto" if n and i == peak else ""}" title="{E(label)}">'
+                    f'<b>{shown}</b><i style="--h:{(n / top) * 100:.0f}%"></i></div>')
+    guides = f'<div class="guia" style="bottom:calc(100% - 4px)"><span>{top}</span></div>'
+    if top >= 4:
+        guides += f'<div class="guia" style="bottom:calc(50% - 2px)"><span>{top / 2:g}</span></div>'
+    grid = f"grid-template-columns:repeat({len(series)},1fr)"
+    if len(series) <= 16:
+        axis = (f'<div class="eje" style="{grid}">'
+                + "".join(f'<span>{E(_bucket_label(s["day"], unit, short=True))}</span>' for s in series) + "</div>")
+    else:
+        axis = (f'<div class="eje dos"><span>{E(_bucket_label(series[0]["day"], unit, short=True))}</span>'
+                f'<span>{E(_bucket_label(series[-1]["day"], unit, short=True))}</span></div>')
+    return f'<div class="columnas" style="{grid}">{guides}{"".join(cols)}</div>{axis}'
+
+
+def _board_gaps(rows: list[tuple[str, str, int]], total: int) -> str:
+    if not rows:
+        return '<div class="vacio">Ningún hueco de ejecución declarado.</div>'
+    top = rows[0][2] or 1
+    cells = "".join(
+        f'<span class="n">{E(name)}</span><span class="b{" alto" if i == 0 else ""}" title="{n} de {total}">'
+        f'<i style="--w:{(n / top) * 100:.1f}%"></i></span><span class="v">{n}</span>'
+        for i, (_, name, n) in enumerate(rows)
+    )
+    return f'<div class="barras">{cells}</div>'
+
+
+def render_board(model: Model) -> str:
+    groups = {key: rows for key, _, _, rows in model.open_groups}
+    decisions, debts, accepted = groups["decision"], groups["debt"], groups["accepted"]
+    oldest = _oldest(groups, ["decision"])
+    n = len(decisions)
+    decisions_note = (f"La más vieja, declarada el {E(_fmt_date(oldest))}{_age_span(oldest)}."
+                      if oldest else "Ninguna escalación sin decisión.")
+    k = len(debts)
+    with_link = sum(1 for f in debts if f["debt_id"] and _SCHEME.match(str(f["debt_id"])))
+    debts_note = ("Sin evidencia de pago. " + (f"{with_link} con enlace, {k - with_link} con etiqueta a mano."
+                                              if k else "Ninguna registrada."))
+    g = model.gaps_total
+    unstated = sum(x for key, _, x in model.gaps_by_reason if key in ("other", "unstated"))
+    gaps_note = (f"{model.gaps_attention} {'pide' if model.gaps_attention == 1 else 'piden'} atención humana. "
+                 + (f"{unstated} sin motivo específico: el vocabulario no alcanza para ver recurrencia." if unstated else ""))
+    unit_name = UNIT_NAME.get(model.week_unit, "semana")
+    weeks_help = ("Semanas ISO. Cada declaración es un evento de revisión." if model.week_unit == "week"
+                  else f"Por {unit_name}: el rango es demasiado amplio para semanas.")
+    h = model.health
+    return f"""
+    <div class="intro">
+      <h2>Qué está esperando a alguien, y si el proceso se cumple</h2>
+      <p>Para quien coordina, no para quien revisa. Nada de esta vista puntúa el código ni a las personas: cuenta lo que las declaraciones dicen del proceso y lista lo que pide una decisión. Las edades se calculan al abrir la página.</p>
+    </div>
+    <div class="cifras">
+      {_tile("Esperan una decisión", str(n), decisions_note, hero=True)}
+      {_tile("Deudas anotadas", str(k), E(debts_note))}
+      {_tile("Huecos de ejecución", str(g), E(gaps_note), open_=False)}
+    </div>
+    <div class="nota fuerte"><b>El artefacto no registra cierres.</b> Todo lo listado abajo está declarado abierto en su
+      momento, sin evidencia posterior de cierre: una deuda saldada fuera del registro sigue figurando, y esta vista no
+      puede saberlo. No es una lista de pendientes vigentes. Es un hueco conocido del esquema (issue #66).</div>
+    <div class="rejilla">
+      <section class="panel p-7">
+        <div class="panel-cab"><h3>Decisiones esperando</h3><span class="c">{n}</span></div>
+        <p class="ayuda">Escalaciones sin decisión, la más vieja arriba. Un hallazgo escalado y su ítem de residuo son una fila.</p>
+        {_board_decisions(decisions)}
+      </section>
+      <section class="panel p-5">
+        <div class="panel-cab"><h3>Riesgos aceptados por el dueño</h3><span class="c">{len(accepted)}</span></div>
+        <p class="ayuda">Quién aceptó qué, leído del registro de riesgo de cada hallazgo. Es el único lugar donde el artefacto nombra a alguien, y es una decisión, no un puntaje.</p>
+        {_board_accepted(accepted)}
+      </section>
+    </div>
+    <div class="rejilla">
+      <section class="panel p-7">
+        <div class="panel-cab"><h3>Deuda anotada</h3><span class="c">{k}</span></div>
+        <p class="ayuda">Hallazgos válidos y diferidos. Un <code>debt_id</code> que es URL se enlaza; una etiqueta escrita a mano no la resuelve ningún sistema.</p>
+        {_board_debts(debts)}
+      </section>
+      <section class="panel p-5">
+        <div class="panel-cab"><h3>Salud del proceso de revisión</h3><span class="c">{h["events"]} eventos</span></div>
+        <p class="ayuda">Lo que cada declaración dice de cómo se revisó. Mide el protocolo, no a las personas; en un repositorio de una sola persona mide a la persona, y hay que leerlo así.</p>
+        {_board_health(h)}
+      </section>
+    </div>
+    <div class="rejilla">
+      <section class="panel p-6">
+        <div class="panel-cab"><h3>Declaraciones por {E(unit_name)}</h3><span class="c">{h["events"]}</span></div>
+        <p class="ayuda">{E(weeks_help)}</p>
+        {_board_columns(model.by_week, model.week_unit)}
+      </section>
+      <section class="panel p-6">
+        <div class="panel-cab"><h3>Huecos de ejecución por motivo</h3><span class="c">{g}</span></div>
+        <p class="ayuda">Todo lo que ninguna ronda pudo arbitrar por ejecución, con y sin atención humana. Con tres motivos en el vocabulario, "otro" se lleva casi todo y la recurrencia queda en el texto libre, donde ningún programa la lee (issues #51 a #53).</p>
+        {_board_gaps(model.gaps_by_reason, g)}
+      </section>
+    </div>
+    <div class="rejilla">
+      <section class="panel">
+        <div class="panel-cab"><h3>Lo que esta vista no puede decir</h3></div>
+        <p class="ayuda">Todo lo de arriba sale de los campos declarados. Lo que quien coordina pregunta después necesita esquema.</p>
+        <div class="tabla-scroll"><table><thead><tr><th>Pregunta</th><th>Qué falta</th></tr></thead><tbody>
+          <tr><td><div class="tit">Quién tiene que decidir cada escalación</div></td><td class="txt">Un dueño por ítem. Hoy solo el registro de riesgo y la aceptación de nivel A nombran a alguien.</td></tr>
+          <tr><td><div class="tit">Cuándo se cerró, cuánto tardó</div></td><td class="txt">El cierre declarado (issue #66). Sin eso, todo envejece para siempre y la vista no distingue lo saldado de lo olvidado.</td></tr>
+          <tr><td><div class="tit">Qué brecha se repite</div></td><td class="txt">Motivos de hueco más finos (issues #51 a #53) y el límite permanente marcado al abrir.</td></tr>
+          <tr><td><div class="tit">Todos los merges pasaron por el gate</div></td><td class="txt">Cruzar los merges de la rama principal con los commits declarados, según la política de rutas (issue #97).</td></tr>
+          <tr><td><div class="tit">Si lo declarado es lo que pasó</div></td><td class="txt">El muestreo humano de eventos mergeados (issue #96). Esta vista muestra la declaración, no la verdad.</td></tr>
+        </tbody></table></div>
+      </section>
+    </div>"""
+
+
 def _case_row(f: dict) -> str:
     d = f["decl"]
     detail = ""
@@ -1260,7 +1564,7 @@ def build_html(declarations: list[dict], unreadable: list[Unreadable], source: S
     if model.first and model.last:
         period += f" · {model.first.strftime('%d/%m/%Y')} a {model.last.strftime('%d/%m/%Y')}"
     tabs = [("abierto", "Abierto", model.open_total), ("declaraciones", "Declaraciones", n),
-            ("corpus", "Corpus", None), ("casos", "Casos", len(model.cases))]
+            ("corpus", "Corpus", None), ("casos", "Casos", len(model.cases)), ("tablero", "Tablero", None)]
     tabs_html = ""
     for key, label, count in tabs:
         selected = "true" if key == "abierto" else "false"
@@ -1276,6 +1580,7 @@ def build_html(declarations: list[dict], unreadable: list[Unreadable], source: S
         "DECLARACIONES": render_declarations(model),
         "CORPUS": render_corpus(model),
         "CASOS": render_cases(model),
+        "TABLERO": render_board(model),
         "ILEGIBLES": render_unreadable(model),
         "PIE": _footer(model, source),
     }

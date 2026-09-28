@@ -228,6 +228,54 @@ td.gris{font-size:11.5px}
 .vacio{padding:26px 14px;text-align:center;color:var(--ink-3);font-size:13px;background:var(--surface);
   border:1px dashed var(--line);max-width:70ch;margin:0 auto}
 
+/* ---------- tablero ---------- */
+.cifras{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+@media (max-width:860px){.cifras{grid-template-columns:1fr}}
+.cifra{background:var(--surface);border:1px solid var(--line-soft);padding:14px 16px 12px;display:flex;
+  flex-direction:column;gap:2px;min-width:0}
+.cifra .rotulo{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+.cifra .valor{font-size:30px;font-weight:600;line-height:1.1;color:var(--ink)}
+.cifra.hero .valor{font-size:48px}
+.cifra .nota-cifra{font-size:12px;color:var(--ink-2)}
+.cifra .nota-cifra .edad:not(:empty)::before{content:", "}
+.cifra.abierta{border-left:2px solid var(--open-line)}
+.nota.fuerte{background:var(--open-soft);padding:10px 14px;margin:0 0 22px}
+.panel-cab{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+.panel-cab .c{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{font-family:var(--mono);font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:2px;color:var(--ink-2)}
+.chip.abierta{border-color:var(--open-line);background:var(--open-soft);color:var(--open-ink)}
+.chip b{font-weight:500;color:var(--ink)}
+td.fecha{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+td.fecha .edad{display:block;color:var(--ink-3)}
+td.ref{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+td.ref a{text-decoration:none;border-bottom:1px dotted var(--ink-3)}
+td .tit{color:var(--ink)}
+td .txt{color:var(--ink-2);font-size:12px;max-width:62ch}
+.medidor{display:grid;grid-template-columns:minmax(0,1fr) 120px 5.5em;gap:8px 12px;align-items:center;padding:7px 0;
+  border-bottom:1px solid var(--line-soft)}
+.medidor:last-child{border-bottom:0}
+.medidor .n{font-size:12.5px;color:var(--ink)}
+.medidor .n small{display:block;font-size:11px;color:var(--ink-3)}
+.medidor .b{height:8px;background:var(--mark-4);border-radius:1px;position:relative}
+.medidor .b i{position:absolute;inset:0 auto 0 0;width:var(--w);background:var(--mark);display:block;border-radius:0 4px 4px 0}
+.medidor .v{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);text-align:right;font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+.columnas{display:grid;gap:6px;align-items:end;height:120px;padding:0 0 4px;border-bottom:1px solid var(--line-soft);
+  position:relative}
+.columnas .col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;min-width:0}
+.columnas .col i{display:block;width:100%;max-width:24px;height:var(--h);background:var(--mark-2);border-radius:4px 4px 0 0}
+.columnas .col.alto i{background:var(--mark)}
+.columnas .col b{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums;
+  height:14px}
+.eje{display:grid;gap:6px;margin-top:4px}
+.eje.dos{display:flex;justify-content:space-between}
+.eje span{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);text-align:center;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.guia{position:absolute;left:0;right:0;border-top:1px solid var(--line-soft);pointer-events:none}
+.guia span{position:absolute;right:0;top:-14px;font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+@media (min-width:860px){.p-6{grid-column:span 6}}
+
 /* ---------- cierre ---------- */
 .cierre{max-width:1120px;margin:0 auto;padding:0 20px}
 .cierre .panel{margin-bottom:18px}
@@ -261,6 +309,7 @@ footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--ink-3);fon
   <section class="vista" id="v-declaraciones" role="tabpanel" aria-labelledby="t-declaraciones">@@DECLARACIONES@@</section>
   <section class="vista" id="v-corpus" role="tabpanel" aria-labelledby="t-corpus">@@CORPUS@@</section>
   <section class="vista" id="v-casos" role="tabpanel" aria-labelledby="t-casos">@@CASOS@@</section>
+  <section class="vista" id="v-tablero" role="tabpanel" aria-labelledby="t-tablero">@@TABLERO@@</section>
 </main>
 <div class="cierre">@@ILEGIBLES@@</div>
 <footer>@@PIE@@</footer>
@@ -276,7 +325,7 @@ footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--ink-3);fon
   var $$ = function(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
 
   /* pestañas */
-  var VISTAS = ["abierto", "declaraciones", "corpus", "casos"];
+  var VISTAS = ["abierto", "declaraciones", "corpus", "casos", "tablero"];
   function activar(id){
     VISTAS.forEach(function(v){
       var tab = $("#t-" + v), panel = $("#v-" + v);
@@ -302,6 +351,12 @@ footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--ink-3);fon
     var objetivo = document.getElementById(location.hash.slice(1));
     if(objetivo){ activar("declaraciones"); objetivo.open = true; objetivo.scrollIntoView(); }
   }
+  /* quien coordina entra por #tablero; quien revisa sigue cayendo en Abierto */
+  if(location.hash === "#tablero"){
+    activar("tablero");
+    var pestanaTablero = $("#t-tablero");
+    if(pestanaTablero && pestanaTablero.scrollIntoView) pestanaTablero.scrollIntoView({block: "nearest", inline: "nearest"});
+  }
 
   /* edades: "hace N días" es verdad en el momento de abrir el informe, no de generarlo */
   var HOY = new Date();
@@ -312,6 +367,21 @@ footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--ink-3);fon
     var texto = n < 1 ? "hoy" : n === 1 ? "hace 1 día" : n < 60 ? "hace " + n + " días" : "hace " + Math.round(n / 30) + " meses";
     el.textContent = texto;
   });
+
+  /* tablero: los cortes por antigüedad de las decisiones se cuentan al abrir, como las edades */
+  var cortes = $$("#v-tablero [data-corte]");
+  if(cortes.length){
+    var n30 = 0, n7 = 0, n0 = 0;
+    $$("#v-tablero [data-desde]").forEach(function(el){
+      var t = new Date(el.dataset.desde);
+      if(isNaN(t)) return;
+      var n = Math.round((HOY - t) / 86400000);
+      if(n > 30) n30++; else if(n >= 7) n7++; else n0++;
+    });
+    cortes.forEach(function(b){
+      b.textContent = String(b.dataset.corte === "30" ? n30 : b.dataset.corte === "7" ? n7 : n0);
+    });
+  }
 
   /* orden de Abierto: mueve las filas de cada grupo por su índice cronológico */
   function ordenar(sentido){
