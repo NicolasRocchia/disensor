@@ -120,7 +120,10 @@ def test_residue_items_attention_and_absences_match_an_independent_walk():
     declarations, unreadable = read_directory(RESIDUE)
     model = aggregate(declarations, unreadable)
     assert sum(len(d["items"]) for d in declarations) == items
-    assert len(model.open_groups[0][3]) == attention
+    # Every item marked for attention is in exactly one group of the open
+    # view, whatever its class; the ones not marked are in none.
+    in_queue = [r for _, _, _, rows in model.open_groups for r in rows if r["kind"] == "item"]
+    assert len(in_queue) == attention
     assert sum(1 for d in declarations if d["absence"]) == absences
 
 
@@ -181,7 +184,10 @@ def test_unreadable_files_are_listed_and_never_stop_the_report(tmp_path, monkeyp
     assert run(["report"]) == 0
     out = capsys.readouterr().out
     assert "4 files unreadable" in out
-    assert out.strip().splitlines()[-1].startswith("1 declaration,")  # the path is always the last line
+    lines = out.strip().splitlines()
+    assert lines[-2].startswith("1 declaration,")
+    assert lines[-1].startswith("the latest declaration (")  # the path is always the last line
+    assert lines[-1].endswith(str(tmp_path / "informe-residuo.html"))
     page = (tmp_path / "informe-residuo.html").read_text(encoding="utf-8")
     for name in ("roto.json", "vacio.json", "evento-lista.json", "hallazgos-texto.json"):
         assert name in page
@@ -338,14 +344,93 @@ def test_a_symlink_to_the_evidence_directory_counts_as_the_evidence_directory(tm
 
 
 def test_the_summary_line_and_quiet(tmp_path, monkeypatch, capsys):
+    """The terminal answers what the page opens with: the digest of the open
+    view, then what the latest declaration left open, and the path last."""
     write(tmp_path / ".residue", "a.json", example("example_2_diff_gate.json"))
     monkeypatch.chdir(tmp_path)
     assert run(["report"]) == 0
-    out = capsys.readouterr().out.strip()
-    assert out.endswith(str(tmp_path / "informe-residuo.html"))
-    assert re.match(r"1 declaration, \d+ items? asks? for human attention -> ", out)
+    out = capsys.readouterr().out.strip().splitlines()
+    assert out == [
+        "1 declaration, 2 declared open: 1 awaits a decision (oldest 2026-07-15), "
+        "1 execution gap with human attention",
+        f"the latest declaration (7c8d9e0f) left 2 items open -> {tmp_path / 'informe-residuo.html'}",
+    ]
+    write(tmp_path / "quiet", "a.json", nothing_open())
+    assert run(["report", "--residue", "quiet", "--out", "quiet.html"]) == 0
+    out = capsys.readouterr().out.strip().splitlines()
+    assert out == [
+        "1 declaration, nothing declared open",
+        f"the latest declaration (0e0e0e0e) left nothing open -> {tmp_path / 'quiet.html'}",
+    ]
     assert run(["report", "--quiet"]) == 0
     assert capsys.readouterr().out == ""
+
+
+def nothing_open() -> dict:
+    """A declaration newer than the two examples that leaves nothing open: its
+    findings closed by the cycle, its one item not marked for attention."""
+    data = example("example_1_plan_gate.json")
+    data["event"]["event_id"] = "0e0e0e0e-0000-4000-8000-000000000000"
+    data["event"]["created_at"] = "2026-08-01T10:00:00-03:00"
+    for f in data["findings"]:
+        if f["final_state"] == "owner_decision":
+            f["final_state"] = "incorporated"
+    assert all(not it["requires_human_attention"] for it in data["residue"]["items"])
+    return data
+
+
+def test_the_open_view_groups_rows_by_what_they_ask_and_the_digest_sums_the_groups(tmp_path):
+    """The escalation item r1 points at the escalated finding h2: one decision,
+    one row, carrying the finding's title. The accepted risk is folded; the
+    items not marked for attention stay out; the digest says the numbers of
+    the groups and the oldest date of each."""
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_1_plan_gate.json"))
+    write(residue, "b.json", example("example_2_diff_gate.json"))
+    declarations, unreadable = read_directory(residue)
+    model = aggregate(declarations, unreadable)
+    groups = {key: rows for key, _, _, rows in model.open_groups}
+    assert [(r["kind"], r["id"]) for r in groups["decision"]] == [("item", "r1")]
+    assert [r["id"] for r in groups["gap:environment_not_reproducible"]] == ["r3"]
+    assert [r["id"] for r in groups["accepted"]] == ["h6"]
+    assert not groups["debt"] and not groups["judgement"] and not groups["reviewer"]
+    assert model.open_total == 3
+    page = build_html(declarations, unreadable, Source(directory=".residue"))
+    assert '<div class="txt origen"><b>Escalado abierto</b> ' in page
+    assert "<b>3</b> ítems declarados abiertos, sin evidencia posterior de cierre." in page
+    assert "<b>1</b> espera una decisión, la más vieja declarada el 15/07/2026" in page
+    assert "<b>1</b> hueco de ejecución que pide atención humana: 1 entorno no reproducible." in page
+    assert "<b>1</b> riesgo aceptado por el dueño, plegado al final: no pide acción." in page
+    assert '<details class="grupo plegado" data-grupo="accepted">' in page
+    assert 'data-grupo="debt"' not in page
+    # The switch orders each group by its own index: one row zero per group shown.
+    assert page.count('data-orden="0"') == 3
+
+
+def test_the_block_of_the_latest_declaration_shows_what_it_left_open_and_says_when_nothing(tmp_path):
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_1_plan_gate.json"))
+    write(residue, "b.json", example("example_2_diff_gate.json"))
+    latest_id = example("example_2_diff_gate.json")["event"]["event_id"]
+    declarations, unreadable = read_directory(residue)
+    model = aggregate(declarations, unreadable)
+    assert [(r["kind"], r["id"]) for r in model.now_rows] == [("item", "r1"), ("item", "r3")]
+    page = build_html(declarations, unreadable, Source(directory=".residue"))
+    block = page[page.index('<section class="ahora">'):page.index("</section>", page.index('<section class="ahora">'))]
+    assert "Lo que dejó abierto la última declaración" in block
+    assert f'<span class="c">2</span><span class="d"><a href="#d-{latest_id}">' in block
+    # Rows of the block carry no order index and no tag: the heading says whose they are.
+    assert "data-orden" not in block and "etq ultima" not in block
+    assert block.count('<div class="fila ') == 2
+    # A newer declaration that left nothing open still gets the block, saying so.
+    write(residue, "c.json", nothing_open())
+    page = html_of(residue)
+    assert "No dejó ítems abiertos" in page
+    # No row of the queue is hers, so none carries the tag (her card in the
+    # other view still does: that view names the latest whatever it left).
+    open_view = page[page.index('id="v-abierto"'):page.index('id="v-declaraciones"')]
+    assert "etq ultima" not in open_view
+    assert page.count('data-orden="0"') == 3
 
 
 def test_a_title_holding_every_marker_reaches_the_page_intact(tmp_path):

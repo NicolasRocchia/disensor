@@ -77,9 +77,26 @@ main{max-width:1120px;margin:0 auto;padding:22px 20px 40px}
 .nota{border-left:2px solid var(--open-line);padding:8px 0 8px 12px;margin:14px 0 22px;
   color:var(--ink-2);font-size:12.5px;max-width:70ch}
 .nota b{color:var(--ink);font-weight:500}
-.reciente{font-size:12.5px;color:var(--ink-2);margin:-4px 0 18px;max-width:70ch}
-.reciente code{color:var(--ink)}
-.reciente .edad:not(:empty)::before{content:", "}
+/* el digest: los números de la cola antes de la cola; ámbar solo en la etiqueta de abierto */
+.digest{margin:0 0 18px;max-width:70ch}
+.digest-cab{margin:0 0 6px;font-size:13.5px;color:var(--ink)}
+.digest b{font-family:var(--mono);font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.digest ul{margin:0;padding:0;list-style:none}
+.digest li{font-size:13px;color:var(--ink-2);padding:3px 0 3px 12px;border-left:2px solid var(--line)}
+.digest .edad:not(:empty)::before,.ahora .d .edad:not(:empty)::before{content:", "}
+/* la última declaración: un bloque propio arriba de la cola, también cuando no dejó nada */
+.ahora{margin-bottom:26px}
+.ahora .grupo-cab h3{font-family:var(--serif);font-size:14px;letter-spacing:0}
+.ahora .grupo-cab .d{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.ahora .grupo-cab .d a{color:var(--ink-2)}
+.ahora-vacia{margin:0;padding:14px 12px;background:var(--surface);border-left:2px solid var(--line);
+  font-size:13px;color:var(--ink-2);max-width:70ch}
+/* un grupo plegado: lo que no pide acción se lee si se pide */
+.grupo.plegado > summary{cursor:pointer;list-style:none}
+.grupo.plegado > summary::-webkit-details-marker{display:none}
+.grupo.plegado > summary:hover h3{text-decoration:underline}
+.grupo.plegado:not([open]) > summary .d::after{content:" · mostrar"}
+.grupo.plegado[open] > summary .d::after{content:" · plegar"}
 
 /* ---------- herramientas ---------- */
 .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
@@ -117,8 +134,8 @@ main{max-width:1120px;margin:0 auto;padding:22px 20px 40px}
 .fila .tit.mudo{color:var(--ink-3)}
 .fila .txt{font-size:12.5px;color:var(--ink-2);overflow-wrap:anywhere}
 .fila .txt.mudo{color:var(--ink-3)}
-.fila .txt.verificado{margin-top:6px;color:var(--ink-3)}
-.fila .txt.verificado b{color:var(--ink-2);font-weight:500}
+.fila .txt.verificado,.fila .txt.origen{margin-top:6px;color:var(--ink-3)}
+.fila .txt.verificado b,.fila .txt.origen b{color:var(--ink-2);font-weight:500}
 .fila .pie{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;
   font-family:var(--mono);font-size:11px;color:var(--ink-3)}
 .fila .pie b{font-weight:500;color:var(--ink-2)}

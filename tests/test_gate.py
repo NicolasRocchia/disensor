@@ -764,7 +764,8 @@ def test_a_green_gate_writes_the_report_from_the_judged_head(repo, capsys):
     repo.write(".residue/sin-commitear.json", json.dumps(DIFF))
     assert repo.run(base, head) == 0
     lines = out(capsys).strip().splitlines()
-    assert lines[-1].startswith("[gate] report: 1 declaration,"), lines[-1]
+    assert lines[-2].startswith("[gate] report: 1 declaration,"), lines[-2]
+    assert lines[-1].startswith("[gate] report: the latest declaration ("), lines[-1]
     assert lines[-1].endswith(str(repo.path / "informe-residuo.html"))
     page = (repo.path / "informe-residuo.html").read_text(encoding="utf-8")
     assert f"en el commit <code>{head[:7]}</code>" in page
