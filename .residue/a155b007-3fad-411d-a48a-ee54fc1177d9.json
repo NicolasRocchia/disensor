@@ -1,0 +1,112 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "a155b007-3fad-411d-a48a-ee54fc1177d9",
+    "created_at": "2026-09-28T19:22:58-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "7dfef8546f725da3448885829e8780373597d116",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "b22a969b86401a73d31a33fe6341bbade19e4a14"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r2",
+      "severity": "major",
+      "title": "Un finding_ref de otra clase sacaba el hallazgo referenciado de su grupo y del digest",
+      "description": "El plegado del hallazgo en la fila del item que lo referencia era incondicional: cualquier item con atencion humana que apuntara por finding_ref a un hallazgo abierto lo quitaba de open_rows antes de agrupar. El esquema admite finding_ref en cualquier clase de item y las reglas solo atan clase y estado para tres estados, asi que un artefacto valido con un item reviewer_correlation apuntando a un hallazgo owner_decision hacia desaparecer el riesgo aceptado, con su risk_record, del grupo plegado, del digest y de la linea del gate; lo mismo para una deuda registrada. Hallado en la primera ronda, sobre el head ab26b79f (informe sha256:dccc5c8e22c09fab7226559d45bd25e5127649977ae0be08cdda0aada97ce5be).",
+      "location": "src/disensor/report.py (open_rows, queue_key); tests/test_report.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido sobre ab26b79f con spec/examples/example_1_plan_gate.json mas un item reviewer_correlation con finding_ref h6 y atencion humana: validate_artifact sin errores, open_rows devolvia solo r99, el grupo accepted quedaba vacio y open_total era 1. Antes, leido en report.py: referenced se armaba con todos los items con atencion sin mirar la clase."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_report.py::test_a_finding_ref_from_an_item_that_asks_something_else_hides_nothing, que falla sobre ab26b79f y pasa sobre 7dfef854 (suite completa local: 608 pasadas, 6 salteadas, Windows, Python 3.14). La segunda ronda, r1 sobre 7dfef854, no trajo hallazgos."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Ninguno de los dos revisores abrio el HTML generado en un navegador ni ejercito sus controles (orden, grupo plegado): lo verificaron por el modelo de Python y la suite. El generador lo hizo en el navegador embebido del entorno, Chromium: inspeccion del DOM por script (ocho grupos, orden por grupo, bloque de la ultima declaracion sin indices, cinco filas con el hallazgo plegado) y capturas de la parte superior. Nadie lo abrio en Firefox ni en Safari."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El CI del commit de la correccion, 7dfef854, no estaba observado al escribir esta declaracion: se pushea junto con ella. Los dos commits anteriores del PR pasaron tests en 3.10 y 3.12 y la conformidad TS en Ubuntu; la correccion paso la suite completa en local (Windows, Python 3.14)."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:fee96b3debb7c41a7464f8f1eebfa87f798953ab2ac68e7ba42202f7f5eca2e8",
+      "report_hash": "sha256:e11f2dfba9ce3a7aa4e59c6b77d3b6cba4e62a1912f7c750490d5328c394bf6a"
+    }
+  }
+}
