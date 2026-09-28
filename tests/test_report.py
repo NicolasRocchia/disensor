@@ -438,6 +438,74 @@ def test_a_finding_ref_from_an_item_that_asks_something_else_hides_nothing(tmp_p
     assert E(accepted["risk_record"]) in page
 
 
+# --- the board ------------------------------------------------------------------
+
+def board_of(page: str) -> str:
+    return page[page.index('id="v-tablero"'):page.index("</main>")]
+
+
+def test_the_board_sums_what_its_panels_list_and_opens_with_the_limit(tmp_path):
+    """The board is for whoever coordinates: each figure on top is the length
+    of the panel under it, the note that nothing records a closure comes
+    before the first panel, the decisions carry the date the age cuts are
+    counted from, and the tab and its anchor exist."""
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_1_plan_gate.json"))
+    write(residue, "b.json", example("example_2_diff_gate.json"))
+    write(residue, "c.json", nothing_open())
+    declarations, unreadable = read_directory(residue)
+    model = aggregate(declarations, unreadable)
+    groups = {key: rows for key, _, _, rows in model.open_groups}
+    assert (len(groups["decision"]), len(groups["debt"]), len(groups["accepted"])) == (1, 0, 1)
+    assert (model.gaps_total, model.gaps_attention) == (1, 1)
+    board = board_of(build_html(declarations, unreadable, Source(directory=".residue")))
+    assert '<span class="rotulo">Esperan una decisión</span><span class="valor">1</span>' in board
+    assert '<span class="rotulo">Deudas anotadas</span><span class="valor">0</span>' in board
+    assert '<span class="rotulo">Huecos de ejecución</span><span class="valor">1</span>' in board
+    assert board.index("El artefacto no registra cierres") < board.index('<section class="panel')
+    assert board.count("data-desde=") == 1
+    assert "Ninguna deuda registrada." in board
+    assert '<span class="n">entorno no reproducible</span>' in board
+    page = build_html(declarations, unreadable, Source(directory=".residue"))
+    assert 'data-v="tablero">Tablero</button>' in page
+    assert 'location.hash === "#tablero"' in page
+
+
+def test_the_board_counts_process_health_over_the_events_that_declare_the_field(tmp_path):
+    """Independence and hardening did not exist before v0.4: a v0.3
+    declaration is not a failed one but one that does not declare the field,
+    and each meter says how many do not."""
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_2_diff_gate.json"))   # cross_family, no hardening, confinement verified
+    write(residue, "b.json", artifact("v0.3", "valid_diff_gate"))   # neither independence nor hardening
+    declarations, unreadable = read_directory(residue)
+    h = aggregate(declarations, unreadable).health
+    assert h["events"] == 2
+    assert (h["cross_family"], h["independence_declared"]) == (1, 1)
+    assert (h["hardening_verified"], h["hardening_declared"]) == (0, 0)
+    assert (h["confinement_verified"], h["arbiter"], h["absence"]) == (2, 2, 0)
+    board = board_of(build_html(declarations, unreadable, Source(directory=".residue")))
+    assert "1 declaración no trae el campo (v0.2 y v0.3)" in board
+    assert "2 declaraciones no traen el campo (v0.2 y v0.3)" in board
+    assert '<div class="v">1 de 1</div>' in board
+    assert '<div class="v">0 de 0</div>' in board
+
+
+def test_the_board_counts_declarations_per_week_and_names_the_bucket(tmp_path):
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_1_plan_gate.json"))   # 2026-06-28, ISO week 26
+    write(residue, "b.json", example("example_2_diff_gate.json"))   # 2026-07-15, week 29
+    write(residue, "c.json", nothing_open())                        # 2026-08-01, week 31
+    declarations, unreadable = read_directory(residue)
+    model = aggregate(declarations, unreadable)
+    assert model.week_unit == "week"
+    assert [s["declarations"] for s in model.by_week] == [1, 0, 0, 1, 0, 1]
+    board = board_of(build_html(declarations, unreadable, Source(directory=".residue")))
+    assert "Declaraciones por semana" in board
+    assert 'title="semana 26, desde el 22/06/2026: 1 declaración"' in board
+    assert board.count("<span>S") == 6
+
+
 def test_the_block_of_the_latest_declaration_shows_what_it_left_open_and_says_when_nothing(tmp_path):
     residue = tmp_path / ".residue"
     write(residue, "a.json", example("example_1_plan_gate.json"))
@@ -468,7 +536,8 @@ def test_a_title_holding_every_marker_reaches_the_page_intact(tmp_path):
     """The template is filled in one pass: what a declaration says is never
     rescanned for markers, so a title made of them survives."""
     data = example("example_2_diff_gate.json")
-    title = "@@REPO@@ @@PERIODO@@ @@PESTANAS@@ @@ABIERTO@@ @@DECLARACIONES@@ @@CORPUS@@ @@CASOS@@ @@ILEGIBLES@@ @@PIE@@"
+    title = ("@@REPO@@ @@PERIODO@@ @@PESTANAS@@ @@ABIERTO@@ @@DECLARACIONES@@ @@CORPUS@@ @@CASOS@@ @@TABLERO@@ "
+             "@@ILEGIBLES@@ @@PIE@@")
     data["findings"][0]["title"] = title
     write(tmp_path / ".residue", "a.json", data)
     page = html_of(tmp_path / ".residue")
