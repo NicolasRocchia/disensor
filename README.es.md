@@ -11,9 +11,9 @@ como un archivo JSON en tu repo, al lado del código que juzga.
 
 *This document is also available [in English](https://github.com/NicolasRocchia/disensor/blob/main/README.md).*
 
-Revisión adversarial de código con IA entre modelos de familias distintas, que termina en una declaración de residuo: un CLI y un gate de CI que validan el registro que la revisión deja. Implementación de referencia del artefacto definido a partir del método de **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo hallazgo quedó resuelto, refutado con evidencia o escalado a un humano.
+Ni un badge verde ni un puntaje de cobertura. Un registro versionado de lo que la revisión no pudo establecer: qué hallazgos se verificaron y contra qué, cuáles se refutaron, qué no se pudo ejecutar y qué sigue descansando sobre el juicio de alguien. El registro dice quién generó el cambio, quién lo revisó y de qué familia de modelos, sobre qué commits, con qué consigna y quién aceptó el riesgo residual. Lista residuo, no cobertura: dirige el escrutinio del revisor humano en lugar de leerse como sello de calidad. Un CLI lo valida, y un gate de CI frena el pull request cuando el cambio exige un registro y ese registro falta, es genérico o no coincide con el cambio que el PR hace.
 
-El artefacto que este repo define y hace cumplir registra cómo terminó cada evento de revisión: los hallazgos con su estado terminal, y el **residuo**: lo que el ciclo no pudo cerrar por sí mismo y descansa sobre el juicio de alguien. La declaración lista residuo, no cobertura: dirige el escrutinio del revisor humano en lugar de leerse como sello de calidad.
+El método detrás es el **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo hallazgo quedó resuelto, refutado con evidencia o escalado a un humano. Este repositorio es la implementación de referencia del artefacto que ese método define, la declaración de **residuo**: lo que el ciclo no pudo cerrar por sí mismo.
 
 Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversarial automatizada con un segundo asistente de código en el desarrollo de software*, DOI [10.5281/zenodo.21633495](https://doi.org/10.5281/zenodo.21633495).
 
