@@ -219,8 +219,9 @@ policy at the tip (decided by the gate's own function, so `gate.required` and
 the exemptions mean the same), it lists the ones no declaration at the tip
 anchors to, and counts the direct commits apart. That measures declarations,
 not gate runs: the repository keeps no verdict of a run. The gate walks the
-base of the PR; the command walks `--branch`, HEAD by default, and reads the
-declarations from the tip, never from the working tree. The anchor `#tablero`
+base of the PR; the command walks `--branch`, HEAD by default, with the
+configuration `--config` names (the same file the gate runs with), and reads
+the declarations from the tip, never from the working tree. The anchor `#tablero`
 opens it; Abierto stays the first view. The report is a pure function of the
 declarations: no generation timestamp, the footer names the commit it was read
 from, and two runs over the same commit give identical bytes.
