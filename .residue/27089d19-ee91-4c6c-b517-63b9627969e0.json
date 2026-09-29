@@ -1,0 +1,563 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "27089d19-ee91-4c6c-b517-63b9627969e0",
+    "created_at": "2026-09-29T10:21:11-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "c2970915df2501b5eb214e3272174bb03638f610",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "b340cfc30fc418957f2dfafc82c1e14bf8e87884"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:e542463911f99ee61304a9b5b9c315c656e4000432ac16aa6115b1cab9025450"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r4",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r5",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r6",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r7",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r8",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r9",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r10",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r11",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      },
+      {
+        "reviewer_id": "r12",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Una declaracion anclada no prueba que el gate corrio ni que paso",
+      "description": "El plan v1 prometia responder si todos los merges pasaron por el gate. El repositorio no guarda el veredicto de ninguna corrida, asi que un merge local con una declaracion valida anclada a sus commits y pusheado sin workflow quedaba como cubierto. El panel mide declaraciones ancladas y lo dice; la pregunta de si el gate corrio pasa a la tabla de lo que la vista no puede decir, con el required check de la plataforma y el muestreo (#96) como respuesta.",
+      "location": "plan v1, objetivo; src/disensor/report.py (_board_coverage, render_board)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "gate.py no persiste veredictos (check_range_membership solo verifica pertenencia al rango) y el esquema no tiene campo de corrida: leido en el repositorio antes de reescribir el plan."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_the_board_shows_the_panel_and_the_fourth_figure, que fija la frase 'Mide declaraciones, no corridas del gate' en el panel"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La clasificacion por ruta del plan contradecia gate.required=false",
+      "description": "El plan v1 definia ruta exigente solo por accepts_for, y classify_requirement devuelve not_required antes de mirar el alcance cuando la politica declara gate.required=false: el panel habria listado como faltantes merges que la politica no exige. Ahora la exigencia por merge la decide classify_requirement sobre un GateContext por merge, con la misma semantica que el gate.",
+      "location": "src/disensor/branch.py (_compute); src/disensor/gate.py (classify_requirement)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "classify_requirement y accepts_for leidos en gate.py y scope.py: required=false corta antes del alcance, como decia el revisor."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_gate_not_required_lists_no_merge_as_missing y test_a_range_with_no_common_gate_is_listed_with_its_code"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El comando podia convertir un JSON sin commitear en cobertura historica",
+      "description": "El plan v1 pasaba al calculo las declaraciones que el informe ya leyo, que en el comando vienen del directorio en disco sin validar: un archivo sin commitear con el head_commit de un merge sin declaracion lo daba por cubierto y movia el periodo. Las declaraciones de la cobertura se leen de la punta de la rama, nunca del arbol de trabajo.",
+      "location": "src/disensor/branch.py (_valid_declarations); src/disensor/report.py (main_report, branch_of_directory)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "read_directory y main_report leidos: el comando lee el directorio con glob y solo chequea la forma."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_an_untracked_declaration_in_the_working_tree_covers_nothing"
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "info",
+      "title": "Las mutaciones de evidencia podian clasificarse como declaraciones nuevas",
+      "description": "Hipotesis del revisor: el plan decia 'la misma regla que classify_changes' sin conservar la prueba de existencia en la base. Se usa classify_changes tal cual, con el primer padre como base, y un merge que modifica evidencia existente se cuenta y se marca (G8).",
+      "location": "src/disensor/branch.py (_compute)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "classify_changes leido en gate.py: distingue nuevo, mutacion y ordinario por existencia en la base."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_a_merge_that_rewrites_evidence_is_counted_and_marked"
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "info",
+      "title": "Un head_commit abreviado valido nunca coincidia por comparacion textual",
+      "description": "Hipotesis del revisor: el esquema admite 7 a 40 hexadecimales y el plan no decia como comparar. Primero se comparo por prefijo; desde la cuarta ronda (h11) se resuelve con git al oid canonico, como G5.",
+      "location": "src/disensor/branch.py (_canonical_heads)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "residue.schema.json admite ^[0-9a-f]{7,40}$ para head_commit; G5 lo resuelve con resolve_commit."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_each_kind_of_merge_lands_where_the_policy_and_the_declarations_put_it, rama 'short' con un head de siete caracteres"
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r1",
+      "severity": "info",
+      "title": "La API no podia mostrar el nombre de rama que prometia",
+      "description": "Hipotesis del revisor: el calculo recibe un oid y varios refs pueden apuntarle. La cobertura lleva lo que el llamador nombro (label): 'la base del PR' desde el gate, el --branch escrito desde el comando, mas el oid corto.",
+      "location": "src/disensor/branch.py (Coverage.ref, branch_coverage(label=...))",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "after_gate recibe base_oid; el nombre viene por label."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_the_board_shows_the_panel_and_the_fourth_figure ('en main') y tests/test_gate.py::test_a_green_gate_writes_the_report_from_the_judged_head ('en la base del PR')"
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r1",
+      "severity": "info",
+      "title": "El tope de historia no distinguia exactamente 2000 de mas de 2000",
+      "description": "Hipotesis del revisor. Se piden MAX_COMMITS + 1 commits y solo se marca truncado cuando llegan mas de MAX_COMMITS; el tope es parametro para probarlo con historias cortas.",
+      "location": "src/disensor/branch.py (_compute, _history)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Probado con una historia de dos commits y topes 1 y 2."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_the_walk_asks_for_one_more_commit_than_it_keeps"
+      }
+    },
+    {
+      "id": "h8",
+      "origin": "r2",
+      "severity": "major",
+      "title": "Un archivo de residuo invalido podia dar por cubierto un merge sin revision",
+      "description": "branch_coverage tomaba las declaraciones con read_tree, que admite a proposito cualquier archivo con la forma de una declaracion, y confiaba en su head_commit: un JSON commiteado con schema 'bogus' y un head_commit apuntado a un PR sin declaracion lo daba por cubierto y su fecha movia el periodo. Solo lo que pasa el esquema y las reglas cuenta como evidencia; los archivos que no validan se cuentan y el panel lo dice.",
+      "location": "src/disensor/branch.py (_valid_declarations, _valid_at)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor reprodujo la admision laxa con read_declarations sobre un artefacto 'bogus' (1 0 bogus abcdef0); la prueba de regresion falla sobre 0cf5525 y pasa desde 2c52325."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_a_committed_file_that_does_not_validate_covers_nothing"
+      }
+    },
+    {
+      "id": "h9",
+      "origin": "r3",
+      "severity": "minor",
+      "title": "El resumen de commits directos con declaracion no usaba el criterio de la fila",
+      "description": "direct_with_declaration se incrementaba con cualquier archivo nuevo bajo la evidencia mientras la fila solo decia 'declara' si el archivo validaba: el resumen y la lista del mismo panel podian contradecirse. Los dos usan la validacion.",
+      "location": "src/disensor/branch.py (_compute, commits directos)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Comparadas las dos lineas en branch.py: row['declares'] validaba, el contador no."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_a_committed_file_that_does_not_validate_covers_nothing, ampliada con una ruta ordinaria en el commit directo"
+      }
+    },
+    {
+      "id": "h10",
+      "origin": "r4",
+      "severity": "major",
+      "title": "disensor report juzgaba con disensor.config.json aunque el gate corriera con --config",
+      "description": "gate y round aceptan --config y report no: un repositorio con la politica en otro archivo veia en el tablero una exigencia distinta de la del gate (required=false en la raiz y required=true en la politica real, o al reves). El comando gana --config con el mismo default y lo pasa a la punta de --branch; el gate ya pasaba su cfg_path.",
+      "location": "src/disensor/cli.py; src/disensor/report.py (main_report, branch_of_directory)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Comparados los parsers de gate, round y report en cli.py y la llamada fija a DEFAULT_CONFIG."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_the_command_judges_the_merges_by_the_configuration_the_gate_runs_with"
+      }
+    },
+    {
+      "id": "h11",
+      "origin": "r4",
+      "severity": "info",
+      "title": "Un head_commit abreviado podia volverse ambiguo con el tiempo",
+      "description": "Hipotesis del revisor: la comparacion por prefijo dejaba que un commit posterior con un prefijo antes unico cubriera un merge que nunca reviso. Cada head declarado se resuelve con git al oid canonico, como hace G5; el que no resuelve o es ambiguo no ancla nada.",
+      "location": "src/disensor/branch.py (_canonical_heads, _anchored)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "resolve_commit en gitctx.py rechaza referencias ambiguas; es lo que usa G5."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_each_kind_of_merge_lands_where_the_policy_and_the_declarations_put_it (head abreviado resuelto)"
+      }
+    },
+    {
+      "id": "h12",
+      "origin": "r5",
+      "severity": "major",
+      "title": "Una declaracion valida con fecha futura corria el periodo y sacaba merges del recuento",
+      "description": "El periodo se abria en el created_at minimo y el esquema acepta cualquier fecha RFC 3339: una declaracion valida fechada en el futuro dejaba todos los merges como anteriores y la cifra en cero. El revisor de la tercera ronda lo habia dejado como hipotesis. Ahora el periodo lo abre el commit de la historia first-parent que trajo la primera declaracion valida, en el orden de la rama; la fecha declarada no decide nada y un commit raiz se compara contra el arbol vacio.",
+      "location": "src/disensor/branch.py (_compute, _opening_commit)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "residue.schema.v0.4.json solo exige date-time para created_at; la asignacion de since y el filtro por fecha leidos en branch.py antes de la correccion."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_a_declaration_dated_in_the_future_moves_no_merge_out_of_the_period"
+      }
+    },
+    {
+      "id": "h13",
+      "origin": "r6",
+      "severity": "major",
+      "title": "Una declaracion que el gate rechaza daba por cubierto el merge",
+      "description": "La cobertura solo miraba el anclaje del head_commit a un commit del PR, no la admisibilidad: una declaracion de plan anclada a un PR cuyas rutas solo aceptan diff, o una declaracion vencida porque el codigo cambio despues de la revision, cubrian igual, y el gate las rechaza por G6 y G7. Cada merge se juzga ahora como el gate juzgo su PR (primer padre como base, segundo como head, rango desde el merge base) con check_range_membership y evaluate_coverage, las funciones del gate; el motivo del rechazo viaja a la fila. Sobre este repositorio aparecen tres merges viejos (#3, #23, #28) que el gate de su momento aprobo y las compuertas de hoy no admiten; el panel dice que son las compuertas de hoy.",
+      "location": "src/disensor/branch.py (_judge_merge); src/disensor/gate.py (check_range_membership, evaluate_coverage)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor reprodujo el caso en un repositorio temporal: run_gate devolvia 1 por G6 y G7 y branch_coverage devolvia covered=1. La prueba de regresion falla sobre 569eb56 y pasa desde la correccion; sobre el corpus real el recuento pasa de 3 a 6 merges sin cobertura admisible."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_a_declaration_the_gate_would_reject_covers_nothing"
+      }
+    },
+    {
+      "id": "h14",
+      "origin": "r7",
+      "severity": "major",
+      "title": "Un merge octopus se juzgaba solo por su segundo padre",
+      "description": "_judge_merge tomaba parents[1] como head del PR: en un merge de tres o mas padres, las ramas restantes quedaban fuera de G6 y G7 y el merge figuraba como cubierto con una sola declaracion. El gate juzga un PR de una rama y no hay un rango unico que evaluar, asi que el panel falla cerrado: un merge con mas de dos padres se cuenta y se lista como no cubierto, con el motivo y una marca.",
+      "location": "src/disensor/branch.py (_judge_merge)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor reprodujo el octopus con dos ramas, una revisada y otra no, y branch_coverage lo daba por cubierto; la prueba de regresion construye la misma topologia y pasa desde la correccion."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_an_octopus_merge_is_listed_as_uncovered_instead_of_judged_by_one_parent"
+      }
+    },
+    {
+      "id": "h15",
+      "origin": "r8",
+      "severity": "major",
+      "title": "Una declaracion que el gate rechaza por sus propias comprobaciones daba por cubierto el merge",
+      "description": "El recorrido validaba el esquema y aplicaba G5, G6 y G7, pero no las comprobaciones por artefacto del gate: una declaracion de nivel C en un repositorio de nivel B (G2), un id no canonico o un archivo con otro nombre (G8), o un nivel A sin confinamiento admitido (G4) cubrian igual. Las comprobaciones del gate se extrajeron a gate.judge_artifact, que _run_gate y el recorrido comparten; el recorrido no aplica G9 porque una version anterior del esquema era la vigente cuando un merge viejo ocurrio, y lo dice. Las declaraciones que el PR agrego se juzgan como en el gate, y una mutacion de evidencia o un historico ilegible tambien lo dejan sin cobertura, como al PR.",
+      "location": "src/disensor/gate.py (judge_artifact); src/disensor/branch.py (_judge_merge, _historical_ids)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Comparadas las comprobaciones inline de _run_gate (G9, G8, G2, G3, G4, G5) con lo que aplicaba _judge_merge; la extraccion conserva el orden y los textos, y la suite del gate sigue en verde."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_a_declaration_the_gate_rejects_on_its_own_checks_covers_nothing, que corre run_gate sobre el mismo PR y afirma que devuelve 1"
+      }
+    },
+    {
+      "id": "h17",
+      "origin": "r9",
+      "severity": "major",
+      "title": "La unicidad de ids (G8) se leia del merge base y no de la punta del destino",
+      "description": "_judge_merge armaba los ids historicos desde el merge base, mientras el gate los lee de la punta del destino: un id registrado en el destino despues de crear la rama no se veia, y una rama larga que lo reutilizara figuraba cubierta aunque el gate la rechace. Ahora se leen del primer padre del merge, que es el destino tal como estaba al mergear.",
+      "location": "src/disensor/branch.py (_judge_merge)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "gate.py lee historical desde base_oid y explica por que el merge base no alcanza; branch.py llamaba a _historical_ids(mb). Corregido a parents[0]."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_an_event_id_recorded_on_the_target_after_the_branch_was_created_is_taken, que corre run_gate sobre el mismo PR y afirma que lo rechaza por G8"
+      }
+    },
+    {
+      "id": "h18",
+      "origin": "r10",
+      "severity": "major",
+      "title": "La prueba de regresion de G8 no podia construir la historia que decia probar",
+      "description": "La prueba mergeaba dos ramas que agregaban el mismo archivo bajo la evidencia con contenido distinto: git devolvia un conflicto add/add antes de llegar a branch_coverage, la suite quedaba en rojo y la logica del primer padre no se probaba. La cadena de comandos que commiteo no lo vio porque pytest iba a un pipe que enmascaraba el exit code. La prueba copia ahora el mismo blob (git mergea dos adds identicos sin conflicto) y la reutilizacion llega al gate y al recorrido; la cadena usa pipefail.",
+      "location": "tests/test_branch.py (test_an_event_id_recorded_on_the_target_after_the_branch_was_created_is_taken)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "La suite completa fallaba en ese test sobre 98667a7 (1 failed, 634 passed); pasa desde la correccion, enmendada en el mismo commit de G8."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_an_event_id_recorded_on_the_target_after_the_branch_was_created_is_taken"
+      }
+    },
+    {
+      "id": "h19",
+      "origin": "r11",
+      "severity": "major",
+      "title": "report --config no pasaba por la canonicalizacion del gate",
+      "description": "El gate pasa --config por canonical_repo_path (las barras de Windows se vuelven el separador, y una ruta absoluta, con letra de unidad o que escapa del repositorio se rechaza con un mensaje); report se la daba cruda a git, asi que una ruta relativa escrita con barras invertidas no encontraba el archivo en la punta y el panel quedaba sin calcular con una politica valida. Ahora branch_of_directory canonicaliza con la misma funcion del gate, y lo que el gate rechaza deja el mismo motivo en el panel.",
+      "location": "src/disensor/report.py (branch_of_directory)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor corrio branch_coverage con una ruta absoluta de Windows y obtuvo 'could not read ... at f8f70ec'. Verificado en gate.py que canonical_repo_path rechaza rutas absolutas y con letra de unidad: el gate no las acepta, asi que el informe tampoco. La prueba ampliada corre el comando con 'policy\\\\disensor.json' (calcula) y con la ruta absoluta nativa (sin calcular, con el motivo)."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_the_command_judges_the_merges_by_the_configuration_the_gate_runs_with"
+      },
+      "remedy_adjustment": "El revisor pedia aceptar la ruta absoluta dentro del repositorio como 'hace el gate'; el gate no la acepta (canonical_repo_path la rechaza), asi que el informe la rechaza con el mismo mensaje en vez de resolverla."
+    },
+    {
+      "id": "h16",
+      "origin": "r8",
+      "severity": "info",
+      "title": "La resolucion de un merge con conflictos no entra en la cobertura",
+      "description": "Hipotesis del revisor: el recorrido evalua el rango desde el merge base hasta el segundo padre y no el arbol del commit de merge, asi que codigo introducido al resolver un conflicto puede diferir del head revisado y el merge figurar cubierto.",
+      "location": "src/disensor/branch.py (_judge_merge); src/disensor/gate.py (resolve_context, evaluate_coverage)",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "repository",
+        "detail": "Es el contrato del gate, no del panel: resolve_context toma head_oid como head del PR y evaluate_coverage y check_range_membership juzgan ese head; el gate nunca ve el arbol del merge que la plataforma crea al integrar. El panel replica exactamente lo que el gate juzgo. Lo que el revisor senala es un limite del gate que existe desde G6, y no cambia con este PR."
+      },
+      "evidence": {
+        "text": "gate.py, resolve_context: head_oid = gitctx.resolve_commit(head, repo_dir); status = gitctx.changed_status(mb, head_oid, repo_dir). El rango juzgado es merge base a head del PR."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Ningun revisor abrio el HTML en un navegador ni corrio una auditoria de accesibilidad; no hay arnes para eso en la suite. El generador miro el panel una vez en el navegador embebido del entorno, Chromium, a ancho de telefono, y comprobo por script que la pagina no desborda y que las cifras y el panel muestran lo calculado; teclado, lector de pantalla, Firefox y Safari sin ejercitar."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El tope de 2000 commits de historia se probo con historias de dos commits y topes 1 y 2, nunca con una historia real mas larga que el tope; el costo en CI de un repositorio con miles de merges en el periodo tampoco se midio. En este repositorio son 53 merges y el calculo tarda segundos."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El CI de los commits del PR no estaba observado al escribir esta declaracion: se pushea junto con ella. La suite completa paso en local despues de cada correccion (ultima corrida: ver el commit de la declaracion), en Windows con Python 3.14; el CI corre en Ubuntu con 3.10 y 3.12."
+      },
+      {
+        "id": "r4",
+        "class": "principal_refutation",
+        "finding_ref": "h16",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "El revisor sugirio que la cobertura mirara el arbol del commit de merge y no el head del PR; se refuto con el codigo del gate, que juzga el head. El limite que senala (lo que se escribe al resolver un conflicto no pasa por ninguna revision) es del gate, no de este panel, y queda anotado."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 19,
+      "valid": {
+        "incorporated": 18,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 1,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:89215995ce7d4d42c7da044df2335b21af26d14a705bb7358f41e33c17ff235e",
+      "report_hash": "sha256:b3fa4f43ab52b2ea10c9c12735f28ceb5b7a3e49611746370d39112fd9b994a9"
+    }
+  }
+}
