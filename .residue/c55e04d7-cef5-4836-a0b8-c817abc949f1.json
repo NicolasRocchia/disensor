@@ -1,0 +1,74 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c55e04d7-cef5-4836-a0b8-c817abc949f1",
+    "created_at": "2026-09-29T11:08:36-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "ca2bbb1506f01511e6deabd5efabc7289e8a6b4e",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "679aa7d95dc5a338d606b0f4532fa360dba0ee3d"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no ejecuto el job residuo en un runner alojado ni hizo una llamada real a la API de pull requests: verifico en local que el SHA nuevo es el commit detras del tag anotado v0.12.0, que ese commit trae el action.yml compuesto y que la suite pasa. La primera corrida real de la Action pineada es el CI de este mismo PR, que se observa despues de escribir esta declaracion."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:09387dfc2755dab90319abcfc9ffb540b4ebae5247f99bb90262b6a80b3b1327",
+      "report_hash": "sha256:e8db7c1580ce02b96d33202e9a2e506ccf031624c5e7a2b09f4d4a40705b9c7e"
+    }
+  }
+}
