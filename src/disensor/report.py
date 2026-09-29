@@ -1440,6 +1440,8 @@ def _board_coverage(c) -> str:
                 marks += f' <span class="etq abierto">muta evidencia: {row["mutations"]}</span>'
             if row["code"] == "no_common_gate":
                 marks += ' <span class="etq abierto">sin compuerta común</span>'
+            if row["code"] == "octopus":
+                marks += ' <span class="etq abierto">octopus</span>'
             reason = f'<div class="txt">{E(_cut(row.get("reason") or "", 160))}</div>' if row.get("reason") else ""
             trs.append(f'<tr><td class="fecha">{E(row["date"].strftime("%d/%m/%Y"))}</td>'
                        f'<td class="ref">{E(row["oid"][:8])}</td>'

@@ -202,6 +202,32 @@ def test_a_declaration_the_gate_would_reject_covers_nothing(repo):
     assert any("[G6]" in row["reason"] and "stale" in row["reason"] for row in c.uncovered)
 
 
+def test_an_octopus_merge_is_listed_as_uncovered_instead_of_judged_by_one_parent(repo):
+    """A merge with more than two parents closes several branches at once; the
+    gate judges one PR of one branch. Judging only the second parent would
+    leave the others out of G6 and G7 and call the merge covered, so the
+    board fails closed and lists it. Found by the reviewer of the round that
+    declared this change."""
+    repo.branch_merge("covered", "merge with a declaration", files={"src/b.py": "b"}, declare="full")
+    repo.git("switch", "-q", "-c", "reviewed")
+    repo.write("src/reviewed.py", "r")
+    code = repo.commit("reviewed: code", AFTER)
+    repo.artifact(code, name="reviewed")
+    repo.commit("reviewed: declaration", AFTER)
+    repo.git("switch", "-q", "main")
+    repo.git("switch", "-q", "-c", "unreviewed")
+    repo.write("src/unreviewed.py", "u")
+    repo.commit("unreviewed: code", AFTER)
+    repo.git("switch", "-q", "main")
+    repo.git("merge", "-q", "--no-ff", "-m", "octopus of both", "reviewed", "unreviewed", date=AFTER)
+    octopus = repo.git("rev-parse", "HEAD")
+    assert len(repo.git("rev-list", "--parents", "-n1", "HEAD").split()) == 4  # itself plus three parents
+    c = coverage_of(repo)
+    assert (c.merges, c.covered) == (2, 1)
+    assert [(row["oid"], row["code"]) for row in c.uncovered] == [(octopus, "octopus")]
+    assert "3 padres" in c.uncovered[0]["reason"]
+
+
 def test_a_declaration_dated_in_the_future_moves_no_merge_out_of_the_period(repo):
     """The schema accepts any RFC 3339 date-time, so a valid declaration can
     claim a date after every merge of the branch. The period is opened by the

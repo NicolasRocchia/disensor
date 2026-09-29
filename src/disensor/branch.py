@@ -148,6 +148,20 @@ def _judge_merge(out: Coverage, oid: str, parents: list[str], when: datetime, su
     PR whose paths accept only a diff review is one the gate rejects, and the
     board would have called it covered.
     """
+    if len(parents) > 2:
+        # An octopus merge closes several branches at once and the gate judges
+        # one PR of one branch: there is no single range to evaluate, and
+        # judging only the second parent would leave the others out of G6 and
+        # G7 while calling the merge covered. Fail closed, visibly.
+        out.merges += 1
+        if out.required:
+            out.uncovered.append({
+                "oid": oid, "date": when, "subject": subject, "demanding": 0, "mutations": 0, "code": "octopus",
+                "reason": (f"merge de {len(parents)} padres: el gate juzga un PR de una rama y este panel no "
+                           f"evalúa un octopus; se lista como no cubierto"),
+                "declares": False,
+            })
+        return
     head = parents[1]
     try:
         mb = gitctx.merge_base(parents[0], head, repo)
