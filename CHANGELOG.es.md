@@ -11,6 +11,45 @@ oración cierra con punto, y las referencias a secciones del README pasaron a
 ser enlaces. Las versiones que ese párrafo no describía (0.9.1, 0.6.5, 0.6.2,
 0.3.0 y 0.1.0) no tienen entrada, y no hubo 0.8.0.
 
+## 0.12.0 (2026-09-29)
+
+Esta versión es sobre leer lo que disensor produjo, todavía sobre residue/v0.4.
+La vista Abierto del informe agrupa por lo que cada fila le pide a quien lee y
+no por el campo del esquema del que salió (espera una decisión, deuda anotada,
+no se pudo ejecutar por el motivo declarado, sobre el revisor, descansa en un
+juicio, y los riesgos que el dueño aceptó, plegados porque no piden nada), abre
+con un digest y con lo que la última declaración dejó abierto, también cuando
+no dejó nada, pliega un hallazgo en el ítem de residuo que lo referencia, y la
+línea que imprimen el gate y el comando dice el mismo digest
+([#95](https://github.com/NicolasRocchia/disensor/pull/95)). Una quinta vista,
+Tablero, es para quien coordina y no para quien revisa: decisiones esperando y
+desde cuándo, riesgos aceptados, deudas, lo que las declaraciones dicen de cómo
+se hizo cada revisión, declaraciones por semana, huecos de ejecución por motivo
+y lo que la vista no puede decir; el ancla `#tablero` la abre y Abierto sigue
+siendo la primera vista
+([#97](https://github.com/NicolasRocchia/disensor/issues/97),
+[#99](https://github.com/NicolasRocchia/disensor/pull/99)). La misma vista
+recorre la rama: de los merges desde el commit que trajo la primera declaración
+válida, cuáles exigían revisión según la política de la punta y no traen una
+declaración que el gate admita, juzgados con las mismas funciones del gate (las
+comprobaciones sobre una declaración que un PR agrega viven ahora en
+`judge_artifact`, compartida por el gate y el recorrido, todas salvo G9) y con
+el motivo del gate en cada fila; mide declaraciones, no corridas del gate, y
+`disensor report` gana `--branch` y `--config`
+([#101](https://github.com/NicolasRocchia/disensor/pull/101)). `disensor round`
+mide el tiempo de pared del revisor y `new --round` lo lleva como
+`reviewer_seconds` en la extensión `dev.disensor.round`; las guías nombran
+`extra_time_sec` como el ciclo de punta a punta y dicen que `token_cost` queda a
+mano ([#98](https://github.com/NicolasRocchia/disensor/issues/98)). La regla de
+la consigna contra instrucciones en el material distingue a su destinatario, la
+entrega de la ronda dice que la receta no carga los archivos de instrucciones
+del checkout, y la guía dice cómo refutar el falso positivo de un revisor que
+reporta los archivos del harness como una inyección
+([#91](https://github.com/NicolasRocchia/disensor/issues/91)). El README y la
+página de PyPI ponen el residuo primero y conservan el vocabulario de los
+revisores para quien busca
+([#94](https://github.com/NicolasRocchia/disensor/pull/94)).
+
 ## 0.11.0 (2026-09-24)
 
 Esta versión endurece lo que disensor hace en la máquina que lo corre y lo que
