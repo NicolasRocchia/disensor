@@ -218,11 +218,15 @@ of the merges since the commit that brought the first valid declaration
 (in the order of the branch, whatever date a declaration claims) that
 demanded a review under the
 policy at the tip (decided by the gate's own function, so `gate.required` and
-the exemptions mean the same), it lists the ones no declaration at the tip
-covers the way the gate demands (admissible for that PR, G5; every demanding
-path in its final state, G6; the integrated tree witnessed, G7), and counts
-the direct commits apart. Those are today's gates: a merge older than one of
-them can show up uncovered although the gate of its day approved it. That
+the exemptions mean the same), it lists the ones whose PR brought no
+declaration the gate admits, judged with the gate's own functions: the checks
+on the declaration itself (identity and uniqueness, G8; level, G2 and G3;
+confinement, G4; membership, G5) and coverage (every demanding path in its
+final state, G6; the integrated tree witnessed, G7), and counts the direct
+commits apart. G9, the current schema version, is the one check left out: a
+superseded schema was the one in force when an old merge happened. Those are
+still today's gates: a merge older than one of them can show up uncovered
+although the gate of its day approved it. That
 measures declarations, not gate runs: the repository keeps no verdict of a
 run. The gate walks the
 base of the PR; the command walks `--branch`, HEAD by default, with the
