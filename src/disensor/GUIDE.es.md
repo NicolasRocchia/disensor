@@ -179,8 +179,8 @@ info), `title`, `description`, `location` (solo en el perfil completo), y:
 
 ## Residuo
 
-El corazón de la declaración: lo que el ciclo no pudo cerrar por sí mismo. O
-`items` o la ausencia expresa, nunca un campo vacío.
+El corazón de la declaración: lo que la ronda deja para que lo mire una
+persona. O `items` o la ausencia expresa, nunca un campo vacío.
 
 - `items[]`: `id` (r1, r2...), `class`, `finding_ref` cuando viene de un
   hallazgo, `requires_human_attention`.

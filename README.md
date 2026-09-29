@@ -25,8 +25,8 @@ The method behind it is **controlled disagreement**: one model generates, a
 model from another family attacks, the generator verifies every finding, and
 the cycle ends when each finding has been resolved, refuted with evidence, or
 escalated to a human. This repository is the reference implementation of the
-artifact that method defines, the **residue** declaration: what the cycle could
-not close by itself.
+artifact that method defines, the **residue** declaration: what the round
+leaves for a person to look at.
 
 Method paper: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversarial
 automatizada con un segundo asistente de código en el desarrollo de software*,
@@ -440,7 +440,7 @@ code review, the
 loop between Claude and Codex, and the review features of assistants such as
 GitHub Copilot. Any of them can feed a residue declaration; none of them
 replaces it, because none leaves a versioned, gated record of what the review
-could not close.
+left for a person to look at.
 
 ### Relation to Adversarial Review (arXiv 2608.18167)
 
@@ -465,7 +465,7 @@ critic ground its disagreement in evidence. disensor attacks the same problem
 from the other side: the declaration lists **residue, not coverage**, a human
 arbiter is mandatory (R0), and generator and reviewer must come from
 **different families** (R4). Disagreement is not a step of the protocol here:
-it is what stays recorded when the cycle does not close by itself.
+it is what stays recorded, even after the cycle has closed.
 
 The two are complementary: an AR cycle can end in a residue declaration, and
 what the critic could not settle with evidence is exactly what the declaration

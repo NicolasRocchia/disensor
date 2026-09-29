@@ -2,7 +2,7 @@
 
 Principle of section 9 of the protocol: the declaration lists residue, not
 coverage. The comment directs the human reviewer's scrutiny toward what the
-cycle could not close, instead of reading as a seal of quality.
+round left for a person to look at, instead of reading as a seal of quality.
 """
 from __future__ import annotations
 
@@ -264,7 +264,7 @@ def render_artifact(a: dict) -> str:
     if residue.get("declared_absence"):
         lines.append(f"**No residue.** Express declaration: {md_literal(residue['declaration'])}")
     else:
-        lines.append("**Declared residue** (what the cycle could not close by itself):")
+        lines.append("**Declared residue** (what the round leaves for a person to look at):")
         for item in residue["items"]:
             lines.append(_item_line(item, a["profile"]))
     return "\n".join(lines)
