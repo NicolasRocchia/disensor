@@ -214,7 +214,9 @@ the risks the owner accepted, the debts recorded, what the declarations say of
 how each review was conducted, declarations per week and execution gaps by
 reason, opening with the same limit, because nothing in the artifact records a
 closure. It scores neither the code nor the people. It also walks the branch:
-of the merges since the first declaration that demanded a review under the
+of the merges since the commit that brought the first valid declaration
+(in the order of the branch, whatever date a declaration claims) that
+demanded a review under the
 policy at the tip (decided by the gate's own function, so `gate.required` and
 the exemptions mean the same), it lists the ones no declaration at the tip
 anchors to, and counts the direct commits apart. That measures declarations,
