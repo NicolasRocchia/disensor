@@ -1,0 +1,86 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "1b3752ec-8a06-44a5-bb8f-7dfee0044fda",
+    "created_at": "2026-09-29T12:44:56-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "542545281d87d56fd6c2c7d3aa083722bb337af0",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "e4d464f5fac46c0bc9d13a605dcb5350631c04e0"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El head 5425452 no tenía declaración que lo cubriera: G6 y G7 rechazaban el PR",
+      "description": "El commit 5425452, que corrige render.py, llegó después de la declaración d3ab4758, anclada en 8b6b8ed. Con eso la única declaración del PR quedó rancia para src/disensor/render.py (G6) y ninguna había visto el árbol final (G7): el gate rechazaba el head aunque la suite pasara. Ese commit es además la incorporación parcial del hallazgo h1 de d3ab4758, que ahí quedó escalado y sigue abierto para el texto del esquema v0.4 y docs/antecedentes.md.",
+      "location": ".residue/d3ab4758-c25b-4174-91cb-ad5affa6af80.json (head_commit); src/disensor/render.py; commit 5425452",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido antes de corregir: disensor gate --no-comment --base e4d464f --head 5425452 en local terminó en FAILED con [G6] src/disensor/render.py changed after the review that claims to cover it (d3ab4758) y [G7] no declaration saw the final tree of this PR. Es la misma corrida que hizo el revisor."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Esta declaración es la corrección: la ronda 2 revisó el diff completo hasta 5425452 y la declaración lo ancla como head_commit. Verificada con disensor gate --no-comment --base e4d464f5fac46c0bc9d13a605dcb5350631c04e0 --head 5425452 en local, después de commitearla: OK. La primera declaración queda como estaba: la evidencia es de solo agregar (G8)."
+      }
+    }
+  ],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "El único hallazgo de esta ronda, la falta de una declaración que cubriera el head 5425452, se incorporó con esta misma declaración y lo verifica el gate de diff en local. No hay huecos de ejecución: la suite completa corrió en local (635 pasan, 6 salteadas por plataforma o costo, ninguna toca este diff). La escalación sobre el texto del esquema v0.4 y de docs/antecedentes.md sigue abierta en la declaración d3ab4758 de este mismo PR; render.py, la tercera superficie de esa escalación, se corrigió en 5425452."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:23de09447da6211c0eb2f248c8d84ad6edabdfdf96dc51045f4f37c0bd19dca9",
+      "report_hash": "sha256:63dca84038e8d2210977b5da2cff044778bcd1780a3666b01e8e65c3e0a14dc0",
+      "reviewer_seconds": 193
+    }
+  }
+}
