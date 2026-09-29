@@ -1146,3 +1146,25 @@ def test_the_seconds_are_truncated_never_rounded_up(monkeypatch):
     assert s.stamp({})["seconds"] == 1
     reloj[0] = 100.4
     assert s.stamp({})["seconds"] == 0
+
+
+def test_the_finish_is_derived_from_the_start_never_read_again(monkeypatch):
+    """Una correccion del reloj de pared durante la corrida no puede dejar el
+    fin antes que el inicio: el fin es el inicio mas el reloj monotonico, y los
+    tres numeros cierran entre si (hallazgo de la tercera ronda, incorporado)."""
+    from datetime import datetime, timezone
+
+    from disensor.round import _Stopwatch
+
+    reloj = [500.0]
+    monkeypatch.setattr(ronda.time, "monotonic", lambda: reloj[0])
+    s = _Stopwatch()
+    s._started = datetime(2026, 9, 28, 12, 0, 10, tzinfo=timezone.utc)
+    s.started_at = "2026-09-28T12:00:10Z"
+    # Aunque el reloj de pared retroceda, nadie lo vuelve a leer.
+    monkeypatch.setattr(ronda, "datetime", None)
+    reloj[0] = 500.0 + 3661.9
+    a = s.stamp({})
+    assert a["started_at"] == "2026-09-28T12:00:10Z"
+    assert a["finished_at"] == "2026-09-28T13:01:11Z"
+    assert a["seconds"] == 3661

@@ -33,7 +33,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import __version__, gitctx, programs
@@ -340,18 +340,26 @@ class _Stopwatch:
     """
 
     def __init__(self) -> None:
-        self.started_at = _utc_now()
+        self._started = datetime.now(timezone.utc)
         self._t0 = time.monotonic()
+        self.started_at = _iso(self._started)
 
     def stamp(self, attempt: dict) -> dict:
+        elapsed = max(0, int(time.monotonic() - self._t0))
         attempt["started_at"] = self.started_at
-        attempt["finished_at"] = _utc_now()
-        attempt["seconds"] = max(0, int(time.monotonic() - self._t0))
+        # El fin se deriva del inicio mas el reloj monotonico, no de una
+        # segunda lectura del reloj de pared: si el sistema corrige la hora
+        # hacia atras durante una corrida larga, la segunda lectura quedaba
+        # antes que la primera y el par describia un intervalo imposible
+        # (hallazgo de la tercera ronda del evento, incorporado). Los tres
+        # numeros salen del mismo reloj y cierran entre si.
+        attempt["finished_at"] = _iso(self._started + timedelta(seconds=elapsed))
+        attempt["seconds"] = elapsed
         return attempt
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+def _iso(moment: datetime) -> str:
+    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _inside(path: Path, repo: Path) -> bool:
