@@ -1421,11 +1421,14 @@ def _board_coverage(c) -> str:
     policy = (f"la política por defecto del gate, porque la punta no tiene <code>{E(c.config_path)}</code>"
               if c.policy_default else f"la política de <code>{E(c.config_path)}</code> en la punta, la de hoy")
     intro = (f'<p class="ayuda">Historia first-parent de {where}, desde el commit {opened}. Cada merge se juzga como '
-             f'el gate juzgó su PR, con {policy}: exige revisión según la misma función del gate, y está cubierto '
-             f'cuando alguna declaración de la punta es admisible para ese PR (G5), cubre cada ruta exigente en su '
-             f'estado final (G6) y vio el árbol integrado (G7). Son las compuertas de hoy: un merge anterior a una '
-             f'de ellas puede figurar sin declaración admisible aunque el gate de su momento lo haya aprobado. Mide '
-             f'declaraciones, no corridas del gate: el repositorio no guarda el veredicto de ninguna corrida.</p>')
+             f'el gate juzgó su PR, con {policy} y las mismas funciones del gate: exige revisión según su '
+             f'clasificación de rutas, y está cubierto cuando la declaración que el PR agregó pasa las '
+             f'comprobaciones por artefacto (identidad y unicidad G8, nivel G2 y G3, confinamiento G4, pertenencia '
+             f'G5) y cubre cada ruta exigente en su estado final con el árbol integrado visto (G6 y G7). No se aplica '
+             f'G9, la versión vigente del esquema: una versión anterior era la vigente cuando un merge viejo ocurrió. '
+             f'Son las compuertas de hoy: un merge anterior a una de ellas puede figurar sin declaración admisible '
+             f'aunque el gate de su momento lo haya aprobado. Mide declaraciones, no corridas del gate: el '
+             f'repositorio no guarda el veredicto de ninguna corrida.</p>')
     if not c.required:
         body = (f'<div class="vacio">La política de la punta declara <code>gate.required=false</code>: no exige '
                 f'cobertura. {c.merges} merges en el período, {c.covered} con una declaración anclada.</div>')

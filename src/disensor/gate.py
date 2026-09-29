@@ -364,6 +364,111 @@ def check_range_membership(a: Artifact, merge_base: str, head: str, repo_dir: Pa
     a.in_range = True
 
 
+def judge_artifact(artifact: Artifact, path: str, config: dict, historical: set[str], merge_base: str,
+                   head: str, repo_dir: Path, *, current_schema: bool = True) -> list[str]:
+    """What one declaration a PR adds has to pass on its own, once its schema did.
+
+    G9 (the current schema), G8 (a canonical id, the file named after it, the
+    id unused in the evidence of the target and earlier in the PR), G2 and G3
+    (the level), G4 (confinement and hardening in Level A) and G5 (the
+    reviewed commits belong to the PR). The errors land in `artifact.errors`,
+    the warnings come back, and `historical` gains the id when it is new.
+
+    Shared with the branch walk of the report, which judges every merge of a
+    branch the way the gate judged its PR. That walk passes
+    `current_schema=False`: a superseded schema was the one in force when an
+    old merge happened, and G9 exists to keep new evidence current, not to
+    rewrite what the history looks like.
+    """
+    warnings: list[str] = []
+    if artifact.errors:
+        return warnings
+    gate_cfg = config["gate"]
+    # G9: the schema keeps reading superseded versions so that historical
+    # declarations stay valid without being rewritten (evidence is
+    # append-only). That readability must not become a way to keep emitting
+    # under the older, weaker rules: what a PR ADDS declares the current
+    # version. Same shape as G6, where a past declaration stays valid and
+    # stops being sufficient.
+    declared_version = artifact.data.get("schema") if isinstance(artifact.data, dict) else None
+    if current_schema and declared_version != CURRENT_SCHEMA:
+        artifact.errors.append(
+            f"[G9] the declaration this PR adds states '{declared_version}' and the current "
+            f"schema is {CURRENT_SCHEMA}. Superseded versions are still read so history is "
+            f"never rewritten, but new evidence is emitted under the rules in force."
+        )
+        return warnings
+
+    own: list[str] = []
+    ev = artifact.event
+    # A new artifact has to carry a canonical UUID, full stop. Chasing every
+    # equivalent spelling instead (URN prefixes, the `?+`, `?=` and `#`
+    # components RFC 8141 ignores, empty or blank ids) is a losing game while
+    # the validator does not assert `format: uuid`. Demanding the canonical
+    # form closes all of them at once, and `event_key` stays for reading
+    # history, which may hold artifacts written before this rule existed.
+    if not is_canonical_uuid(artifact.event_id):
+        own.append(
+            f"[G8] event_id '{artifact.event_id}' is not a canonical UUID. Identity has to have "
+            "one spelling: otherwise the same event written differently looks like two."
+        )
+    if Path(path).name != f"{artifact.event_id}.json":
+        own.append(f"[G8] the file has to be named `{artifact.event_id}.json`")
+    # Checked against history AND against the artifacts this same PR already
+    # added: two files in one PR can spell the same id differently and each
+    # one, on its own, looks unique.
+    if event_key(artifact.event_id) in historical:
+        own.append(
+            f"[G8] event_id {artifact.event_id[:8]} already exists in the evidence of this "
+            "repository or earlier in this PR: reusing it breaks the identity of the record"
+        )
+    else:
+        historical.add(event_key(artifact.event_id))
+    if ev.get("criticality_level") != config["criticality_level"]:
+        own.append(
+            f"[G2] artifact level ({ev.get('criticality_level')}) differs from the one declared "
+            f"in the repository ({config['criticality_level']})"
+        )
+    if ev.get("criticality_level") == "A" and not config.get("level_A_enabled", False):
+        own.append(
+            "[G3] Level A blocked: data governance (section 10) is not validated in this "
+            "repository (level_A_enabled=false). Applying the protocol at Level A in this "
+            "situation is not half-compliance: it is a violation."
+        )
+    for r in artifact.data.get("actors", {}).get("reviewers", []):
+        conf = r["confinement"]
+        if ev.get("criticality_level") == "A" and conf["mode"] not in gate_cfg["level_A_accepted_confinement"]:
+            own.append(
+                f"[G4] reviewer {r['reviewer_id']}: confinement '{conf['mode']}' not admitted in "
+                "Level A (the reviewer only reads, and that is guaranteed with permissions, not "
+                "with the brief)"
+            )
+        if ev.get("criticality_level") == "A" and r.get("hardening") != "verified":
+            # El campo es opcional en el esquema, asi que omitirlo evitaba
+            # R12 y pasaba el nivel A: la exigencia vivia solo en el camino
+            # feliz del runner, que es justo el que no recorre quien arma la
+            # declaracion a mano.
+            declarado = r.get("hardening", "not declared")
+            own.append(
+                f"[G4] reviewer {r['reviewer_id']}: hardening '{declarado}' in Level A. The "
+                "level reserved for what cannot be undone demands a reviewer whose "
+                "neutralisation of project instructions was tested, and that has to be "
+                "declared"
+            )
+        if not conf["verified"] and gate_cfg.get("warn_unverified_confinement", True):
+            warnings.append(
+                f"{path}: confinement of reviewer {r['reviewer_id']} without post-run verification"
+            )
+
+    check_range_membership(artifact, merge_base, head, repo_dir)
+    if artifact.range_reason:
+        own.append(artifact.range_reason)
+
+    if own:
+        artifact.errors = own
+    return warnings
+
+
 @dataclass(frozen=True)
 class GateContext:
     """Rango y política ya resueltos: lo que hay que mirar antes de decidir nada."""
@@ -736,92 +841,10 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
             errors_by_file[path] = [f"invalid JSON: {exc}"]
             continue
         artifact = Artifact(path=path, data=data, errors=validate_artifact(data))
-        # G9: the schema keeps reading superseded versions so that historical
-        # declarations stay valid without being rewritten (evidence is
-        # append-only). That readability must not become a way to keep emitting
-        # under the older, weaker rules: what a PR ADDS declares the current
-        # version. Same shape as G6, where a past declaration stays valid and
-        # stops being sufficient.
-        declared_version = data.get("schema") if isinstance(data, dict) else None
-        if not artifact.errors and declared_version != CURRENT_SCHEMA:
-            artifact.errors.append(
-                f"[G9] the declaration this PR adds states '{declared_version}' and the current "
-                f"schema is {CURRENT_SCHEMA}. Superseded versions are still read so history is "
-                f"never rewritten, but new evidence is emitted under the rules in force."
-            )
         artifacts.append(artifact)
+        warnings.extend(judge_artifact(artifact, path, config, historical, mb, head_oid, repo_dir))
         if artifact.errors:
             errors_by_file[path] = artifact.errors
-            continue
-
-        own: list[str] = []
-        ev = artifact.event
-        # A new artifact has to carry a canonical UUID, full stop. Chasing every
-        # equivalent spelling instead (URN prefixes, the `?+`, `?=` and `#`
-        # components RFC 8141 ignores, empty or blank ids) is a losing game while
-        # the validator does not assert `format: uuid`. Demanding the canonical
-        # form closes all of them at once, and `event_key` stays for reading
-        # history, which may hold artifacts written before this rule existed.
-        if not is_canonical_uuid(artifact.event_id):
-            own.append(
-                f"[G8] event_id '{artifact.event_id}' is not a canonical UUID. Identity has to have "
-                "one spelling: otherwise the same event written differently looks like two."
-            )
-        if Path(path).name != f"{artifact.event_id}.json":
-            own.append(f"[G8] the file has to be named `{artifact.event_id}.json`")
-        # Checked against history AND against the artifacts this same PR already
-        # added: two files in one PR can spell the same id differently and each
-        # one, on its own, looks unique.
-        if event_key(artifact.event_id) in historical:
-            own.append(
-                f"[G8] event_id {artifact.event_id[:8]} already exists in the evidence of this "
-                "repository or earlier in this PR: reusing it breaks the identity of the record"
-            )
-        else:
-            historical.add(event_key(artifact.event_id))
-        if ev.get("criticality_level") != config["criticality_level"]:
-            own.append(
-                f"[G2] artifact level ({ev.get('criticality_level')}) differs from the one declared "
-                f"in the repository ({config['criticality_level']})"
-            )
-        if ev.get("criticality_level") == "A" and not config.get("level_A_enabled", False):
-            own.append(
-                "[G3] Level A blocked: data governance (section 10) is not validated in this "
-                "repository (level_A_enabled=false). Applying the protocol at Level A in this "
-                "situation is not half-compliance: it is a violation."
-            )
-        for r in artifact.data.get("actors", {}).get("reviewers", []):
-            conf = r["confinement"]
-            if ev.get("criticality_level") == "A" and conf["mode"] not in gate_cfg["level_A_accepted_confinement"]:
-                own.append(
-                    f"[G4] reviewer {r['reviewer_id']}: confinement '{conf['mode']}' not admitted in "
-                    "Level A (the reviewer only reads, and that is guaranteed with permissions, not "
-                    "with the brief)"
-                )
-            if ev.get("criticality_level") == "A" and r.get("hardening") != "verified":
-                # El campo es opcional en el esquema, asi que omitirlo evitaba
-                # R12 y pasaba el nivel A: la exigencia vivia solo en el camino
-                # feliz del runner, que es justo el que no recorre quien arma la
-                # declaracion a mano.
-                declarado = r.get("hardening", "not declared")
-                own.append(
-                    f"[G4] reviewer {r['reviewer_id']}: hardening '{declarado}' in Level A. The "
-                    "level reserved for what cannot be undone demands a reviewer whose "
-                    "neutralisation of project instructions was tested, and that has to be "
-                    "declared"
-                )
-            if not conf["verified"] and gate_cfg.get("warn_unverified_confinement", True):
-                warnings.append(
-                    f"{path}: confinement of reviewer {r['reviewer_id']} without post-run verification"
-                )
-
-        check_range_membership(artifact, mb, head_oid, repo_dir)
-        if artifact.range_reason:
-            own.append(artifact.range_reason)
-
-        if own:
-            artifact.errors = own
-            errors_by_file[path] = own
 
     valid = [a for a in artifacts if a.valid]
     required = gate_cfg.get("required", True)

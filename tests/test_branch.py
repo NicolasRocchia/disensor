@@ -52,16 +52,20 @@ class Repo:
         self.git("commit", "-q", "-m", message, date=date)
         return self.git("rev-parse", "HEAD")
 
-    def artifact(self, head: str, name: str = "decl", gate: str = "diff") -> None:
+    def artifact(self, head: str, name: str = "decl", gate: str = "diff", level: str = "B") -> str:
+        """A valid declaration of `head`, named after its event id as G8 demands. Returns its path."""
         data = json.loads(json.dumps(DIFF if gate == "diff" else PLAN))
         data["event"]["event_id"] = f"{abs(hash((head, name))) % 10**8:08d}-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
         data["event"]["gate"] = gate
         data["event"]["head_commit"] = head
+        data["event"]["criticality_level"] = level
         if gate == "diff":
             data["event"]["base_commit"] = self.git("rev-parse", "main")
         else:
             data["event"].pop("base_commit", None)
-        self.write(f".residue/{name}.json", json.dumps(data, ensure_ascii=False))
+        path = f".residue/{data['event']['event_id']}.json"
+        self.write(path, json.dumps(data, ensure_ascii=False))
+        return path
 
     def branch_merge(self, name: str, message: str, date: str = AFTER, *, files: dict[str, str],
                      declare: str | None = None) -> str:
@@ -202,6 +206,30 @@ def test_a_declaration_the_gate_would_reject_covers_nothing(repo):
     assert any("[G6]" in row["reason"] and "stale" in row["reason"] for row in c.uncovered)
 
 
+def test_a_declaration_the_gate_rejects_on_its_own_checks_covers_nothing(repo):
+    """Schema validity and coverage are not the whole gate: a declaration at
+    level C in a level B repository is rejected by G2 before coverage is even
+    looked at. The walk applies the gate's own per-artifact checks, and the
+    row names the error the gate would have printed. Found by the reviewer of
+    the round that declared this change."""
+    from disensor.gate import run_gate
+    repo.branch_merge("covered", "merge with a declaration", files={"src/b.py": "b"}, declare="full")
+    base = repo.git("rev-parse", "main")
+    repo.git("switch", "-q", "-c", "level-c")
+    repo.write("src/c.py", "c")
+    code = repo.commit("level-c: code", AFTER)
+    repo.artifact(code, name="level-c", level="C")
+    head = repo.commit("level-c: declaration at another level", AFTER)
+    assert run_gate(".residue", "disensor.config.json", base, head, repo.path, post=False, report=False) == 1
+    repo.git("switch", "-q", "main")
+    repo.git("merge", "-q", "--no-ff", "-m", "merge with a declaration at level C", "level-c", date=AFTER)
+    wrong_level = repo.git("rev-parse", "HEAD")
+    c = coverage_of(repo)
+    assert (c.merges, c.covered) == (2, 1)
+    assert [row["oid"] for row in c.uncovered] == [wrong_level]
+    assert c.uncovered[0]["declares"] and "[G2]" in c.uncovered[0]["reason"]
+
+
 def test_an_octopus_merge_is_listed_as_uncovered_instead_of_judged_by_one_parent(repo):
     """A merge with more than two parents closes several branches at once; the
     gate judges one PR of one branch. Judging only the second parent would
@@ -241,7 +269,7 @@ def test_a_declaration_dated_in_the_future_moves_no_merge_out_of_the_period(repo
     data["event"]["created_at"] = "2027-01-01T00:00:00Z"
     data["event"]["head_commit"] = repo.git("rev-parse", f"{covered}^2")
     data["event"]["base_commit"] = repo.git("rev-parse", "main")
-    repo.write(".residue/future.json", json.dumps(data, ensure_ascii=False))
+    repo.write(f".residue/{data['event']['event_id']}.json", json.dumps(data, ensure_ascii=False))
     repo.commit("a valid declaration that claims a future date", AFTER)
     c = coverage_of(repo)
     assert c.error is None and c.declarations == 2
