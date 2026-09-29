@@ -138,6 +138,31 @@ def test_an_untracked_declaration_in_the_working_tree_covers_nothing(repo):
     assert [row["oid"] for row in c.uncovered] == [uncovered]
 
 
+def test_a_committed_file_that_does_not_validate_covers_nothing(repo):
+    """The report admits any file with the shape of a declaration, on purpose;
+    coverage does not. A committed JSON with a head_commit and nothing else
+    of a declaration, anchored to the side commit of an uncovered merge,
+    leaves the merge uncovered and is counted as a file that does not
+    validate. Found by the reviewer of the round that declared this change."""
+    repo.branch_merge("covered", "merge with a declaration", files={"src/b.py": "b"}, declare="full")
+    uncovered = repo.branch_merge("uncovered", "merge without a declaration", files={"src/d.py": "d"})
+    side = repo.git("rev-parse", f"{uncovered}^2")
+    repo.write(".residue/bogus.json", json.dumps({
+        "schema": "bogus", "event": {"created_at": "2026-01-01T00:00:00Z", "head_commit": side},
+    }))
+    bogus = repo.commit("direct push of a file that is not a declaration", AFTER)
+    c = coverage_of(repo)
+    assert c.error is None
+    assert (c.declarations, c.invalid) == (1, 1)
+    assert c.since.isoformat() == "2026-07-15"          # the bogus date moves nothing
+    assert [row["oid"] for row in c.uncovered] == [uncovered]
+    # The direct commit touched only the evidence directory: no path demanded a
+    # review, so the gate's own function calls it exempt, and nothing counts it
+    # as a declaration.
+    assert bogus not in [row["oid"] for row in c.direct_recent]
+    assert (c.direct_exempt, c.direct_with_declaration) == (1, 0)
+
+
 def test_gate_not_required_lists_no_merge_as_missing(tmp_path):
     r = Repo(tmp_path / "relaxed")
     r.write("disensor.config.json", json.dumps({"criticality_level": "B", "level_A_enabled": False,

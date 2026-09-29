@@ -1443,6 +1443,10 @@ def _board_coverage(c) -> str:
         body = (f'<div class="tabla-scroll"><table><thead><tr><th>Fecha</th><th>Merge</th><th>Asunto</th>'
                 f'<th class="num">Rutas</th><th></th></tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
     notes = []
+    if c.invalid:
+        notes.append(f"{c.invalid} {'archivo' if c.invalid == 1 else 'archivos'} bajo la evidencia en la punta no "
+                     f"{'valida' if c.invalid == 1 else 'validan'} y no {'cuenta' if c.invalid == 1 else 'cuentan'} "
+                     f"como declaración")
     if c.exempt:
         notes.append(f"{c.exempt} {'merge exento' if c.exempt == 1 else 'merges exentos'} por la política")
     if c.before:

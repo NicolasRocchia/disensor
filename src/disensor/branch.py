@@ -15,12 +15,14 @@ no common gate mean here exactly what they mean there.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from . import gate, gitctx, report
+from .rules import validate_artifact
 
 # The walk never reads more than this many first-parent commits. One more is
 # asked for, so "truncated" means there were more, not exactly this many.
@@ -34,8 +36,9 @@ class Coverage:
     ref: str                          # what the caller named: a branch, HEAD, the base of a PR
     tip: str = ""                     # canonical oid, once resolved
     error: str | None = None          # why nothing was computed; the render never shows a made-up zero
-    since: date | None = None         # date of the oldest declaration at the tip
-    declarations: int = 0
+    since: date | None = None         # date of the oldest valid declaration at the tip
+    declarations: int = 0             # valid artifacts at the tip: the only evidence that covers
+    invalid: int = 0                  # files under the evidence directory at the tip that do not validate
     policy_note: str = ""             # the gate's own note, data for the record
     config_path: str = ""
     policy_default: bool = False      # no configuration at the tip: the gate's safe defaults applied
@@ -70,7 +73,7 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
         raise gitctx.GitError("the clone is shallow, so the history of the branch is incomplete")
     tip = gitctx.resolve_commit(ref, repo)
     out.tip = tip
-    declarations, _unreadable = report.read_tree(tip, evidence_root, repo)
+    declarations, out.invalid = _valid_declarations(tip, evidence_root, repo)
     out.declarations = len(declarations)
     dated = [d["date"] for d in declarations if d["date"]]
     if not dated:
@@ -107,7 +110,8 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
         requirement = gate.classify_requirement(ctx)
         row = {
             "oid": oid, "date": when, "subject": subject, "demanding": len(requirement.demanding),
-            "mutations": len(mutations), "code": requirement.code, "declares": bool(new_paths),
+            "mutations": len(mutations), "code": requirement.code,
+            "declares": any(_valid_at(oid, path, repo) for path in new_paths),
         }
         if is_merge:
             if mutations:
@@ -129,6 +133,46 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
                 out.direct_with_declaration += 1
             if len(out.direct_recent) < RECENT_DIRECT:
                 out.direct_recent.append(row)
+
+
+def _valid_declarations(tip: str, evidence_root: str, repo: Path) -> tuple[list[dict], int]:
+    """The artifacts at the tip that validate, normalised for the walk, and how many files did not.
+
+    The report reads without validating, on purpose: a file that is not the
+    shape of a declaration is listed, and the rest goes on. Coverage is a
+    different question. A committed file with a `head_commit` and nothing else
+    of a declaration would cover a merge it never reviewed, so only what passes
+    the schema and the rules, the same check the gate applies, counts as
+    evidence here. The number of files left out travels to the panel.
+    """
+    depth = len(PurePosixPath(evidence_root).parts) + 1
+    pairs: list[tuple[str, str]] = []
+    invalid = 0
+    for path in gitctx.list_tree(tip, evidence_root, repo):
+        pure = PurePosixPath(path)
+        if not path.endswith(".json") or len(pure.parts) != depth:
+            continue
+        try:
+            text = gitctx.show_text(tip, path, repo)
+            raw = json.loads(text)
+        except (gitctx.GitError, UnicodeDecodeError, ValueError):
+            invalid += 1
+            continue
+        if not isinstance(raw, dict) or validate_artifact(raw):
+            invalid += 1
+            continue
+        pairs.append((pure.name, text))
+    declarations, unreadable = report.read_declarations(pairs)
+    return declarations, invalid + len(unreadable)
+
+
+def _valid_at(rev: str, path: str, repo: Path) -> bool:
+    """Whether the file at `path` in `rev` is an artifact that validates."""
+    try:
+        raw = json.loads(gitctx.show_text(rev, path, repo))
+    except (gitctx.GitError, UnicodeDecodeError, ValueError):
+        return False
+    return isinstance(raw, dict) and not validate_artifact(raw)
 
 
 def _history(tip: str, repo: Path, n: int) -> list[tuple[str, list[str], datetime | None, str]]:
