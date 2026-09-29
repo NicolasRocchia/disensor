@@ -1,0 +1,68 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "8846f209-51a8-4bdc-85a4-d3e11e4466ff",
+    "created_at": "2026-09-29T12:59:37-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "74c959a903dc7170a41c7eefd650a9d22a9dcf62",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "6cf6feefbaae190505409198bb55a6301c9ffbc4"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "La ronda no trajo hallazgos: el diff cambia una oración de docs/antecedentes.md, sin código, esquema, configuración ni artefacto generado. El revisor verificó por lectura del repositorio y git diff --check, y decidió no correr la suite porque nada ejecutable cambió; en local corrió tests/test_docs.py (9 pasan) y ningún test lee antecedentes.md. Quedan afuera a propósito, por decisión del dueño, las descripciones del esquema v0.4, congelado y publicado en su $id: se corrigen en residue/v0.5. Las otras frases del ensayo (líneas 5, 91 y 387) son su propia voz y no se tocaron."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:51daff9892501c36332b39e95a1602133f2ba8720572176a8c25fc8d6ad99105",
+      "report_hash": "sha256:de2c5c5791d3011133dd66acf2770800e12cfe46462902d312f91a45fa823aa3",
+      "reviewer_seconds": 69
+    }
+  }
+}
