@@ -219,8 +219,12 @@ of the merges since the commit that brought the first valid declaration
 demanded a review under the
 policy at the tip (decided by the gate's own function, so `gate.required` and
 the exemptions mean the same), it lists the ones no declaration at the tip
-anchors to, and counts the direct commits apart. That measures declarations,
-not gate runs: the repository keeps no verdict of a run. The gate walks the
+covers the way the gate demands (admissible for that PR, G5; every demanding
+path in its final state, G6; the integrated tree witnessed, G7), and counts
+the direct commits apart. Those are today's gates: a merge older than one of
+them can show up uncovered although the gate of its day approved it. That
+measures declarations, not gate runs: the repository keeps no verdict of a
+run. The gate walks the
 base of the PR; the command walks `--branch`, HEAD by default, with the
 configuration `--config` names (the same file the gate runs with), and reads
 the declarations from the tip, never from the working tree. The anchor `#tablero`
