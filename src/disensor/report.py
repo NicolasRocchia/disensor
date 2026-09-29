@@ -1420,10 +1420,12 @@ def _board_coverage(c) -> str:
     opened = f"<code>{E(c.since_oid[:7])}</code>, el primero que trajo una declaración válida ({since})"
     policy = (f"la política por defecto del gate, porque la punta no tiene <code>{E(c.config_path)}</code>"
               if c.policy_default else f"la política de <code>{E(c.config_path)}</code> en la punta, la de hoy")
-    intro = (f'<p class="ayuda">Historia first-parent de {where}, desde el commit {opened}. Un merge está '
-             f'cubierto cuando alguna declaración de la punta ancla su <code>head_commit</code> a un commit del PR, y '
-             f'exige revisión según {policy}, decidida por la misma función del gate. '
-             f'Mide declaraciones, no corridas del gate: el repositorio no guarda el veredicto de ninguna corrida.</p>')
+    intro = (f'<p class="ayuda">Historia first-parent de {where}, desde el commit {opened}. Cada merge se juzga como '
+             f'el gate juzgó su PR, con {policy}: exige revisión según la misma función del gate, y está cubierto '
+             f'cuando alguna declaración de la punta es admisible para ese PR (G5), cubre cada ruta exigente en su '
+             f'estado final (G6) y vio el árbol integrado (G7). Son las compuertas de hoy: un merge anterior a una '
+             f'de ellas puede figurar sin declaración admisible aunque el gate de su momento lo haya aprobado. Mide '
+             f'declaraciones, no corridas del gate: el repositorio no guarda el veredicto de ninguna corrida.</p>')
     if not c.required:
         body = (f'<div class="vacio">La política de la punta declara <code>gate.required=false</code>: no exige '
                 f'cobertura. {c.merges} merges en el período, {c.covered} con una declaración anclada.</div>')
@@ -1438,10 +1440,12 @@ def _board_coverage(c) -> str:
                 marks += f' <span class="etq abierto">muta evidencia: {row["mutations"]}</span>'
             if row["code"] == "no_common_gate":
                 marks += ' <span class="etq abierto">sin compuerta común</span>'
+            reason = f'<div class="txt">{E(_cut(row.get("reason") or "", 160))}</div>' if row.get("reason") else ""
             trs.append(f'<tr><td class="fecha">{E(row["date"].strftime("%d/%m/%Y"))}</td>'
-                       f'<td class="ref">{E(row["oid"][:8])}</td><td><div class="tit">{E(_cut(row["subject"], 80))}</div></td>'
+                       f'<td class="ref">{E(row["oid"][:8])}</td>'
+                       f'<td><div class="tit">{E(_cut(row["subject"], 80))}</div>{reason}</td>'
                        f'<td class="num">{row["demanding"]}</td><td>{marks}</td></tr>')
-        body = (f'<div class="tabla-scroll"><table><thead><tr><th>Fecha</th><th>Merge</th><th>Asunto</th>'
+        body = (f'<div class="tabla-scroll"><table><thead><tr><th>Fecha</th><th>Merge</th><th>Asunto y por qué</th>'
                 f'<th class="num">Rutas</th><th></th></tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
     notes = []
     if c.invalid:

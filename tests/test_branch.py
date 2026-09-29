@@ -20,6 +20,7 @@ from disensor.report import branch_of_directory, build_html, read_directory, Sou
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "spec" / "examples"
 DIFF = json.loads((EXAMPLES / "example_2_diff_gate.json").read_text(encoding="utf-8"))  # created 2026-07-15
+PLAN = json.loads((EXAMPLES / "example_1_plan_gate.json").read_text(encoding="utf-8"))
 BEFORE, AFTER = "2026-06-01T12:00:00+00:00", "2026-08-01T12:00:00+00:00"
 
 
@@ -51,24 +52,30 @@ class Repo:
         self.git("commit", "-q", "-m", message, date=date)
         return self.git("rev-parse", "HEAD")
 
-    def artifact(self, head: str, name: str = "decl") -> None:
-        data = json.loads(json.dumps(DIFF))
+    def artifact(self, head: str, name: str = "decl", gate: str = "diff") -> None:
+        data = json.loads(json.dumps(DIFF if gate == "diff" else PLAN))
         data["event"]["event_id"] = f"{abs(hash((head, name))) % 10**8:08d}-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
+        data["event"]["gate"] = gate
         data["event"]["head_commit"] = head
-        data["event"]["base_commit"] = self.git("rev-parse", "main")
+        if gate == "diff":
+            data["event"]["base_commit"] = self.git("rev-parse", "main")
+        else:
+            data["event"].pop("base_commit", None)
         self.write(f".residue/{name}.json", json.dumps(data, ensure_ascii=False))
 
     def branch_merge(self, name: str, message: str, date: str = AFTER, *, files: dict[str, str],
                      declare: str | None = None) -> str:
         """A side branch with `files`, optionally a declaration anchored to its
-        code commit (`declare` names how the head is written: full or short),
-        merged into main with a merge commit. Returns the merge oid."""
+        code commit (`declare` says how: 'full' or 'short' head of a diff
+        declaration, 'plan' for a plan declaration), merged into main with a
+        merge commit. Returns the merge oid."""
         self.git("switch", "-q", "-c", name)
         for path, content in files.items():
             self.write(path, content)
         code = self.commit(f"{name}: code", date)
         if declare:
-            self.artifact(code if declare == "full" else code[:7], name=name)
+            self.artifact(code[:7] if declare == "short" else code, name=name,
+                          gate="plan" if declare == "plan" else "diff")
             self.commit(f"{name}: declaration", date)
         self.git("switch", "-q", "main")
         self.git("merge", "-q", "--no-ff", "-m", message, name, date=date)
@@ -164,6 +171,35 @@ def test_a_committed_file_that_does_not_validate_covers_nothing(repo):
     # it declared anything.
     assert [(row["oid"], row["declares"]) for row in c.direct_recent] == [(bogus, False)]
     assert (c.direct_demanding, c.direct_with_declaration, c.direct_exempt) == (1, 0, 0)
+
+
+def test_a_declaration_the_gate_would_reject_covers_nothing(repo):
+    """Anchoring is not admissibility. A plan declaration anchored to a PR
+    whose paths accept only a diff review is one the gate rejects under G6
+    and G7, and the board judges the merge the way the gate judged the PR.
+    Found by the reviewer of the round that declared this change."""
+    repo.branch_merge("covered", "merge with a diff declaration", files={"src/b.py": "b"}, declare="full")
+    rejected = repo.branch_merge("plan-only", "merge with a plan declaration on diff-only paths",
+                                 files={"src/change.py": "c"}, declare="plan")
+    c = coverage_of(repo)
+    assert c.error is None and c.declarations == 2
+    assert (c.merges, c.covered) == (2, 1)
+    assert [row["oid"] for row in c.uncovered] == [rejected]
+    assert c.uncovered[0]["declares"] and "[G6]" in c.uncovered[0]["reason"]
+    # A stale declaration is rejected the same way: the code changed after the review.
+    repo.git("switch", "-q", "-c", "stale")
+    repo.write("src/s.py", "s")
+    code = repo.commit("stale: code", AFTER)
+    repo.artifact(code, name="stale")
+    repo.commit("stale: declaration", AFTER)
+    repo.write("src/s.py", "changed after the review")
+    repo.commit("stale: change after the review", AFTER)
+    repo.git("switch", "-q", "main")
+    repo.git("merge", "-q", "--no-ff", "-m", "merge with a stale declaration", "stale", date=AFTER)
+    stale = repo.git("rev-parse", "HEAD")
+    c = coverage_of(repo)
+    assert {row["oid"] for row in c.uncovered} == {rejected, stale}
+    assert any("[G6]" in row["reason"] and "stale" in row["reason"] for row in c.uncovered)
 
 
 def test_a_declaration_dated_in_the_future_moves_no_merge_out_of_the_period(repo):

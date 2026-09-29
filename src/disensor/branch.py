@@ -76,11 +76,11 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
         raise gitctx.GitError("the clone is shallow, so the history of the branch is incomplete")
     tip = gitctx.resolve_commit(ref, repo)
     out.tip = tip
-    declarations, out.invalid = _valid_declarations(tip, evidence_root, repo)
-    out.declarations = len(declarations)
-    if not declarations:
+    artifacts, out.invalid = _valid_declarations(tip, evidence_root, repo)
+    out.declarations = len(artifacts)
+    if not artifacts:
         raise ValueError("no valid declaration at the tip of the branch, so there is no period to cover")
-    heads = _canonical_heads(declarations, repo)
+    by_head = _by_canonical_head(artifacts, repo)
     config, out.policy_note = gate.load_config_at(tip, config_path, repo)
     out.config_path = config_path
     out.policy_default = not gitctx.path_exists(tip, config_path, repo)
@@ -112,6 +112,9 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
         if oid == opened:
             out.since = when.date()
         first = parents[0] if parents else EMPTY_TREE
+        if is_merge:
+            _judge_merge(out, oid, parents, when, subject, by_head, config, evidence_root, config_path, root, repo)
+            continue
         status = gitctx.changed_status(first, oid, repo)
         new_paths, mutations, ordinary = gate.classify_changes(status, evidence_root, first, oid, repo)
         ctx = gate.GateContext(
@@ -122,33 +125,77 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
         requirement = gate.classify_requirement(ctx)
         row = {
             "oid": oid, "date": when, "subject": subject, "demanding": len(requirement.demanding),
-            "mutations": len(mutations), "code": requirement.code,
+            "mutations": len(mutations), "code": requirement.code, "reason": "",
             "declares": any(_valid_at(oid, path, repo) for path in new_paths),
         }
-        if is_merge:
-            if mutations:
-                out.mutated += 1
-            if requirement.code == "all_exempt":
-                out.exempt += 1
-                continue
-            out.merges += 1
-            if _anchored(parents, heads, repo):
-                out.covered += 1
-            elif out.required:
-                out.uncovered.append(row)
-        else:
-            if requirement.code == "all_exempt":
-                out.direct_exempt += 1
-                continue
-            out.direct_demanding += 1
-            if row["declares"]:
-                out.direct_with_declaration += 1
-            if len(out.direct_recent) < RECENT_DIRECT:
-                out.direct_recent.append(row)
+        if requirement.code == "all_exempt":
+            out.direct_exempt += 1
+            continue
+        out.direct_demanding += 1
+        if row["declares"]:
+            out.direct_with_declaration += 1
+        if len(out.direct_recent) < RECENT_DIRECT:
+            out.direct_recent.append(row)
 
 
-def _valid_declarations(tip: str, evidence_root: str, repo: Path) -> tuple[list[dict], int]:
-    """The artifacts at the tip that validate, normalised for the walk, and how many files did not.
+def _judge_merge(out: Coverage, oid: str, parents: list[str], when: datetime, subject: str,
+                 by_head: dict, config: dict, evidence_root: str, config_path: str, root: Path, repo: Path) -> None:
+    """One merge, judged as the gate judged the PR it closed: base is the first
+    parent, head is the second, the range is their merge base to the head, and
+    a declaration covers the merge only if it is admissible for it (G5), covers
+    every demanding path in its final state (G6) and witnessed the integrated
+    tree (G7). Anchoring alone is not enough: a plan declaration anchored to a
+    PR whose paths accept only a diff review is one the gate rejects, and the
+    board would have called it covered.
+    """
+    head = parents[1]
+    try:
+        mb = gitctx.merge_base(parents[0], head, repo)
+    except gitctx.GitError as exc:
+        out.merges += 1
+        if out.required:
+            out.uncovered.append({"oid": oid, "date": when, "subject": subject, "demanding": 0, "mutations": 0,
+                                  "code": "no_merge_base", "reason": str(exc), "declares": False})
+        return
+    status = gitctx.changed_status(mb, head, repo)
+    new_paths, mutations, ordinary = gate.classify_changes(status, evidence_root, mb, head, repo)
+    ctx = gate.GateContext(
+        root=root, evidence_root=evidence_root, config_path=config_path,
+        base_oid=parents[0], head_oid=head, merge_base=mb, config=config, policy_note=out.policy_note,
+        status=status, new_paths=new_paths, mutations=mutations, ordinary=ordinary,
+    )
+    requirement = gate.classify_requirement(ctx)
+    if mutations:
+        out.mutated += 1
+    if requirement.code == "all_exempt":
+        out.exempt += 1
+        return
+    out.merges += 1
+    # The candidates are the declarations anchored inside the range; each one
+    # then goes through the gate's own admissibility and coverage checks.
+    r = gitctx.run_git(["rev-list", head, f"^{mb}"], repo)
+    if r.returncode != 0:
+        raise gitctx.GitError(f"git rev-list: {r.stderr.strip() or 'failed'}")
+    inside = {line.strip() for line in r.stdout.splitlines() if line.strip()}
+    candidates = [gate.Artifact(path=name, data=raw)
+                  for canonical, entries in by_head.items() if canonical in inside for name, raw in entries]
+    for a in candidates:
+        gate.check_range_membership(a, mb, head, repo)
+    errors, _notes, _demanding = gate.evaluate_coverage(candidates, ordinary, config, evidence_root, config_path)
+    if requirement.code == "no_common_gate":
+        errors = [requirement.reason] + errors
+    if not errors:
+        out.covered += 1
+    elif out.required:
+        out.uncovered.append({
+            "oid": oid, "date": when, "subject": subject, "demanding": len(requirement.demanding),
+            "mutations": len(mutations), "code": requirement.code, "reason": errors[0],
+            "declares": bool(candidates),
+        })
+
+
+def _valid_declarations(tip: str, evidence_root: str, repo: Path) -> tuple[list[tuple[str, dict]], int]:
+    """The artifacts at the tip that validate, as (name, raw) pairs, and how many files did not.
 
     The report reads without validating, on purpose: a file that is not the
     shape of a declaration is listed, and the rest goes on. Coverage is a
@@ -158,24 +205,22 @@ def _valid_declarations(tip: str, evidence_root: str, repo: Path) -> tuple[list[
     evidence here. The number of files left out travels to the panel.
     """
     depth = len(PurePosixPath(evidence_root).parts) + 1
-    pairs: list[tuple[str, str]] = []
+    valid: list[tuple[str, dict]] = []
     invalid = 0
     for path in gitctx.list_tree(tip, evidence_root, repo):
         pure = PurePosixPath(path)
         if not path.endswith(".json") or len(pure.parts) != depth:
             continue
         try:
-            text = gitctx.show_text(tip, path, repo)
-            raw = json.loads(text)
+            raw = json.loads(gitctx.show_text(tip, path, repo))
         except (gitctx.GitError, UnicodeDecodeError, ValueError):
             invalid += 1
             continue
         if not isinstance(raw, dict) or validate_artifact(raw):
             invalid += 1
             continue
-        pairs.append((pure.name, text))
-    declarations, unreadable = report.read_declarations(pairs)
-    return declarations, invalid + len(unreadable)
+        valid.append((pure.name, raw))
+    return valid, invalid
 
 
 def _opening_commit(tip: str, evidence_root: str, repo: Path, history: list) -> str | None:
@@ -235,33 +280,21 @@ def _history(tip: str, repo: Path, n: int) -> list[tuple[str, list[str], datetim
     return out
 
 
-def _canonical_heads(declarations: list[dict], repo: Path) -> set[str]:
-    """The declared heads as canonical oids, resolved the way G5 resolves them.
+def _by_canonical_head(artifacts: list[tuple[str, dict]], repo: Path) -> dict[str, list[tuple[str, dict]]]:
+    """The valid artifacts keyed by the canonical oid of their declared head.
 
     The schema admits abbreviated heads. A prefix comparison would let a later
     commit that shares a once-unique prefix cover a merge it never reviewed,
-    so each head is resolved by git; one that git cannot resolve, or finds
-    ambiguous, anchors nothing in this repository.
+    so each head is resolved by git, the way G5 resolves it; one that git
+    cannot resolve, or finds ambiguous, anchors nothing in this repository.
     """
-    heads: set[str] = set()
-    for d in declarations:
-        raw = d["head"].lower()
-        if not _HEX.match(raw):
+    out: dict[str, list[tuple[str, dict]]] = {}
+    for name, raw in artifacts:
+        declared = str((raw.get("event") or {}).get("head_commit") or "").lower()
+        if not _HEX.match(declared):
             continue
         try:
-            heads.add(gitctx.resolve_commit(raw, repo))
+            out.setdefault(gitctx.resolve_commit(declared, repo), []).append((name, raw))
         except gitctx.GitError:
             continue
-    return heads
-
-
-def _anchored(parents: list[str], heads: set[str], repo: Path) -> bool:
-    """Whether some declared head is one of the commits the merge brought in:
-    those reachable from the second parent (and any further one) and not from
-    the first, compared as canonical oids."""
-    if not heads:
-        return False
-    r = gitctx.run_git(["rev-list", *parents[1:], f"^{parents[0]}"], repo)
-    if r.returncode != 0:
-        raise gitctx.GitError(f"git rev-list: {r.stderr.strip() or 'failed'}")
-    return any(line.strip() in heads for line in r.stdout.splitlines())
+    return out
