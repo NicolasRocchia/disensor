@@ -11,6 +11,42 @@ sentence ends with a full stop, and the references to README sections became
 links. The versions that paragraph did not describe (0.9.1, 0.6.5, 0.6.2,
 0.3.0 and 0.1.0) have no entry, and there was no 0.8.0.
 
+## 0.12.0 (2026-09-29)
+
+This version is about reading what disensor produced, still on residue/v0.4.
+The Abierto view of the report groups by what each row asks of the reader
+instead of by the field of the schema it came from (waits for a decision, debt
+recorded, could not be executed by the declared reason, about the reviewer,
+rests on judgement, and the risks the owner accepted, folded because they ask
+for nothing), opens with a digest and with what the latest declaration left
+open, also when it left nothing, folds a finding into the residue item that
+points at it, and the line the gate and the command print says the same digest
+([#95](https://github.com/NicolasRocchia/disensor/pull/95)). A fifth view,
+Tablero, is for whoever coordinates rather than reviews: decisions waiting and
+since when, accepted risks, debts, what the declarations say of how each review
+was conducted, declarations per week, execution gaps by reason, and what the
+view cannot say; the anchor `#tablero` opens it and Abierto stays the first
+view ([#97](https://github.com/NicolasRocchia/disensor/issues/97),
+[#99](https://github.com/NicolasRocchia/disensor/pull/99)). The same view walks
+the branch: of the merges since the commit that brought the first valid
+declaration, which ones demanded a review under the policy at the tip and carry
+no declaration the gate admits, judged with the gate's own functions (the checks
+on a declaration a PR adds now live in `judge_artifact`, shared by the gate and
+the walk, all but G9) and with the gate's reason on each row; it measures
+declarations, not gate runs, and `disensor report` gains `--branch` and
+`--config` ([#101](https://github.com/NicolasRocchia/disensor/pull/101)).
+`disensor round` measures the reviewer's wall time and `new --round` carries it
+as `reviewer_seconds` in the `dev.disensor.round` extension; the guides name
+`extra_time_sec` as the end-to-end cycle and say that `token_cost` stays by
+hand ([#98](https://github.com/NicolasRocchia/disensor/issues/98)). The brief's
+rule against instructions in the material distinguishes their recipient, the
+round's delivery says that the recipe does not load the instruction files of
+the checkout, and the guide says how to refute the false positive of a reviewer
+that reports the harness files as an injection
+([#91](https://github.com/NicolasRocchia/disensor/issues/91)). The README and
+the PyPI page put the residue first and keep the reviewers' vocabulary for
+whoever searches ([#94](https://github.com/NicolasRocchia/disensor/pull/94)).
+
 ## 0.11.0 (2026-09-24)
 
 This version hardens what disensor does on the machine that runs it and what the

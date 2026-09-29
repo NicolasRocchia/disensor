@@ -1,0 +1,81 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c8490425-1fa2-4975-b7e4-9a19c82eb9c2",
+    "created_at": "2026-09-29T10:57:58-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "c7c282243cf1137740e7029d8688cad6390bc340",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "7cef9797b30719cd0a6a652d75a95247ba5cadb5"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las seis pruebas salteadas de la suite no se forzaron: los dos smoke tests de endurecimiento, opt-in con costo, que prueban la receta de Codex y que este diff no toca; la prueba de permiso de ejecucion en POSIX, que corre en el CI; y tres index.json de las suites de vectores. El revisor leyo sus condiciones de salto y corrio el resto de la suite en Windows con Python 3.14."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Lo publicado no se puede observar antes de publicarlo: el tag v0.12.0, el paquete en PyPI, una instalacion limpia de disensor==0.12.0, la Action en el tag y el Release. Este diff introduce esas referencias; la publicacion la hace el push del tag despues del merge, con el build verificado sobre el commit exacto que paso el CI y el si explicito del dueno. Despues quedan por mirar la pagina de PyPI, una instalacion limpia, los SHA256 contra los archivos que subio el workflow y el tag contra el arbol."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 2,
+      "pack_hash": "sha256:19e3c92c9e1c94f008d5c4933c1909c3ab149f4d8532286fb3ec030edb764823",
+      "report_hash": "sha256:9212c4fface80a23617d3b9d62dcee6f591734e9dabdbca452a1fb898e9c726a"
+    }
+  }
+}
