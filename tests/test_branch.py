@@ -338,6 +338,20 @@ def test_the_command_judges_the_merges_by_the_configuration_the_gate_runs_with(t
     assert args.func(args) == 0
     relaxed = (r.path / "relaxed.html").read_text(encoding="utf-8")
     assert "no exigida" in relaxed and uncovered[:8] not in relaxed
+    # The same spelling rules as the gate's --config: a Windows-spelled relative
+    # path is canonicalised, an absolute one is refused with the gate's message
+    # and the panel says so, never a made-up zero.
+    args = build_parser().parse_args(["report", "--quiet", "--branch", "main", "--out", "spelled.html",
+                                      "--config", "policy\\disensor.json"])
+    assert args.func(args) == 0
+    page = (r.path / "spelled.html").read_text(encoding="utf-8")
+    assert uncovered[:8] in page and "policy/disensor.json" in page and "sin calcular" not in page
+    args = build_parser().parse_args(["report", "--quiet", "--branch", "main", "--out", "absolute.html",
+                                      "--config", str(r.path / "policy" / "disensor.json")])
+    assert args.func(args) == 0
+    board = (r.path / "absolute.html").read_text(encoding="utf-8")
+    board = board[board.index('id="v-tablero"'):]
+    assert "sin calcular" in board and "repository" in board
 
 
 def test_gate_not_required_lists_no_merge_as_missing(tmp_path):

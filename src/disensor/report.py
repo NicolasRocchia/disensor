@@ -1801,8 +1801,16 @@ def branch_of_directory(directory: Path, ref: str, config_path: str = DEFAULT_CO
         rel = directory.resolve().relative_to(source_root.resolve()).as_posix()
     except (gitctx.GitError, OSError, ValueError):
         return None
-    from .branch import branch_coverage  # branch imports gate, which imports this module
-    return branch_coverage(ref, rel, config_path, source_root, label=ref)
+    from .branch import Coverage, branch_coverage  # branch imports gate, which imports this module
+    from .gate import GateFailure, canonical_repo_path
+    # The same spelling rules as the gate's --config: backslashes become the
+    # separator, and an absolute path, a drive letter or an escape from the
+    # repository is refused with the gate's own message, never read raw by git.
+    try:
+        canonical = canonical_repo_path(config_path, source_root, "--config")
+    except GateFailure as exc:
+        return Coverage(ref=ref, error=str(exc))
+    return branch_coverage(ref, rel, canonical, source_root, label=ref)
 
 
 def describe_source(directory: Path, since: date | None = None, total: int | None = None) -> Source:
