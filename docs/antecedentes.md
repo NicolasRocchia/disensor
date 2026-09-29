@@ -387,7 +387,7 @@ Formalmente eso no afirma que todo esté bien. Psicológicamente se convierte en
 Un artefacto de residuo dice otra cosa: *éstas son precisamente las cosas que el proceso no logró hacer desaparecer.* No prueba que sean las únicas, no prueba que el resto esté bien, y no se presta a transformarse visualmente en un sello de calidad.
 
 - Cobertura pregunta: **¿qué comprobamos?**
-- Residuo pregunta: **¿qué seguimos sin poder cerrar?**
+- Residuo pregunta: **¿qué quedó para que lo mire una persona?**
 
 La primera dirige la atención del revisor humano hacia lo ya hecho; la segunda, hacia lo que falta. Es una decisión de diseño bastante más profunda que ahorrar tokens.
 
