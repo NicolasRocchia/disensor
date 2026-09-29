@@ -310,6 +310,9 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--since", type=iso_date, default=None, metavar="DATE",
                         help="Only declarations whose event.created_at falls on or after this date "
                              "(YYYY-MM-DD). A declaration whose date cannot be read is kept and marked.")
+    report.add_argument("--branch", default="HEAD", metavar="REF",
+                        help="Branch whose first-parent history the Tablero view crosses with the declarations "
+                             "at its tip, to list the merges that demanded a review and carry none (default: HEAD).")
     report.add_argument("--quiet", action="store_true", help="Print nothing on success.")
     report.set_defaults(func=main_report)
 

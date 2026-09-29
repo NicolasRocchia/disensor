@@ -770,6 +770,8 @@ def test_a_green_gate_writes_the_report_from_the_judged_head(repo, capsys):
     page = (repo.path / "informe-residuo.html").read_text(encoding="utf-8")
     assert f"en el commit <code>{head[:7]}</code>" in page
     assert "sin-commitear.json" not in page
+    # The board walks the base of the PR, the branch the gate judged against.
+    assert "Merges sin declaración en la base del PR" in page
     assert repo.git("status", "--porcelain", "--", "informe-residuo.html") == ""
 
 

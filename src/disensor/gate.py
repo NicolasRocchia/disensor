@@ -908,7 +908,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
     # objects. It never touches the verdict (best effort, never silent), and
     # its line is the last one of the output.
     if not failed and report:
-        print(after_gate(root, evidence_root, head_oid, repo_dir, report_out))
+        print(after_gate(root, evidence_root, head_oid, repo_dir, report_out, base=base_oid, config_path=cfg_path))
     return 1 if failed else 0
 
 

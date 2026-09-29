@@ -44,6 +44,7 @@ from . import __version__, gitctx
 
 DEFAULT_DIRECTORY = ".residue"
 DEFAULT_OUT = "informe-residuo.html"
+DEFAULT_CONFIG = "disensor.config.json"   # the gate's default; the command reads the policy at the branch tip from it
 
 # Exit codes of `disensor report`, one per outcome.
 WRITTEN = 0
@@ -1389,7 +1390,86 @@ def _board_gaps(rows: list[tuple[str, str, int]], total: int) -> str:
     return f'<div class="barras">{cells}</div>'
 
 
-def render_board(model: Model) -> str:
+def _coverage_tile(c) -> str:
+    """The fourth figure: merges that demanded a review and carry no anchored
+    declaration, over the merges that demanded one. Never a made-up number:
+    without a branch to walk, or with the gate not required, the tile says so."""
+    if c is None or c.error:
+        return _tile("Merges sin declaración", '<small>sin calcular</small>',
+                     "La vista no tuvo una rama que recorrer; el panel dice por qué." if c is None
+                     else f"No se pudo recorrer la rama: {E(c.error)}.", open_=False)
+    if not c.required:
+        return _tile("Merges sin declaración", '<small>no exigida</small>',
+                     f"La política de la punta declara gate.required=false. {c.merges} merges en el período, "
+                     f"{c.covered} con una declaración anclada.", open_=False)
+    n = len(c.uncovered)
+    note = (f"De los merges de {E(c.ref)} que exigían revisión desde la primera declaración. "
+            + (f"Los otros {c.covered} tienen una declaración anclada a un commit del PR." if c.covered
+               else "Ninguno tiene una declaración anclada a un commit del PR." if n else "Ningún merge exigió revisión."))
+    return _tile("Merges sin declaración", f'{n}<small>de {c.merges}</small>', note, open_=bool(n))
+
+
+def _board_coverage(c) -> str:
+    if c is None:
+        return ('<div class="vacio">Sin calcular: el informe no tuvo una rama que recorrer. El gate la recibe de '
+                'la base del PR y el comando de <code>--branch</code>, que por defecto es HEAD.</div>')
+    if c.error:
+        return f'<div class="vacio">Sin calcular: {E(c.error)}.</div>'
+    where = f"{E(c.ref)} <code>{E(c.tip[:7])}</code>"
+    since = E(c.since.strftime("%d/%m/%Y")) if c.since else "?"
+    policy = (f"la política por defecto del gate, porque la punta no tiene <code>{E(c.config_path)}</code>"
+              if c.policy_default else f"la política de <code>{E(c.config_path)}</code> en la punta, la de hoy")
+    intro = (f'<p class="ayuda">Historia first-parent de {where}, desde la primera declaración ({since}). Un merge está '
+             f'cubierto cuando alguna declaración de la punta ancla su <code>head_commit</code> a un commit del PR, y '
+             f'exige revisión según {policy}, decidida por la misma función del gate. '
+             f'Mide declaraciones, no corridas del gate: el repositorio no guarda el veredicto de ninguna corrida.</p>')
+    if not c.required:
+        body = (f'<div class="vacio">La política de la punta declara <code>gate.required=false</code>: no exige '
+                f'cobertura. {c.merges} merges en el período, {c.covered} con una declaración anclada.</div>')
+    elif not c.uncovered:
+        body = (f'<div class="vacio">Los {c.merges} merges que exigían revisión tienen una declaración anclada.</div>'
+                if c.merges else '<div class="vacio">Ningún merge exigió revisión en el período.</div>')
+    else:
+        trs = []
+        for row in c.uncovered:
+            marks = ""
+            if row["mutations"]:
+                marks += f' <span class="etq abierto">muta evidencia: {row["mutations"]}</span>'
+            if row["code"] == "no_common_gate":
+                marks += ' <span class="etq abierto">sin compuerta común</span>'
+            trs.append(f'<tr><td class="fecha">{E(row["date"].strftime("%d/%m/%Y"))}</td>'
+                       f'<td class="ref">{E(row["oid"][:8])}</td><td><div class="tit">{E(_cut(row["subject"], 80))}</div></td>'
+                       f'<td class="num">{row["demanding"]}</td><td>{marks}</td></tr>')
+        body = (f'<div class="tabla-scroll"><table><thead><tr><th>Fecha</th><th>Merge</th><th>Asunto</th>'
+                f'<th class="num">Rutas</th><th></th></tr></thead><tbody>{"".join(trs)}</tbody></table></div>')
+    notes = []
+    if c.exempt:
+        notes.append(f"{c.exempt} {'merge exento' if c.exempt == 1 else 'merges exentos'} por la política")
+    if c.before:
+        notes.append(f"{c.before} {'anterior' if c.before == 1 else 'anteriores'} a la primera declaración, fuera del recuento")
+    if c.mutated:
+        notes.append(f"{c.mutated} {'modificó' if c.mutated == 1 else 'modificaron'} evidencia ya presente (G8)")
+    if c.truncated:
+        notes.append(f"historia leída hasta un tope de {MAX_HISTORY_NOTE} commits: el recuento es parcial")
+    notes_html = f'<p class="ayuda" style="margin:12px 0 0">{E(". ".join(notes))}.</p>' if notes else ""
+    d = c.direct_demanding
+    direct = (f'<p class="ayuda" style="margin:12px 0 0"><b>Commits directos:</b> {d} sin merge que '
+              f'{"exigía" if d == 1 else "exigían"} revisión, {c.direct_with_declaration} de ellos agregan una '
+              f'declaración, {c.direct_exempt} exentos. Un push directo no pasa por el gate, y con squash merge cada '
+              f'PR es un commit directo cuya declaración ancla a un commit que no está en la rama: no se cuentan '
+              f'como cubiertos ni como faltantes.</p>')
+    if c.direct_recent:
+        lis = "".join(f'<tr><td class="fecha">{E(r["date"].strftime("%d/%m/%Y"))}</td><td class="ref">{E(r["oid"][:8])}</td>'
+                      f'<td><div class="tit">{E(_cut(r["subject"], 80))}</div></td>'
+                      f'<td class="ref">{"declara" if r["declares"] else ""}</td></tr>' for r in c.direct_recent)
+        direct += f'<div class="tabla-scroll"><table><tbody>{lis}</tbody></table></div>'
+    return intro + body + notes_html + direct
+
+
+MAX_HISTORY_NOTE = 2000
+
+
+def render_board(model: Model, coverage=None) -> str:
     groups = {key: rows for key, _, _, rows in model.open_groups}
     decisions, debts, accepted = groups["decision"], groups["debt"], groups["accepted"]
     oldest = _oldest(groups, ["decision"])
@@ -1408,6 +1488,7 @@ def render_board(model: Model) -> str:
     weeks_help = ("Semanas ISO. Cada declaración es un evento de revisión." if model.week_unit == "week"
                   else f"Por {unit_name}: el rango es demasiado amplio para semanas.")
     h = model.health
+    branch_name = E(coverage.ref) if coverage is not None else "la rama"
     return f"""
     <div class="intro">
       <h2>Qué está esperando a alguien, y si el proceso se cumple</h2>
@@ -1416,6 +1497,7 @@ def render_board(model: Model) -> str:
     <div class="cifras">
       {_tile("Esperan una decisión", str(n), decisions_note, hero=True)}
       {_tile("Deudas anotadas", str(k), E(debts_note))}
+      {_coverage_tile(coverage)}
       {_tile("Huecos de ejecución", str(g), E(gaps_note), open_=False)}
     </div>
     <div class="nota fuerte"><b>El artefacto no registra cierres.</b> Todo lo listado abajo está declarado abierto en su
@@ -1428,9 +1510,8 @@ def render_board(model: Model) -> str:
         {_board_decisions(decisions)}
       </section>
       <section class="panel p-5">
-        <div class="panel-cab"><h3>Riesgos aceptados por el dueño</h3><span class="c">{len(accepted)}</span></div>
-        <p class="ayuda">Quién aceptó qué, leído del registro de riesgo de cada hallazgo. Es el único lugar donde el artefacto nombra a alguien, y es una decisión, no un puntaje.</p>
-        {_board_accepted(accepted)}
+        <div class="panel-cab"><h3>Merges sin declaración en {branch_name}</h3><span class="c">{len(coverage.uncovered) if coverage is not None and not coverage.error else ""}</span></div>
+        {_board_coverage(coverage)}
       </section>
     </div>
     <div class="rejilla">
@@ -1440,32 +1521,37 @@ def render_board(model: Model) -> str:
         {_board_debts(debts)}
       </section>
       <section class="panel p-5">
+        <div class="panel-cab"><h3>Riesgos aceptados por el dueño</h3><span class="c">{len(accepted)}</span></div>
+        <p class="ayuda">Quién aceptó qué, leído del registro de riesgo de cada hallazgo. Es el único lugar donde el artefacto nombra a alguien, y es una decisión, no un puntaje.</p>
+        {_board_accepted(accepted)}
+      </section>
+    </div>
+    <div class="rejilla">
+      <section class="panel p-6">
         <div class="panel-cab"><h3>Salud del proceso de revisión</h3><span class="c">{h["events"]} eventos</span></div>
         <p class="ayuda">Lo que cada declaración dice de cómo se revisó. Mide el protocolo, no a las personas; en un repositorio de una sola persona mide a la persona, y hay que leerlo así.</p>
         {_board_health(h)}
       </section>
-    </div>
-    <div class="rejilla">
       <section class="panel p-6">
         <div class="panel-cab"><h3>Declaraciones por {E(unit_name)}</h3><span class="c">{h["events"]}</span></div>
         <p class="ayuda">{E(weeks_help)}</p>
         {_board_columns(model.by_week, model.week_unit)}
       </section>
+    </div>
+    <div class="rejilla">
       <section class="panel p-6">
         <div class="panel-cab"><h3>Huecos de ejecución por motivo</h3><span class="c">{g}</span></div>
         <p class="ayuda">Todo lo que ninguna ronda pudo arbitrar por ejecución, con y sin atención humana. Con tres motivos en el vocabulario, "otro" se lleva casi todo y la recurrencia queda en el texto libre, donde ningún programa la lee (issues #51 a #53).</p>
         {_board_gaps(model.gaps_by_reason, g)}
       </section>
-    </div>
-    <div class="rejilla">
-      <section class="panel">
+      <section class="panel p-6">
         <div class="panel-cab"><h3>Lo que esta vista no puede decir</h3></div>
-        <p class="ayuda">Todo lo de arriba sale de los campos declarados. Lo que quien coordina pregunta después necesita esquema.</p>
+        <p class="ayuda">Todo lo de arriba sale de los campos declarados y de los objetos git de la rama. Lo que quien coordina pregunta después necesita esquema o está fuera del registro.</p>
         <div class="tabla-scroll"><table><thead><tr><th>Pregunta</th><th>Qué falta</th></tr></thead><tbody>
           <tr><td><div class="tit">Quién tiene que decidir cada escalación</div></td><td class="txt">Un dueño por ítem. Hoy solo el registro de riesgo y la aceptación de nivel A nombran a alguien.</td></tr>
           <tr><td><div class="tit">Cuándo se cerró, cuánto tardó</div></td><td class="txt">El cierre declarado (issue #66). Sin eso, todo envejece para siempre y la vista no distingue lo saldado de lo olvidado.</td></tr>
           <tr><td><div class="tit">Qué brecha se repite</div></td><td class="txt">Motivos de hueco más finos (issues #51 a #53) y el límite permanente marcado al abrir.</td></tr>
-          <tr><td><div class="tit">Todos los merges pasaron por el gate</div></td><td class="txt">Cruzar los merges de la rama principal con los commits declarados, según la política de rutas (issue #97).</td></tr>
+          <tr><td><div class="tit">Si el gate corrió en cada merge</div></td><td class="txt">El repositorio no guarda el veredicto de una corrida, y una declaración anclada no lo prueba. Lo garantiza el required check de la plataforma, y lo verifica el muestreo (issue #96).</td></tr>
           <tr><td><div class="tit">Si lo declarado es lo que pasó</div></td><td class="txt">El muestreo humano de eventos mergeados (issue #96). Esta vista muestra la declaración, no la verdad.</td></tr>
         </tbody></table></div>
       </section>
@@ -1555,9 +1641,11 @@ def _template() -> str:
     return resources.files("disensor").joinpath("report.html").read_text(encoding="utf-8")
 
 
-def build_html(declarations: list[dict], unreadable: list[Unreadable], source: Source) -> str:
+def build_html(declarations: list[dict], unreadable: list[Unreadable], source: Source, coverage=None) -> str:
     """The whole page. Markers are replaced in ONE pass over the template, so a
-    declaration whose title contains the literal of a marker survives intact."""
+    declaration whose title contains the literal of a marker survives intact.
+    `coverage` is what the branch shows (branch.Coverage), computed by whoever
+    has a branch to walk; without it the board says the panel was not computed."""
     model = aggregate(declarations, unreadable)
     n = len(model.declarations)
     period = f"{n} {'declaración' if n == 1 else 'declaraciones'}"
@@ -1580,7 +1668,7 @@ def build_html(declarations: list[dict], unreadable: list[Unreadable], source: S
         "DECLARACIONES": render_declarations(model),
         "CORPUS": render_corpus(model),
         "CASOS": render_cases(model),
-        "TABLERO": render_board(model),
+        "TABLERO": render_board(model, coverage),
         "ILEGIBLES": render_unreadable(model),
         "PIE": _footer(model, source),
     }
@@ -1683,6 +1771,24 @@ def inside(path: Path, directory: Path) -> bool:
         return False
 
 
+def branch_of_directory(directory: Path, ref: str):
+    """What the branch of the directory's OWN repository shows, for the board.
+
+    The same provenance rule as the footer: the repository is the one the
+    evidence directory lives in, never the one the command runs in. Outside a
+    repository there is no branch to walk and the board says so; inside one,
+    the coverage is read from the objects at `ref`, never from the working
+    tree the command is displaying.
+    """
+    try:
+        source_root = gitctx.repo_root(directory)
+        rel = directory.resolve().relative_to(source_root.resolve()).as_posix()
+    except (gitctx.GitError, OSError, ValueError):
+        return None
+    from .branch import branch_coverage  # branch imports gate, which imports this module
+    return branch_coverage(ref, rel, DEFAULT_CONFIG, source_root, label=ref)
+
+
 def describe_source(directory: Path, since: date | None = None, total: int | None = None) -> Source:
     """The footer's origin for the working-tree reader.
 
@@ -1763,8 +1869,9 @@ def main_report(args) -> int:
         # that dropped it would hide data instead of naming what it cannot tell.
         declarations = [d for d in declarations if d["date"] is None or d["date"].date() >= since]
     source = describe_source(directory, since=since, total=total if since else None)
+    coverage = branch_of_directory(directory, getattr(args, "branch", None) or "HEAD")
     try:
-        write_html(out, build_html(declarations, unreadable, source))
+        write_html(out, build_html(declarations, unreadable, source, coverage))
     except (OSError, KeyError, ValueError) as exc:
         _err(f"report: could not write {out}: {exc}")
         return NOT_WRITTEN
@@ -1799,8 +1906,13 @@ def ignored_by_git(path: Path, root: Path) -> bool:
     return r.returncode == 0
 
 
-def after_gate(root: Path, evidence_root: str, head: str, repo_dir: Path, out: str | None = None) -> str:
+def after_gate(root: Path, evidence_root: str, head: str, repo_dir: Path, out: str | None = None,
+               base: str | None = None, config_path: str | None = None) -> str:
     """The report the gate writes when its verdict is green. Returns the lines to print.
+
+    With `base`, the tip of the target branch, the board also walks that
+    branch: which merges demanded a review and carry no declaration anchored
+    to their commits, under the policy the gate itself just applied.
 
     Read from the git objects at `head`, the ones the gate just judged: never
     the working tree, never the synthetic merge commit of a CI checkout. Best
@@ -1830,8 +1942,13 @@ def after_gate(root: Path, evidence_root: str, head: str, repo_dir: Path, out: s
                         "would dirty the tree; `disensor init --upgrade` adds it to .gitignore, or run "
                         "`disensor report` yourself)")
         declarations, unreadable = read_tree(head, evidence_root, repo_dir)
+        coverage = None
+        if base:
+            from .branch import branch_coverage  # gate imports this module: resolved here, not at import
+            coverage = branch_coverage(base, evidence_root, config_path or DEFAULT_CONFIG, repo_dir,
+                                       label="la base del PR")
         write_html(destination, build_html(declarations, unreadable,
-                                           Source(directory=evidence_root, commit=head[:7])))
+                                           Source(directory=evidence_root, commit=head[:7]), coverage))
         return summary_line(declarations, unreadable, destination, prefix="[gate] report: ")
     except Exception as exc:  # noqa: BLE001 - reported, never raised past the verdict
         return f"[gate] report: FAILED: {type(exc).__name__}: {exc}"
