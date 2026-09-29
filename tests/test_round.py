@@ -1062,3 +1062,109 @@ sys.exit(0)
     copiada = dict(ganada, source="assistant")
     assert correr(repo, {"reviewers": [copiada]}, monkeypatch, dos) == OK
     assert INSTRUCTIONS_NOT_LOADED not in (dos / "informe.md").read_text(encoding="utf-8")
+
+
+DUERME_Y_ESCRIBE = """import sys, time
+from pathlib import Path
+time.sleep(5)
+Path(sys.argv[1]).write_text("tarde", encoding="utf-8")
+"""
+
+
+def test_a_run_is_timed_whatever_its_outcome(tmp_path: Path):
+    """El runner mide el tiempo de pared del subproceso del revisor, y lo mide
+    igual cuando el revisor falla: ese costo se pago de todos modos (#98). Es
+    lo unico del costo de la ronda que el runner ve; el ciclo entero no."""
+    bien = entrada("bien", "openai", revisor_falso(tmp_path, "bien", ESCRIBE_Y_SALE_BIEN))
+    r = run_reviewer(bien, "p", tmp_path / "ok.md", 60)
+    assert r["outcome"] == "ok"
+    assert isinstance(r["seconds"], int) and r["seconds"] >= 0
+    assert len(r["started_at"]) == 20 and r["started_at"].endswith("Z")
+    assert r["started_at"] <= r["finished_at"]
+
+    mal = entrada("mal", "openai", revisor_falso(tmp_path, "mal", ESCRIBE_Y_FALLA))
+    f = run_reviewer(mal, "p", tmp_path / "mal.md", 60)
+    assert f["outcome"] == "failed"
+    assert isinstance(f["seconds"], int) and f["seconds"] >= 0
+
+
+def test_a_timeout_is_timed_too(tmp_path: Path):
+    lento = entrada("lento", "openai", revisor_falso(tmp_path, "lento", DUERME_Y_ESCRIBE))
+    r = run_reviewer(lento, "p", tmp_path / "lento.md", 1)
+    assert r["outcome"] == "timeout"
+    assert r["seconds"] >= 1
+
+
+def test_a_reviewer_that_never_ran_has_no_time(tmp_path: Path):
+    """Sin subproceso no hay medida: un cero inventado se leeria como un
+    revisor instantaneo."""
+    e = entrada("nada", "openai", ["programa-que-no-existe-8f3a", "{report}"])
+    e["executable"] = None
+    r = run_reviewer(e, "p", tmp_path / "i.md", 60)
+    assert r["outcome"] == "not_found"
+    assert "seconds" not in r and "started_at" not in r
+
+
+def test_the_result_carries_the_reviewers_time_and_the_declaration_takes_it(
+    repo: Path, monkeypatch, tmp_path: Path,
+):
+    """De punta a punta por el CLI: la ronda mide al revisor, el resultado lo
+    lleva en el intento, y `new --round` lo pone en la extension (#98)."""
+    from disensor.template import from_round
+
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    git(repo, "remote", "add", "origin", "https://github.com/mio/repo.git")
+    registro = {"reviewers": [dict(
+        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+
+    r = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    intento = r["observed"]["attempts"][0]
+    assert intento["outcome"] == "ok"
+    assert isinstance(intento["seconds"], int) and intento["seconds"] >= 0
+    assert intento["started_at"] <= intento["finished_at"]
+
+    a = from_round(r, "diff", "B", "full", repo)
+    assert a["extensions"]["dev.disensor.round"]["reviewer_seconds"] == intento["seconds"]
+    assert "extra_time_sec" not in a["metrics"]
+
+
+def test_the_seconds_are_truncated_never_rounded_up(monkeypatch):
+    """Un piso no puede pasarse: 1,9 segundos son 1, no 2. Con redondeo al
+    entero mas cercano el numero podia decir mas que el reloj (hipotesis de la
+    primera ronda del evento, incorporada)."""
+    from disensor.round import _Stopwatch
+
+    reloj = [100.0]
+    monkeypatch.setattr(ronda.time, "monotonic", lambda: reloj[0])
+    s = _Stopwatch()
+    reloj[0] = 101.9
+    assert s.stamp({})["seconds"] == 1
+    reloj[0] = 100.4
+    assert s.stamp({})["seconds"] == 0
+
+
+def test_the_finish_is_derived_from_the_start_never_read_again(monkeypatch):
+    """Una correccion del reloj de pared durante la corrida no puede dejar el
+    fin antes que el inicio: el fin es el inicio mas el reloj monotonico, y los
+    tres numeros cierran entre si (hallazgo de la tercera ronda, incorporado)."""
+    from datetime import datetime, timezone
+
+    from disensor.round import _Stopwatch
+
+    reloj = [500.0]
+    monkeypatch.setattr(ronda.time, "monotonic", lambda: reloj[0])
+    s = _Stopwatch()
+    s._started = datetime(2026, 9, 28, 12, 0, 10, tzinfo=timezone.utc)
+    s.started_at = "2026-09-28T12:00:10Z"
+    # Aunque el reloj de pared retroceda, nadie lo vuelve a leer.
+    monkeypatch.setattr(ronda, "datetime", None)
+    reloj[0] = 500.0 + 3661.9
+    a = s.stamp({})
+    assert a["started_at"] == "2026-09-28T12:00:10Z"
+    assert a["finished_at"] == "2026-09-28T13:01:11Z"
+    assert a["seconds"] == 3661

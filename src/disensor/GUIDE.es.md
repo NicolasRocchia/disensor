@@ -212,6 +212,19 @@ en realidad se refutó deja todos los conteos coherentes. Que los estados estén
 bien es tu responsabilidad; el validador atrapa discrepancias, no
 clasificaciones equivocadas.
 
+`extra_time_sec` y `token_cost` son el costo del ciclo (sección 11 del
+protocolo), y los dos son opcionales. `extra_time_sec` es de punta a punta: las
+corridas del revisor, la verificación de cada hallazgo, la reescritura y la
+refutación; excluye la implementación. Eso solo lo puede medir quien vivió el
+ciclo, así que escribilo si lo cronometraste y dejalo afuera si no. Lo que el
+runner sí puede medir es al revisor solo: `disensor new --round` lo lleva como
+`reviewer_seconds` bajo `extensions["dev.disensor.round"]`, el tiempo de pared
+del intento que produjo el informe. Es un piso de `extra_time_sec`, no un valor
+para él: copiarlo ahí declararía que el ciclo costó lo que costó el revisor.
+`token_cost` se llena solo con lo que el revisor o el generador reportaron;
+ninguna receta del catálogo lo reporta hoy, así que queda a mano. "Contá, no
+estimes" vale para los dos.
+
 ## Perfil minimizado
 
 R9 remueve el texto libre que cubre: nada de títulos, descripciones ni
