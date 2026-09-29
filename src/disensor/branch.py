@@ -129,7 +129,7 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
                 out.direct_exempt += 1
                 continue
             out.direct_demanding += 1
-            if new_paths:
+            if row["declares"]:
                 out.direct_with_declaration += 1
             if len(out.direct_recent) < RECENT_DIRECT:
                 out.direct_recent.append(row)
