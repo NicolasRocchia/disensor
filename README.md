@@ -213,7 +213,25 @@ coordinates rather than reviews: what waits for a decision and since when,
 the risks the owner accepted, the debts recorded, what the declarations say of
 how each review was conducted, declarations per week and execution gaps by
 reason, opening with the same limit, because nothing in the artifact records a
-closure. It scores neither the code nor the people. The anchor `#tablero`
+closure. It scores neither the code nor the people. It also walks the branch:
+of the merges since the commit that brought the first valid declaration
+(in the order of the branch, whatever date a declaration claims) that
+demanded a review under the
+policy at the tip (decided by the gate's own function, so `gate.required` and
+the exemptions mean the same), it lists the ones whose PR brought no
+declaration the gate admits, judged with the gate's own functions: the checks
+on the declaration itself (identity and uniqueness, G8; level, G2 and G3;
+confinement, G4; membership, G5) and coverage (every demanding path in its
+final state, G6; the integrated tree witnessed, G7), and counts the direct
+commits apart. G9, the current schema version, is the one check left out: a
+superseded schema was the one in force when an old merge happened. Those are
+still today's gates: a merge older than one of them can show up uncovered
+although the gate of its day approved it. That
+measures declarations, not gate runs: the repository keeps no verdict of a
+run. The gate walks the
+base of the PR; the command walks `--branch`, HEAD by default, with the
+configuration `--config` names (the same file the gate runs with), and reads
+the declarations from the tip, never from the working tree. The anchor `#tablero`
 opens it; Abierto stays the first view. The report is a pure function of the
 declarations: no generation timestamp, the footer names the commit it was read
 from, and two runs over the same commit give identical bytes.
