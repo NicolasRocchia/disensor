@@ -192,7 +192,11 @@ def _judge_merge(out: Coverage, oid: str, parents: list[str], when: datetime, su
     if requirement.code == "all_exempt":
         out.exempt += 1
         return
-    historical, unreadable = _historical_ids(mb, evidence_root, repo, blobs)
+    # Ids taken from the target as it was when the PR merged, its first parent,
+    # like the gate reads them from the target tip and not from the merge base:
+    # an id recorded on the target after the branch was created is just as
+    # taken, and reading only the merge base would let an old branch reuse it.
+    historical, unreadable = _historical_ids(parents[0], evidence_root, repo, blobs)
     errors: list[str] = []
     if unreadable:
         errors.append(f"[G8] historical evidence `{unreadable[0]}` cannot be read, so the uniqueness of "

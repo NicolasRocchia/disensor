@@ -52,10 +52,11 @@ class Repo:
         self.git("commit", "-q", "-m", message, date=date)
         return self.git("rev-parse", "HEAD")
 
-    def artifact(self, head: str, name: str = "decl", gate: str = "diff", level: str = "B") -> str:
+    def artifact(self, head: str, name: str = "decl", gate: str = "diff", level: str = "B",
+                 event_id: str | None = None) -> str:
         """A valid declaration of `head`, named after its event id as G8 demands. Returns its path."""
         data = json.loads(json.dumps(DIFF if gate == "diff" else PLAN))
-        data["event"]["event_id"] = f"{abs(hash((head, name))) % 10**8:08d}-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
+        data["event"]["event_id"] = event_id or f"{abs(hash((head, name))) % 10**8:08d}-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
         data["event"]["gate"] = gate
         data["event"]["head_commit"] = head
         data["event"]["criticality_level"] = level
@@ -228,6 +229,42 @@ def test_a_declaration_the_gate_rejects_on_its_own_checks_covers_nothing(repo):
     assert (c.merges, c.covered) == (2, 1)
     assert [row["oid"] for row in c.uncovered] == [wrong_level]
     assert c.uncovered[0]["declares"] and "[G2]" in c.uncovered[0]["reason"]
+
+
+def test_an_event_id_recorded_on_the_target_after_the_branch_was_created_is_taken(repo):
+    """G8 reads the ids from the target as it was when the PR merged, its
+    first parent, not from the merge base: a long-lived branch that reuses an
+    id another PR recorded meanwhile is rejected by the gate, and the walk
+    says the same. Found by the reviewer of the round that declared this
+    change."""
+    from disensor.gate import run_gate
+    repo.branch_merge("covered", "merge with a declaration", files={"src/b.py": "b"}, declare="full")
+    repo.git("switch", "-q", "-c", "feature")
+    repo.write("src/f.py", "f")
+    repo.commit("feature: code", AFTER)
+    repo.git("switch", "-q", "main")
+    repo.git("switch", "-q", "-c", "other")
+    repo.write("src/o.py", "o")
+    other_code = repo.commit("other: code", AFTER)
+    taken = Path(repo.artifact(other_code, name="other")).stem
+    repo.commit("other: declaration", AFTER)
+    repo.git("switch", "-q", "main")
+    repo.git("merge", "-q", "--no-ff", "-m", "merge other, recording the id", "other", date=AFTER)
+    target = repo.git("rev-parse", "main")
+    repo.git("switch", "-q", "feature")
+    # The same file, byte for byte, so git merges the two adds without a
+    # conflict and the reuse reaches the gate and the walk: a different
+    # content under the same name would stop at a git conflict instead.
+    repo.write(f".residue/{taken}.json", repo.git("show", f"main:.residue/{taken}.json"))
+    head = repo.commit("feature: declaration reusing the id", AFTER)
+    assert run_gate(".residue", "disensor.config.json", target, head, repo.path, post=False, report=False) == 1
+    repo.git("switch", "-q", "main")
+    repo.git("merge", "-q", "--no-ff", "-m", "merge feature with a reused id", "feature", date=AFTER)
+    reused = repo.git("rev-parse", "HEAD")
+    c = coverage_of(repo)
+    assert (c.merges, c.covered) == (3, 2)
+    assert [row["oid"] for row in c.uncovered] == [reused]
+    assert "[G8]" in c.uncovered[0]["reason"] and "already exists" in c.uncovered[0]["reason"]
 
 
 def test_an_octopus_merge_is_listed_as_uncovered_instead_of_judged_by_one_parent(repo):
