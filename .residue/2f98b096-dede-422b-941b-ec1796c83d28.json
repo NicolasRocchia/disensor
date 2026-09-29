@@ -1,0 +1,116 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "2f98b096-dede-422b-941b-ec1796c83d28",
+    "created_at": "2026-09-28T21:29:11-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "7eff1d3e0a760e6b41ddb040e81c50deabeec79e",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "b460b57001ffba06b2ac800ac12ae22e704e5c5d"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r2",
+      "severity": "minor",
+      "title": "Redondear al entero más cercano podía dar un piso mayor que el tiempo real",
+      "description": "Las guías presentan reviewer_seconds como un piso de extra_time_sec, y el runner lo calculaba con round() sobre el reloj monotónico: un intento de 1,9 segundos quedaba en 2, más que lo que el reloj midió. La ronda lo trajo como hipótesis no verificada, porque el esquema no fija la regla de redondeo de ninguno de los dos campos.",
+      "location": "src/disensor/round.py, _Stopwatch.stamp",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "round.py usaba round(time.monotonic() - self._t0); round(1.9) es 2 en Python, así que el número podía exceder el tiempo transcurrido. Piso quiere decir que no puede."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_the_seconds_are_truncated_never_rounded_up, con reloj monotónico falso: 1,9 segundos dan 1 y 0,4 dan 0. Commit 2e8b221 (recuperado por cherry-pick de 462f68d, que había caído en otra rama)."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Dos lecturas del reloj de pared podían dejar el fin del intento antes que el inicio",
+      "description": "started_at y finished_at salían de dos llamadas independientes a _utc_now(). Si el sistema corrige la hora hacia atrás durante una corrida larga, la segunda lectura queda antes que la primera y el par describe un intervalo imposible, aunque seconds, que viene del reloj monotónico, siga bien. El revisor lo reprodujo en memoria reemplazando _utc_now por dos valores decrecientes. Traído por la tercera ronda del evento, con la misma consigna que r1.",
+      "location": "src/disensor/round.py, _Stopwatch.__init__ y _Stopwatch.stamp",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducción del revisor confirmada leyendo el código: __init__ y stamp leían el reloj de pared por separado y nada ataba la segunda lectura a la primera. Remedio adoptado de los tres que propuso: derivar el fin del inicio más el reloj monotónico."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_the_finish_is_derived_from_the_start_never_read_again: anula el reloj de pared durante stamp y comprueba que el fin es el inicio más los segundos. Commit 7eff1d3."
+      }
+    }
+  ],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "No quedó residuo. Los dos hallazgos del evento se incorporaron con un test específico cada uno y ambos pasan en la suite completa. Las rondas 3 y 4 corrieron el código de la rama con el revisor real, así que el camino que este cambio agrega (medir al subproceso del revisor y llevar los segundos a la extensión) se ejercitó de punta a punta y no solo con revisores falsos: el resultado de la ronda 4 trae los segundos medidos y esta declaración los lleva en dev.disensor.round. La segunda ronda salió con código 5 porque otra sesión editó el árbol principal mientras corría; no dejó resultado y no se declara: las rondas siguientes corrieron desde un worktree limpio. La ronda 4 listó dos cosas que no ejecutó: los dos smoke tests de endurecimiento, opt-in con costo, y los casos específicos de POSIX; ninguna toca lo que este cambio agrega, y el camino del adaptador real lo ejercitaron las rondas mismas, así que no son residuo de este evento."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:21e281362ee936baaebec8944e6314fc9910a32a6028930be6fd1d69b4fba899",
+      "report_hash": "sha256:2cddb2a1eec16dc937a49570ee50b75ad43dcefdc29dccac12bab2e577a643ef",
+      "reviewer_seconds": 179
+    }
+  }
+}
