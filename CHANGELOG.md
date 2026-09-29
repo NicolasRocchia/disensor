@@ -11,6 +11,21 @@ sentence ends with a full stop, and the references to README sections became
 links. The versions that paragraph did not describe (0.9.1, 0.6.5, 0.6.2,
 0.3.0 and 0.1.0) have no entry, and there was no 0.8.0.
 
+## 0.12.1 (2026-09-29)
+
+This version changes wording only, still on residue/v0.4. The README, the
+guide and the heading of the residue block in the gate comment no longer
+describe the record as what the cycle could not close by itself: a finding
+refuted with evidence closes and still enters the residue, so that phrase left
+it out. They now say what the round leaves for a person to look at, and the
+background essay asks what was left for a person to look at instead of what
+could not be closed
+([#104](https://github.com/NicolasRocchia/disensor/pull/104),
+[#105](https://github.com/NicolasRocchia/disensor/pull/105)). The v0.4 schema
+keeps its descriptions as published: the resource is frozen by content and
+served byte for byte at its `$id`, so they are corrected in residue/v0.5, not
+in place.
+
 ## 0.12.0 (2026-09-29)
 
 This version is about reading what disensor produced, still on residue/v0.4.
