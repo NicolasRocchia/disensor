@@ -79,7 +79,7 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
     if not dated:
         raise ValueError("no dated declaration at the tip of the branch, so there is no period to cover")
     out.since = min(dated).date()
-    heads = {d["head"].lower() for d in declarations if _HEX.match(d["head"].lower())}
+    heads = _canonical_heads(declarations, repo)
     config, out.policy_note = gate.load_config_at(tip, config_path, repo)
     out.config_path = config_path
     out.policy_default = not gitctx.path_exists(tip, config_path, repo)
@@ -197,17 +197,33 @@ def _history(tip: str, repo: Path, n: int) -> list[tuple[str, list[str], datetim
     return out
 
 
-def _anchored(parents: list[str], heads: set[str], repo: Path) -> bool:
-    """Whether some declared head is one of the commits the merge brought in.
+def _canonical_heads(declarations: list[dict], repo: Path) -> set[str]:
+    """The declared heads as canonical oids, resolved the way G5 resolves them.
 
-    The commits of the PR are those reachable from the second parent (and any
-    further one) and not from the first. The schema admits abbreviated heads,
-    so the comparison is by hexadecimal prefix against canonical oids.
+    The schema admits abbreviated heads. A prefix comparison would let a later
+    commit that shares a once-unique prefix cover a merge it never reviewed,
+    so each head is resolved by git; one that git cannot resolve, or finds
+    ambiguous, anchors nothing in this repository.
     """
+    heads: set[str] = set()
+    for d in declarations:
+        raw = d["head"].lower()
+        if not _HEX.match(raw):
+            continue
+        try:
+            heads.add(gitctx.resolve_commit(raw, repo))
+        except gitctx.GitError:
+            continue
+    return heads
+
+
+def _anchored(parents: list[str], heads: set[str], repo: Path) -> bool:
+    """Whether some declared head is one of the commits the merge brought in:
+    those reachable from the second parent (and any further one) and not from
+    the first, compared as canonical oids."""
     if not heads:
         return False
     r = gitctx.run_git(["rev-list", *parents[1:], f"^{parents[0]}"], repo)
     if r.returncode != 0:
         raise gitctx.GitError(f"git rev-list: {r.stderr.strip() or 'failed'}")
-    commits = [line.strip() for line in r.stdout.splitlines() if line.strip()]
-    return any(commit.startswith(head) for commit in commits for head in heads)
+    return any(line.strip() in heads for line in r.stdout.splitlines())

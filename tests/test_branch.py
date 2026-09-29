@@ -164,6 +164,31 @@ def test_a_committed_file_that_does_not_validate_covers_nothing(repo):
     assert (c.direct_demanding, c.direct_with_declaration, c.direct_exempt) == (1, 0, 0)
 
 
+def test_the_command_judges_the_merges_by_the_configuration_the_gate_runs_with(tmp_path, monkeypatch):
+    """A repository that runs the gate with --config names the same file to the
+    report, or the board would apply a policy the gate never read: here the
+    root file relaxes the gate and the real policy, elsewhere, requires it.
+    Found by the reviewer of the round that declared this change."""
+    from disensor.cli import build_parser
+    r = Repo(tmp_path / "custom")
+    r.write("disensor.config.json", json.dumps({"criticality_level": "B", "level_A_enabled": False,
+                                                "gate": {"required": False}}))
+    r.write("policy/disensor.json", json.dumps({"criticality_level": "B", "level_A_enabled": False,
+                                                "gate": {"required": True}}))
+    r.commit("start", BEFORE)
+    r.branch_merge("covered", "merge with a declaration", files={"src/b.py": "b"}, declare="full")
+    uncovered = r.branch_merge("uncovered", "merge without a declaration", files={"src/d.py": "d"})
+    monkeypatch.chdir(r.path)
+    args = build_parser().parse_args(["report", "--quiet", "--branch", "main", "--config", "policy/disensor.json"])
+    assert args.func(args) == 0
+    page = (r.path / "informe-residuo.html").read_text(encoding="utf-8")
+    assert uncovered[:8] in page and "policy/disensor.json" in page
+    args = build_parser().parse_args(["report", "--quiet", "--branch", "main", "--out", "relaxed.html"])
+    assert args.func(args) == 0
+    relaxed = (r.path / "relaxed.html").read_text(encoding="utf-8")
+    assert "no exigida" in relaxed and uncovered[:8] not in relaxed
+
+
 def test_gate_not_required_lists_no_merge_as_missing(tmp_path):
     r = Repo(tmp_path / "relaxed")
     r.write("disensor.config.json", json.dumps({"criticality_level": "B", "level_A_enabled": False,

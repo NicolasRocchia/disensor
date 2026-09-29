@@ -313,6 +313,9 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--branch", default="HEAD", metavar="REF",
                         help="Branch whose first-parent history the Tablero view crosses with the declarations "
                              "at its tip, to list the merges that demanded a review and carry none (default: HEAD).")
+    report.add_argument("--config", default="disensor.config.json", metavar="FILE",
+                        help="Configuration file, read at the tip of --branch, that decides which merges demanded "
+                             "a review: the same file the gate runs with (default: disensor.config.json).")
     report.add_argument("--quiet", action="store_true", help="Print nothing on success.")
     report.set_defaults(func=main_report)
 

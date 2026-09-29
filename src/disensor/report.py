@@ -1775,14 +1775,16 @@ def inside(path: Path, directory: Path) -> bool:
         return False
 
 
-def branch_of_directory(directory: Path, ref: str):
+def branch_of_directory(directory: Path, ref: str, config_path: str = DEFAULT_CONFIG):
     """What the branch of the directory's OWN repository shows, for the board.
 
     The same provenance rule as the footer: the repository is the one the
     evidence directory lives in, never the one the command runs in. Outside a
     repository there is no branch to walk and the board says so; inside one,
     the coverage is read from the objects at `ref`, never from the working
-    tree the command is displaying.
+    tree the command is displaying. `config_path` is the file the gate runs
+    with: a repository that runs the gate with `--config` has to name it here
+    too, or the board would judge the merges by a policy the gate never read.
     """
     try:
         source_root = gitctx.repo_root(directory)
@@ -1790,7 +1792,7 @@ def branch_of_directory(directory: Path, ref: str):
     except (gitctx.GitError, OSError, ValueError):
         return None
     from .branch import branch_coverage  # branch imports gate, which imports this module
-    return branch_coverage(ref, rel, DEFAULT_CONFIG, source_root, label=ref)
+    return branch_coverage(ref, rel, config_path, source_root, label=ref)
 
 
 def describe_source(directory: Path, since: date | None = None, total: int | None = None) -> Source:
@@ -1873,7 +1875,8 @@ def main_report(args) -> int:
         # that dropped it would hide data instead of naming what it cannot tell.
         declarations = [d for d in declarations if d["date"] is None or d["date"].date() >= since]
     source = describe_source(directory, since=since, total=total if since else None)
-    coverage = branch_of_directory(directory, getattr(args, "branch", None) or "HEAD")
+    coverage = branch_of_directory(directory, getattr(args, "branch", None) or "HEAD",
+                                   getattr(args, "config", None) or DEFAULT_CONFIG)
     try:
         write_html(out, build_html(declarations, unreadable, source, coverage))
     except (OSError, KeyError, ValueError) as exc:
