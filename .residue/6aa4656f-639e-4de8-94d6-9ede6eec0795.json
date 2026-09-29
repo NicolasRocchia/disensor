@@ -1,0 +1,82 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "6aa4656f-639e-4de8-94d6-9ede6eec0795",
+    "created_at": "2026-09-29T13:16:24-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "4f84df1325c104b2f8bc320b2f78ca2080edc652",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "343d5536d4dae955d5466964cdefd050026fb024"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las seis pruebas salteadas de la suite no se forzaron: los dos smoke tests de endurecimiento, opt-in con costo, que ejercitan la receta de Codex y que este diff no toca; la prueba de permiso de ejecución en POSIX, que corre en el CI; y tres index.json de las suites de vectores. El revisor y el generador corrieron el resto de la suite en Windows con Python 3.14: 635 pasan, incluidas las que atan la versión, los pines y la sincronía de los changelogs."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Lo publicado no se puede observar antes de publicarlo: el tag v0.12.1, el paquete en PyPI, una instalación limpia de disensor==0.12.1, la Action en el tag y el Release. Este diff introduce esas referencias; la publicación la hace el push del tag después del merge, con el sí explícito del dueño. Lo que sí se ejecutó sobre el head exacto (4f84df1): python -m build fuera del árbol, wheel y sdist con Version 0.12.1 en METADATA, y la GUIDE y render.py dentro del wheel con el texto nuevo (wheel sha256 a89658dd3f9e1cb6df0fd42b6a795c3c3b12087c38b17013a48f020e6bf94049, sdist e04d79fa9ad0fd340bf2ade85a35f70e8295e970b1a9b34f48904edaa5c862fd). Después quedan por mirar: que el tag resuelva al commit del merge, una instalación limpia desde PyPI y los hashes de lo que subió el workflow contra el build local."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:139ec638581be87d46ed15ec0d09140fc1a1782fa0907547be6ac8d596059056",
+      "report_hash": "sha256:5479b94ef6f59e2105f8b424b981ba66b02f226ee4be080a42bc74d6c4d9c828",
+      "reviewer_seconds": 210
+    }
+  }
+}
