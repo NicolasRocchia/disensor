@@ -101,7 +101,9 @@ def test_each_kind_of_merge_lands_where_the_policy_and_the_declarations_put_it(r
     direct = repo.commit("direct push", AFTER)
     c = coverage_of(repo)
     assert c.error is None and c.tip == repo.git("rev-parse", "main")
-    assert c.since.isoformat() == "2026-07-15"
+    # The period opens at the merge that brought the first valid declaration,
+    # in the order of the branch: the date the declaration claims decides nothing.
+    assert c.since_oid == covered and c.since.isoformat() == "2026-08-01"
     assert c.required and c.declarations == 2
     assert (c.merges, c.covered, c.exempt, c.before) == (3, 2, 1, 1)
     assert [row["oid"] for row in c.uncovered] == [uncovered]
@@ -155,13 +157,35 @@ def test_a_committed_file_that_does_not_validate_covers_nothing(repo):
     c = coverage_of(repo)
     assert c.error is None
     assert (c.declarations, c.invalid) == (1, 1)
-    assert c.since.isoformat() == "2026-07-15"          # the bogus date moves nothing
+    assert c.since.isoformat() == "2026-08-01"          # the bogus file opens no period
     assert [row["oid"] for row in c.uncovered] == [uncovered]
     # The direct commit demanded a review and added a file under the evidence
     # directory that is not a declaration: neither the row nor the count says
     # it declared anything.
     assert [(row["oid"], row["declares"]) for row in c.direct_recent] == [(bogus, False)]
     assert (c.direct_demanding, c.direct_with_declaration, c.direct_exempt) == (1, 0, 0)
+
+
+def test_a_declaration_dated_in_the_future_moves_no_merge_out_of_the_period(repo):
+    """The schema accepts any RFC 3339 date-time, so a valid declaration can
+    claim a date after every merge of the branch. The period is opened by the
+    commit that brought the first valid declaration, in the order of the
+    branch, so that date hides nothing. Found by the reviewer of the round
+    that declared this change."""
+    covered = repo.branch_merge("covered", "merge with a declaration", files={"src/b.py": "b"}, declare="full")
+    uncovered = repo.branch_merge("uncovered", "merge without a declaration", files={"src/d.py": "d"})
+    data = json.loads(json.dumps(DIFF))
+    data["event"]["event_id"] = "f0f0f0f0-1a2b-4c3d-8e5f-6a7b8c9d0e1f"
+    data["event"]["created_at"] = "2027-01-01T00:00:00Z"
+    data["event"]["head_commit"] = repo.git("rev-parse", f"{covered}^2")
+    data["event"]["base_commit"] = repo.git("rev-parse", "main")
+    repo.write(".residue/future.json", json.dumps(data, ensure_ascii=False))
+    repo.commit("a valid declaration that claims a future date", AFTER)
+    c = coverage_of(repo)
+    assert c.error is None and c.declarations == 2
+    assert c.since_oid == covered and c.since.isoformat() == "2026-08-01"
+    assert [row["oid"] for row in c.uncovered] == [uncovered]
+    assert c.before == 0
 
 
 def test_the_command_judges_the_merges_by_the_configuration_the_gate_runs_with(tmp_path, monkeypatch):
@@ -223,7 +247,7 @@ def test_the_walk_asks_for_one_more_commit_than_it_keeps(repo):
 
 
 def test_what_cannot_be_computed_says_why_and_never_fakes_a_zero(repo, tmp_path):
-    assert "no dated declaration" in coverage_of(repo).error         # no declaration yet: no period
+    assert "no valid declaration" in coverage_of(repo).error         # no declaration yet: no period
     assert coverage_of(repo, ref="no-such-branch").error             # a ref git cannot resolve
     repo.branch_merge("covered", "merge with a declaration", files={"src/b.py": "b"}, declare="full")
     shallow = tmp_path / "shallow"

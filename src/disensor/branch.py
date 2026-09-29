@@ -29,6 +29,8 @@ from .rules import validate_artifact
 MAX_COMMITS = 2000
 RECENT_DIRECT = 10
 _HEX = re.compile(r"^[0-9a-f]{7,40}$")
+# git's empty tree: what a root commit is diffed against.
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
 @dataclass
@@ -36,7 +38,8 @@ class Coverage:
     ref: str                          # what the caller named: a branch, HEAD, the base of a PR
     tip: str = ""                     # canonical oid, once resolved
     error: str | None = None          # why nothing was computed; the render never shows a made-up zero
-    since: date | None = None         # date of the oldest valid declaration at the tip
+    since: date | None = None         # committer date of the commit that opened the period, for display
+    since_oid: str = ""               # the first-parent commit that introduced the first valid declaration
     declarations: int = 0             # valid artifacts at the tip: the only evidence that covers
     invalid: int = 0                  # files under the evidence directory at the tip that do not validate
     policy_note: str = ""             # the gate's own note, data for the record
@@ -75,10 +78,8 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
     out.tip = tip
     declarations, out.invalid = _valid_declarations(tip, evidence_root, repo)
     out.declarations = len(declarations)
-    dated = [d["date"] for d in declarations if d["date"]]
-    if not dated:
-        raise ValueError("no dated declaration at the tip of the branch, so there is no period to cover")
-    out.since = min(dated).date()
+    if not declarations:
+        raise ValueError("no valid declaration at the tip of the branch, so there is no period to cover")
     heads = _canonical_heads(declarations, repo)
     config, out.policy_note = gate.load_config_at(tip, config_path, repo)
     out.config_path = config_path
@@ -91,15 +92,26 @@ def _compute(out: Coverage, ref: str, evidence_root: str, config_path: str, repo
     if len(history) > limit:
         out.truncated = True
         history = history[:limit]
-    for oid, parents, when, subject in history:
-        if not parents or when is None:
-            continue  # a root commit, or a date git could not print: nothing to compare
-        first = parents[0]
+    # The period opens at the commit that brought the first valid declaration
+    # into the branch, in the order of the branch: what a declaration says
+    # about its own date decides nothing here, so a wrong or future
+    # `created_at` cannot push merges out of the period.
+    opened = _opening_commit(tip, evidence_root, repo, history)
+    if opened is None:
+        raise ValueError("no commit of the walked history introduces a valid declaration, so the period has no start")
+    out.since_oid = opened
+    opened_at = next(i for i, entry in enumerate(history) if entry[0] == opened)
+    for i, (oid, parents, when, subject) in enumerate(history):
         is_merge = len(parents) >= 2
-        if when.date() < out.since:
+        if i > opened_at:  # older than the opening commit, in the order of the branch
             if is_merge:
                 out.before += 1
             continue
+        if when is None:
+            continue  # a date git could not print: the row cannot be shown
+        if oid == opened:
+            out.since = when.date()
+        first = parents[0] if parents else EMPTY_TREE
         status = gitctx.changed_status(first, oid, repo)
         new_paths, mutations, ordinary = gate.classify_changes(status, evidence_root, first, oid, repo)
         ctx = gate.GateContext(
@@ -164,6 +176,32 @@ def _valid_declarations(tip: str, evidence_root: str, repo: Path) -> tuple[list[
         pairs.append((pure.name, text))
     declarations, unreadable = report.read_declarations(pairs)
     return declarations, invalid + len(unreadable)
+
+
+def _opening_commit(tip: str, evidence_root: str, repo: Path, history: list) -> str | None:
+    """The oldest first-parent commit, within the walked history, that added a
+    file under the evidence directory which validates as a declaration.
+
+    One git call lists the candidates (commits that added something there);
+    each is confirmed from the oldest up, so a stray file does not open the
+    period. None when no candidate in the walked history qualifies.
+    """
+    r = gitctx.run_git(
+        ["--literal-pathspecs", "log", "--first-parent", "--format=%H", "--diff-filter=A", tip, "--", evidence_root],
+        repo,
+    )
+    if r.returncode != 0:
+        raise gitctx.GitError(f"git log {tip[:7]} -- {evidence_root}: {r.stderr.strip() or 'failed'}")
+    parents_of = {oid: parents for oid, parents, _, _ in history}
+    for oid in reversed([line.strip() for line in r.stdout.splitlines() if line.strip()]):
+        if oid not in parents_of:
+            continue  # beyond the walked history
+        first = parents_of[oid][0] if parents_of[oid] else EMPTY_TREE
+        status = gitctx.changed_status(first, oid, repo)
+        new_paths, _mutations, _ordinary = gate.classify_changes(status, evidence_root, first, oid, repo)
+        if any(_valid_at(oid, path, repo) for path in new_paths):
+            return oid
+    return None
 
 
 def _valid_at(rev: str, path: str, repo: Path) -> bool:

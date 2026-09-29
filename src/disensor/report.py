@@ -1403,7 +1403,7 @@ def _coverage_tile(c) -> str:
                      f"La política de la punta declara gate.required=false. {c.merges} merges en el período, "
                      f"{c.covered} con una declaración anclada.", open_=False)
     n = len(c.uncovered)
-    note = (f"De los merges de {E(c.ref)} que exigían revisión desde la primera declaración. "
+    note = (f"De los merges de {E(c.ref)} que exigían revisión desde el commit que trajo la primera declaración válida. "
             + (f"Los otros {c.covered} tienen una declaración anclada a un commit del PR." if c.covered
                else "Ninguno tiene una declaración anclada a un commit del PR." if n else "Ningún merge exigió revisión."))
     return _tile("Merges sin declaración", f'{n}<small>de {c.merges}</small>', note, open_=bool(n))
@@ -1416,10 +1416,11 @@ def _board_coverage(c) -> str:
     if c.error:
         return f'<div class="vacio">Sin calcular: {E(c.error)}.</div>'
     where = f"{E(c.ref)} <code>{E(c.tip[:7])}</code>"
-    since = E(c.since.strftime("%d/%m/%Y")) if c.since else "?"
+    since = E(c.since.strftime("%d/%m/%Y")) if c.since else "fecha ilegible"
+    opened = f"<code>{E(c.since_oid[:7])}</code>, el primero que trajo una declaración válida ({since})"
     policy = (f"la política por defecto del gate, porque la punta no tiene <code>{E(c.config_path)}</code>"
               if c.policy_default else f"la política de <code>{E(c.config_path)}</code> en la punta, la de hoy")
-    intro = (f'<p class="ayuda">Historia first-parent de {where}, desde la primera declaración ({since}). Un merge está '
+    intro = (f'<p class="ayuda">Historia first-parent de {where}, desde el commit {opened}. Un merge está '
              f'cubierto cuando alguna declaración de la punta ancla su <code>head_commit</code> a un commit del PR, y '
              f'exige revisión según {policy}, decidida por la misma función del gate. '
              f'Mide declaraciones, no corridas del gate: el repositorio no guarda el veredicto de ninguna corrida.</p>')
@@ -1450,7 +1451,7 @@ def _board_coverage(c) -> str:
     if c.exempt:
         notes.append(f"{c.exempt} {'merge exento' if c.exempt == 1 else 'merges exentos'} por la política")
     if c.before:
-        notes.append(f"{c.before} {'anterior' if c.before == 1 else 'anteriores'} a la primera declaración, fuera del recuento")
+        notes.append(f"{c.before} {'anterior' if c.before == 1 else 'anteriores'} al commit que abre el período, fuera del recuento")
     if c.mutated:
         notes.append(f"{c.mutated} {'modificó' if c.mutated == 1 else 'modificaron'} evidencia ya presente (G8)")
     if c.truncated:
