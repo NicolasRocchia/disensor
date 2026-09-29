@@ -175,7 +175,7 @@ info), `title`, `description`, `location` (full profile only), and:
 
 ## Residue
 
-The heart of the declaration: what the cycle could not close by itself.
+The heart of the declaration: what the round leaves for a person to look at.
 Either `items` or the express absence, never an empty field.
 
 - `items[]`: `id` (r1, r2...), `class`, `finding_ref` when it comes from a
