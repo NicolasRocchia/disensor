@@ -1,0 +1,89 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "d3ab4758-c25b-4174-91cb-ad5affa6af80",
+    "created_at": "2026-09-29T12:31:18-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "8b6b8ed1c6f266171fdabffa9fb397ac8ea8f1eb",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "e4d464f5fac46c0bc9d13a605dcb5350631c04e0"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La frase paraguas sigue en el encabezado del gate, en el esquema y en antecedentes.md",
+      "description": "El PR corrige la definición en los README y en las GUIDE, pero la misma frase sigue en tres superficies: render.py encabeza el bloque de residuo de cada comentario del gate con «what the cycle could not close by itself»; la descripción raíz del esquema residue/v0.4 dice que la declaración lista «what the cycle could not close by itself» y que «resolved and verified findings are not residue», y la del bloque residue repite la primera y agrega que las clases descansan en un juicio, cuando principal_refutation incluye la refutación verificable, que está cerrada y respaldada por evidencia; y docs/antecedentes.md presenta el residuo como «¿qué seguimos sin poder cerrar?». Quien lea el comentario del gate o el esquema sigue viendo la afirmación que este cambio quiere sacar.",
+      "location": "src/disensor/render.py:267; spec/residue.schema.json:5,340 (idéntico a src/disensor/residue.schema.json y congelado como residue.schema.v0.4.json); docs/antecedentes.md:390",
+      "verification": {
+        "against": "repository",
+        "detail": "Leídas las tres ubicaciones en el head del PR: render.py:267 arma la línea «**Declared residue** (what the cycle could not close by itself):»; spec/residue.schema.json líneas 5 y 340 contienen los dos textos citados, el archivo es idéntico a src/disensor/residue.schema.json y está congelado con frozen.sha256; docs/antecedentes.md:390 contiene la pregunta citada. Eso establece que el texto está ahí. No establece que la tensión del esquema afecte la validación: description es una anotación y ninguna regla la lee."
+      },
+      "final_state": "escalated_open"
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "escalation_without_decision",
+        "finding_ref": "h1",
+        "requires_human_attention": true,
+        "description": "Decidir si la corrección alcanza al encabezado del gate (render.py, cambio de código con su test de render), al texto del esquema v0.4 (congelado con frozen.sha256: cambiarlo es reabrir la versión o esperar a v0.5) y al ensayo de antecedentes. Este PR se limitó a los README y las GUIDE, que es lo que se pidió; el resto lo decide el dueño."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 1
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:0b10c3fd66198695a7d70717d142d382008693200597fdcb08a6b6f96414d8b0",
+      "report_hash": "sha256:1ef694396dc55070c901d8b146ada50a944d8d3faba71da329689ffacfda4cbf",
+      "reviewer_seconds": 211
+    }
+  }
+}
