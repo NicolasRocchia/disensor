@@ -25,8 +25,11 @@ No corre el checker: compara lo que los vectores declaran en `expected`.
 Qué es un campo. El artefacto se aplana: un campo es una hoja, es decir una
 ruta a un valor escalar. Dos vectores están a N campos cuando hay N rutas cuyo
 valor difiere entre los dos, o que están en uno solo. Una lista o un objeto
-vacío no deja hoja, así que `[]` contra ausente cuenta 0 campos. Los números
-dependen de esta definición.
+vacío no deja hoja, así que `[]` contra ausente cuenta 0 campos. Una hoja con
+valor `null` cuenta igual que una ausente, así que `null` contra ausente
+también cuenta 0. Los valores se comparan con la igualdad de Python, que no
+distingue `true` de `1` ni `1` de `1.0`. Los números dependen de esta
+definición.
 
 By default it measures HEAD. It reads `spec/vectors/{v0.2,v0.3,v0.4}/*.json`
 from the git objects of that commit, not from the working tree: the number is
@@ -44,8 +47,10 @@ It does not run the checker: it compares what the vectors declare in
 What a field is. The artifact is flattened: a field is a leaf, that is, a path
 to a scalar value. Two vectors are N fields apart when N paths hold different
 values in the two, or exist in only one. An empty list or object leaves no
-leaf, so `[]` against absent counts as 0 fields. The numbers depend on this
-definition.
+leaf, so `[]` against absent counts as 0 fields. A leaf holding `null` counts
+the same as an absent one, so `null` against absent also counts as 0. Values
+are compared with Python equality, which does not tell `true` from `1` or `1`
+from `1.0`. The numbers depend on this definition.
 """
 import itertools
 import json

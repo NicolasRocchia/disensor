@@ -49,6 +49,7 @@ def plano(o, p=""):
     return d
 
 
+# Compara igual que el `dif` de `medir-parejas.py`: `null` cuenta como ausente, y con la igualdad de Python.
 def dif(a, b):
     return sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
 
