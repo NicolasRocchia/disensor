@@ -1,0 +1,129 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "222222a9-4295-4edd-a1d2-5dbb1c7554c1",
+    "created_at": "2026-10-05T10:53:12-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "f215d042e74319e48cc556e31bc5c19d3e816dfa",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "544514fc7d086ef733d2bbd49814984f61a8d3b7"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "info",
+      "title": "medir-guigui termina con un ValueError crudo si el corpus falta o trae menos de dos casos con tool_call",
+      "description": "Hipótesis sin verificar del revisor, que no la contó como hallazgo. El script no valida su entrada: con una ruta que no existe, o con un corpus que deje menos de dos casos con un tool_call de tipo objeto, la lista de parejas queda vacía y min() levanta ValueError. El revisor lo reprodujo con una ruta inexistente y lo dejó como hipótesis porque la invocación documentada pide un clon del corpus nombrado. Sería un defecto si el contrato del script incluyera diagnosticar un corpus ausente, incompleto o que cambió.",
+      "location": "tools/medir-guigui.py:93",
+      "final_state": "debt_recorded",
+      "debt_id": "medir-guigui-corpus-ausente",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido sobre f215d04 con python tools/medir-guigui.py Z:/ruta-que-no-existe: imprime vectores leidos: 0, parejas totales: 0 y a exactamente un campo: 0, y recién después termina con ValueError: min() iterable argument is empty y código 1. Falla en voz alta, pero antes de fallar imprime un cero que no midió nada. El comportamiento viene del script original, que este PR publica sin tocar la medición. No se arregla acá: el arreglo mueve el head y pide otra ronda, y no cambia ningún número citado. Queda como deuda: salir con un mensaje cuando hay menos de dos casos con tool_call, antes de imprimir cuentas, en el próximo PR que toque tools/."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "info",
+      "title": "El JSON del barrido lleva el commit pero no la versión de jsonschema",
+      "description": "Hipótesis sin verificar del revisor, que no la contó como hallazgo. barrido.json registra el commit, y la versión de jsonschema sale solo por pantalla. El rango de la dependencia es abierto (jsonschema>=4.18), así que el JSON solo no identifica del todo el entorno de ejecución. El revisor no encontró ningún vector cuyo veredicto o cuya etiqueta cambie con la versión, y dijo qué lo decidiría: correr el barrido con la versión soportada más vieja y con la actual, y comparar los JSON.",
+      "location": "tools/barrido-reglas.py",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "execution",
+        "detail": "Se corrió la prueba que propuso el revisor, sobre f215d04, en Windows con Python 3.14.2: el barrido con jsonschema 4.26.0, dos corridas, y con jsonschema 4.18.0 en un entorno virtual aparte. Los tres JSON son idénticos byte a byte. Lo que eso establece: en los dos extremos del rango soportado hoy el resultado del barrido es el mismo, así que el JSON no esconde una diferencia de entorno entre ellos. Lo que no establece: que valga para las versiones intermedias, para las futuras o para otro Python. La premisa del revisor sigue siendo cierta, y es por diseño: el JSON no lleva la versión, para que dos entornos que dan el mismo resultado den el mismo sha256."
+      },
+      "evidence": {
+        "text": "f215d04, Python 3.14.2, Windows: barrido.json con jsonschema 4.26.0 (dos corridas) y con jsonschema 4.18.0 da sha256 d723054b34ae474093a64571c5b0e6f2f51f8cbdee0db19978c40544b85937ce las tres veces; cmp entre el de 4.26.0 y el de 4.18.0 no encuentra diferencias."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "principal_refutation",
+        "finding_ref": "h2",
+        "refutation_type": "verifiable",
+        "requires_human_attention": true,
+        "description": "El revisor planteó que el JSON de evidencia no identifica la versión de jsonschema con la que se produjo. Se refutó la consecuencia con la prueba que él mismo propuso (el mismo JSON con 4.18.0 y con 4.26.0), no la premisa: el archivo sigue sin llevar la versión. Si la evidencia que se cite tiene que llevarla, a cambio de que el sha256 pase a depender del entorno, es una decisión sobre el formato de la evidencia y no la tomó el generador."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "El revisor no ejecutó tools/barrido-reglas.py: una corrida exitosa escribe barrido.json y la ronda le permite una sola escritura, el informe. Leyó la implementación completa, los índices de vectores, validate_artifact, schema_errors, rule_errors y las pruebas de cobertura de reglas, pero no observó la salida del barrido ni su estabilidad byte a byte. Lo ejecutó solo el generador. Sobre el head f215d04: 89 vectores, 0 desacuerdos de base, las 12 reglas con vectores exactas, R3 y R8 en cero, schema 24 de 24, y el mismo sha256 en tres corridas (d723054b34ae474093a64571c5b0e6f2f51f8cbdee0db19978c40544b85937ce). Y con el mismo script, que no cambió desde 6193161, en worktrees de 544514f y de f3295ca: la misma tabla y dos corridas iguales por commit (96afa2b5d607512bf8ba2a299c80327436a2288dfbafa2c7a5bdecd918f387f4 y d16cace6eeca7064976e84e0fa7d7dffebdc5289ee912783dc618eb75bc32fac). Nadie más que el generador lo reprodujo todavía."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "El revisor no reprodujo tools/medir-guigui.py contra github.com/DSHCorrectover/ccs-conformance-vectors: el clon no estaba a su alcance y crearlo era una escritura que la ronda no le permite. El 0 de 66 quedó sin ejecutar en la ronda. Lo ejecutó solo el generador, sobre f215d04 y contra un clon local limpio en 6b10485: 15 vectores leídos, 12 con tool_call, 66 parejas en cada uno de los tres alcances, 0 a exactamente un campo en los tres, y mínimos de 3, 10 y 0 campos distintos. Nadie más que el generador lo reprodujo todavía."
+      },
+      {
+        "id": "r4",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las seis pruebas salteadas de la suite no se forzaron: los dos smoke tests de endurecimiento, opt-in con costo; la prueba de permiso de ejecución en POSIX, que corre en el CI; y tres index.json de las suites de vectores. El revisor y el generador corrieron el resto en Windows con Python 3.14: 635 pasan. La suite no ejercita ninguno de los tres scripts de este diff, y el CI, que la corre en Ubuntu con Python 3.10 y 3.12, tampoco ejecuta tools/. Lo que respalda a los scripts son las corridas declaradas en r2 y r3 y las de medir-parejas, que corrieron el revisor sobre el head y el generador sobre 1e36257 y 544514f (42, de esos 0 con la lista de reglas sin moverse; 0 a un campo y 132 a dos). Todas fueron en Windows con Python 3.14."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 1,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 1,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 785
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:fe10cc4908acd3c9b689081aae7e202187ecf038be50315c9a7880e318c42be4",
+      "report_hash": "sha256:a52dc1648ad0668e9b7829fde693540f7485f5872084399a6c33e0d707c94960",
+      "reviewer_seconds": 377
+    }
+  }
+}
