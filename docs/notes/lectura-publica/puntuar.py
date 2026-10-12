@@ -13,18 +13,22 @@ experimento A por modelo.
 Qué es mecánico, y sobre qué se mira: los ítems de forma (`findings` con
 `final_state`, `verification`, claves inventadas) se miran SOLO adentro de los
 bloques de código de la respuesta, con cualquier etiqueta de fence o ninguna,
-parseándolos como JSON cuando se puede. Una mención en prosa no cuenta: "no
-hay findings" contiene la palabra y no es un artefacto. Lo cazó la ronda
-adversarial del cambio que agregó este script, junto con la etiqueta de fence
-en mayúsculas que la primera versión no veía. Las claves se contrastan con la
-lista blanca del esquema; la grafía de los seis estados se mira en toda la
-respuesta, porque nombrarlos en prosa vale.
+parseándolos como JSON. Un bloque abreviado (con `...` o comas colgantes) se
+repara antes de parsearlo; si aun así no parsea, los ítems de estructura
+quedan a juicio en vez de adivinarse con una expresión regular, porque una
+clave suelta en el bloque no dice de qué objeto es. Una mención en prosa no
+cuenta: "no hay findings" contiene la palabra y no es un artefacto. Las dos
+cosas las cazaron las rondas adversariales del cambio que agregó este script.
+
+Las claves se contrastan con la lista blanca del esquema. La grafía de los
+seis estados se mira en toda la respuesta como ocurrencia literal: nombrarlos
+en prosa vale, y una negación que los liste también pasa (límite conocido; el
+juicio manda sobre lo mecánico en cualquier ítem).
 
 Qué es juicio: que diga un archivo por evento, que no afirme que el gate corre
 modelos, que no afirme aval institucional. Para esos tres el script deja una
 pista (las líneas donde aparecen las palabras sospechosas) y `juicio: null`
-hasta que alguien lo escriba. Un `juicio` escrito manda sobre `auto` en
-cualquier ítem.
+hasta que alguien lo escriba.
 
 Una corrida de documento con llamadas a herramientas (`cli_llamadas_a_herramientas`
 mayor que cero en el encabezado) se puntúa igual pero queda fuera de la tabla
@@ -62,6 +66,11 @@ PISTAS = {
 # forma (json, JSON, jsonc, yaml, nada), hasta el cierre.
 FENCE = re.compile(r"^(`{3,})[^\n]*\n(.*?)^\1[ \t]*$", re.M | re.S)
 CLAVE = re.compile(r'"([A-Za-z_$][A-Za-z0-9_.$-]*)"\s*:')
+# Lo que un ejemplo abreviado trae y JSON no admite: puntos suspensivos (los
+# tres puntos o el carácter) como valor o como elemento, y la coma que queda
+# colgando antes del cierre cuando se los saca.
+ELIPSIS = re.compile(r"(\.\.\.|…)")
+COMA_COLGANTE = re.compile(r",(\s*[\]}])")
 
 
 def claves_del_esquema() -> set[str]:
@@ -69,10 +78,9 @@ def claves_del_esquema() -> set[str]:
 
     Una lista negra solo ve lo que ya se vio inventar. Lo que una lectura sin
     anclaje inventa con más frecuencia son claves plausibles que no existen
-    (`reviewed_commit`, `lead_acceptance`, `fix_verification.method`): eso solo
-    lo ve una lista blanca. `extensions` admite claves libres y queda afuera.
-    Límite: mira el nombre, no la posición; una clave real en el lugar
-    equivocado pasa.
+    (`reviewed_commit`, `fix_verification.method`): eso solo lo ve una lista
+    blanca. `extensions` admite claves libres y queda afuera. Límite: mira el
+    nombre, no la posición; una clave real en el lugar equivocado pasa.
     """
     def recorrer(nodo, salida):
         if isinstance(nodo, dict):
@@ -88,21 +96,39 @@ def claves_del_esquema() -> set[str]:
     return salida
 
 
+def reparar(crudo: str) -> str:
+    """Un bloque abreviado, llevado a algo que JSON acepte: sin elipsis ni comas colgantes."""
+    sin_elipsis = ELIPSIS.sub("", crudo)
+    return COMA_COLGANTE.sub(r"\1", sin_elipsis)
+
+
+def parsear(crudo: str):
+    """El JSON del bloque, tal cual o reparado, o None si no hay forma."""
+    for intento in (crudo, reparar(crudo)):
+        try:
+            return json.loads(intento)
+        except ValueError:
+            continue
+    return None
+
+
 def bloques(respuesta: str) -> list[tuple[str, object | None]]:
     """Los bloques de código de la respuesta: (texto, JSON parseado o None).
 
-    Si no hay ningún fence, la respuesta entera es el único bloque: un modelo
-    puede escribir el JSON sin cercarlo, y no por eso deja de ser el artefacto
-    que muestra.
+    Si no hay ningún fence, el bloque es el objeto JSON más largo que haya en
+    la respuesta (del primer `{` al último `}`): un modelo puede escribir el
+    JSON sin cercarlo, y no por eso deja de ser el artefacto que muestra. Si no
+    hay ningún objeto, el bloque es vacío: la respuesta no muestra artefacto, y
+    eso es un "no" mecánico, no un juicio.
     """
-    crudos = [m.group(2) for m in FENCE.finditer(respuesta)] or [respuesta]
-    salida = []
-    for crudo in crudos:
-        try:
-            salida.append((crudo, json.loads(crudo)))
-        except ValueError:
-            salida.append((crudo, None))
-    return salida
+    crudos = [m.group(2) for m in FENCE.finditer(respuesta)]
+    if crudos:
+        return [(crudo, parsear(crudo)) for crudo in crudos]
+    inicio, fin = respuesta.find("{"), respuesta.rfind("}")
+    if inicio == -1 or fin <= inicio:
+        return [("", {})]
+    recorte = respuesta[inicio:fin + 1]
+    return [(recorte, parsear(recorte))]
 
 
 def claves_de(nodo, salida: set[str]) -> None:
@@ -120,9 +146,9 @@ def claves_de(nodo, salida: set[str]) -> None:
 def claves_de_los_bloques(respuesta: str) -> set[str]:
     """Las claves de los bloques de código, fuera de `extensions`.
 
-    Un bloque que parsea aporta sus claves por estructura; uno que no (un
-    ejemplo con puntos suspensivos) aporta lo que matchee `"clave":`, que
-    sobreestima lo menos posible.
+    Un bloque que parsea aporta sus claves por estructura; uno que no aporta
+    lo que matchee `"clave":`. Para este ítem sobreestimar es el lado seguro:
+    una clave de más marca la corrida, y el juicio la puede levantar.
     """
     claves: set[str] = set()
     for crudo, parseado in bloques(respuesta):
@@ -148,24 +174,26 @@ def hallazgos_de(parseado) -> list[dict]:
     return salida
 
 
-def muestra_findings_con_final_state(respuesta: str) -> bool:
-    for crudo, parseado in bloques(respuesta):
-        if parseado is not None:
-            if any("final_state" in h for h in hallazgos_de(parseado)):
-                return True
-        elif re.search(r'"findings"\s*:\s*\[', crudo) and re.search(r'"final_state"\s*:', crudo):
+def estructura(respuesta: str, condicion) -> bool | None:
+    """True si algún bloque parseado cumple la condición sobre sus hallazgos;
+    None si ningún bloque parsea (queda a juicio); False si parsean y no cumplen.
+    """
+    hubo_parseado = False
+    for _crudo, parseado in bloques(respuesta):
+        if parseado is None:
+            continue
+        hubo_parseado = True
+        if any(condicion(h) for h in hallazgos_de(parseado)):
             return True
-    return False
+    return False if hubo_parseado else None
 
 
-def muestra_verification(respuesta: str) -> bool:
-    for crudo, parseado in bloques(respuesta):
-        if parseado is not None:
-            if any("verification" in h or "fix_verification" in h for h in hallazgos_de(parseado)):
-                return True
-        elif re.search(r'"(fix_)?verification"\s*:', crudo):
-            return True
-    return False
+def muestra_findings_con_final_state(respuesta: str) -> bool | None:
+    return estructura(respuesta, lambda h: "final_state" in h)
+
+
+def muestra_verification(respuesta: str) -> bool | None:
+    return estructura(respuesta, lambda h: "verification" in h or "fix_verification" in h)
 
 
 def leer_corrida(ruta: Path) -> tuple[dict, str]:
@@ -202,11 +230,17 @@ def puntuar(respuesta: str) -> dict:
     faltan = [e for e in ESTADOS if e not in respuesta]
     r["estados"] = {"auto": not faltan, "evidencia": "faltan: " + ", ".join(faltan) if faltan else "los seis, con su grafía"}
     ok = muestra_findings_con_final_state(respuesta)
-    r["findings_final_state"] = {"auto": ok, "evidencia": "un bloque de código con findings[] y final_state adentro" if ok
-                                 else "ningún bloque de código con findings[] y final_state"}
+    r["findings_final_state"] = {"auto": ok, "evidencia": {
+        True: "un bloque de código parseado con findings[] y final_state adentro",
+        False: "ningún bloque de código parseado con findings[] y final_state",
+        None: "ningún bloque de código parsea, ni reparado: juicio a mano",
+    }[ok]}
     ok = muestra_verification(respuesta)
-    r["verification"] = {"auto": ok, "evidencia": "verification o fix_verification en un hallazgo de un bloque de código" if ok
-                         else "sin verification ni fix_verification en los bloques de código"}
+    r["verification"] = {"auto": ok, "evidencia": {
+        True: "verification o fix_verification en un hallazgo de un bloque de código parseado",
+        False: "sin verification ni fix_verification en los hallazgos de los bloques parseados",
+        None: "ningún bloque de código parsea, ni reparado: juicio a mano",
+    }[ok]}
     hallados = [c for c in INVENTADOS if c in respuesta]
     desconocidas = sorted(claves_de_los_bloques(respuesta) - claves_del_esquema())
     partes = []

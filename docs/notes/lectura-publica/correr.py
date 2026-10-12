@@ -81,10 +81,13 @@ CODEX_BASE = [
     "-c", "project_doc_max_bytes=0",
     "--skip-git-repo-check",
 ]
-# Tipos de ítem de los eventos JSONL de codex que son una llamada a herramienta.
-# Se compara por fragmento, por si una versión renombra: lo que se registra es
-# el conteo completo por tipo, para que se pueda releer.
-FRAGMENTOS_HERRAMIENTA = ("command", "tool", "search", "file_change", "patch")
+# Tipos de ítem de los eventos JSONL de codex que NO son una llamada a
+# herramienta: el mensaje del agente y su razonamiento. Todo otro ítem
+# completado cuenta como herramienta, a propósito: una versión del CLI que
+# renombre o agregue un tipo tiene que sobrar y sacar la corrida de A, no
+# faltar y colarla. El conteo completo por tipo queda en el encabezado, para
+# que se pueda releer.
+ITEMS_BENIGNOS = ("agent_message", "reasoning")
 
 
 class CorridaFallida(RuntimeError):
@@ -173,7 +176,7 @@ def contar_eventos(jsonl: str) -> tuple[Counter, int]:
         if isinstance(item, dict):
             tipo_item = str(item.get("type", "?"))
             tipos[f"{tipo}/{tipo_item}"] += 1
-            if tipo.endswith("completed") and any(f in tipo_item for f in FRAGMENTOS_HERRAMIENTA):
+            if tipo.endswith("completed") and tipo_item not in ITEMS_BENIGNOS:
                 herramientas += 1
         else:
             tipos[tipo] += 1
@@ -205,8 +208,18 @@ def correr_codex(modo: str, prompt: str) -> tuple[str, dict, list[str]]:
 
 def mostrar_comando(cmd: list[str]) -> str:
     # Sin rutas de esta máquina: el nombre del CLI y sus flags, que es lo
-    # reproducible. Un argumento vacío se muestra como "".
-    partes = [Path(cmd[0]).stem] + [a if a != "" else '""' for a in cmd[1:]]
+    # reproducible. Un argumento vacío se muestra como "", y el archivo de
+    # salida (un temporal con el nombre de la cuenta adentro) como <archivo>.
+    # Lo cazó la ronda adversarial: la primera versión solo sacaba la ruta del
+    # ejecutable.
+    partes = [Path(cmd[0]).stem]
+    anterior = ""
+    for a in cmd[1:]:
+        if anterior in ("-o", "--output-last-message"):
+            partes.append("<archivo>")
+        else:
+            partes.append(a if a != "" else '""')
+        anterior = a
     return " ".join(p if " " not in p else f'"{p}"' for p in partes)
 
 

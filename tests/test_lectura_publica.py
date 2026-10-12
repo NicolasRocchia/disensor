@@ -111,3 +111,40 @@ def test_los_eventos_jsonl_cuentan_las_herramientas():
     assert herramientas == 1
     assert tipos["item.completed/command_execution"] == 1
     assert tipos["item.completed/agent_message"] == 1
+
+
+def test_un_item_desconocido_cuenta_como_herramienta():
+    # Lado seguro: lo que no se reconoce sobra y saca la corrida de A, no se cuela.
+    _tipos, herramientas = correr.contar_eventos(
+        '{"type": "item.completed", "item": {"type": "algo_nuevo"}}' + chr(10)
+        + '{"type": "item.completed", "item": {"type": "reasoning"}}'
+    )
+    assert herramientas == 1
+
+
+def test_el_comando_mostrado_no_lleva_la_ruta_del_archivo_de_salida():
+    cmd = ["C:/x/codex.cmd", "exec", "--json", "-o", "C:/Users/alguien/AppData/Local/Temp/x/respuesta.md", "--tools", ""]
+    mostrado = correr.mostrar_comando(cmd)
+    assert "alguien" not in mostrado and "respuesta.md" not in mostrado
+    assert mostrado == 'codex exec --json -o <archivo> --tools ""'
+
+
+def test_un_bloque_abreviado_con_verification_fuera_de_un_hallazgo_no_puntua():
+    # Hallazgo 1 de la ronda 2: con `[...]` el bloque no parseaba y la caída a
+    # expresión regular encontraba la clave en cualquier parte del bloque.
+    r = puntuar.puntuar("```json" + chr(10) + '{"findings": [...], "notes": {"verification": "not a finding"}}' + chr(10) + "```")
+    assert r["verification"]["auto"] is not True
+    assert r["findings_final_state"]["auto"] is not True
+
+
+def test_un_bloque_abreviado_que_se_repara_puntua_por_estructura():
+    bloque = '{"findings": [{"final_state": "incorporated", "verification": {"against": "repository"}, ...}, ...], ...}'
+    r = puntuar.puntuar("```json" + chr(10) + bloque + chr(10) + "```")
+    assert r["findings_final_state"]["auto"] is True
+    assert r["verification"]["auto"] is True
+
+
+def test_un_bloque_que_no_parsea_ni_reparado_queda_a_juicio():
+    r = puntuar.puntuar("```json" + chr(10) + "{esto no es json" + chr(10) + "```")
+    assert r["findings_final_state"]["auto"] is None
+    assert r["verification"]["auto"] is None
