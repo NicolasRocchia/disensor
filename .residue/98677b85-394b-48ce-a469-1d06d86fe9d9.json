@@ -1,0 +1,340 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "98677b85-394b-48ce-a469-1d06d86fe9d9",
+    "created_at": "2026-10-12T13:03:19-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "0791dea918f28631e2c7a7c5b2fcce21ae4fbff7",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "170a94bf3ab102b87734b3d1f5818df8ae869847"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La corrida podia mezclar objetos de dos commits bajo un solo hash impreso",
+      "description": "Ronda 1 sobre 59276db. El script capturaba `git rev-parse HEAD` una vez, pero blob() y ls-tree resolvian el nombre HEAD en cada lectura, y validate_artifact carga los esquemas del checkout en el momento de validar; la guarda de limpieza era una sola mirada al empezar. Otro proceso que moviera HEAD a otro commit limpio durante la corrida dejaba vectores o declaraciones de B digeridos bajo el commit A en checker_revision, fixed y las URLs.",
+      "location": "tools/emitir-55.py:234 (blob) y 343-374",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto tal como lo describio el revisor: blob() usaba la cadena HEAD:{ruta} y el ls-tree de .residue el literal HEAD; load_schema lee del paquete en src/ por importlib.resources al validar, no al importar. No habia segunda mirada antes de escribir."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "8293cb0: toda lectura va por el hash resuelto al empezar (blob(commit, ruta), ls-tree commit, show -s commit) y mismo_checker() antes de escribir exige que HEAD siga en ese commit, que el arbol siga limpio y que rules.py y los cuatro esquemas del checkout, normalizados a LF, tengan el sha256 de sus blobs. Probado en negativo llamando a mismo_checker con un commit falso y con un sha falso de rules.py: se niega en los dos casos y pasa con los reales. La ronda 2, sobre 8293cb0, no lo volvio a traer."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La promesa de SHA256SUMS identico omitia que summary.json registra Python y jsonschema",
+      "description": "Ronda 1 sobre 59276db. El docstring y README.txt prometian que dos corridas en el mismo commit con el mismo --runner dan el mismo SHA256SUMS, pero summary.json lleva platform.python_version() y la version instalada de jsonschema, y SHA256SUMS lo cubre; pyproject admite Python >=3.10 y jsonschema>=4.18 sin tope, asi que dos entornos soportados dan sumas distintas.",
+      "location": "tools/emitir-55.py:46-48, 590-594, 625-629",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto: summary.json lleva las dos versiones por pedido del brief (seccion 5.6) y SHA256SUMS cubre todos los archivos (seccion 5.8). La promesa tal como estaba escrita era falsa entre entornos."
+      },
+      "remedy_adjustment": "El revisor ofrecia dos salidas: hacer la suma reproducible entre entornos o acotar el contrato. Se acoto el contrato (docstring en los dos idiomas y README.txt): mismo commit, mismo runner y mismas versiones de Python y jsonschema, y se dice que otro entorno cambia esa linea de summary.json y la suma final, no los reportes ni los registros. No se sacaron las versiones de summary.json: el brief pide registrarlas ahi y que la suma cubra todo, y dice que el checker es el codigo mas Python y jsonschema.",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "8293cb0 reescribe la promesa en el docstring (ES y EN) y en README.txt. La ronda 2, sobre 8293cb0, no lo volvio a traer."
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "info",
+      "title": "El control negativo podria estar poco ligado a sus registros 5.5",
+      "description": "Hipotesis sin verificar del revisor en la ronda 1, que no la conto como hallazgo. Cada reporte declara control-failed sobre identidades concretas como <event_id>/R4, mientras los registros 5.5 apuntan solo a la etiqueta R4, y el reporte no referencia ningun registro ni control-results.json. El lector fijado acepta la forma; el revisor no pudo establecer que viole la v0.1 y lo dejo para el texto normativo del 5.4/5.5.",
+      "location": "tools/emitir-55.py (roll-up.negative-capable de run-residue-v0.X.json)",
+      "final_state": "refuted_interpretive",
+      "verification": {
+        "against": "external_source",
+        "detail": "Leido el lector de referencia fijado (agent_evidence_vectors.w3creport, tag v0.17.4) y el INDEX del corpus: la fila W3C-R-029 define el vinculo del control como el mismo checker revision y el mismo constraint-set que los checks por los que habla, y eso es lo que llevan fixed del reporte (checker@commit, residue/v0.X) y target_check de cada registro (checker_revision, config_digest de un archivo que nombra ese esquema). El vinculo mas fino, por identidad de check en vez de por etiqueta, no tiene ranura en la v0.1 (abierto O7, seccion 5.5 propuesta y no normativa): es lo que los registros 5.5 vienen a llenar desde afuera del reporte, no un defecto del emisor. Es un juicio sobre el texto, no una prueba, y por eso queda como refutacion interpretativa para que lo mire una persona."
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un modulo sin versionar bajo src/ reemplazaba una dependencia del validador y la corrida seguia atribuida al commit limpio",
+      "description": "Ronda 2 sobre 8293cb0. El script antepone src/ al sys.path antes de importar disensor.rules, que importa jsonschema; la guarda de limpieza usa --untracked-files=no y hasta imprime que los sueltos no afectan un checkout, y la segunda mirada compara solo rules.py y los esquemas versionados. Un src/jsonschema/__init__.py sin versionar corre en lugar del instalado mientras checker_revision, rules_sha256, los sha de esquemas y la version registrada de jsonschema siguen diciendo commit limpio.",
+      "location": "tools/emitir-55.py:184-185, 388-397, 702-705",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto: sys.path.insert(0, src) va antes de los imports y rules.py hace `from jsonschema import Draft202012Validator` (src/disensor/rules.py:17); nada miraba lo sin versionar bajo src/ ni de donde se habia importado jsonschema."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "a7149ea: antes de importar, el script se niega si `git status --porcelain --ignored -- src` lista algo sin versionar o ignorado bajo src/ (salvo __pycache__, que no agrega modulos), y despues de importar exige que disensor.rules.__file__ sea el src/disensor/rules.py del checkout y que jsonschema.__file__ este fuera del repositorio. Probado con un centinela src/jsonschema/__init__.py que levanta SystemExit si se importa: el script se nego nombrandolo, sin importarlo. La ronda 3, sobre a7149ea, no lo volvio a traer."
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El argumento de salida aceptaba cualquier directorio y sobreescribia en silencio",
+      "description": "Ronda 3 sobre a7149ea. El script tomaba args.salida sin validarlo y abria cada destino con wb: `python tools/emitir-55.py --runner x .` sembraba los doce archivos en la raiz del checkout, y cualquier directorio existente, dentro o fuera del repositorio, perdia sus archivos homonimos sin aviso, sin negativa ni directorio intermedio. La guarda de limpieza corre justo antes y no ve lo que se escribe despues.",
+      "location": "tools/emitir-55.py:421, 756-759",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto en lo esencial: no habia ninguna validacion de args.salida y los open(..., wb) pisaban lo que hubiera. El ejemplo del revisor de pisar un README.txt del repositorio no aplica tal cual (el repositorio tiene README.md), pero `.` si dejaba doce archivos sueltos en el checkout y un directorio ajeno si perdia homonimos."
+      },
+      "remedy_adjustment": "El revisor pedia rechazar todo destino existente o no vacio, publicar por un directorio intermedio con renombre atomico y agregar tests del emisor. Se rechaza el destino si esta dentro del repositorio y git no lo ignora, o si ya existe con algo que este script no emite; la propia salida de una corrida anterior si se sobreescribe, porque correr dos veces sobre el mismo directorio es el uso que piden el brief y los scripts hermanos de tools/. No hay directorio intermedio: los doce archivos se calculan completos antes de abrir el primero, y la suma final cubre lo que se escribio. Los tests quedan fuera por alcance del brief (seccion 9: nada en tests/) y por la convencion de tools/, ya declarada en el evento 222222a9.",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "dbc45a1: destino_seguro() consulta `git check-ignore` sobre un hijo del destino (con la barra final, un gitignore global con una linea vacia en CRLF daba por ignorado cualquier directorio inexistente) y recorre el directorio si existe. Probado: `.`, `tools`, `salida-nueva` (dentro del repositorio, sin ignorar) y un directorio externo con un notas.txt ajeno se niegan con el mensaje esperado; salida-55/ con la salida anterior y un directorio externo vacio corren y dan el mismo SHA256SUMS. La ronda 4, sobre dbc45a1, no lo volvio a traer."
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Un directorio de salida reutilizado podia quedar con archivos viejos fuera de SHA256SUMS",
+      "description": "Hipotesis sin verificar del revisor en la ronda 3: el emisor sobreescribia solo sus doce nombres, no exigia un directorio vacio, y SHA256SUMS cubre solo lo que escribe, asi que un archivo viejo podia quedar al lado del paquete fresco sin figurar en el manifiesto.",
+      "location": "tools/emitir-55.py (escritura de archivos)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto: nada miraba el contenido previo del destino. El caso real es un directorio de salida de otro script o de una version anterior del emisor con nombres distintos."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "dbc45a1, el mismo arreglo que h5: si el destino existe, solo puede contener los doce archivos emitidos y el directorio configs/; cualquier otro nombre lo frena. Probado con un directorio externo que tenia un notas.txt. La ronda 4, sobre dbc45a1, no lo volvio a traer."
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r1",
+      "severity": "info",
+      "title": "El control.state fijo en fail podria contradecir a los checks que referencia",
+      "description": "Hipotesis sin verificar del revisor en la ronda 3: el reporte lista checks de declaraciones validas (pass) y el bloque negative-capable.control lleva state fail fijo; sin el corpus ni el lector instalados, el revisor no pudo decidir si ese estado es contrafactico o tiene que coincidir con los checks referenciados.",
+      "location": "tools/emitir-55.py (roll-up.negative-capable.control.state)",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "external_source",
+        "detail": "El estado del control es el del control, no el de los checks: control-failed dice que el checker, con el mismo fixed, produjo fail sobre el control (aca los registros 5.5, todos MUST-FAIL que fallaron), y eso es lo que prueba que los pass de la corrida podian haber sido fail. El lector de referencia fijado exige literalmente control.state igual a fail bajo la fila W3C-R-013, y el miembro v49afe44cc51bc376 del corpus 0.17.4 tiene dos checks pass con control.state fail y expected accept. Los tres reportes pasaron ese lector con [] y []. Lo que esto establece es la forma del formato y la aceptacion del lector; no establece que el control sea suficiente evidencia por identidad de check, que es h3."
+      },
+      "evidence": {
+        "link": "https://raw.githubusercontent.com/probityai/agent-evidence-vectors/v0.17.4/vectors-w3c-report/vectors/v49afe44cc51bc376.json",
+        "text": "Miembro v49afe44cc51bc376 (family w3c-f-29, kind accept): checks c-pass y c-pass-2 en state pass; roll-up.negative-capable = {kind: control-failed, control: {checks: [c-pass, c-pass-2], fixed: {checker: checker-1, constraint-set: cs-1}, state: fail}}. En w3creport.py (tag v0.17.4), la fila R-013 para control-failed exige control.state exactamente fail."
+      }
+    },
+    {
+      "id": "h8",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un enlace dentro del destino redirigia la escritura fuera del directorio revisado",
+      "description": "Ronda 4 sobre dbc45a1. destino_seguro() miraba solo nombres: un configs/ que fuera junction (en Windows no hace falta privilegio) o un nombre permitido que fuera enlace simbolico pasaba la revision, os.walk no lo seguia, y los open(..., wb) posteriores si lo seguian y pisaban archivos fuera del destino. El mismo primitivo valia para cada nombre emitido.",
+      "location": "tools/emitir-55.py:335-344, 795-799",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto: el conjunto permitidos se comparaba por nombre relativo y nada miraba si la entrada era un enlace. Ademas del caso del revisor, un enlace duro (un solo inodo con dos nombres) tampoco se veia y truncaba el otro archivo al escribir."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "75f3be1: es_enlace() marca enlaces simbolicos, puntos de reanalisis de Windows (st_reparse_tag o FILE_ATTRIBUTE_REPARSE_POINT) y archivos regulares con st_nlink > 1, y destino_seguro() frena la corrida si hay alguno dentro del destino. Probado con un junction configs/ hacia un directorio con un residue-v0.2.json centinela y con un fixtures.json que era enlace duro de otro archivo: el script se nego nombrando la entrada y los dos centinelas quedaron intactos. La ronda 5, sobre 75f3be1, no lo volvio a traer."
+      }
+    },
+    {
+      "id": "h9",
+      "origin": "r1",
+      "severity": "info",
+      "title": "Los reportes v0.1 podrian necesitar validacion contra el lector de referencia",
+      "description": "Hipotesis sin verificar del revisor en la ronda 4: el checkout no tiene esquema ni lector del formato public-agent-conformance/report/v0.1, y sus busquedas web del formato y de los terminos negative-capable y control-failed no devolvieron nada, asi que no pudo decidir si la estructura emitida es la del contrato.",
+      "location": "tools/emitir-55.py (run-residue-v0.X.json)",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "execution",
+        "detail": "La validacion que el revisor pide es la que el generador corrio en cada commit del PR con el lector fijado, por el comando del brief (seccion 7): shape_errors() y rejections() dieron [] y [] para run-residue-v0.2.json, v0.3 y v0.4 en 59276db, 8293cb0, a7149ea, dbc45a1 y 75f3be1. Eso establece que el lector 0.17.4 acepta la forma; no establece nada sobre lo que el texto normativo decida despues (h3)."
+      },
+      "evidence": {
+        "text": "uv run --no-project --with agent-evidence-vectors==0.17.4 python -c <el programa del brief, seccion 7: carga el reporte e imprime w.shape_errors(r) y w.rejections(r)> salida-55/run-residue-v0.4.json imprime [] y []; igual para v0.2 y v0.3, en cada uno de los seis commits del PR (59276db, 8293cb0, a7149ea, dbc45a1, 75f3be1 y el ultimo)."
+      }
+    },
+    {
+      "id": "h10",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un modulo sin versionar bajo tools/ sombreaba una dependencia de jsonschema con todas las guardas en verde",
+      "description": "Ronda 5 sobre 75f3be1. Al correr `python tools/emitir-55.py`, Python antepone el directorio del script, tools/, a sys.path; jsonschema importa attrs y referencing, asi que un tools/attrs.py o un tools/referencing/ sin versionar se importaba antes que la dependencia instalada. La guarda de a7149ea miraba solo src/, la de origen miraba solo jsonschema.__file__ (que seguia siendo el instalado) y la version registrada seguia siendo la de la distribucion. Hasta la lista de sueltos decia que no afectaban el checkout.",
+      "location": "tools/emitir-55.py:225-248, 502-511",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Cierto: sys.path[0] es el directorio del script en un lanzamiento normal, y nada lo miraba. Peor que lo que dijo el revisor: tambien la biblioteca estandar que el script importa al principio (argparse, hashlib, json, re, subprocess) era sombreable desde tools/, porque esos imports corrian antes de cualquier guarda."
+      },
+      "remedy_adjustment": "El revisor proponia relanzar en modo aislado con rutas controladas, o rechazar y verificar toda ruta del checkout que pueda participar en los imports. Se eligio la regla inspeccionable y no el relanzamiento: con os y sys solos (ya cargados al arrancar), antes de cualquier otro import, el script exige ser el tools/emitir-55.py del directorio actual y se niega si algun directorio del repositorio esta en sys.path; eso obliga a correrlo con `python -P` (3.11 o mas), que no antepone el directorio del script, y queda dicho en el uso, el docstring y README.txt. No se usa -I porque quita el site del usuario, donde esta jsonschema en la maquina que emite.",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "0791dea: probado sin -P (se niega nombrando tools/ y pidiendo -P) y con -P mas un tools/attrs.py sin versionar que levanta SystemExit si se importa: el script corre y emite igual, sin importarlo. La ronda 6, sobre 0791dea, no trajo hallazgos ni hipotesis."
+      }
+    },
+    {
+      "id": "h11",
+      "origin": "r1",
+      "severity": "info",
+      "title": "Los registros 5.5 y los reportes no se validarian de punta a punta con el lector referenciado",
+      "description": "Hipotesis sin verificar del revisor en la ronda 5: el script solo comprueba un flat_root conocido y su coherencia interna, y nada en el diff pasa fixtures.json ni run-residue-v0.X.json por el lector de agent-evidence-vectors 0.17.4 ni por otro esquema.",
+      "location": "tools/emitir-55.py (salidas)",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "execution",
+        "detail": "Para los reportes es lo que h9 ya refuto: el lector fijado corrio sobre los tres en cada commit del PR con [] y [], por fuera del script y por el comando del brief; que el script no lo haga es diseno (no importa agent-evidence-vectors, brief seccion 3). Para los registros 5.5 no existe lector ni esquema: la seccion 5.5 del 0087 es propuesta y no normativa (abierto O7), y Anton Sokolov entrego los suyos sin validador; lo que se puede verificar de fixtures.json es su estabilidad byte a byte y que su bloque isolation referencia isolation.json por sha256, y eso se hizo. La refutacion cubre lo que el revisor pidio y era ejecutable; lo que no existe queda en el residuo r3."
+      },
+      "evidence": {
+        "text": "Las tres salidas del lector fijado ([] y []) por commit, y SHA256SUMS identico en dos corridas por commit (5110a5f2, 0c518973, 25bd0ffc, d13c8471, a2fa5e27 y el del ultimo commit), con fixtures.json cubierto por la suma."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "principal_refutation",
+        "finding_ref": "h3",
+        "refutation_type": "interpretive",
+        "requires_human_attention": true,
+        "description": "Si el vinculo del control con los registros 5.5 alcanza con el mismo checker revision y constraint-set (fila W3C-R-029) o si el 5.5 deberia ligarse por identidad de check lo decide el texto normativo, no este emisor. Queda para Nico y para la lista: la forma de los reportes es la del brief (D1 y seccion 5.2) y el lector fijado la acepta."
+      },
+      {
+        "id": "r2",
+        "class": "principal_refutation",
+        "finding_ref": "h7",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "La refutacion se apoya en el lector fijado y en un miembro del corpus que tiene exactamente esta forma; queda declarada para que quien lea el residuo pueda no tomarla al pie de la letra."
+      },
+      {
+        "id": "r3",
+        "class": "principal_refutation",
+        "finding_ref": "h9",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "Refutada por ejecucion del lector fijado sobre los tres reportes en cada commit; queda declarada para que quien lea el residuo pueda repetirla con el mismo comando."
+      },
+      {
+        "id": "r4",
+        "class": "principal_refutation",
+        "finding_ref": "h11",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "Refutada con las corridas del lector fijado y la doble corrida por commit; para los registros 5.5 no hay lector que correr, y eso queda dicho en r3."
+      },
+      {
+        "id": "r5",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no ejecuto tools/emitir-55.py ni el lector de referencia en ninguna de las seis rondas (el paquete de revision solo le permite escribir el informe); en las rondas 2 y 3 si corrio pytest (637 passed, 7 skipped). Lo ejecuto solo el generador: dos corridas por commit con SHA256SUMS identico (5110a5f2 en 59276db, 0c518973 en 8293cb0, 25bd0ffc en a7149ea, d13c8471 en dbc45a1, a2fa5e27 en 75f3be1, 97ad0a63 en 0791dea), los tres reportes por el lector fijado (uv run --with agent-evidence-vectors==0.17.4) con [] y [] en cada commit, y pytest 637 passed, 7 skipped tras cada fix. Todo en una sola maquina (Windows, Python 3.14.2, jsonschema 4.26.0). La suite no ejercita tools/ por convencion del repositorio (declarado en 222222a9) y el brief excluye tests/ de este cambio; el emisor nuevo se verifico solo por estas corridas declaradas a mano. Para los registros 5.5 (fixtures.json) no existe lector ni esquema que correr: la seccion 5.5 del 0087 es propuesta y no normativa."
+      },
+      {
+        "id": "r6",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Nadie reprodujo las dos condiciones adversas en vivo: ni un proceso concurrente que mueva HEAD durante la corrida (h1) ni dos entornos con versiones distintas de Python y jsonschema (h2). El fix de h1 se probo llamando a mismo_checker() con un commit falso y con un sha falso; el de h4 con un centinela src/jsonschema/__init__.py que levanta SystemExit si se importa, y el script se nego antes de importarlo. Lo mismo vale para el fix de h8 (junction y enlace duro plantados antes de correr, no entre la mirada y la escritura) y para el de h10 (un tools/attrs.py centinela, no una dependencia perturbada de verdad). Son pruebas del mecanismo, no de la carrera real."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 11,
+      "valid": {
+        "incorporated": 7,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 3,
+        "refuted_interpretive": 1
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 2272
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:6003ceede7ea58c6eb6dee1955e38b93c30dbbb7a21a8a05c653bede5efe7128",
+      "report_hash": "sha256:e99c555c347aff388d0aba236513d3ab52738a449a7ffd9f7073562bf78a8a64",
+      "reviewer_seconds": 192
+    },
+    "dev.disensor.round.first": {
+      "result_version": 3,
+      "head_oid": "59276db477b4998b1a8ef0fe46e024f99987f3a7",
+      "pack_hash": "sha256:9300bb8222faa039c30d48997f006e87196e14b7a94cd447f929ecd1a1dfe653",
+      "report_hash": "sha256:70a7dea5981a841cb48d9d023a499d92ce1aa9b67ffacaaaa2a8bd1c8492ddca",
+      "reviewer_seconds": 148,
+      "tree_unchanged": true
+    },
+    "dev.disensor.round.second": {
+      "result_version": 3,
+      "head_oid": "8293cb0f8e192fead0e3f08b691cbf6f559fb056",
+      "pack_hash": "sha256:e238b9e92e3b6ef1feb28d434d6f4da76656149bc411da91cd77c8ffd6ce02b3",
+      "report_hash": "sha256:cc308c5f30e1dfc87936ed1bcacd9dfb55dec9e39b0630a41ad4ad7b46cc2812",
+      "reviewer_seconds": 231,
+      "tree_unchanged": true
+    },
+    "dev.disensor.round.third": {
+      "result_version": 3,
+      "head_oid": "a7149ea316434b138482289a36e541a09de66b9a",
+      "pack_hash": "sha256:d22c273bc18358b8b29ff436aa79a74f369fde53f48f4bb1fa7e18adb9a8a03d",
+      "report_hash": "sha256:5feaa46d2c3903b4091b6d56b9bd16bd5364251ed7e3cc0ffbb140f8ac2ae5fa",
+      "reviewer_seconds": 218,
+      "tree_unchanged": true
+    },
+    "dev.disensor.round.fourth": {
+      "result_version": 3,
+      "head_oid": "dbc45a172a86fa65958d62f2a69703129cbd4fae",
+      "pack_hash": "sha256:159c1ed92113ecb6d9b8cff644278d4963357018cc4ae8605d10fbb973c93151",
+      "report_hash": "sha256:f6e5537f130cd8523fdde8ca7f14926e80786c3a5ea7cd29aa31fe1bc9aa1b29",
+      "reviewer_seconds": 96,
+      "tree_unchanged": true
+    },
+    "dev.disensor.round.fifth": {
+      "result_version": 3,
+      "head_oid": "75f3be156cba2aa2300fe6f273edbabc8b82362c",
+      "pack_hash": "sha256:b6938c6a4ea60c29de691467adbe2123cb3e49264e5e2a22aac60063db81065b",
+      "report_hash": "sha256:a57eb8fd666619dd96c391286ed2ba3f58bbc39a9817a8a6d657cd7cf5f9e43f",
+      "reviewer_seconds": 118,
+      "tree_unchanged": true
+    }
+  }
+}
