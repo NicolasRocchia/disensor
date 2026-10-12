@@ -375,11 +375,11 @@ def test_documented_counts_match_what_they_count():
             )
 
 
-# El ejemplo real del README: un recorte textual de una declaracion de `.residue/`.
+# El ejemplo real del README: un recorte de una declaracion de `.residue/`.
 # Un marcador HTML (invisible al renderizar) nombra el archivo de origen y el
-# bloque json que le sigue tiene que ser subconjunto exacto de ese archivo: cada
-# clave presente existe en el origen con el mismo valor, y cada elemento de una
-# lista es subconjunto de algun elemento de la lista de origen. Un recorte que
+# bloque json que le sigue tiene que ser recorte de ese archivo: cada clave
+# presente existe en el origen con el mismo valor, y cada lista es subsecuencia
+# de la lista de origen (sus elementos, en su orden). Un recorte que
 # envejece sin vigilancia es la misma clase de error que el "21 casos" del plano
 # (PR #49), con el agravante de que aca lo que envejeceria es la primera
 # declaracion que ve quien llega.
@@ -402,21 +402,23 @@ def _donde_no_es_recorte(parte, entero, ruta="$"):
     if isinstance(parte, list):
         if not isinstance(entero, list):
             return ruta
-        # Cada elemento del recorte consume un elemento distinto del origen: dos
+        # Subsecuencia, no conjunto: cada elemento del recorte consume un
+        # elemento distinto del origen, y mas adelante que el anterior. Dos
         # copias del mismo hallazgo no son un recorte de un archivo que lo tiene
-        # una vez. La primera version preguntaba "algun candidato matchea" sin
-        # consumirlo, y la ronda adversarial de este cambio lo reprodujo con un
-        # hallazgo duplicado que pasaba. El match es voraz, primer libre que
-        # encaja: alcanza porque los elementos de estas listas llevan id y un
-        # recorte con id es subconjunto de un solo elemento del origen.
-        libres = list(range(len(entero)))
+        # una vez (lo cazo la ronda adversarial del PR #118, que reprodujo un
+        # duplicado pasando), y el orden invertido tampoco (lo cazo la ronda del
+        # cambio equivalente en el sitio, disensor-web #13: la version anterior
+        # trataba la lista como conjunto). El match es voraz, el primer libre
+        # que encaja: para una subsecuencia, elegir el mas temprano nunca
+        # cierra una opcion que otro orden abriria.
+        desde = 0
         for i, elemento in enumerate(parte):
-            for j in libres:
-                if _donde_no_es_recorte(elemento, entero[j]) is None:
-                    libres.remove(j)
-                    break
-            else:
+            j = desde
+            while j < len(entero) and _donde_no_es_recorte(elemento, entero[j]) is not None:
+                j += 1
+            if j == len(entero):
                 return f"{ruta}[{i}]"
+            desde = j + 1
         return None
     return None if parte == entero else ruta
 
@@ -427,12 +429,15 @@ def test_el_comparador_del_recorte_consume_un_elemento_del_origen_por_elemento()
     Un recorte con el mismo hallazgo dos veces no es un recorte: lo cazo la
     ronda adversarial del cambio que agrego el comparador, reproduciendolo con
     dos copias de h1 contra un origen con un solo h1, y la primera version
-    devolvia None. Las otras aserciones fijan lo que ya hacia: subconjunto por
-    clave, valor distinto es falla, clave ausente del origen es falla.
+    devolvia None. Tampoco lo es el orden invertido: la segunda version lo
+    aceptaba, y lo cazo la ronda del cambio equivalente en el sitio. Las otras
+    aserciones fijan lo que ya hacia: subconjunto por clave, valor distinto es
+    falla, clave ausente del origen es falla.
     """
     entero = {"findings": [{"id": "h1", "severity": "major"}, {"id": "h2"}]}
     assert _donde_no_es_recorte({"findings": [{"id": "h1"}]}, entero) is None
-    assert _donde_no_es_recorte({"findings": [{"id": "h2"}, {"id": "h1"}]}, entero) is None
+    assert _donde_no_es_recorte({"findings": [{"id": "h2"}]}, entero) is None
+    assert _donde_no_es_recorte({"findings": [{"id": "h2"}, {"id": "h1"}]}, entero) == "$.findings[1]"
     assert _donde_no_es_recorte({"findings": [{"id": "h1"}, {"id": "h1"}]}, entero) == "$.findings[1]"
     assert _donde_no_es_recorte({"findings": [{"id": "h1", "severity": "minor"}]}, entero) == "$.findings[0]"
     assert _donde_no_es_recorte({"findings": [{"id": "h3"}]}, entero) == "$.findings[0]"
@@ -445,7 +450,8 @@ def test_the_readme_example_is_a_verbatim_excerpt_of_the_declaration_it_names():
 
     Lo que se vigila: que el marcador exista una vez, que nombre un archivo que
     esta en el repositorio, que el bloque json lo siga sin nada en medio, que
-    cada valor del bloque este en el archivo con ese mismo valor, y que el
+    cada valor del bloque este en el archivo con ese mismo valor y en su orden,
+    y que el
     bloque muestre lo que la prosa promete: actores, hallazgos con su estado
     terminal, al menos uno con `fix_verification`, y residuo. Lo que NO vigila:
     que el recorte sea representativo, ni que la prosa alrededor describa bien
