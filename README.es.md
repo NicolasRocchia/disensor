@@ -17,6 +17,114 @@ El método detrás es el **desacuerdo controlado**: un modelo genera, un modelo 
 
 Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversarial automatizada con un segundo asistente de código en el desarrollo de software*, DOI [10.5281/zenodo.21633495](https://doi.org/10.5281/zenodo.21633495).
 
+## Cómo se ve el registro
+
+Un extracto de un evento real de este repositorio, textual, de [`.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json`](https://github.com/NicolasRocchia/disensor/blob/main/.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json), la declaración del [#101](https://github.com/NicolasRocchia/disensor/pull/101). Un cambio generado por un modelo de Anthropic pasó por doce corridas de un revisor de OpenAI, que devolvieron diecinueve hallazgos: dieciocho se incorporaron y uno se refutó con evidencia. Abajo van la entrada del revisor de una de esas corridas, los dos hallazgos que salieron de ella y el ítem de residuo que uno de los dos dejó. Las claves y los valores enumerados son el contrato y se leen igual en cualquier idioma; la prosa de adentro está en castellano porque así escribe la gente de este repositorio. Una prueba compara este bloque con el archivo del que sale y falla si divergen.
+
+<!-- example-from: .residue/27089d19-ee91-4c6c-b517-63b9627969e0.json -->
+```json
+{
+  "schema": "residue/v0.4",
+  "event": {
+    "event_id": "27089d19-ee91-4c6c-b517-63b9627969e0",
+    "created_at": "2026-09-29T10:21:11-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "gate": "diff",
+    "criticality_level": "B",
+    "base_commit": "b340cfc30fc418957f2dfafc82c1e14bf8e87884",
+    "head_commit": "c2970915df2501b5eb214e3272174bb03638f610"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r8",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:3494df5ebd20cc793ff9c5a214a2e715758e69c41bbc9e09b70f7d3064ee6a1c"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h15",
+      "origin": "r8",
+      "severity": "major",
+      "title": "Una declaracion que el gate rechaza por sus propias comprobaciones daba por cubierto el merge",
+      "description": "El recorrido validaba el esquema y aplicaba G5, G6 y G7, pero no las comprobaciones por artefacto del gate: una declaracion de nivel C en un repositorio de nivel B (G2), un id no canonico o un archivo con otro nombre (G8), o un nivel A sin confinamiento admitido (G4) cubrian igual. Las comprobaciones del gate se extrajeron a gate.judge_artifact, que _run_gate y el recorrido comparten; el recorrido no aplica G9 porque una version anterior del esquema era la vigente cuando un merge viejo ocurrio, y lo dice. Las declaraciones que el PR agrego se juzgan como en el gate, y una mutacion de evidencia o un historico ilegible tambien lo dejan sin cobertura, como al PR.",
+      "location": "src/disensor/gate.py (judge_artifact); src/disensor/branch.py (_judge_merge, _historical_ids)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Comparadas las comprobaciones inline de _run_gate (G9, G8, G2, G3, G4, G5) con lo que aplicaba _judge_merge; la extraccion conserva el orden y los textos, y la suite del gate sigue en verde."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_branch.py::test_a_declaration_the_gate_rejects_on_its_own_checks_covers_nothing, que corre run_gate sobre el mismo PR y afirma que devuelve 1"
+      }
+    },
+    {
+      "id": "h16",
+      "origin": "r8",
+      "severity": "info",
+      "title": "La resolucion de un merge con conflictos no entra en la cobertura",
+      "description": "Hipotesis del revisor: el recorrido evalua el rango desde el merge base hasta el segundo padre y no el arbol del commit de merge, asi que codigo introducido al resolver un conflicto puede diferir del head revisado y el merge figurar cubierto.",
+      "location": "src/disensor/branch.py (_judge_merge); src/disensor/gate.py (resolve_context, evaluate_coverage)",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "repository",
+        "detail": "Es el contrato del gate, no del panel: resolve_context toma head_oid como head del PR y evaluate_coverage y check_range_membership juzgan ese head; el gate nunca ve el arbol del merge que la plataforma crea al integrar. El panel replica exactamente lo que el gate juzgo. Lo que el revisor senala es un limite del gate que existe desde G6, y no cambia con este PR."
+      },
+      "evidence": {
+        "text": "gate.py, resolve_context: head_oid = gitctx.resolve_commit(head, repo_dir); status = gitctx.changed_status(mb, head_oid, repo_dir). El rango juzgado es merge base a head del PR."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r4",
+        "class": "principal_refutation",
+        "finding_ref": "h16",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "El revisor sugirio que la cobertura mirara el arbol del commit de merge y no el head del PR; se refuto con el codigo del gate, que juzga el head. El limite que senala (lo que se escribe al resolver un conflicto no pasa por ninguna revision) es del gate, no de este panel, y queda anotado."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 19,
+      "valid": {
+        "incorporated": 18,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 1,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  }
+}
+```
+
+`final_state` es el estado terminal de cada hallazgo, uno de seis (`incorporated`, `debt_recorded`, `owner_decision`, `refuted_verifiable`, `refuted_interpretive`, `escalated_open`). `verification.against` dice contra qué verificó el generador el hallazgo (`repository`, `execution` o `external_source`), y `fix_verification` cómo se verificó la corrección de un hallazgo incorporado. Cada ítem de residuo apunta a su hallazgo con `finding_ref`. Un hallazgo refutado con evidencia cierra y entra igual al residuo, para que una persona pueda no dar la refutación por buena. La guía campo por campo es `disensor guide`.
+
 ## Qué hay acá
 
 - `spec/residue.schema.json`: el esquema del artefacto (JSON Schema 2020-12), versión residue/v0.4. Las versiones superadas conservan su propio recurso congelado al lado.

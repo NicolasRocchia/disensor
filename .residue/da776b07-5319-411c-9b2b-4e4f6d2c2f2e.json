@@ -1,0 +1,114 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "da776b07-5319-411c-9b2b-4e4f6d2c2f2e",
+    "created_at": "2026-10-12T11:56:51-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "ec61871e75735c8067a2979715971e0fe1cc059b",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "de14e5ce0ebb87f49e164fcf21ff807f342e30d9"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El comparador del recorte del README aceptaba un hallazgo duplicado",
+      "description": "Hallazgo de la ronda 1, sobre b49e0e0 (pack sha256:6476e5a0d3a0d7ab3c2cd3d6892317610eb33f3204373f9407e2171de5a1f8e7, informe sha256:55466fb23ba7341a0b6c4aa330d8d0ca6ea7fad0a99bb35f06242bff654bc697, 280 segundos). La prueba nueva promete que el bloque JSON del README es un recorte textual de la declaración que nombra, pero para las listas el comparador preguntaba si algún elemento del origen matcheaba cada elemento del recorte sin consumirlo: dos copias del mismo hallazgo matcheaban el único h1 del origen y la prueba seguía en verde. El revisor lo reprodujo llamando al comparador con dos copias de h1 contra un origen con una. La ronda 2, sobre ec61871 (la de la extensión), no trajo hallazgos.",
+      "location": "tests/test_docs.py (_donde_no_es_recorte)",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido antes de tocar nada, con el comparador de b49e0e0: el README.md con el hallazgo h15 repetido en el bloque pasa la prueba (1 passed), y el comparador devuelve None para {'findings': [h1, h1]} contra un origen con un solo h1."
+      },
+      "final_state": "incorporated",
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_docs.py::test_el_comparador_del_recorte_consume_un_elemento_del_origen_por_elemento, que fija el duplicado en $.findings[1]; además, la mutación de repetir un hallazgo en README.md falla con el comparador de ec61871 en $.findings[2], y vuelve a pasar al restaurar el archivo."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las seis pruebas salteadas de la suite no se forzaron: los dos smoke tests de endurecimiento, opt-in con costo, que ejercitan la receta de Codex y que este diff no toca; la prueba de permiso de ejecución en POSIX, que corre en el CI; y tres index.json de las suites de vectores. El generador corrió el resto sobre ec61871 en Windows con Python 3.14: 637 pasan, incluida la prueba nueva del recorte y la del comparador. El revisor de la ronda 2 no pudo observar el final de la suite completa desde su herramienta (su sondeo falló a mitad de corrida) y lo declaró como brecha propia; sí vio las 11 pruebas de documentación en verde. La corrida del generador sobre el mismo head es la evidencia que al revisor le faltó."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El render de la sección nueva en GitHub no se puede observar antes del push, y en PyPI recién con la próxima release. Lo que sí se ejecutó sobre ec61871: readme_renderer 45.0 con cmarkgfm, la librería con la que PyPI renderiza el README, en un entorno aparte; el comentario example-from desaparece del HTML, el título y el bloque JSON con el id de la declaración renderizan, y los enlaces son absolutos. Los dos enlaces que el revisor dejó sin verificar se verificaron contra el repositorio y la API: el PR #101 existe y está mergeado (2026-09-29), y .residue/27089d19-ee91-4c6c-b517-63b9627969e0.json está en main desde esa fecha, así que la URL a main resuelve hoy."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 1286
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:bb2a1a573c2866effde970be83a49e3d37a36de03393d40f09b7be09340aa7b8",
+      "report_hash": "sha256:ce057fa5b364efc93b664debd5ba38cabdc350f7388074bc8908742fbbfd7d8d",
+      "reviewer_seconds": 250
+    }
+  }
+}
