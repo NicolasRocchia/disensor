@@ -373,3 +373,83 @@ def test_documented_counts_match_what_they_count():
                 f"{archivo}: la prosa dice {valor} donde {clave} cuenta {real[clave]}. "
                 "La cifra envejecio: actualizar la prosa (y el desglose si lo lleva)."
             )
+
+
+# El ejemplo real del README: un recorte textual de una declaracion de `.residue/`.
+# Un marcador HTML (invisible al renderizar) nombra el archivo de origen y el
+# bloque json que le sigue tiene que ser subconjunto exacto de ese archivo: cada
+# clave presente existe en el origen con el mismo valor, y cada elemento de una
+# lista es subconjunto de algun elemento de la lista de origen. Un recorte que
+# envejece sin vigilancia es la misma clase de error que el "21 casos" del plano
+# (PR #49), con el agravante de que aca lo que envejeceria es la primera
+# declaracion que ve quien llega.
+EJEMPLO = re.compile(r"^<!-- example-from: (\.residue/[0-9a-f-]+\.json) -->$", re.M)
+CERCA_JSON = re.compile(r"^```json\n(.*?)^```", re.M | re.S)
+
+
+def _donde_no_es_recorte(parte, entero, ruta="$"):
+    """La primera ruta en la que `parte` no es subconjunto de `entero`, o None."""
+    if isinstance(parte, dict):
+        if not isinstance(entero, dict):
+            return ruta
+        for clave, valor in parte.items():
+            if clave not in entero:
+                return f"{ruta}.{clave}"
+            falla = _donde_no_es_recorte(valor, entero[clave], f"{ruta}.{clave}")
+            if falla:
+                return falla
+        return None
+    if isinstance(parte, list):
+        if not isinstance(entero, list):
+            return ruta
+        for i, elemento in enumerate(parte):
+            if not any(_donde_no_es_recorte(elemento, candidato) is None for candidato in entero):
+                return f"{ruta}[{i}]"
+        return None
+    return None if parte == entero else ruta
+
+
+def test_the_readme_example_is_a_verbatim_excerpt_of_the_declaration_it_names():
+    """El bloque de ejemplo de cada README sale de una declaracion real y lo prueba.
+
+    Lo que se vigila: que el marcador exista una vez, que nombre un archivo que
+    esta en el repositorio, que el bloque json lo siga sin nada en medio, que
+    cada valor del bloque este en el archivo con ese mismo valor, y que el
+    bloque muestre lo que la prosa promete: actores, hallazgos con su estado
+    terminal, al menos uno con `fix_verification`, y residuo. Lo que NO vigila:
+    que el recorte sea representativo, ni que la prosa alrededor describa bien
+    lo que el bloque muestra. Eso queda en quien edita.
+    """
+    import json
+
+    origenes = set()
+    for path in [p for p in DOCS if p.name.startswith("README")]:
+        texto = path.read_text(encoding="utf-8")
+        marcas = list(EJEMPLO.finditer(texto))
+        assert len(marcas) == 1, (
+            f"{path.name}: el marcador example-from aparece {len(marcas)} veces y tiene que "
+            "aparecer exactamente una."
+        )
+        origen = ROOT / marcas[0].group(1)
+        assert origen.exists(), f"{path.name}: el ejemplo dice venir de {origen} y no existe"
+        origenes.add(origen)
+        cerca = CERCA_JSON.search(texto, marcas[0].end())
+        assert cerca and texto[marcas[0].end():cerca.start()].strip() == "", (
+            f"{path.name}: el bloque json tiene que seguir al marcador example-from"
+        )
+        recorte = json.loads(cerca.group(1))
+        entero = json.loads(origen.read_text(encoding="utf-8"))
+        falla = _donde_no_es_recorte(recorte, entero)
+        assert falla is None, (
+            f"{path.name}: {falla} no esta en {origen.name} con ese valor. El ejemplo del "
+            "README dejo de ser un recorte textual de la declaracion que dice mostrar."
+        )
+        for clave in ("actors", "findings", "residue"):
+            assert clave in recorte, f"{path.name}: el ejemplo no muestra {clave}"
+        assert recorte["findings"], f"{path.name}: el ejemplo no muestra ningun hallazgo"
+        assert all("final_state" in h for h in recorte["findings"])
+        assert any("fix_verification" in h for h in recorte["findings"]), (
+            f"{path.name}: el ejemplo no muestra ningun hallazgo con fix_verification"
+        )
+        assert recorte["residue"].get("items"), f"{path.name}: el ejemplo no muestra residuo"
+    assert len(origenes) == 1, f"los dos README citan declaraciones distintas: {origenes}"
