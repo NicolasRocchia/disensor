@@ -402,11 +402,42 @@ def _donde_no_es_recorte(parte, entero, ruta="$"):
     if isinstance(parte, list):
         if not isinstance(entero, list):
             return ruta
+        # Cada elemento del recorte consume un elemento distinto del origen: dos
+        # copias del mismo hallazgo no son un recorte de un archivo que lo tiene
+        # una vez. La primera version preguntaba "algun candidato matchea" sin
+        # consumirlo, y la ronda adversarial de este cambio lo reprodujo con un
+        # hallazgo duplicado que pasaba. El match es voraz, primer libre que
+        # encaja: alcanza porque los elementos de estas listas llevan id y un
+        # recorte con id es subconjunto de un solo elemento del origen.
+        libres = list(range(len(entero)))
         for i, elemento in enumerate(parte):
-            if not any(_donde_no_es_recorte(elemento, candidato) is None for candidato in entero):
+            for j in libres:
+                if _donde_no_es_recorte(elemento, entero[j]) is None:
+                    libres.remove(j)
+                    break
+            else:
                 return f"{ruta}[{i}]"
         return None
     return None if parte == entero else ruta
+
+
+def test_el_comparador_del_recorte_consume_un_elemento_del_origen_por_elemento():
+    """El comparador que vigila el ejemplo del README, probado solo.
+
+    Un recorte con el mismo hallazgo dos veces no es un recorte: lo cazo la
+    ronda adversarial del cambio que agrego el comparador, reproduciendolo con
+    dos copias de h1 contra un origen con un solo h1, y la primera version
+    devolvia None. Las otras aserciones fijan lo que ya hacia: subconjunto por
+    clave, valor distinto es falla, clave ausente del origen es falla.
+    """
+    entero = {"findings": [{"id": "h1", "severity": "major"}, {"id": "h2"}]}
+    assert _donde_no_es_recorte({"findings": [{"id": "h1"}]}, entero) is None
+    assert _donde_no_es_recorte({"findings": [{"id": "h2"}, {"id": "h1"}]}, entero) is None
+    assert _donde_no_es_recorte({"findings": [{"id": "h1"}, {"id": "h1"}]}, entero) == "$.findings[1]"
+    assert _donde_no_es_recorte({"findings": [{"id": "h1", "severity": "minor"}]}, entero) == "$.findings[0]"
+    assert _donde_no_es_recorte({"findings": [{"id": "h3"}]}, entero) == "$.findings[0]"
+    assert _donde_no_es_recorte({"extra": 1}, entero) == "$.extra"
+    assert _donde_no_es_recorte({"findings": {"id": "h1"}}, entero) == "$.findings"
 
 
 def test_the_readme_example_is_a_verbatim_excerpt_of_the_declaration_it_names():
