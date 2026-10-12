@@ -108,13 +108,25 @@ CATALOG: dict[str, dict] = {
     "claude": {
         "family": "anthropic",
         "model": "claude-code",
-        "command": ["claude", "-p", "{pack}"],
+        # Sin --safe-mode el revisor arranca con lo que la maquina le agrega a
+        # Claude Code: los plugins instalados y, desde la 2.1.273, los que se
+        # sincronizan desde la cuenta de claude.ai, con sus skills, hooks y
+        # servidores MCP, mas los CLAUDE.md del usuario. Medido el 2026-10-12:
+        # una sesion `-p` sin el flag cargo 11 plugins, 72 skills y 35
+        # servidores MCP antes de leer nada; con el, ninguno, y conserva las
+        # herramientas nativas con las que lee el checkout. Es el agujero de
+        # #108 visto del lado de Claude. No cubre al repositorio revisado: esa
+        # prueba hostil no se corrio, y por eso sigue `unverified`.
+        "command": ["claude", "-p", "{pack}", "--safe-mode"],
         "hardening": "unverified",
         "egress": "cloud",
         "provider": "Anthropic",
         "notes": (
-            "Useful as a reviewer when the generator is NOT from this family. The runner "
-            "discards any reviewer whose family matches the generator before spending a run."
+            "Useful as a reviewer when the generator is NOT from this family; the runner "
+            "discards any reviewer whose family matches the generator before spending a run. "
+            "--safe-mode starts the session without what this machine adds to Claude Code: "
+            "installed and synced plugins, hooks, MCP servers, skills and CLAUDE.md. Not "
+            "tested against a hostile repository yet, so the hardening stays unverified."
         ),
     },
 }
