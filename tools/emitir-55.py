@@ -16,10 +16,14 @@ Correr desde la raíz del repositorio / run from the repository root:
 Corre sobre el checkout, porque usa el validador de ese commit: imprime el
 commit y se niega a correr si hay archivos versionados modificados. Los datos
 de entrada (vectores, índices, declaraciones, esquemas, `rules.py`, LICENSE) se
-leen de los objetos de git de HEAD y no del disco, así los bytes que se digieren
-son los del commit y no los de un checkout con CRLF. Por defecto escribe en
-./salida-55/, que está en .gitignore, y nada más, tampoco bytecode. `--runner`
-es quien corre, y entra solo en `control-results.json`.
+leen de los objetos de git del commit, resuelto una vez al empezar y nunca por
+el nombre HEAD, así los bytes que se digieren son los del commit y no los de un
+checkout con CRLF ni los de otro commit al que alguien haya movido HEAD en el
+medio. Antes de escribir vuelve a mirar: HEAD sigue en ese commit, el árbol
+sigue limpio y `rules.py` y los esquemas del checkout, que es de donde carga
+`validate_artifact`, son los del commit. Por defecto escribe en ./salida-55/,
+que está en .gitignore, y nada más, tampoco bytecode. `--runner` es quien
+corre, y entra solo en `control-results.json`.
 
 Qué emite, en el directorio de salida:
 
@@ -49,7 +53,10 @@ Qué emite, en el directorio de salida:
 
 Toda salida JSON es estable byte a byte: claves ordenadas, separadores fijos,
 UTF-8, sin salto de línea final, listas ordenadas, sin floats. Dos corridas en
-el mismo commit con el mismo `--runner` dan el mismo `SHA256SUMS`.
+el mismo commit, con el mismo `--runner` y las mismas versiones de Python y
+`jsonschema`, dan el mismo `SHA256SUMS`: `summary.json` registra esas
+versiones y `SHA256SUMS` lo cubre, así que otro entorno cambia esa línea y la
+suma final, no los reportes ni los registros.
 
 El `check-set` de forma `flat` se calcula como lo hace el lector de referencia
 (`agent_evidence_vectors.w3creport`): SHA-256 sobre la concatenación de los
@@ -86,10 +93,14 @@ Límites, que van también en README.txt:
 It runs on the checkout, because it uses the validator of that commit: it
 prints the commit and refuses to run if tracked files are modified. Inputs
 (vectors, indexes, declarations, schemas, `rules.py`, LICENSE) are read from
-the git objects of HEAD and not from disk, so the digested bytes are the
-commit's and not those of a checkout with CRLF. By default it writes to
-./salida-55/, which is in .gitignore, and nothing else, not even bytecode.
-`--runner` names who runs it and goes only into `control-results.json`.
+the git objects of the commit, resolved once at the start and never through the
+name HEAD, so the digested bytes are the commit's and not those of a checkout
+with CRLF or of another commit someone moved HEAD to midway. Before writing it
+looks again: HEAD is still that commit, the tree is still clean, and `rules.py`
+and the schemas in the checkout, which is where `validate_artifact` loads them
+from, are the commit's. By default it writes to ./salida-55/, which is in
+.gitignore, and nothing else, not even bytecode. `--runner` names who runs it
+and goes only into `control-results.json`.
 
 What it emits, in the output directory:
 
@@ -116,8 +127,11 @@ What it emits, in the output directory:
   excluded, sorted by path). The script prints the sha256 of `SHA256SUMS` last.
 
 Every JSON output is byte-stable: sorted keys, fixed separators, UTF-8, no
-trailing newline, sorted lists, no floats. Two runs on the same commit with the
-same `--runner` give the same `SHA256SUMS`.
+trailing newline, sorted lists, no floats. Two runs on the same commit, with
+the same `--runner` and the same Python and `jsonschema` versions, give the
+same `SHA256SUMS`: `summary.json` records those versions and `SHA256SUMS`
+covers it, so another environment changes that line and the final sum, not
+the reports or the records.
 
 The `flat` check-set is computed the way the reference reader
 (`agent_evidence_vectors.w3creport`) does: SHA-256 over the concatenation of
@@ -222,9 +236,36 @@ def git(*args, binario=False):
     return r.stdout if binario else r.stdout.decode("utf-8")
 
 
-def blob(ruta):
-    """Los bytes del archivo en HEAD, tal como están en el objeto de git."""
-    return git("show", f"HEAD:{ruta}", binario=True)
+def blob(commit, ruta):
+    """Los bytes del archivo en el commit medido, tal como están en el objeto
+    de git. Siempre por el hash resuelto al empezar y nunca por el nombre HEAD,
+    que otro proceso puede mover mientras el script corre."""
+    return git("show", f"{commit}:{ruta}", binario=True)
+
+
+def mismo_checker(commit, sha_normalizados):
+    """Antes de escribir, la segunda mirada: HEAD sigue siendo el commit, el
+    árbol sigue limpio y los archivos del validador que corrió (rules.py y los
+    esquemas, que `validate_artifact` carga del checkout) son byte a byte los
+    del commit, salvo finales de línea. Es una instantánea antes y después y no
+    una barrera: ve a otro proceso que mueva HEAD o toque el checkout durante
+    la corrida, no a uno que lo haga y lo deshaga entre las dos miradas."""
+    ahora = git("rev-parse", "HEAD").strip()
+    if ahora != commit:
+        sys.exit(f"HEAD se movio durante la corrida ({commit} -> {ahora}): no se escribe nada.")
+    if git("status", "--porcelain", "--untracked-files=no").strip():
+        sys.exit("el arbol cambio durante la corrida: no se escribe nada.")
+    for ruta, esperado in sha_normalizados.items():
+        with open(ruta, "rb") as fh:
+            disco = fh.read()
+        if sha(normaliza(disco)) != esperado:
+            sys.exit(f"{ruta} en el checkout no es el del commit: el validador que corrio no es el medido.")
+
+
+def normaliza(datos):
+    """Finales de línea a LF, para comparar un checkout con autocrlf contra el
+    blob del commit."""
+    return datos.replace(bytes([13, 10]), bytes([10]))
 
 
 def sha(datos):
@@ -343,7 +384,7 @@ def main():
     commit = git("rev-parse", "HEAD").strip()
     if len(commit) != 40:
         sys.exit(f"commit raro: {commit!r}")
-    fecha = git("show", "-s", "--format=%cs", "HEAD").strip()
+    fecha = git("show", "-s", "--format=%cs", commit).strip()
     modificados = git("status", "--porcelain", "--untracked-files=no").strip()
     sueltos = [l[3:] for l in git("status", "--porcelain").splitlines() if l.startswith("?? ")]
 
@@ -362,7 +403,7 @@ def main():
     print()
 
     # El validador del commit: su fuente, su registro y sus esquemas.
-    fuente_rules = blob("src/disensor/rules.py")
+    fuente_rules = blob(commit, "src/disensor/rules.py")
     texto_rules = fuente_rules.decode("utf-8")
     reloj = lee_el_reloj(texto_rules)
     if reloj:
@@ -371,9 +412,9 @@ def main():
     if set(reg) != set(ETIQUETAS_POR_VERSION["v0.4"]):
         sys.exit(f"el registro de rules.py {reg} no coincide con la tabla por version del script: "
                  "hay que revisar ETIQUETAS_POR_VERSION y applies_from.")
-    sha_esquemas = {n: sha(blob(f"src/disensor/{n}")) for n in ESQUEMAS}
-    licencia = blob("LICENSE").decode("utf-8").splitlines()[0].strip()
-    cobertura = json.loads(blob("spec/rule_coverage.json").decode("utf-8"))
+    sha_esquemas = {n: sha(blob(commit, f"src/disensor/{n}")) for n in ESQUEMAS}
+    licencia = blob(commit, "LICENSE").decode("utf-8").splitlines()[0].strip()
+    cobertura = json.loads(blob(commit, "spec/rule_coverage.json").decode("utf-8"))
 
     configs = {}
     config_digest = {}
@@ -383,15 +424,15 @@ def main():
         configs[suite] = jsonb(cfg)
         config_digest[suite] = sha(configs[suite])
 
-    # Los vectores, en el orden de cada index.json, leídos de HEAD.
+    # Los vectores, en el orden de cada index.json, leídos del commit.
     vectores = []
     for suite in SUITES:
-        indice = json.loads(blob(f"spec/vectors/{suite}/index.json").decode("utf-8"))
+        indice = json.loads(blob(commit, f"spec/vectors/{suite}/index.json").decode("utf-8"))
         if indice.get("schema") != VERSIONES[suite]:
             sys.exit(f"spec/vectors/{suite}/index.json declara {indice.get('schema')!r}")
         for nombre in indice["vectors"]:
             ruta = f"spec/vectors/{suite}/{nombre}.json"
-            datos = blob(ruta)
+            datos = blob(commit, ruta)
             v = json.loads(datos.decode("utf-8"))
             artefacto = v.get("artifact") or {}
             if artefacto.get("schema") != VERSIONES[suite]:
@@ -514,14 +555,14 @@ def main():
     print(f"con derived_from (gemelo a un campo): {con_gemelo} de {len(fixtures)}; "
           f"con mas de un candidato: {con_mas_de_uno}")
 
-    # Las declaraciones de HEAD, agrupadas por la versión que declaran.
-    rutas = [p for p in git("ls-tree", "-r", "-z", "--name-only", "HEAD", "--", ".residue").split(NUL)
+    # Las declaraciones del commit, agrupadas por la versión que declaran.
+    rutas = [p for p in git("ls-tree", "-r", "-z", "--name-only", commit, "--", ".residue").split(NUL)
              if p.endswith(".json")]
     declaraciones = {s: [] for s in SUITES}
     fallidas = []
     vistos = set()
     for p in sorted(rutas):
-        d = json.loads(blob(p).decode("utf-8"))
+        d = json.loads(blob(commit, p).decode("utf-8"))
         version = d.get("schema") if isinstance(d, dict) else None
         suite = next((s for s in SUITES if VERSIONES[s] == version), None)
         if suite is None:
@@ -623,7 +664,8 @@ def main():
         "  summary.json                commit, versions, counts, exclusions and labels without control",
         "  SHA256SUMS                  one line per file above, sorted by path",
         "",
-        "Regenerate (byte-identical SHA256SUMS for the same commit and runner):",
+        "Regenerate (byte-identical SHA256SUMS for the same commit, runner, Python and jsonschema versions;",
+        "summary.json records the versions, so another environment changes that file and the final sum only):",
         f"  git worktree add <dir> {commit}",
         "  cd <dir>",
         f"  python3 tools/emitir-55.py --runner {json.dumps(args.runner, ensure_ascii=False)} <output_dir>",
@@ -657,6 +699,10 @@ def main():
     sumas = (NL.join(f"{sha(archivos[r])}  {r}" for r in sorted(archivos)) + NL).encode("utf-8")
     archivos["SHA256SUMS"] = sumas
 
+    mismo_checker(commit, {
+        os.path.join("src", "disensor", n): sha(normaliza(blob(commit, f"src/disensor/{n}")))
+        for n in ("rules.py",) + ESQUEMAS
+    })
     os.makedirs(os.path.join(args.salida, "configs"), exist_ok=True)
     for ruta, datos in archivos.items():
         with open(os.path.join(args.salida, *ruta.split("/")), "wb") as fh:
