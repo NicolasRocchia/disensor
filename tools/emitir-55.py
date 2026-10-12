@@ -29,7 +29,9 @@ Se niega también si hay algo sin versionar bajo `src/`: de ahí importa el
 validador, y un módulo suelto (un `src/jsonschema/`, por ejemplo) correría en
 lugar del instalado sin que `git status --untracked-files=no` lo viera. Y
 comprueba de dónde importó lo que corre: `disensor.rules` del checkout,
-`jsonschema` de fuera de él.
+`jsonschema` de fuera de él. El directorio de salida tiene que estar fuera del
+repositorio o ignorado por git, y si ya existe solo puede tener lo que este
+script emite: se sobreescribe la salida de una corrida anterior y nada más.
 
 Qué emite, en el directorio de salida:
 
@@ -115,7 +117,9 @@ It also refuses if anything untracked sits under `src/`: the validator is
 imported from there, and a loose module (a `src/jsonschema/`, say) would run in
 place of the installed one without `git status --untracked-files=no` noticing.
 And it checks where what runs was imported from: `disensor.rules` from the
-checkout, `jsonschema` from outside it.
+checkout, `jsonschema` from outside it. The output directory has to be outside
+the repository or ignored by git, and if it already exists it may only hold
+what this script emits: a previous run's output is overwritten, nothing else.
 
 What it emits, in the output directory:
 
@@ -249,6 +253,10 @@ FORMATO = "public-agent-conformance/report/v0.1"
 ESQUEMAS = ("residue.schema.json", "residue.schema.v0.2.json",
             "residue.schema.v0.3.json", "residue.schema.v0.4.json")
 AUTOR = "Nicolás Rocchia"
+EMITIDOS = (tuple(f"configs/residue-{s}.json" for s in SUITES)
+            + tuple(f"run-residue-{s}.json" for s in SUITES)
+            + ("fixtures.json", "control-results.json", "isolation.json", "summary.json",
+               "README.txt", "SHA256SUMS"))
 
 # Etiquetas que corren en cada versión. R11 y R12 viven dentro de
 # `_independence_errors`, que `rule_errors` llama solo bajo
@@ -307,6 +315,35 @@ def mismo_checker(commit, sha_normalizados):
             disco = fh.read()
         if sha(normaliza(disco)) != esperado:
             sys.exit(f"{ruta} en el checkout no es el del commit: el validador que corrio no es el medido.")
+
+
+def destino_seguro(salida):
+    """El directorio de salida está fuera del repositorio o git lo ignora, y si
+    ya existe solo tiene lo que este script emite: se sobreescribe la salida de
+    una corrida anterior y nada más. Así `.` o `tools` no siembran archivos en
+    el checkout, y un directorio ajeno no pierde lo que tenía."""
+    real = os.path.realpath(salida)
+    if real == _RAIZ or bajo(real, _RAIZ):
+        # Se pregunta por un hijo del destino y no por el destino: así una regla
+        # de directorio como `salida-55/` lo alcanza aunque el directorio no
+        # exista todavía, y un destino que git no ignora da 1 exista o no.
+        r = subprocess.run(["git", "--no-optional-locks", "check-ignore", "-q", "--", os.path.join(salida, "SHA256SUMS")],
+                           capture_output=True)
+        if r.returncode != 0:
+            sys.exit(f"{salida} esta dentro del repositorio y git no lo ignora: "
+                     "usa un directorio ignorado (salida-55/) o uno fuera del repositorio.")
+    if os.path.isdir(real):
+        permitidos = set(EMITIDOS) | {"configs"}
+        presentes = set()
+        for raiz, dirs, archivos in os.walk(real):
+            for n in dirs + archivos:
+                presentes.add(os.path.relpath(os.path.join(raiz, n), real).replace(os.sep, "/"))
+        ajenos = sorted(presentes - permitidos)
+        if ajenos:
+            sys.exit(f"{salida} ya existe y tiene lo que este script no emite: {', '.join(ajenos[:5])}"
+                     f"{', ...' if len(ajenos) > 5 else ''}. Vaciarlo o elegir otro.")
+    elif os.path.exists(real):
+        sys.exit(f"{salida} existe y no es un directorio.")
 
 
 def normaliza(datos):
@@ -420,6 +457,7 @@ def main():
     ap.add_argument("--runner", required=True, help="quien corre; entra solo en control-results.json")
     ap.add_argument("salida", nargs="?", default="salida-55", help="directorio de salida (default: salida-55)")
     args = ap.parse_args()
+    destino_seguro(args.salida)
 
     # El autochequeo de la reimplementación del lector: el miembro
     # v49afe44cc51bc376 del corpus vectors-w3c-report (0.17.4) declara este
@@ -748,6 +786,8 @@ def main():
     archivos["README.txt"] = readme
     sumas = (NL.join(f"{sha(archivos[r])}  {r}" for r in sorted(archivos)) + NL).encode("utf-8")
     archivos["SHA256SUMS"] = sumas
+    if set(archivos) != set(EMITIDOS):
+        sys.exit("la lista EMITIDOS no coincide con lo que se escribe: hay que actualizarla.")
 
     mismo_checker(commit, {
         os.path.join("src", "disensor", n): sha(normaliza(blob(commit, f"src/disensor/{n}")))
