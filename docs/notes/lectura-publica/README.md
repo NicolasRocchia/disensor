@@ -75,9 +75,12 @@ que la receta `read_only_by_instruction` del catálogo de revisores, y el
 directorio vacío acota lo que tiene a mano pero no lo que puede alcanzar. Lo
 que sí se registra, leyendo los eventos JSONL de la corrida (`--json`), es
 cuántas herramientas llamó: `cli_llamadas_a_herramientas` en el encabezado,
-con el conteo por tipo de evento en `cli_eventos`. Una corrida de documento
-con llamadas a herramientas se puntúa igual y queda fuera del experimento A:
-lo que leyó no fue solo el documento.
+con el conteo por tipo de evento en `cli_eventos`. El conteo es por descarte,
+a propósito: todo ítem completado que no sea el mensaje del agente o su
+razonamiento cuenta como herramienta, así que una versión del CLI que renombre
+o agregue tipos sobra y saca la corrida de A, no falta y la cuela. Una corrida
+de documento con llamadas a herramientas se puntúa igual y queda fuera del
+experimento A: lo que leyó no fue solo el documento.
 
 Las cuatro corridas de documento de Codex del 12/10 anteriores a este
 registro se descartaron y se repitieron con él; las originales quedan en el
@@ -96,11 +99,23 @@ primera versión decía "sin herramientas" donde solo había una instrucción.
 | `gate_sin_modelos` | No afirma que el gate corre modelos ni pide claves de API. |
 | `sin_aval` | No afirma aval institucional (W3C u otro). |
 
-`puntuar.py` resuelve mecánicamente lo que se puede (grafía de los estados,
-presencia de claves, lista negra de campos inventados) y deja el resto como
+`puntuar.py` resuelve mecánicamente lo que se puede y deja el resto como
 juicio con la evidencia a la vista; el juicio se escribe a mano en
-`puntajes.json`, con la cita que lo sostiene. Una respuesta que dice "no sé"
-suma cero en los ítems positivos y pasa los negativos: eso también es un dato.
+`puntajes.json`, con la cita que lo sostiene, y manda sobre lo mecánico en
+cualquier ítem. Lo mecánico, y sus límites conocidos:
+
+- `estados` es ocurrencia literal de las seis grafías en toda la respuesta:
+  nombrarlos en prosa vale, y una negación que los liste también pasa.
+- `findings_final_state` y `verification` se miran por estructura, en los
+  bloques de código parseados como JSON (un bloque abreviado con `...` se
+  repara antes); si ningún bloque parsea, quedan a juicio. Una mención en
+  prosa no cuenta.
+- `sin_campos_inventados` contrasta las claves de los bloques con la lista
+  blanca del esquema, más una lista negra de lo que ya se vio inventar. Mira
+  el nombre, no la posición: una clave real en el lugar equivocado pasa.
+
+Una respuesta que dice "no sé" suma cero en los ítems positivos y pasa los
+negativos: eso también es un dato.
 
 ## Cómo se corre y qué queda
 

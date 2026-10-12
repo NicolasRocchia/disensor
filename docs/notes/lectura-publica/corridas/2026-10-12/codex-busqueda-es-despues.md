@@ -10,7 +10,7 @@ estado: despues
 pregunta: ¿Qué es disensor y cómo es el archivo que genera? Mostrá un ejemplo del artefacto.
 documento: web
 prompt_sha256: 4ec215dace14d8514928f29562b271ca82cf55a519516b789e4750ed9c01f39d
-comando: codex --search exec -m gpt-5.6-sol --dangerously-bypass-approvals-and-sandbox --ephemeral --ignore-user-config --ignore-rules -c project_doc_max_bytes=0 --skip-git-repo-check -o C:\Users\Usuario\AppData\Local\Temp\lectura-publica-x8r3b4xf\respuesta.md
+comando: codex --search exec -m gpt-5.6-sol --dangerously-bypass-approvals-and-sandbox --ephemeral --ignore-user-config --ignore-rules -c project_doc_max_bytes=0 --skip-git-repo-check -o <archivo>
 inicio: 2026-10-12T14:37:24-03:00
 fin: 2026-10-12T14:38:54-03:00
 duracion_s: 89
