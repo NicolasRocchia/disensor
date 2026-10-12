@@ -3,9 +3,9 @@
 este directorio; esto solo ejecuta y registra.
 
 Dos experimentos con la misma pregunta. A (modo `documento`): cada modelo, en
-sesión fresca y sin herramientas, recibe la pregunta y el README entero de un
-commit, el de antes y el de después del ejemplo real. B (modo `busqueda`):
-sesión fresca con búsqueda web y solo la pregunta. Cada corrida queda en
+sesión fresca, recibe la pregunta y el README entero de un commit, el de antes
+y el de después del ejemplo real. B (modo `busqueda`): sesión fresca con
+búsqueda web y solo la pregunta. Cada corrida queda en
 corridas/<fecha>/<modelo>-<modo>-<idioma>-<estado>.md con su encabezado y la
 respuesta sin editar. No puntúa: eso es puntuar.py.
 
@@ -16,8 +16,18 @@ Correr desde la raíz del repositorio:
 
 Los README salen de git (`git show <commit>:<ruta>`), no del árbol de trabajo.
 Una corrida que ya existe no se repite: borrar el archivo para repetirla, y
-que quede en el historial que se repitió. Los modelos se invocan por su CLI,
-en sesión fresca, con los flags de la tabla del README.
+que quede en el historial que se repitió. Una corrida que falla (el CLI sale
+con error o no contesta) no deja archivo: se informa y se sigue con la
+siguiente, para que un fallo de infraestructura no quede como si fuera una
+respuesta del modelo.
+
+Confinamiento, que no es lo mismo en los dos CLIs y el encabezado lo dice:
+`claude -p --tools ""` apaga las herramientas por construcción, y `num_turns`
+queda registrado. `codex exec` no tiene un flag que las apague, y su sandbox
+no arranca desde algunos procesos padre en Windows: en modo documento el
+confinamiento es por instrucción, y lo que sí se registra, leyendo los eventos
+JSONL de la corrida, es cuántas herramientas llamó. puntuar.py deja fuera del
+experimento A toda corrida de documento con llamadas a herramientas.
 """
 from __future__ import annotations
 
@@ -30,6 +40,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections import Counter
 from pathlib import Path
 
 AQUI = Path(__file__).resolve().parent
@@ -56,10 +67,12 @@ MODELOS = {
     "claude-haiku": {"cli": "claude", "modelo": "haiku"},
     "codex": {"cli": "codex", "modelo": "gpt-5.6-sol"},
 }
-# Los flags de la receta endurecida del catálogo de revisores, menos el
-# bypass de aprobaciones, que acá no hace falta porque no hay repositorio.
+# Los flags de la receta endurecida del catálogo de revisores. El bypass del
+# sandbox está porque el sandbox de codex no arranca desde Claude Code en
+# Windows; NO apaga las herramientas, y por eso se registran los eventos.
 CODEX_BASE = [
     "exec",
+    "--json",
     "-m", MODELOS["codex"]["modelo"],
     "--dangerously-bypass-approvals-and-sandbox",
     "--ephemeral",
@@ -68,6 +81,14 @@ CODEX_BASE = [
     "-c", "project_doc_max_bytes=0",
     "--skip-git-repo-check",
 ]
+# Tipos de ítem de los eventos JSONL de codex que son una llamada a herramienta.
+# Se compara por fragmento, por si una versión renombra: lo que se registra es
+# el conteo completo por tipo, para que se pueda releer.
+FRAGMENTOS_HERRAMIENTA = ("command", "tool", "search", "file_change", "patch")
+
+
+class CorridaFallida(RuntimeError):
+    """El CLI no devolvió una respuesta: no hay nada que guardar como corrida."""
 
 
 def log(msg: str) -> None:
@@ -115,36 +136,70 @@ def correr_claude(modelo: str, modo: str, prompt: str) -> tuple[str, dict, list[
     salida = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
                             errors="replace", timeout=1800)
     if salida.returncode != 0:
-        raise RuntimeError(f"claude salió con {salida.returncode}: {salida.stderr[-2000:]}")
+        raise CorridaFallida(f"claude salió con {salida.returncode}: {salida.stderr[-2000:]}")
     try:
         datos = json.loads(salida.stdout)
-    except json.JSONDecodeError:
-        return salida.stdout, {"nota": "la salida no fue JSON; se guarda cruda"}, cmd
-    texto = datos.get("result", "")
-    meta = {k: datos.get(k) for k in ("duration_ms", "duration_api_ms", "num_turns", "total_cost_usd",
-                                      "is_error", "subtype") if k in datos}
+    except json.JSONDecodeError as err:
+        raise CorridaFallida(f"la salida de claude no fue JSON: {salida.stdout[-500:]}") from err
+    if datos.get("is_error") or not datos.get("result"):
+        raise CorridaFallida(f"claude no contestó: {datos.get('result')!r}")
+    texto = datos["result"]
+    meta = {k: datos.get(k) for k in ("duration_ms", "duration_api_ms", "num_turns", "total_cost_usd", "subtype")
+            if k in datos}
     if isinstance(datos.get("usage"), dict):
         meta["usage"] = datos["usage"]
-    if "modelUsage" in datos:
-        meta["modelos_usados"] = sorted(datos["modelUsage"].keys()) if isinstance(datos["modelUsage"], dict) else datos["modelUsage"]
+    if isinstance(datos.get("modelUsage"), dict):
+        meta["modelos_usados"] = sorted(datos["modelUsage"].keys())
+    # Un turno es la respuesta; cada herramienta agrega uno. Con --tools "" no
+    # hay herramientas, y el número lo confirma.
+    meta["llamadas_a_herramientas"] = max(0, int(datos.get("num_turns") or 1) - 1)
     return texto, meta, cmd
+
+
+def contar_eventos(jsonl: str) -> tuple[Counter, int]:
+    """Tipos de evento e ítem de los eventos JSONL de codex, y cuántos son herramientas."""
+    tipos: Counter = Counter()
+    herramientas = 0
+    for linea in jsonl.splitlines():
+        linea = linea.strip()
+        if not linea.startswith("{"):
+            continue
+        try:
+            evento = json.loads(linea)
+        except json.JSONDecodeError:
+            continue
+        tipo = str(evento.get("type", "?"))
+        item = evento.get("item")
+        if isinstance(item, dict):
+            tipo_item = str(item.get("type", "?"))
+            tipos[f"{tipo}/{tipo_item}"] += 1
+            if tipo.endswith("completed") and any(f in tipo_item for f in FRAGMENTOS_HERRAMIENTA):
+                herramientas += 1
+        else:
+            tipos[tipo] += 1
+    return tipos, herramientas
 
 
 def correr_codex(modo: str, prompt: str) -> tuple[str, dict, list[str]]:
     # Desde un directorio vacío y temporal: no hay repositorio que explorar ni
-    # AGENTS.md que leer, y lo que escriba se va con el directorio.
+    # AGENTS.md que leer, y lo que escriba se va con el directorio. Eso acota,
+    # no confina: el conteo de herramientas de abajo es lo que dice qué hizo.
     cuna = Path(tempfile.mkdtemp(prefix="lectura-publica-"))
     ultimo = cuna / "respuesta.md"
     # `--search` es flag global de `codex`, no del subcomando `exec`: va antes.
     cmd = [ejecutable("codex")] + (["--search"] if modo == "busqueda" else []) + CODEX_BASE + ["-o", str(ultimo)]
-    salida = subprocess.run(cmd, input=prompt, cwd=cuna, capture_output=True, text=True,
-                            encoding="utf-8", errors="replace", timeout=1800)
-    texto = ultimo.read_text(encoding="utf-8") if ultimo.exists() else ""
-    meta = {"exit_code": salida.returncode, "log_lineas": len(salida.stdout.splitlines())}
-    if salida.returncode != 0 or not texto:
-        meta["stderr"] = salida.stderr[-2000:]
-        meta["stdout_cola"] = salida.stdout[-2000:]
-    shutil.rmtree(cuna, ignore_errors=True)
+    try:
+        salida = subprocess.run(cmd, input=prompt, cwd=cuna, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=1800)
+        texto = ultimo.read_text(encoding="utf-8") if ultimo.exists() else ""
+    finally:
+        shutil.rmtree(cuna, ignore_errors=True)
+    if salida.returncode != 0:
+        raise CorridaFallida(f"codex salió con {salida.returncode}: {salida.stderr[-2000:]}")
+    if not texto.strip():
+        raise CorridaFallida(f"codex no escribió respuesta; cola de stdout: {salida.stdout[-1000:]}")
+    tipos, herramientas = contar_eventos(salida.stdout)
+    meta = {"eventos": dict(sorted(tipos.items())), "llamadas_a_herramientas": herramientas}
     return texto, meta, cmd
 
 
@@ -196,6 +251,7 @@ def main() -> int:
                     plan.append((modelo, modo, idioma, "despues"))
     log(f"{len(plan)} corrida(s) planificadas en {carpeta.relative_to(RAIZ)}")
 
+    fallidas: list[str] = []
     for modelo, modo, idioma, estado in plan:
         destino = carpeta / f"{modelo}-{modo}-{idioma}-{estado}.md"
         if destino.exists():
@@ -223,16 +279,29 @@ def main() -> int:
         log(f"corriendo {destino.name}")
         inicio = dt.datetime.now().astimezone()
         t0 = time.monotonic()
-        if MODELOS[modelo]["cli"] == "claude":
-            respuesta, meta, cmd = correr_claude(MODELOS[modelo]["modelo"], modo, prompt)
-        else:
-            respuesta, meta, cmd = correr_codex(modo, prompt)
+        try:
+            if MODELOS[modelo]["cli"] == "claude":
+                respuesta, meta, cmd = correr_claude(MODELOS[modelo]["modelo"], modo, prompt)
+            else:
+                respuesta, meta, cmd = correr_codex(modo, prompt)
+        except CorridaFallida as err:
+            log(f"  FALLÓ, no se guarda: {err}")
+            fallidas.append(destino.name)
+            continue
         fin = dt.datetime.now().astimezone()
         encabezado.update({"comando": mostrar_comando(cmd), "inicio": inicio.isoformat(timespec="seconds"),
                            "fin": fin.isoformat(timespec="seconds"), "duracion_s": int(time.monotonic() - t0)})
+        encabezado["confinamiento"] = ("herramientas apagadas por construcción (--tools \"\")"
+                                       if MODELOS[modelo]["cli"] == "claude" and modo == "documento"
+                                       else "por instrucción; ver llamadas_a_herramientas" if modo == "documento"
+                                       else "con búsqueda web, a propósito")
         encabezado.update({f"cli_{k}": v for k, v in meta.items()})
-        escribir_corrida(destino, encabezado, respuesta or "(sin respuesta)")
-        log(f"  listo en {encabezado['duracion_s']} s, {len(respuesta)} caracteres")
+        escribir_corrida(destino, encabezado, respuesta)
+        aviso = f", {meta['llamadas_a_herramientas']} llamada(s) a herramientas" if modo == "documento" else ""
+        log(f"  listo en {encabezado['duracion_s']} s, {len(respuesta)} caracteres{aviso}")
+    if fallidas:
+        log(f"{len(fallidas)} corrida(s) fallida(s) sin archivo: {', '.join(fallidas)}")
+        return 1
     return 0
 
 
