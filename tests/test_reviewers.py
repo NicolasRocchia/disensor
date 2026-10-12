@@ -282,6 +282,16 @@ def test_a_recipe_that_puts_the_model_in_the_command_demands_one():
         build_entry("codex", "openai", None, CATALOG["codex"]["command"], from_catalog=True)
 
 
+def test_the_claude_recipe_does_not_load_what_the_machine_adds():
+    """Un plugin instalado, o sincronizado desde la cuenta de claude.ai, carga en
+    toda sesion de Claude Code, `claude -p` incluida: sin este flag el revisor
+    arrancaria con las skills, los hooks y los servidores MCP del dueño de la
+    maquina en contexto antes de leer la consigna. La medicion real esta en
+    test_hardening; esto fija el argv para que un retoque no lo pierda.
+    """
+    assert "--safe-mode" in CATALOG["claude"]["command"]
+
+
 def test_the_catalogued_recipes_do_not_invent_a_default_model():
     """Ninguna receta puede saber que modelos habilita la cuenta de quien instala."""
     for identificador, receta in CATALOG.items():

@@ -679,12 +679,39 @@ def test_the_suggested_command_includes_the_model_when_the_recipe_needs_it(capsy
     )
 
 
+def test_an_entry_registered_before_the_recipe_changed_is_not_used(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """La receta de claude paso a --safe-mode; una entrada registrada antes corre sin el.
+
+    El registro copia el argv al registrar, `reviewer add` rechaza la repetida, y
+    actualizar el paquete no toca el archivo: sin esto, el endurecimiento queda
+    instalado y nunca corre. La entrada se excluye y el runner dice como
+    registrarla de nuevo.
+    """
+    (repo / "e.py").write_text("w = 5\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    vieja = {
+        "id": "claude", "family": "anthropic", "model": "claude-code", "source": "catalog",
+        "egress": "cloud", "executable": "x", "executable_hash": "sha256:0",
+        "command": ["claude", "-p", "{pack}"],
+    }
+    assert correr(repo, {"reviewers": [vieja]}, monkeypatch, tmp_path) == 4
+    salida = capsys.readouterr().err
+    assert "has since changed" in salida
+    assert "reviewer remove claude && disensor reviewer add claude" in salida
+
+
 def test_a_custom_reviewer_named_like_a_recipe_stays_in_the_chain():
     """Un revisor propio puede llamarse igual que una receta y no le debe nada a su forma."""
-    from disensor.round import stale_model_entry
+    from disensor.round import stale_entry, stale_model_entry
 
     propio = {"id": "codex", "source": "assistant", "model": "m", "command": ["mio", "{pack}"]}
     assert stale_model_entry(propio) is None
+    assert stale_entry(propio) is None
+    # Y la que coincide con la receta de hoy tampoco esta vieja.
+    assert stale_entry(entrada_catalogada("claude")) is None
 
 
 def test_the_reviewer_is_told_where_the_checkout_is(repo: Path, monkeypatch, tmp_path, capsys):

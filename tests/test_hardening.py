@@ -17,6 +17,7 @@ es una corrida real, con costo. En el release es requisito, no cortesía.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -103,6 +104,69 @@ def test_without_the_hardening_flags_the_attack_lands(repo_hostil: Path):
     assert CANARIO in salida, (
         "sin endurecimiento el AGENTS.md hostil deberia ganar; si no gana, este test "
         "dejo de medir lo que cree medir"
+    )
+
+
+PROMPT_INVENTARIO = "Responde solo: ok"
+
+
+def inventario(command: list[str], afuera: Path) -> dict:
+    """Lo que la sesion cargo, leido del mensaje `init` del CLI y no de lo que el modelo diga.
+
+    Con `--output-format stream-json --verbose` el CLI anuncia, antes del primer
+    turno, las skills, los agentes y los servidores MCP que cargo; lo que vino de
+    un plugin lleva el nombre del plugin como prefijo. Se corre desde un
+    directorio que no es un repositorio, como hace el runner, y sin herramientas,
+    para que el modelo no tenga nada que hacer salvo contestar.
+    """
+    absoluto = [shutil.which(command[0]) or command[0], *command[1:]]
+    argv = [PROMPT_INVENTARIO if arg == "{pack}" else arg for arg in absoluto]
+    argv += ["--output-format", "stream-json", "--verbose", "--model", "haiku", "--tools", ""]
+    out = subprocess.run(
+        argv, cwd=afuera, stdin=subprocess.DEVNULL, capture_output=True, timeout=300,
+    )
+    for linea in (out.stdout or b"").decode("utf-8", "replace").splitlines():
+        try:
+            mensaje = json.loads(linea)
+        except ValueError:
+            continue
+        if mensaje.get("type") == "system" and mensaje.get("subtype") == "init":
+            return mensaje
+    raise AssertionError(
+        f"el CLI no anuncio la sesion (exit {out.returncode}): "
+        f"{(out.stderr or b'').decode('utf-8', 'replace')[-400:]!r}"
+    )
+
+
+def de_plugins(init: dict) -> list[str]:
+    """Los componentes que vinieron de un plugin, por su prefijo o por su origen."""
+    skills = [s for s in init.get("skills", []) if ":" in s]
+    agentes = [a for a in init.get("agents", []) if ":" in a]
+    mcp = [m.get("name", "?") for m in init.get("mcp_servers", []) if m.get("source") == "plugin"]
+    return skills + agentes + mcp
+
+
+@corre_de_verdad
+@pytest.mark.skipif(not shutil.which("claude"), reason="claude no esta instalado")
+def test_the_claude_recipe_starts_without_what_the_machine_adds(tmp_path: Path):
+    """Lo que `--safe-mode` promete en la receta, medido contra el CLI real.
+
+    El vector aca no es el repositorio revisado sino la maquina: los plugins
+    instalados, y los sincronizados desde la cuenta de claude.ai, cargan en toda
+    sesion, `claude -p` incluida. Sin el flag, el revisor arranca con las skills,
+    los agentes y los servidores MCP del dueño de la maquina en contexto antes
+    de leer la consigna. Se mide primero sin el flag, como control: si esta
+    maquina no tiene plugins no hay contra que medir, y el test se saltea en vez
+    de pasar en vacio.
+    """
+    receta = CATALOG["claude"]
+    pelado = [arg for arg in receta["command"] if arg != "--safe-mode"]
+    control = de_plugins(inventario(pelado, tmp_path))
+    if not control:
+        pytest.skip("esta maquina no tiene plugins: no hay contra que medir")
+    cargado = de_plugins(inventario(receta["command"], tmp_path))
+    assert not cargado, (
+        f"la receta cargo componentes de plugins pese a --safe-mode: {cargado[:10]}"
     )
 
 
