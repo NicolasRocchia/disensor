@@ -24,10 +24,10 @@ Un asistente con búsqueda lee lo que hay hoy, así que para ese modo la única
 corrida "antes" posible es la que se capturó antes del merge. Por eso hay dos
 experimentos con la misma pregunta y la misma rúbrica:
 
-**A. Anclaje, controlado.** El mismo modelo, en sesión fresca y sin
-herramientas, recibe la pregunta y el README completo como único documento,
-una vez con el README de antes (commit `de14e5c`) y otra con el de después
-(`96e12ae`). Entre esos dos commits los README solo cambian por la sección
+**A. Anclaje, controlado.** El mismo modelo, en sesión fresca y sin acceso a
+otra cosa que el documento (ver "Confinamiento", abajo), recibe la pregunta y
+el README completo como único documento, una vez con el README de antes
+(commit `de14e5c`) y otra con el de después (`96e12ae`). Entre esos dos commits los README solo cambian por la sección
 del ejemplo (234 líneas agregadas, ninguna borrada: `git diff --stat de14e5c
 96e12ae -- README.md README.es.md`). Lo que cambie entre las dos respuestas
 es efecto del ejemplo. Se corre en los dos idiomas, con el README de cada uno.
@@ -56,7 +56,7 @@ tiene, y pedir "un ejemplo" obliga a copiar uno si lo hay o a inventarlo si no.
 |---|---|---|---|
 | `claude-sonnet` | `claude -p --safe-mode --no-session-persistence --model sonnet` | `--tools ""` | `--tools WebSearch,WebFetch` |
 | `claude-haiku` | ídem con `--model haiku` | `--tools ""` | `--tools WebSearch,WebFetch` |
-| `codex` | `codex exec -m gpt-5.6-sol --ephemeral --ignore-user-config --ignore-rules -c project_doc_max_bytes=0 --skip-git-repo-check -o <archivo>` desde un directorio vacío | sin `--search` | `--search` |
+| `codex` | `codex exec --json -m gpt-5.6-sol --dangerously-bypass-approvals-and-sandbox --ephemeral --ignore-user-config --ignore-rules -c project_doc_max_bytes=0 --skip-git-repo-check -o <archivo>` desde un directorio vacío | por instrucción, con las llamadas a herramientas registradas | `--search` antes de `exec` |
 
 `--safe-mode` apaga CLAUDE.md, skills, plugins, hooks y MCP; `--ephemeral`,
 `--ignore-user-config` e `--ignore-rules` son la receta endurecida del
@@ -64,6 +64,25 @@ catálogo de revisores. No hay Gemini CLI ni Ollama en esta máquina; Google
 entra solo por la captura manual de AI Mode. Las corridas manuales de otras
 interfaces (Perplexity, ChatGPT con búsqueda, AI Mode "después") se agregan a
 mano con el mismo encabezado, ver abajo.
+
+## Confinamiento, que no es igual en los dos CLIs
+
+`claude -p --tools ""` apaga las herramientas por construcción, y el
+encabezado registra `num_turns` (uno es la respuesta sola). `codex exec` no
+tiene un flag que las apague, y su sandbox no arranca desde algunos procesos
+padre en Windows: en modo documento el confinamiento es por instrucción, igual
+que la receta `read_only_by_instruction` del catálogo de revisores, y el
+directorio vacío acota lo que tiene a mano pero no lo que puede alcanzar. Lo
+que sí se registra, leyendo los eventos JSONL de la corrida (`--json`), es
+cuántas herramientas llamó: `cli_llamadas_a_herramientas` en el encabezado,
+con el conteo por tipo de evento en `cli_eventos`. Una corrida de documento
+con llamadas a herramientas se puntúa igual y queda fuera del experimento A:
+lo que leyó no fue solo el documento.
+
+Las cuatro corridas de documento de Codex del 12/10 anteriores a este
+registro se descartaron y se repitieron con él; las originales quedan en el
+historial de git. Lo cazó la ronda adversarial de este mismo cambio: la
+primera versión decía "sin herramientas" donde solo había una instrucción.
 
 ## La rúbrica, binaria por ítem
 
@@ -92,7 +111,10 @@ python3 docs/notes/lectura-publica/correr.py --fecha 2026-10-12 [--modo document
 python3 docs/notes/lectura-publica/puntuar.py --fecha 2026-10-12
 ```
 
-Cada corrida deja `corridas/<fecha>/<modelo>-<modo>-<idioma>-<antes|despues>.md`
+Una corrida que falla (el CLI sale con error o no contesta) no deja archivo:
+se informa y se sigue, para que un fallo de infraestructura no quede como si
+fuera una respuesta del modelo. Cada corrida que sí contesta deja
+`corridas/<fecha>/<modelo>-<modo>-<idioma>-<antes|despues>.md`
 con un encabezado (modelo, modo, idioma, documento con commit y sha256 o
 "web", comando, inicio, fin, duración, costo si el CLI lo informa) y la
 respuesta completa, sin editar. `puntuar.py` escribe `puntajes.json` con un
