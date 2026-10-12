@@ -648,7 +648,11 @@ def main():
         if f["etiqueta"] == "schema":
             primero = next(x for x in f["errores"] if x.startswith("[schema] "))
             donde = primero[len("[schema] "):].split(": ", 1)[0]
-            why = f"The artifact is invalid against the {VERSIONES[f['suite']]} schema at {donde}."
+            # La misma notación que `change` en derived_from: barra inicial y
+            # sin escapar `/` ni `~` dentro de las claves. `(root)` es lo que
+            # escribe el validador cuando el error no tiene ruta.
+            lugar = "the root of the artifact" if donde == "(root)" else "/" + donde
+            why = f"The artifact is invalid against the {VERSIONES[f['suite']]} schema at {lugar}."
         else:
             why = WHY[f["etiqueta"]]
         r = {
