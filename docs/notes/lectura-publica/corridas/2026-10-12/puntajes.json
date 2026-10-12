@@ -1,0 +1,386 @@
+{
+  "chatgpt-profundo-es-antes.md": {
+    "meta": {
+      "modelo": "chatgpt",
+      "modo": "profundo",
+      "idioma": "es",
+      "estado": "antes"
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "falta \"final_state\", findings",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "no menciona verification ni fix_verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "El concepto central es la declaración de residuo. \"Residuo\" tiene un significado más amplio que \"bugs pendientes\": incluye objeciones escaladas, refutaciones del generador, comprobaciones que no pudieron ejecutarse y limitaciones del propio revisor. Una refutación respaldada por evidencia puede cerrar un hallazgo y permanecer en el residuo para que otra persona pueda examinarla. | El alcance es acotado. Las implementaciones y los casos procedían del proyecto; esto no prueba que el contrato cubra todos los errores posibles ni que la revisión con IA mejore el software. El mensaje está alojado en una lista pública de W3C y documenta esa reproducción, no una certificación institucional.",
+        "juicio": true,
+        "cita": "«documenta esa reproducción, no una certificación institucional»"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "La ejecución del revisor es opcional: también puede registrarse una revisión realizada por otro procedimiento. El gate no necesita ejecutar un modelo para evaluar una declaración existente. Eso permite separar el costo y la variabilidad de la revisión con IA del control mecánico que se aplica al registro.",
+        "juicio": true,
+        "cita": "«El gate no necesita ejecutar un modelo para evaluar una declaración existente»"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": false,
+        "cita": "el extracto habla de «un archivo JSON» por declaración pero no dice dónde vive ni que sea uno por evento; la consigna no lo pedía"
+      }
+    }
+  },
+  "codex-busqueda-en-despues.md": {
+    "meta": {
+      "modelo": "codex",
+      "modo": "busqueda",
+      "idioma": "en",
+      "estado": "despues"
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "final_state entre comillas y findings presentes",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "menciona verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "`disensor` is a Python CLI for recording the outcome of an adversarial AI review. Typically, one model produces a plan or code and a model from another family attacks it. The original agent verifies every finding, and `disensor` preserves how each finding ended—fixed, recorded as debt, accepted by the owner, refuted, or left open. It is best understood as a notary and CI gate, not as the reviewer itself. [Official explanation](https://disensor.dev/es/how-it-works/) · [GitHub repository](https://github.com/NicolasRocchia/disensor)",
+        "juicio": true,
+        "cita": "«It is best understood as a notary and CI gate, not as the reviewer itself»: no afirma que corra modelos"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "creates a JSON template under `.residue/`. Git-derived information such as repository, commits, timestamp, and event UUID is prefilled; the remaining markers must be completed. Then: | disensor validate .residue/<event-id>.json",
+        "juicio": true,
+        "cita": "«creates a JSON template under .residue/ … event UUID is prefilled»"
+      }
+    }
+  },
+  "codex-busqueda-es-despues.md": {
+    "meta": {
+      "modelo": "codex",
+      "modo": "busqueda",
+      "idioma": "es",
+      "estado": "despues"
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "final_state entre comillas y findings presentes",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "menciona verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "Opcionalmente, `disensor round` puede ejecutar un revisor instalado y capturar su informe, pero no juzga sus conclusiones. El gate tampoco necesita modelos ni claves de API: trabaja sobre los archivos y commits del repositorio. [Repositorio oficial](https://github.com/NicolasRocchia/disensor)",
+        "juicio": true,
+        "cita": "«El gate tampoco necesita modelos ni claves de API: trabaja sobre los archivos y commits del repositorio»"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": ".residue/<event_id>.json | disensor validate .residue\\<event-id>.json",
+        "juicio": true,
+        "cita": "«.residue/<event_id>.json … El nombre debe coincidir con un event_id UUID canónico»"
+      }
+    }
+  },
+  "codex-documento-en-antes.md": {
+    "meta": {
+      "modelo": "codex",
+      "modo": "documento",
+      "idioma": "en",
+      "estado": "antes"
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: debt_recorded, owner_decision, refuted_interpretive",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "final_state entre comillas y findings presentes",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "menciona verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": false,
+        "evidencia": "claves fuera del esquema: finding, method, reviewed_commit, reviewer, total",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«CI can reject a pull request when the declaration is missing, generic, stale, inconsistent…»: no afirma que corra modelos"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "5. The remaining uncertainty is saved as a versioned JSON “residue declaration” in `.residue/`, alongside the code it evaluates. | disensor validate .residue/<event-id>.json",
+        "juicio": true,
+        "cita": "«saved as a versioned JSON “residue declaration” in .residue/ … The filename is <event_id>.json»"
+      }
+    }
+  },
+  "codex-documento-en-despues.md": {
+    "meta": {
+      "modelo": "codex",
+      "modo": "documento",
+      "idioma": "en",
+      "estado": "despues"
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "final_state entre comillas y findings presentes",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "menciona verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "The method is “controlled disagreement”: one model generates, another model family attacks the work, the generator verifies every finding, and unresolved or disputed points remain explicitly recorded for a human. A validator checks the artifact, while the CI gate can reject a pull request if its required declaration is absent, generic, stale, invalid, or does not cover the final change.",
+        "juicio": true,
+        "cita": "«the CI gate can reject a pull request if its required declaration is absent, generic, stale, invalid…»: no afirma que corra modelos"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": ".residue/<event_id>.json",
+        "juicio": true,
+        "cita": "«normally live at .residue/<event_id>.json»"
+      }
+    }
+  },
+  "codex-documento-es-antes.md": {
+    "meta": {
+      "modelo": "codex",
+      "modo": "documento",
+      "idioma": "es",
+      "estado": "antes"
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: debt_recorded, owner_decision, refuted_interpretive",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "final_state entre comillas y findings presentes",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "menciona verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": false,
+        "evidencia": "claves fuera del esquema: finding_id, method",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "Los nombres exactos y campos obligatorios están definidos por `spec/residue.schema.json`; el ejemplo muestra la estructura conceptual descrita en el documento. El artefacto no certifica que el código sea bueno: señala qué se estableció, con qué evidencia y qué incertidumbre permanece.",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no afirma que el gate corra modelos; del gate no dice nada más allá de validate"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "El CLI genera una plantilla en `.residue/` mediante: | disensor validate .residue/<event_id>.json",
+        "juicio": true,
+        "cita": "«El CLI genera una plantilla en .residue/ … El archivo se llama <event_id>.json»"
+      }
+    }
+  },
+  "codex-documento-es-despues.md": {
+    "meta": {
+      "modelo": "codex",
+      "modo": "documento",
+      "idioma": "es",
+      "estado": "despues"
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "final_state entre comillas y findings presentes",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "menciona verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "Ese archivo se llama **declaración de residuo**. No certifica que el código sea bueno ni funciona como sello de aprobación: documenta qué ocurrió en la revisión y, especialmente, qué todavía requiere atención humana.",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«El gate no ejecuta modelos: examina el JSON ya versionado»"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "5. El resultado se guarda como un JSON versionado dentro del repositorio, normalmente en `.residue/<event_id>.json`.",
+        "juicio": true,
+        "cita": "«normalmente en .residue/<event_id>.json»"
+      }
+    }
+  },
+  "google-ai-mode-busqueda-es-antes.md": {
+    "meta": {
+      "modelo": "google-ai-mode",
+      "modo": "busqueda",
+      "idioma": "es",
+      "estado": "antes"
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: incorporated, debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open",
+        "juicio": null
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "falta \"final_state\"",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "no menciona verification ni fix_verification",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": false,
+        "evidencia": "lista negra: adversarial_rounds, attacker, defender, blocking_issues, status_counts, auditor_model, resolved_in_commit, target_branch, INCORPORATED, DEBT_REGISTERED, REFUTED, SCALED; claves fuera del esquema: $schema, DEBT_REGISTERED, INCORPORATED, REFUTED, SCALED, adversarial_rounds, attacker, auditor_model, blocking_issues, category, defender, file, line, meta, resolution, resolved_in_commit, round, status, status_counts, summary, target_branch, timestamp",
+        "juicio": null
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin afirmación de aval en estas dos respuestas; en una respuesta posterior de la misma conversación, no incluida en la captura, sí dijo que «el W3C corrió una ronda»"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "Disensor es un ecosistema creado por Nicolás Rocchia, compuesto por una herramienta de CLI (Interfaz de Línea de Comandos) y un gate de CI (Integración Continua). Su objetivo es formalizar y auditar la revisión adversarial de código asistida por IA. | • disensor gate: Bloquea o aprueba el paso del código en procesos de Integración Continua (como una GitHub Action). El gate no requiere claves de API ni ejecuta modelos de IA en la nube; simplemente lee el archivo JSON del repositorio y frena el Pull Request si falta el registro, si es genérico, o si el código enviado cambió y el registro no se actualizó. | 1. Es 100% determinista: Cuando este código llega a GitHub o GitLab, el pipeline corre disensor gate. El servidor de CI no gasta dinero en IA ni analiza código; solo lee este JSON. Como el campo \"blocking_issues\" es 0 y todos los estados están en \"INCORPORATED\", el pipeline aprueba el Pull Request en milisegundos.",
+        "juicio": true,
+        "cita": "«El gate no requiere claves de API ni ejecuta modelos de IA en la nube»"
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "El resultado de la revisión se guarda localmente en el repositorio como un archivo JSON dentro de una carpeta llamada .residue/. Este archivo detalla el \"residuo\" (el riesgo restante o lo que la IA no pudo solucionar sola) en lugar de una métrica de cobertura tradicional. | Al ejecutar el comando disensor round, el modelo revisor encuentra la falla, debate con el modelo generador, y el resultado de esa \"pelea\" queda grabado localmente en tu repositorio dentro del archivo .residue/audit.json.",
+        "juicio": false,
+        "cita": "«queda grabado localmente en tu repositorio dentro del archivo .residue/audit.json»: un archivo central, no uno por evento"
+      }
+    }
+  }
+}
