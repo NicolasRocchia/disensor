@@ -1,0 +1,76 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "4c3b3b90-d529-4344-a6e9-3528c1c02272",
+    "created_at": "2026-10-12T13:33:10-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "0b2e49a91ae479f084aa98158015c20e85cbcd67",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "374cc1b16e3a6b472c3fcf2606245ce3ff8e23f2"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas de la suite no se forzaron: los tres smoke tests de endurecimiento (tests/test_hardening.py), opt-in con costo real detrás de DISENSOR_SMOKE=1, que ejercitan la receta de Codex y que este diff no toca; la prueba de permiso de ejecución de tests/test_programs.py, que en Windows no distingue nada y corre en el CI de POSIX; y los tres index.json de las suites de vectores. El revisor y el generador corrieron el resto sobre 0b2e49a en Windows con Python 3.14: 639 pasan, incluida la prueba del comparador con el orden invertido y la mutación de invertir los hallazgos en README.md, que falla con el comparador nuevo y volvía a pasar con el anterior."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 540
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:b9502b6456c220f5f6b9de6d26b6105100988d57a585be592cf5f6ead4799daf",
+      "report_hash": "sha256:f68b88bd2687a6130992ce57f1b42a2195c3a856454377b9592187dcb64cc381",
+      "reviewer_seconds": 220
+    }
+  }
+}
