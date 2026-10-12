@@ -1,0 +1,135 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "5a6d4a7a-fa01-42c7-a532-5606de587bbb",
+    "created_at": "2026-10-12T01:59:00-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "7a9a96a30d66166186737d8eed309f834ce67c35",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "de14e5ce0ebb87f49e164fcf21ff807f342e30d9"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Una entrada claude ya registrada sigue corriendo el argv viejo despues de actualizar",
+      "description": "El registro copia el argv de la receta al registrar (build_entry), la ronda corre entry['command'] tal como esta en ~/.disensor/reviewers.json (run_reviewer), y `reviewer add claude` rechaza la repetida sin reemplazarla (_add). Quien ya tenia registrada la receta vieja, `claude -p {pack}`, actualizaba el paquete y seguia corriendo sin --safe-mode: la correccion quedaba instalada sin correr nunca, y los tests nuevos solo miraban CATALOG, asi que pasaban igual.",
+      "location": "src/disensor/reviewers.py:436",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Seguido en c4eece1: _add devuelve 1 con 'already registered' antes de llegar a build_entry; run_reviewer arma el argv desde entry['command']; effective_hardening solo degrada recetas verified, y la de claude nunca lo fue, asi que nada excluia la entrada vieja. El hallazgo es real tal como lo describio el revisor."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "7a9a96a: stale_recipe_entry excluye de la cadena a toda entrada con source catalog cuyo comando ya no coincide con la receta de hoy, y el runner imprime como registrarla de nuevo; el consentimiento se renueva solo porque su clave incluye el comando. tests/test_round.py::test_an_entry_registered_before_the_recipe_changed_is_not_used registra la entrada vieja de claude y espera exit 4 con el aviso; test_a_custom_reviewer_named_like_a_recipe_stays_in_the_chain cubre el revisor propio con nombre de receta y la entrada que coincide con la receta actual. Suite 637 passed, 7 skipped. La segunda ronda, sobre 7a9a96a, no trajo hallazgos."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r2",
+      "severity": "info",
+      "title": "La medicion de --safe-mode detecta plugins, no cada personalizacion que la receta promete apagar",
+      "description": "Hipotesis sin verificar del revisor, que no la conto como hallazgo. El test de test_hardening lee el mensaje init del CLI y cuenta skills y agentes con prefijo de plugin y servidores MCP con source plugin. No planta canarios en una skill de usuario suelta, un CLAUDE.md de usuario, un hook de usuario ni un servidor MCP de usuario fuera de plugins: si una version futura del CLI apagara los plugins y cargara una de esas fuentes, el test seguiria pasando. Con la 2.1.285 instalada no pudo establecer una falla.",
+      "location": "tests/test_hardening.py:113",
+      "final_state": "debt_recorded",
+      "debt_id": "smoke-claude-canarios",
+      "verification": {
+        "against": "repository",
+        "detail": "Es cierto por construccion: de_plugins mira prefijos y source == 'plugin', y el mensaje init no lista hooks ni CLAUDE.md, asi que esas fuentes no se pueden medir por esa via. La medicion que si se hizo (plugins instalados y sincronizados, agentes, 35 servidores MCP) es la que motivo el cambio. La deuda: una prueba con configuracion de usuario aislada y un canario por fuente prometida, que el control sin flag exponga todos y la receta ninguno."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no corrio en ninguna de las dos rondas los tests con DISENSOR_SMOKE=1, que pagan llamadas a los servicios de Codex y de Claude; corrio la suite ordinaria (636 y 637 passed) con ellos salteados. La medicion del inventario de claude -p con y sin --safe-mode la ejecuto solo el generador, el 2026-10-12 sobre c4eece1 con Claude Code 2.1.285 en Windows: el control sin flag encontro componentes de plugins y la receta ninguno (1 passed en 18 s). Los smoke tests de codex no los corrio nadie en este evento."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "Ni el revisor ni el generador probaron la receta con otra version de Claude Code: solo la 2.1.285 instalada, cuyo --help reconoce --safe-mode. Con una version anterior al flag el revisor no arranca y la ronda lo anota como intento fallido con su codigo de salida, que cierra en vez de abrir, pero no se midio desde que version existe el flag."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 1,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:616fbc8b007703445622c494ddbe7f73554d28948f5b05cc70fbbed4e6fda5c2",
+      "report_hash": "sha256:073177193210d5181fc518bc7718c86ac318c3fce6545a5f5eb9264a1bebb161",
+      "reviewer_seconds": 182
+    },
+    "dev.disensor.round.first": {
+      "result_version": 3,
+      "head_oid": "c4eece1ad297a95d2d646c074bca46eeaa77eb8a",
+      "pack_hash": "sha256:458888276650c1a5024b48ce9fe72cc3330bd11e0a8bbd5e51cba1e50bab4d77",
+      "report_hash": "sha256:c50470ee2f2c17ab131ef4aa71accbdf06a63aee7cc27880dd0badbf8e22b951",
+      "reviewer_seconds": 156,
+      "tree_unchanged": true
+    }
+  }
+}
