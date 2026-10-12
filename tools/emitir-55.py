@@ -302,17 +302,20 @@ ETIQUETAS_POR_VERSION = {
 
 # Una oración por regla, escrita desde el comentario de cada regla en
 # src/disensor/rules.py y la sección «What the gate enforces» del README.
-# Donde el README y el código no coinciden (R11 y R12), manda el código.
+# Donde el README y el código no coinciden (R11 y R12), manda el código. Las
+# oraciones no llevan los números de sección del protocolo que traen los
+# comentarios de rules.py: el protocolo no está en el repositorio y, en un
+# registro v0.1, «section N» se lee como una sección del texto 0087.
 WHY = {
-    "R0": "The event declares no human arbiter present, and without one the round does not comply with the protocol (section 6).",
+    "R0": "The event declares no human arbiter present, and disensor requires one in every round.",
     "R1": "A finding whose final state joins the residue has no residue item, or an item references a finding that does not exist or whose state does not match the item's class.",
     "R2": "A text declaration carries a generic marker, or some field still carries the unfilled template marker.",
-    "R3": "The abbreviated path is used on a change that touches the protected cases of 3.2.",
+    "R3": "The abbreviated path is used on a change that touches protected cases.",
     "R4": "The declared independence of a reviewer contradicts the declared families and models, or sits below cross_family without the fallback reason the record demands or at a level that does not admit it.",
-    "R5": "A Level A event carries an execution gap without written acceptance by a lead (section 7).",
+    "R5": "A Level A event carries an execution gap without written acceptance by a lead.",
     "R6": "The declared counts do not add up to the findings list.",
     "R7": "In the diff gate an incorporated finding closes without its fix verified, or with the verification left pending.",
-    "R8": "An interpretive refutation does not require human attention (section 6).",
+    "R8": "An interpretive refutation does not require human attention.",
     "R9": "The minimized profile carries free text, evidence text or link, or a clear repository URL that the profile strips.",
     "R10": "The full profile declares no findings list, or lists none while the counts declare some.",
     "R11": "A reviewer declared below cross_family has no reviewer_correlation residue item naming it.",
@@ -645,7 +648,11 @@ def main():
         if f["etiqueta"] == "schema":
             primero = next(x for x in f["errores"] if x.startswith("[schema] "))
             donde = primero[len("[schema] "):].split(": ", 1)[0]
-            why = f"The artifact is invalid against the {VERSIONES[f['suite']]} schema at {donde}."
+            # La misma notación que `change` en derived_from: barra inicial y
+            # sin escapar `/` ni `~` dentro de las claves. `(root)` es lo que
+            # escribe el validador cuando el error no tiene ruta.
+            lugar = "the root of the artifact" if donde == "(root)" else "/" + donde
+            why = f"The artifact is invalid against the {VERSIONES[f['suite']]} schema at {lugar}."
         else:
             why = WHY[f["etiqueta"]]
         r = {

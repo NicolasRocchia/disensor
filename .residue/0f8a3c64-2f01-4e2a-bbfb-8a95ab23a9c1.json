@@ -1,0 +1,115 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "0f8a3c64-2f01-4e2a-bbfb-8a95ab23a9c1",
+    "created_at": "2026-10-12T13:41:25-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "c3e0860983e7a6debbb6f35af035514bc1b0cd17",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "374cc1b16e3a6b472c3fcf2606245ce3ff8e23f2"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "info",
+      "title": "La ruta con barra inicial no es un JSON Pointer valido si una clave lleva / o ~",
+      "description": "Hipotesis sin verificar del revisor, que no la conto como hallazgo: la oracion de esquema antepone la barra a la ruta que arma el validador y no escapa / ni ~ dentro de las claves, asi que no es RFC 6901 para esas claves; el revisor no pudo establecer que el 5.5 exija JSON Pointer porque el texto no esta en el repositorio.",
+      "location": "tools/emitir-55.py (oracion de esquema de why_must_fail)",
+      "final_state": "owner_decision",
+      "verification": {
+        "against": "repository",
+        "detail": "Es la decision D2 del brief de Nico: una sola notacion en todos los registros, la misma de `change` en derived_from, que tampoco escapa (el aplanado de medir-parejas.py). El campo why_must_fail es una oracion en ingles, no un puntero: la ruta va dentro de prosa. Hoy ninguna clave de los esquemas v0.2 a v0.4 lleva / ni ~, y el commit de la barra va aparte para poder revertirlo solo."
+      },
+      "risk_record": "Nico acepta en el brief (D2) que la ruta dentro de la oracion de esquema use la notacion de `change` y no RFC 6901: si alguna vez una clave llevara / o ~, la ruta en prosa seria ambigua. El commit c3e0860 se puede sacar solo si cambia de idea."
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "info",
+      "title": "Las oraciones emitidas no tienen test de regresion en el repositorio",
+      "description": "Hipotesis sin verificar del revisor: la suite pasa pero ningun test invoca tools/emitir-55.py ni afirma las cadenas de why_must_fail; una emision limpia en la punta con aserciones sobre cada registro de esquema y la validacion con el lector externo lo zanjarian.",
+      "location": "tools/emitir-55.py (tabla WHY y oracion de esquema)",
+      "final_state": "refuted_verifiable",
+      "verification": {
+        "against": "execution",
+        "detail": "Lo que el revisor pide es lo que el brief manda hacer por fuera de la suite (seccion 5) y se hizo: emision en la punta y comparacion archivo por archivo contra la salida de 374cc1b con un script descartable. why_must_fail cambia exactamente en los 29 registros esperados (3 de R0, 2 de R5, 24 de esquema) y en ningun otro campo salvo isolation.evidence.sha256, que es el sha256 de isolation.json con el commit adentro, verificado contra los dos archivos. Los tres reportes pasaron el lector fijado con [] y []. Que tools/ no tenga tests en la suite es convencion del repositorio y el brief excluye tests/ (seccion 7)."
+      },
+      "evidence": {
+        "text": "Comparacion 374cc1b -> c3e0860: configs/*, control-results.json, isolation.json, run-residue-v0.2/v0.3/v0.4.json, summary.json y README.txt identicos tras reemplazar el commit; fixtures.json difiere solo en why_must_fail de disensor/v0.2/r0_no_human_arbiter, v0.3/r0_no_human_arbiter, v0.4/r0_no_human_arbiter, v0.3/r5_level_a_gap_without_lead, v0.4/r5_level_a_gap_without_lead y los 24 registros schema_*, mas isolation.evidence.sha256 en los 37 de regla. Lector 0.17.4: [] y [] en los tres reportes."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "principal_refutation",
+        "finding_ref": "h2",
+        "refutation_type": "verifiable",
+        "requires_human_attention": false,
+        "description": "Refutada por la emision en la punta, la comparacion archivo por archivo contra 374cc1b y el lector fijado; queda declarada para que quien lea el residuo pueda repetirla con el comando del README.txt emitido."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no ejecuto tools/emitir-55.py ni el lector de referencia (el paquete de revision solo le permite escribir el informe) y sus tres intentos de inspeccionar los errores de esquema fallaron por comillas antes de correr codigo; si corrio pytest (639 passed, 7 skipped). Lo ejecuto solo el generador, en una sola maquina (Windows, Python 3.14.2, jsonschema 4.26.0): dos corridas por commit con SHA256SUMS identico, la comparacion con 374cc1b y el lector sobre los tres reportes. Para los registros 5.5 sigue sin existir lector ni esquema."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 1
+      },
+      "false_positives": {
+        "refuted_verifiable": 1,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 288
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:633e7dfbe9b81de93a66e0fac193cd2eb3d9a34e1e4591cf90a829973a701b23",
+      "report_hash": "sha256:c58c7e39f1f7afc4dc837147de8cbd0a6abb5dbe9d791b72b4a08296758b05ef",
+      "reviewer_seconds": 199
+    }
+  }
+}
