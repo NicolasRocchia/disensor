@@ -109,7 +109,12 @@ ORDER = {"cross_family": 0, "same_family_distinct_model": 1, "same_model_fresh_c
 
 def _usable(entry: dict) -> bool:
     """Una entrada desactualizada no entra en la cadena: mentiria al declarar."""
-    return stale_model_entry(entry) is None
+    return stale_entry(entry) is None
+
+
+def stale_entry(entry: dict) -> str | None:
+    """Por que una entrada registrada ya no sirve, si es que no sirve."""
+    return stale_model_entry(entry) or stale_recipe_entry(entry)
 
 
 def chain_for(
@@ -163,6 +168,30 @@ def stale_model_entry(entry: dict) -> str | None:
         "whatever default the account has while the declaration claims otherwise. Register it "
         f"again: disensor reviewer remove {entry.get('id')} && disensor reviewer add "
         f"{entry.get('id')} --model <the model your account runs>"
+    )
+
+
+def stale_recipe_entry(entry: dict) -> str | None:
+    """Si la receta del catalogo cambio desde que la entrada se registro.
+
+    El registro copia el argv de la receta al registrar, y la ronda corre lo que
+    el registro diga. Cuando una version endurece una receta (la de claude paso
+    a arrancar con --safe-mode), la entrada ya registrada sigue corriendo el
+    argv viejo, `reviewer add` la rechaza por repetida, y nada avisa: la
+    correccion queda instalada sin correr nunca. Degradar el endurecimiento no
+    cubre este caso, porque esa receta nunca lo tuvo.
+    """
+    if entry.get("source") != "catalog":
+        return None
+    receta = CATALOG.get(entry.get("id"))
+    if not receta or list(entry.get("command", [])) == list(receta["command"]):
+        return None
+    modelo = " --model <the model your account runs>" if "{model}" in receta["command"] else ""
+    return (
+        f"the registered entry {entry.get('id')!r} was built from a catalogue recipe that has "
+        "since changed, so it would run the old command. Register it again: "
+        f"disensor reviewer remove {entry.get('id')} && disensor reviewer add "
+        f"{entry.get('id')}{modelo}"
     )
 
 
@@ -655,9 +684,7 @@ def _round(args, repo: Path) -> int:
         # Una entrada desactualizada se excluye de la cadena, y quedarse con
         # "no hay revisor" cuando hay uno registrado manda a buscar el problema
         # donde no esta.
-        viejas = [
-            stale_model_entry(e) for e in registry.get("reviewers", []) if stale_model_entry(e)
-        ]
+        viejas = [stale_entry(e) for e in registry.get("reviewers", []) if stale_entry(e)]
         for aviso in viejas:
             estado(f"round: {aviso}")
         if not viejas:
