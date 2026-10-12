@@ -31,7 +31,8 @@ lugar del instalado sin que `git status --untracked-files=no` lo viera. Y
 comprueba de dónde importó lo que corre: `disensor.rules` del checkout,
 `jsonschema` de fuera de él. El directorio de salida tiene que estar fuera del
 repositorio o ignorado por git, y si ya existe solo puede tener lo que este
-script emite: se sobreescribe la salida de una corrida anterior y nada más.
+script emite, sin enlaces simbólicos, junctions ni enlaces duros: se
+sobreescribe la salida de una corrida anterior y nada más.
 
 Qué emite, en el directorio de salida:
 
@@ -97,9 +98,10 @@ Límites, que van también en README.txt:
 - La suite v0.2 da control solo para R0, R4, R6 y el esquema.
 - El checker es el código en el commit más Python y `jsonschema`, con las
   versiones que registra `summary.json`. El validador no lee el reloj.
-- Las miradas al checkout son instantáneas, no barreras: no cubren un sistema
-  de archivos hostil (bytecode en `__pycache__` con la misma marca que la
-  fuente, o un intérprete o un `jsonschema` alterados fuera del repositorio).
+- Las miradas al checkout y al directorio de salida son instantáneas, no
+  barreras: no cubren un sistema de archivos hostil (bytecode en `__pycache__`
+  con la misma marca que la fuente, un intérprete o un `jsonschema` alterados
+  fuera del repositorio, o un enlace plantado entre la mirada y la escritura).
 
 It runs on the checkout, because it uses the validator of that commit: it
 prints the commit and refuses to run if tracked files are modified. Inputs
@@ -119,7 +121,8 @@ place of the installed one without `git status --untracked-files=no` noticing.
 And it checks where what runs was imported from: `disensor.rules` from the
 checkout, `jsonschema` from outside it. The output directory has to be outside
 the repository or ignored by git, and if it already exists it may only hold
-what this script emits: a previous run's output is overwritten, nothing else.
+what this script emits, with no symlinks, junctions or hard links: a previous
+run's output is overwritten, nothing else.
 
 What it emits, in the output directory:
 
@@ -182,9 +185,10 @@ Limits, also written to README.txt:
 - The v0.2 suite gives control only for R0, R4, R6 and the schema.
 - The checker is the code at the commit plus Python and `jsonschema`, at the
   versions `summary.json` records. The validator does not read the clock.
-- The looks at the checkout are snapshots, not barriers: they do not cover a
-  hostile file system (bytecode in `__pycache__` stamped like the source, or an
-  altered interpreter or `jsonschema` outside the repository).
+- The looks at the checkout and at the output directory are snapshots, not
+  barriers: they do not cover a hostile file system (bytecode in `__pycache__`
+  stamped like the source, an altered interpreter or `jsonschema` outside the
+  repository, or a link planted between the look and the write).
 """
 import argparse
 import hashlib
@@ -193,6 +197,7 @@ import json
 import os
 import platform
 import re
+import stat
 import subprocess
 import sys
 
@@ -317,11 +322,26 @@ def mismo_checker(commit, sha_normalizados):
             sys.exit(f"{ruta} en el checkout no es el del commit: el validador que corrio no es el medido.")
 
 
+def es_enlace(ruta):
+    """Enlace simbólico, junction u otro punto de reanálisis de Windows, o un
+    archivo con más de un nombre (enlace duro): escribir ahí sale del
+    directorio que se revisó, o pisa un archivo que vive en otro lado."""
+    if os.path.islink(ruta):
+        return True
+    st = os.lstat(ruta)
+    if getattr(st, "st_reparse_tag", 0) or (getattr(st, "st_file_attributes", 0)
+                                            & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)):
+        return True
+    return stat.S_ISREG(st.st_mode) and st.st_nlink > 1
+
+
 def destino_seguro(salida):
     """El directorio de salida está fuera del repositorio o git lo ignora, y si
-    ya existe solo tiene lo que este script emite: se sobreescribe la salida de
-    una corrida anterior y nada más. Así `.` o `tools` no siembran archivos en
-    el checkout, y un directorio ajeno no pierde lo que tenía."""
+    ya existe solo tiene lo que este script emite, sin enlaces de ninguna
+    clase: se sobreescribe la salida de una corrida anterior y nada más. Así
+    `.` o `tools` no siembran archivos en el checkout, un directorio ajeno no
+    pierde lo que tenía, y un `configs` que sea junction o un `fixtures.json`
+    que sea enlace no redirigen la escritura fuera de lo revisado."""
     real = os.path.realpath(salida)
     if real == _RAIZ or bajo(real, _RAIZ):
         # Se pregunta por un hijo del destino y no por el destino: así una regla
@@ -335,9 +355,18 @@ def destino_seguro(salida):
     if os.path.isdir(real):
         permitidos = set(EMITIDOS) | {"configs"}
         presentes = set()
+        enlaces = []
         for raiz, dirs, archivos in os.walk(real):
             for n in dirs + archivos:
-                presentes.add(os.path.relpath(os.path.join(raiz, n), real).replace(os.sep, "/"))
+                ruta = os.path.join(raiz, n)
+                rel = os.path.relpath(ruta, real).replace(os.sep, "/")
+                presentes.add(rel)
+                if es_enlace(ruta):
+                    enlaces.append(rel)
+        if enlaces:
+            sys.exit(f"{salida} tiene enlaces (simbolicos, junctions o duros): {', '.join(enlaces[:5])}"
+                     f"{', ...' if len(enlaces) > 5 else ''}. Escribir ahi saldria del directorio revisado. "
+                     "Vaciarlo o elegir otro.")
         ajenos = sorted(presentes - permitidos)
         if ajenos:
             sys.exit(f"{salida} ya existe y tiene lo que este script no emite: {', '.join(ajenos[:5])}"
@@ -769,9 +798,9 @@ def main():
         "  - The v0.2 suite gives control only for R0, R4, R6 and the schema.",
         "  - The checker is the code at the commit plus Python and jsonschema, at the versions summary.json",
         "    records. The validator does not read the clock.",
-        "  - The checks on the checkout are snapshots, not barriers: they do not cover a hostile file system",
-        "    (bytecode in __pycache__ stamped like the source, or an altered interpreter or jsonschema outside",
-        "    the repository).",
+        "  - The checks on the checkout and on the output directory are snapshots, not barriers: they do not",
+        "    cover a hostile file system (bytecode in __pycache__ stamped like the source, an altered interpreter",
+        "    or jsonschema outside the repository, or a link planted between the look and the write).",
         "  - check-set uses tree-shape flat as the reference reader computes it (sha256 over the",
         "    concatenated raw sha256 digests of each compact check); the text does not fix the tree yet (O3).",
         "",
