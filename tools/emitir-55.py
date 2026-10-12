@@ -11,7 +11,7 @@ public-agent-conformance@w3.org text.
 
 Correr desde la raíz del repositorio / run from the repository root:
 
-    python3 tools/emitir-55.py --runner "<nombre | name>" [directorio_de_salida | output_dir]
+    python3 -P tools/emitir-55.py --runner "<nombre | name>" [directorio_de_salida | output_dir]
 
 Corre sobre el checkout, porque usa el validador de ese commit: imprime el
 commit y se niega a correr si hay archivos versionados modificados. Los datos
@@ -32,7 +32,11 @@ comprueba de dónde importó lo que corre: `disensor.rules` del checkout,
 `jsonschema` de fuera de él. El directorio de salida tiene que estar fuera del
 repositorio o ignorado por git, y si ya existe solo puede tener lo que este
 script emite, sin enlaces simbólicos, junctions ni enlaces duros: se
-sobreescribe la salida de una corrida anterior y nada más.
+sobreescribe la salida de una corrida anterior y nada más. Y hay que correrlo
+con `-P` (Python 3.11 o más): sin eso Python antepone `tools/` a la ruta de
+importación y un módulo suelto ahí correría en lugar de una dependencia; el
+script se niega si algún directorio del repositorio está en `sys.path` salvo el
+`src/` que él mismo agrega.
 
 Qué emite, en el directorio de salida:
 
@@ -122,7 +126,10 @@ And it checks where what runs was imported from: `disensor.rules` from the
 checkout, `jsonschema` from outside it. The output directory has to be outside
 the repository or ignored by git, and if it already exists it may only hold
 what this script emits, with no symlinks, junctions or hard links: a previous
-run's output is overwritten, nothing else.
+run's output is overwritten, nothing else. And it has to run with `-P` (Python
+3.11 or newer): without it Python prepends `tools/` to the import path and a
+loose module there would run in place of a dependency; the script refuses if
+any repository directory is on `sys.path` other than the `src/` it adds itself.
 
 What it emits, in the output directory:
 
@@ -190,19 +197,46 @@ Limits, also written to README.txt:
   stamped like the source, an altered interpreter or `jsonschema` outside the
   repository, or a link planted between the look and the write).
 """
-import argparse
-import hashlib
-import importlib.metadata
-import json
 import os
-import platform
-import re
-import stat
-import subprocess
 import sys
 
-# Lo que se imprime va en ASCII, para que una salida redirigida no dependa de
-# la página de códigos de quien reproduce.
+
+def bajo(ruta, raiz):
+    """La ruta está dentro de la raíz (False también si están en discos distintos)."""
+    try:
+        return os.path.commonpath([ruta, raiz]) == raiz
+    except ValueError:
+        return False
+
+
+# Antes de cualquier otro import, con os y sys solos, que ya estaban cargados al
+# arrancar y no se pueden sombrear desde el repositorio: ningún directorio del
+# repositorio puede estar en la ruta de importación salvo el src/ que este
+# script agrega más abajo. Al correr `python tools/emitir-55.py`, Python
+# antepone tools/ a sys.path, y un módulo suelto ahí (un tools/attrs.py, por
+# ejemplo) correría en lugar de la dependencia instalada antes de que ninguna
+# guarda lo viera. Con `-P` (Python 3.11 o más) el directorio del script no
+# entra. Lo que se imprime va en ASCII, para que una salida redirigida no
+# dependa de la página de códigos de quien reproduce.
+_RAIZ = os.path.realpath(os.getcwd())
+if os.path.realpath(__file__) != os.path.realpath(os.path.join(_RAIZ, "tools", "emitir-55.py")):
+    sys.exit("este script tiene que ser el tools/emitir-55.py del directorio actual, "
+             "y el directorio actual la raiz del repositorio")
+_dentro = [p for p in sys.path if p and (os.path.realpath(p) == _RAIZ or bajo(os.path.realpath(p), _RAIZ))]
+if _dentro:
+    sys.exit("hay directorios del repositorio en la ruta de importacion de Python (" + ", ".join(_dentro)
+             + "): correr con `python -P tools/emitir-55.py ...` (Python 3.11 o mas) "
+             "y sin PYTHONPATH que apunte al repositorio.")
+
+import argparse            # noqa: E402
+import hashlib             # noqa: E402
+import importlib.metadata  # noqa: E402
+import json                # noqa: E402
+import platform            # noqa: E402
+import re                  # noqa: E402
+import stat                # noqa: E402
+import subprocess          # noqa: E402
+
 if not os.path.isfile(os.path.join("src", "disensor", "rules.py")):
     sys.exit("no encuentro src/disensor/rules.py: el directorio actual tiene que ser el del repositorio")
 
@@ -212,14 +246,6 @@ def git(*args, binario=False):
     if r.returncode != 0:
         sys.exit(f"git {' '.join(args)}: {r.stderr.decode('utf-8', 'replace').strip()}")
     return r.stdout if binario else r.stdout.decode("utf-8")
-
-
-def bajo(ruta, raiz):
-    """La ruta está dentro de la raíz (False también si están en discos distintos)."""
-    try:
-        return os.path.commonpath([ruta, raiz]) == raiz
-    except ValueError:
-        return False
 
 
 # Nada sin versionar bajo src/: de ahí se importa el validador, y un módulo
@@ -241,7 +267,6 @@ from disensor.rules import validate_artifact          # noqa: E402
 
 # De dónde se importó lo que va a correr: el validador, del checkout; su
 # dependencia, de fuera de él.
-_RAIZ = os.path.realpath(os.getcwd())
 if os.path.realpath(disensor.rules.__file__) != os.path.realpath(os.path.join("src", "disensor", "rules.py")):
     sys.exit(f"disensor.rules se importo de {disensor.rules.__file__} y no del checkout")
 if bajo(os.path.realpath(jsonschema.__file__), _RAIZ):
@@ -506,7 +531,7 @@ def main():
     print(f"python: {platform.python_version()}")
     print(f"jsonschema: {importlib.metadata.version('jsonschema')}")
     if sueltos:
-        print(f"  sin versionar ({len(sueltos)}), no afectan un checkout:")
+        print(f"  sin versionar ({len(sueltos)}), fuera de la ruta de importacion:")
         for s in sueltos:
             print(f"    {s}")
     if modificados:
@@ -782,7 +807,8 @@ def main():
         "summary.json records the versions, so another environment changes that file and the final sum only):",
         f"  git worktree add <dir> {commit}",
         "  cd <dir>",
-        f"  python3 tools/emitir-55.py --runner {json.dumps(args.runner, ensure_ascii=False)} <output_dir>",
+        f"  python3 -P tools/emitir-55.py --runner {json.dumps(args.runner, ensure_ascii=False)} <output_dir>",
+        "  (Python 3.11 or newer; -P keeps the script directory off the import path)",
         "",
         "Limits",
         "  - One author wrote the corpus, the validator, the expected rules and the emitter, and the",
