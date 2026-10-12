@@ -25,6 +25,12 @@ sigue limpio y `rules.py` y los esquemas del checkout, que es de donde carga
 que está en .gitignore, y nada más, tampoco bytecode. `--runner` es quien
 corre, y entra solo en `control-results.json`.
 
+Se niega también si hay algo sin versionar bajo `src/`: de ahí importa el
+validador, y un módulo suelto (un `src/jsonschema/`, por ejemplo) correría en
+lugar del instalado sin que `git status --untracked-files=no` lo viera. Y
+comprueba de dónde importó lo que corre: `disensor.rules` del checkout,
+`jsonschema` de fuera de él.
+
 Qué emite, en el directorio de salida:
 
 - `configs/residue-v0.X.json`: la configuración del validador por versión
@@ -89,6 +95,9 @@ Límites, que van también en README.txt:
 - La suite v0.2 da control solo para R0, R4, R6 y el esquema.
 - El checker es el código en el commit más Python y `jsonschema`, con las
   versiones que registra `summary.json`. El validador no lee el reloj.
+- Las miradas al checkout son instantáneas, no barreras: no cubren un sistema
+  de archivos hostil (bytecode en `__pycache__` con la misma marca que la
+  fuente, o un intérprete o un `jsonschema` alterados fuera del repositorio).
 
 It runs on the checkout, because it uses the validator of that commit: it
 prints the commit and refuses to run if tracked files are modified. Inputs
@@ -101,6 +110,12 @@ and the schemas in the checkout, which is where `validate_artifact` loads them
 from, are the commit's. By default it writes to ./salida-55/, which is in
 .gitignore, and nothing else, not even bytecode. `--runner` names who runs it
 and goes only into `control-results.json`.
+
+It also refuses if anything untracked sits under `src/`: the validator is
+imported from there, and a loose module (a `src/jsonschema/`, say) would run in
+place of the installed one without `git status --untracked-files=no` noticing.
+And it checks where what runs was imported from: `disensor.rules` from the
+checkout, `jsonschema` from outside it.
 
 What it emits, in the output directory:
 
@@ -163,6 +178,9 @@ Limits, also written to README.txt:
 - The v0.2 suite gives control only for R0, R4, R6 and the schema.
 - The checker is the code at the commit plus Python and `jsonschema`, at the
   versions `summary.json` records. The validator does not read the clock.
+- The looks at the checkout are snapshots, not barriers: they do not cover a
+  hostile file system (bytecode in `__pycache__` stamped like the source, or an
+  altered interpreter or `jsonschema` outside the repository).
 """
 import argparse
 import hashlib
@@ -179,10 +197,46 @@ import sys
 if not os.path.isfile(os.path.join("src", "disensor", "rules.py")):
     sys.exit("no encuentro src/disensor/rules.py: el directorio actual tiene que ser el del repositorio")
 
+
+def git(*args, binario=False):
+    r = subprocess.run(["git", "--no-optional-locks", *args], capture_output=True)
+    if r.returncode != 0:
+        sys.exit(f"git {' '.join(args)}: {r.stderr.decode('utf-8', 'replace').strip()}")
+    return r.stdout if binario else r.stdout.decode("utf-8")
+
+
+def bajo(ruta, raiz):
+    """La ruta está dentro de la raíz (False también si están en discos distintos)."""
+    try:
+        return os.path.commonpath([ruta, raiz]) == raiz
+    except ValueError:
+        return False
+
+
+# Nada sin versionar bajo src/: de ahí se importa el validador, y un módulo
+# suelto (un `src/jsonschema/`, por ejemplo) correría en lugar del instalado
+# sin que `git status --untracked-files=no` lo viera. El bytecode de
+# __pycache__ no agrega módulos, así que no bloquea.
+_sueltos_src = [l[3:] for l in git("status", "--porcelain", "--ignored", "--", "src").splitlines()
+                if l[:2] in ("??", "!!") and "__pycache__" not in l]
+if _sueltos_src:
+    sys.exit("hay archivos sin versionar o ignorados bajo src/, de donde se importa el validador: "
+             + ", ".join(_sueltos_src))
+
 # "Nada más" incluye el bytecode de los módulos que importa desde src.
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.getcwd(), "src"))
+import jsonschema                                     # noqa: E402
+import disensor.rules                                 # noqa: E402
 from disensor.rules import validate_artifact          # noqa: E402
+
+# De dónde se importó lo que va a correr: el validador, del checkout; su
+# dependencia, de fuera de él.
+_RAIZ = os.path.realpath(os.getcwd())
+if os.path.realpath(disensor.rules.__file__) != os.path.realpath(os.path.join("src", "disensor", "rules.py")):
+    sys.exit(f"disensor.rules se importo de {disensor.rules.__file__} y no del checkout")
+if bajo(os.path.realpath(jsonschema.__file__), _RAIZ):
+    sys.exit(f"jsonschema se importo desde el checkout ({jsonschema.__file__}) y no del entorno")
 
 NL = chr(10)
 NUL = chr(0)
@@ -227,13 +281,6 @@ WHY = {
     "R12": "A reviewer with unverified hardening has no reviewer_hardening_gap residue item naming it.",
     "R13": "A local identifier is declared more than once, or a reference to a reviewer does not resolve against the declared ones.",
 }
-
-
-def git(*args, binario=False):
-    r = subprocess.run(["git", "--no-optional-locks", *args], capture_output=True)
-    if r.returncode != 0:
-        sys.exit(f"git {' '.join(args)}: {r.stderr.decode('utf-8', 'replace').strip()}")
-    return r.stdout if binario else r.stdout.decode("utf-8")
 
 
 def blob(commit, ruta):
@@ -684,6 +731,9 @@ def main():
         "  - The v0.2 suite gives control only for R0, R4, R6 and the schema.",
         "  - The checker is the code at the commit plus Python and jsonschema, at the versions summary.json",
         "    records. The validator does not read the clock.",
+        "  - The checks on the checkout are snapshots, not barriers: they do not cover a hostile file system",
+        "    (bytecode in __pycache__ stamped like the source, or an altered interpreter or jsonschema outside",
+        "    the repository).",
         "  - check-set uses tree-shape flat as the reference reader computes it (sha256 over the",
         "    concatenated raw sha256 digests of each compact check); the text does not fix the tree yet (O3).",
         "",
