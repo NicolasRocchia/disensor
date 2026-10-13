@@ -1,0 +1,164 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "984c900b-0109-4d9a-88a3-dd5b4013beb4",
+    "created_at": "2026-10-13T12:02:40-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "ba3a3adbe530946390ac1742adf499140a5233f7",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "e084023f6db4df403c6e1511c91321baf99772a0"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r4",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La skill que escribió 0.11.0 no se reconocía al actualizar",
+      "description": "El cambio registraba un solo hash de skill para la marca v0.11, el del runbook de 0.12.1, y la prueba instalaba ese mismo texto como si cubriera 0.11.0 a 0.12.1. La skill que escribió 0.11.0 es otra: la 0.12.0 sumó el párrafo de reviewer_seconds sin cambiar la marca. Una instalación hecha con 0.11.0 habría terminado en CONFLICT en init --upgrade y se habría quedado con el runbook viejo, sin el cronómetro que este cambio agrega. ronda 1 sobre 51082d5: pack sha256:dde1ecbe2ab448506b6463208380af7240aedd9932037796554f9be1f4d01e56, informe sha256:96316d851142d10767ab9d6fa7d3e34af558620c960584bfcc225021e685a107, 210 s.",
+      "location": "src/disensor/init.py (KNOWN_BLOCKS); tests/bloques/; tests/test_upgrade.py (instalacion_011, test_a_0_11_installation_is_upgraded)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Extraído src/disensor de los tags v0.11.0, v0.12.0 y v0.12.1 con git archive y hasheados CLAUDE_SECTION y SKILL_FRONTMATTER + RUNBOOK de cada uno con _block_hash: la sección de CLAUDE.md es la misma en los tres (a17940e1...), la skill de v0.11.0 (dd6ff218...) difiere de la de v0.12.0 y v0.12.1 (b32e0211...) exactamente en el párrafo de reviewer_seconds, y las tres llevan la marca v0.11. Corregido en 5f94b14: los dos hashes en KNOWN_BLOCKS, los archivos nombrados por la versión que los escribió (skill-0.11.0.txt y skill-0.12.0.txt, como claude-0.9.0 y claude-0.9.2) y la prueba parametrizada por variante. El remedio es el que pedía el informe; sin ajuste."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_upgrade.py::test_a_0_11_installation_is_upgraded[skill-0.11.0.txt] y [skill-0.12.0.txt], que instalan cada bloque histórico exacto y exigen el upgrade a v0.13 con el runbook nuevo; la ronda 2 sobre 5f94b14 confirmó los hashes contra el material de los tags v0.11.0 y v0.12.0 y no encontró hallazgos."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r3",
+      "severity": "minor",
+      "title": "La mediana publicada era la mediana baja sin decirlo",
+      "description": "Con 12 y 6 valores la prosa de los dos README decía mediana 193 y mediana 540: la prueba usaba median_low (el menor de los dos del medio) y la prosa decía mediana a secas. La mediana convencional de esos valores es 196 y 662,5. Un lector recibía un resumen de costo incorrecto y la prueba lo fijaba. ronda 3 sobre 7f2dcca: pack sha256:f2df12a1f8ad2ec7b75dbb519b6aa2adaf93c12ab2331e9c262b9440e8e8ad2a, informe sha256:c7432847ea2275364327eb821369fcdfb7eb5158dfba74adc945dd15abe2e31d, 245 s.",
+      "location": "README.md y README.es.md (párrafo del costo medido); tests/test_docs.py (COSTO, costo_observado, test_the_published_cost_matches_the_corpus_up_to_its_date)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Recomputadas con statistics.median las medianas de los doce valores de reviewer_seconds y los seis de extra_time_sec del corpus al 2026-10-12: 196.0 y 662.5, como decía el informe. Corregido en ba3a3ad: los dos README publican la mediana convencional (196, y 662.5 con punto en inglés y 662,5 con coma en castellano), la prueba calcula statistics.median y compara las medianas como número y el resto como enteros. Se eligió publicar la convencional en vez de rotular la baja, porque es la que el lector espera al leer mediana."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_docs.py::test_the_published_cost_matches_the_corpus_up_to_its_date sobre ba3a3ad; verificado por mutación que falla con 662 y con 193; la ronda 4 sobre ba3a3ad no encontró hallazgos ni hipótesis."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas de la suite no se forzaron: tres smoke tests de endurecimiento (opt-in con costo real, DISENSOR_SMOKE=1), que ejercitan las recetas de Codex y Claude y que este diff no toca; la prueba de permiso de ejecución, que en Windows no distingue nada y corre en el CI de POSIX; y los tres index.json de las suites de vectores. Los cuatro revisores corrieron la suite completa en Windows (669 pasan sobre 51082d5; 670 sobre 5f94b14, 7f2dcca y ba3a3ad) y el generador también sobre cada head (Python 3.14)."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El confinamiento declarado para los cuatro revisores es clean_git_status: el árbol quedó limpio a mano después de cada ronda y el runner atestiguó tree_unchanged en las cuatro. Ese método no ve escrituras fuera del árbol, y el runner lo declara en tree_check. El revisor de la ronda 1 informó él mismo que dos `git show` de lectura se redirigieron a archivos en %TEMP% de esta máquina, fuera del repositorio y fuera del único destino de escritura autorizado (su informe), y pidió que el confinamiento no se registrara como cumplimiento total; los de las rondas 2 a 4 redirigieron la caché de Python y los temporales de pytest fuera del repositorio y lo dijeron. Ningún archivo del repositorio cambió; verified: true dice eso y no más."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Ninguna ronda puede revisar el estado final del corpus que este PR publica: la declaración del evento entra en .residue/ después de la última ronda, con reviewer_seconds y extra_time_sec, y cambia las cifras del día. La ronda 2 aprobó la prosa fechada al 13/10 (15 y 9) y la declaración de esa misma ronda, del 13/10, hacía 16 y 10; lo vio el generador al declarar, no el revisor, porque el archivo no existía. Se corrigió en 7f2dcca con el corte al 12/10 y una regla en la prueba (la fecha de corte es anterior al día de la declaración más nueva del corpus), y el generador verificó con una declaración simulada de hoy que esta declaración no vuelve falsa la prosa. La ronda 4 revisó esa regla; lo que no puede revisar nadie antes del merge es el archivo de esta declaración, y por eso queda dicho acá."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 2158
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:6c10ea1256f5ee6434b796272cb003fbdcd4f784aaa5809a59b44df7a246041d",
+      "report_hash": "sha256:b5ffde2fadcf1e7c86f8c8efb273c22abf08b226189ad8867be9fa6b7c017133",
+      "reviewer_seconds": 296
+    }
+  }
+}
