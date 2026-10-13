@@ -23,7 +23,8 @@ medio. Antes de escribir vuelve a mirar: HEAD sigue en ese commit, el árbol
 sigue limpio y `rules.py` y los esquemas del checkout, que es de donde carga
 `validate_artifact`, son los del commit. Por defecto escribe en ./salida-55/,
 que está en .gitignore, y nada más, tampoco bytecode. `--runner` es quien
-corre, y entra solo en `control-results.json`.
+corre, y entra en `control-results.json` y en el comando de regeneración de
+`README.txt`.
 
 Se niega también si hay algo sin versionar bajo `src/`: de ahí importa el
 validador, y un módulo suelto (un `src/jsonschema/`, por ejemplo) correría en
@@ -117,7 +118,8 @@ looks again: HEAD is still that commit, the tree is still clean, and `rules.py`
 and the schemas in the checkout, which is where `validate_artifact` loads them
 from, are the commit's. By default it writes to ./salida-55/, which is in
 .gitignore, and nothing else, not even bytecode. `--runner` names who runs it
-and goes only into `control-results.json`.
+and goes into `control-results.json` and into the regeneration command in
+`README.txt`.
 
 It also refuses if anything untracked sits under `src/`: the validator is
 imported from there, and a loose module (a `src/jsonschema/`, say) would run in
@@ -511,7 +513,7 @@ def lee_el_reloj(fuente):
 def main():
     ap = argparse.ArgumentParser(
         description="Emite la corrida de .residue/ como reportes v0.1 y los MUST-FAIL como registros 5.5.")
-    ap.add_argument("--runner", required=True, help="quien corre; entra solo en control-results.json")
+    ap.add_argument("--runner", required=True, help="quien corre; entra en control-results.json y en el comando de README.txt")
     ap.add_argument("salida", nargs="?", default="salida-55", help="directorio de salida (default: salida-55)")
     args = ap.parse_args()
     destino_seguro(args.salida)
