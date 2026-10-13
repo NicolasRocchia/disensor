@@ -159,6 +159,12 @@ def test_un_estado_inventado_fuera_de_un_hallazgo_tampoco_pasa():
     assert r["sin_campos_inventados"]["auto"] is True
 
 
+def test_los_items_salen_en_el_orden_del_protocolo():
+    # Los de juicio se iteraban desde un set: el orden dependía del hash seed
+    # del proceso y repuntuar reordenaba puntajes.json sin cambiar un valor.
+    assert list(puntuar.puntuar("x").keys()) == puntuar.ITEMS
+
+
 def test_un_juicio_pendiente_queda_pendiente_en_la_celda_de_a():
     # Hallazgo 2 de la ronda 4: un None se convertía en "no".
     def reg(estado, valor):

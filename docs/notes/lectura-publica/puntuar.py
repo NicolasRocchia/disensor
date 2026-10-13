@@ -294,7 +294,10 @@ def puntuar(respuesta: str) -> dict:
     for item in JUICIO:
         pistas = lineas_con(PISTAS[item], respuesta)
         r[item] = {"auto": None, "evidencia": " | ".join(pistas) if pistas else "sin palabras sospechosas"}
-    return r
+    # En el orden de la tabla del protocolo: el de iteración de un set de
+    # cadenas cambia con el hash seed de cada proceso, y repuntuar reordenaba
+    # puntajes.json sin cambiar ningún valor.
+    return {item: r[item] for item in ITEMS}
 
 
 def final(registro: dict) -> bool | None:
