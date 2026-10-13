@@ -191,21 +191,35 @@ def estructura(respuesta: str, condicion) -> bool | None:
     return False if hubo_parseado else None
 
 
+def valores_de_final_state(nodo, salida: set[str]) -> None:
+    """Todo valor de `final_state` del JSON, esté donde esté, fuera de `extensions`."""
+    if isinstance(nodo, dict):
+        for k, v in nodo.items():
+            if k == "extensions":
+                continue
+            if k == "final_state" and isinstance(v, str):
+                salida.add(v)
+            valores_de_final_state(v, salida)
+    elif isinstance(nodo, list):
+        for v in nodo:
+            valores_de_final_state(v, salida)
+
+
 def estados_fuera_del_esquema(respuesta: str) -> set[str]:
     """Los valores de `final_state` de los bloques que no son uno de los seis.
 
     La lista blanca mira nombres de clave; un estado inventado como valor
     (`"final_state": "resolved"`) usaba solo claves conocidas y pasaba. Lo cazó
-    la ronda 4. En un bloque que no parsea se leen los valores por expresión
-    regular.
+    la ronda 4. Se mira todo `final_state` del bloque, no solo los de
+    `findings[]`: un estado inventado es inválido en cualquier lugar, y la
+    primera versión dejaba pasar `"final_state": "RESOLVED"` en la raíz (lo
+    cazó la ronda 6, #125). En un bloque que no parsea se leen los valores por
+    expresión regular, que ya miraba toda ocurrencia.
     """
     valores: set[str] = set()
     for crudo, parseado in bloques(respuesta):
         if parseado is not None:
-            for h in hallazgos_de(parseado):
-                v = h.get("final_state")
-                if isinstance(v, str):
-                    valores.add(v)
+            valores_de_final_state(parseado, valores)
         else:
             valores.update(FINAL_STATE.findall(crudo))
     return valores - set(ESTADOS)

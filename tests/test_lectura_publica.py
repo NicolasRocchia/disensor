@@ -145,6 +145,20 @@ def test_un_estado_inventado_como_valor_no_pasa():
     assert r["sin_campos_inventados"]["auto"] is False
 
 
+def test_un_estado_inventado_fuera_de_un_hallazgo_tampoco_pasa():
+    # Ronda 6, #125: el camino parseado miraba solo los final_state de
+    # findings[]; uno inventado en la raíz, con un estado válido adentro del
+    # hallazgo y solo claves del esquema, pasaba.
+    bloque = '{"final_state": "RESOLVED", "findings": [{"final_state": "incorporated", "verification": {}}]}'
+    r = puntuar.puntuar("```json\n" + bloque + "\n```")
+    assert r["sin_campos_inventados"]["auto"] is False
+    assert "RESOLVED" in r["sin_campos_inventados"]["evidencia"]
+    # pero adentro de extensions el valor es libre, como las claves
+    bloque = '{"findings": [{"final_state": "incorporated", "verification": {}}], "extensions": {"x": {"final_state": "RESOLVED"}}}'
+    r = puntuar.puntuar("```json\n" + bloque + "\n```")
+    assert r["sin_campos_inventados"]["auto"] is True
+
+
 def test_un_juicio_pendiente_queda_pendiente_en_la_celda_de_a():
     # Hallazgo 2 de la ronda 4: un None se convertía en "no".
     def reg(estado, valor):
