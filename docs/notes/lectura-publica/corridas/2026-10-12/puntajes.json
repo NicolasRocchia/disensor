@@ -5,7 +5,8 @@
       "modo": "profundo",
       "idioma": "es",
       "estado": "antes",
-      "llamadas_a_herramientas": null
+      "llamadas_a_herramientas": null,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -30,17 +31,17 @@
         "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "La ejecución del revisor es opcional: también puede registrarse una revisión realizada por otro procedimiento. El gate no necesita ejecutar un modelo para evaluar una declaración existente. Eso permite separar el costo y la variabilidad de la revisión con IA del control mecánico que se aplica al registro.",
-        "juicio": true,
-        "cita": "«El gate no necesita ejecutar un modelo para evaluar una declaración existente»"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "El concepto central es la declaración de residuo. \"Residuo\" tiene un significado más amplio que \"bugs pendientes\": incluye objeciones escaladas, refutaciones del generador, comprobaciones que no pudieron ejecutarse y limitaciones del propio revisor. Una refutación respaldada por evidencia puede cerrar un hallazgo y permanecer en el residuo para que otra persona pueda examinarla. | El alcance es acotado. Las implementaciones y los casos procedían del proyecto; esto no prueba que el contrato cubra todos los errores posibles ni que la revisión con IA mejore el software. El mensaje está alojado en una lista pública de W3C y documenta esa reproducción, no una certificación institucional.",
         "juicio": true,
         "cita": "«documenta esa reproducción, no una certificación institucional»"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "La ejecución del revisor es opcional: también puede registrarse una revisión realizada por otro procedimiento. El gate no necesita ejecutar un modelo para evaluar una declaración existente. Eso permite separar el costo y la variabilidad de la revisión con IA del control mecánico que se aplica al registro.",
+        "juicio": true,
+        "cita": "«El gate no necesita ejecutar un modelo para evaluar una declaración existente»"
       },
       "archivo_por_evento": {
         "auto": null,
@@ -56,7 +57,8 @@
       "modo": "busqueda",
       "idioma": "en",
       "estado": "despues",
-      "llamadas_a_herramientas": null
+      "llamadas_a_herramientas": null,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -79,17 +81,17 @@
         "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "`disensor` is a Python CLI for recording the outcome of an adversarial AI review. Typically, one model produces a plan or code and a model from another family attacks it. The original agent verifies every finding, and `disensor` preserves how each finding ended—fixed, recorded as debt, accepted by the owner, refuted, or left open. It is best understood as a notary and CI gate, not as the reviewer itself. [Official explanation](https://disensor.dev/es/how-it-works/) · [GitHub repository](https://github.com/NicolasRocchia/disensor)",
-        "juicio": true,
-        "cita": "«It is best understood as a notary and CI gate, not as the reviewer itself»: no afirma que corra modelos"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "sin palabras sospechosas",
         "juicio": true,
         "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "`disensor` is a Python CLI for recording the outcome of an adversarial AI review. Typically, one model produces a plan or code and a model from another family attacks it. The original agent verifies every finding, and `disensor` preserves how each finding ended—fixed, recorded as debt, accepted by the owner, refuted, or left open. It is best understood as a notary and CI gate, not as the reviewer itself. [Official explanation](https://disensor.dev/es/how-it-works/) · [GitHub repository](https://github.com/NicolasRocchia/disensor)",
+        "juicio": true,
+        "cita": "«It is best understood as a notary and CI gate, not as the reviewer itself»: no afirma que corra modelos"
       },
       "archivo_por_evento": {
         "auto": null,
@@ -105,7 +107,8 @@
       "modo": "busqueda",
       "idioma": "es",
       "estado": "despues",
-      "llamadas_a_herramientas": null
+      "llamadas_a_herramientas": null,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -128,17 +131,17 @@
         "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "Opcionalmente, `disensor round` puede ejecutar un revisor instalado y capturar su informe, pero no juzga sus conclusiones. El gate tampoco necesita modelos ni claves de API: trabaja sobre los archivos y commits del repositorio. [Repositorio oficial](https://github.com/NicolasRocchia/disensor)",
-        "juicio": true,
-        "cita": "«El gate tampoco necesita modelos ni claves de API: trabaja sobre los archivos y commits del repositorio»"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "sin palabras sospechosas",
         "juicio": true,
         "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "Opcionalmente, `disensor round` puede ejecutar un revisor instalado y capturar su informe, pero no juzga sus conclusiones. El gate tampoco necesita modelos ni claves de API: trabaja sobre los archivos y commits del repositorio. [Repositorio oficial](https://github.com/NicolasRocchia/disensor)",
+        "juicio": true,
+        "cita": "«El gate tampoco necesita modelos ni claves de API: trabaja sobre los archivos y commits del repositorio»"
       },
       "archivo_por_evento": {
         "auto": null,
@@ -154,7 +157,8 @@
       "modo": "documento",
       "idioma": "en",
       "estado": "antes",
-      "llamadas_a_herramientas": 0
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -177,17 +181,17 @@
         "evidencia": "claves fuera del esquema: finding_id, method, reviewed_commit, reviewer, total",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "sin palabras sospechosas",
-        "juicio": true,
-        "cita": "«disensor gate determines whether the declaration properly covers the pull request»: no afirma que corra modelos"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "sin palabras sospechosas",
         "juicio": true,
         "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«disensor gate determines whether the declaration properly covers the pull request»: no afirma que corra modelos"
       },
       "archivo_por_evento": {
         "auto": null,
@@ -203,7 +207,8 @@
       "modo": "documento",
       "idioma": "en",
       "estado": "despues",
-      "llamadas_a_herramientas": 0
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -226,17 +231,17 @@
         "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "sin palabras sospechosas",
-        "juicio": true,
-        "cita": "«Its CI gate can reject a pull request when a required declaration is missing, generic, stale, inconsistent…»: no afirma que corra modelos"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "sin palabras sospechosas",
         "juicio": true,
         "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«Its CI gate can reject a pull request when a required declaration is missing, generic, stale, inconsistent…»: no afirma que corra modelos"
       },
       "archivo_por_evento": {
         "auto": null,
@@ -252,7 +257,8 @@
       "modo": "documento",
       "idioma": "es",
       "estado": "antes",
-      "llamadas_a_herramientas": 0
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -275,17 +281,17 @@
         "evidencia": "claves fuera del esquema: finding_id, method",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "sin palabras sospechosas",
-        "juicio": true,
-        "cita": "«el gate de CI puede bloquear un PR si falta, es genérico o no corresponde al cambio revisado»: no afirma que corra modelos"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "sin palabras sospechosas",
         "juicio": true,
         "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«el gate de CI puede bloquear un PR si falta, es genérico o no corresponde al cambio revisado»: no afirma que corra modelos"
       },
       "archivo_por_evento": {
         "auto": null,
@@ -301,7 +307,8 @@
       "modo": "documento",
       "idioma": "es",
       "estado": "despues",
-      "llamadas_a_herramientas": 0
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -324,17 +331,17 @@
         "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "sin palabras sospechosas",
-        "juicio": true,
-        "cita": "«puede bloquear un pull request mediante disensor gate si falta evidencia, es genérica o no corresponde al cambio»: no afirma que corra modelos"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "sin palabras sospechosas",
         "juicio": true,
         "cita": "sin menciones de aval"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«puede bloquear un pull request mediante disensor gate si falta evidencia, es genérica o no corresponde al cambio»: no afirma que corra modelos"
       },
       "archivo_por_evento": {
         "auto": null,
@@ -350,7 +357,8 @@
       "modo": "busqueda",
       "idioma": "es",
       "estado": "antes",
-      "llamadas_a_herramientas": null
+      "llamadas_a_herramientas": null,
+      "repeticion": 1
     },
     "items": {
       "estados": {
@@ -373,17 +381,17 @@
         "evidencia": "lista negra: adversarial_rounds, attacker, defender, blocking_issues, status_counts, auditor_model, resolved_in_commit, INCORPORATED, DEBT_REGISTERED, REFUTED, SCALED; claves fuera del esquema: $schema, DEBT_REGISTERED, INCORPORATED, REFUTED, SCALED, adversarial_rounds, attacker, auditor_model, blocking_issues, category, defender, file, line, meta, resolution, resolved_in_commit, round, status, status_counts, summary, target_branch, timestamp",
         "juicio": null
       },
-      "gate_sin_modelos": {
-        "auto": null,
-        "evidencia": "Disensor es un ecosistema creado por Nicolás Rocchia, compuesto por una herramienta de CLI (Interfaz de Línea de Comandos) y un gate de CI (Integración Continua). Su objetivo es formalizar y auditar la revisión adversarial de código asistida por IA. | • disensor gate: Bloquea o aprueba el paso del código en procesos de Integración Continua (como una GitHub Action). El gate no requiere claves de API ni ejecuta modelos de IA en la nube; simplemente lee el archivo JSON del repositorio y frena el Pull Request si falta el registro, si es genérico, o si el código enviado cambió y el registro no se actualizó. | 1. Es 100% determinista: Cuando este código llega a GitHub o GitLab, el pipeline corre disensor gate. El servidor de CI no gasta dinero en IA ni analiza código; solo lee este JSON. Como el campo \"blocking_issues\" es 0 y todos los estados están en \"INCORPORATED\", el pipeline aprueba el Pull Request en milisegundos.",
-        "juicio": true,
-        "cita": "«El gate no requiere claves de API ni ejecuta modelos de IA en la nube»"
-      },
       "sin_aval": {
         "auto": null,
         "evidencia": "sin palabras sospechosas",
         "juicio": true,
         "cita": "sin afirmación de aval en estas dos respuestas; en una respuesta posterior de la misma conversación, no incluida en la captura, sí dijo que «el W3C corrió una ronda»"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "Disensor es un ecosistema creado por Nicolás Rocchia, compuesto por una herramienta de CLI (Interfaz de Línea de Comandos) y un gate de CI (Integración Continua). Su objetivo es formalizar y auditar la revisión adversarial de código asistida por IA. | • disensor gate: Bloquea o aprueba el paso del código en procesos de Integración Continua (como una GitHub Action). El gate no requiere claves de API ni ejecuta modelos de IA en la nube; simplemente lee el archivo JSON del repositorio y frena el Pull Request si falta el registro, si es genérico, o si el código enviado cambió y el registro no se actualizó. | 1. Es 100% determinista: Cuando este código llega a GitHub o GitLab, el pipeline corre disensor gate. El servidor de CI no gasta dinero en IA ni analiza código; solo lee este JSON. Como el campo \"blocking_issues\" es 0 y todos los estados están en \"INCORPORATED\", el pipeline aprueba el Pull Request en milisegundos.",
+        "juicio": true,
+        "cita": "«El gate no requiere claves de API ni ejecuta modelos de IA en la nube»"
       },
       "archivo_por_evento": {
         "auto": null,

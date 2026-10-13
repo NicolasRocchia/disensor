@@ -111,8 +111,10 @@ cualquier ítem. Lo mecánico, y sus límites conocidos:
   repara antes); si ningún bloque parsea, quedan a juicio. Una mención en
   prosa no cuenta.
 - `sin_campos_inventados` contrasta las claves de los bloques con la lista
-  blanca del esquema, más una lista negra de lo que ya se vio inventar. Mira
-  el nombre, no la posición: una clave real en el lugar equivocado pasa.
+  blanca del esquema, más una lista negra de lo que ya se vio inventar, las
+  dos miradas solo adentro de los bloques: una advertencia en prosa sobre un
+  campo que no existe no es inventarlo. Mira el nombre, no la posición: una
+  clave real en el lugar equivocado pasa.
 
 Una respuesta que dice "no sé" suma cero en los ítems positivos y pasa los
 negativos: eso también es un dato.
@@ -122,7 +124,7 @@ negativos: eso también es un dato.
 Desde la raíz del repositorio, en un checkout limpio:
 
 ```
-python3 docs/notes/lectura-publica/correr.py --fecha 2026-10-12 [--modo documento|busqueda|todos] [--modelos claude-sonnet,codex]
+python3 docs/notes/lectura-publica/correr.py --fecha 2026-10-12 [--modo documento|busqueda|todos] [--modelos claude-sonnet,codex] [--repeticion N]
 python3 docs/notes/lectura-publica/puntuar.py --fecha 2026-10-12
 ```
 
@@ -144,7 +146,11 @@ respuesta pegada entera. Se la puntúa igual.
 
 - No se cuentan respuestas de sesiones con conversación previa, memoria o
   archivos adjuntos: solo sesiones frescas.
-- No se repite una corrida hasta que "salga bien". Si un modelo contesta dos
-  cosas distintas en dos corridas, las dos quedan y se anota.
+- No se repite una corrida hasta que "salga bien". Una repetición se guarda
+  aparte (`--repeticion N`, sufijo `-rN` en el archivo) y cuenta: en la tabla
+  de A, una celda con varias corridas vale "sí" en un ítem solo si pasa en
+  todas, y muestra el total de cada una. Reemplazar una corrida por otra con
+  el mismo nombre solo se hace por una razón de método, dicha en el commit,
+  como se hizo con las cuatro de Codex sin registro de herramientas.
 - No se infiere causa en B: el "después" en vivo depende de qué indexó cada
   buscador y cuándo. La causa solo se afirma en A.

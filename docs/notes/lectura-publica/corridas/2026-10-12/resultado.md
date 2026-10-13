@@ -17,7 +17,7 @@ Juicios pendientes: 0.
 
 ## Experimento A: antes y después por modelo e idioma
 
-Entran solo las corridas de documento con llamadas a herramientas registradas e iguales a cero.
+Entran solo las corridas de documento con llamadas a herramientas registradas e iguales a cero. Si una celda tiene varias corridas (repeticiones), un ítem vale "sí" solo si pasa en todas, y se muestra el total de cada una.
 
 | modelo | idioma | antes | después | ítems que cambian |
 |---|---|---|---|---|

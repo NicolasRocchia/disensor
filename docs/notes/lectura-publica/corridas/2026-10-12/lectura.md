@@ -96,8 +96,9 @@ dirán las corridas que faltan.
   manuales. Son el objeto original de la medición y todavía no hay ninguno
   "después".
 - **Repetición contada.** Una corrida por celda en el directorio. La primera
-  tanda, en el historial, dio el mismo patrón; cuando haya repeticiones con
-  registro, se guardan todas y se cuentan.
+  tanda, en el historial, dio el mismo patrón; las repeticiones que se hagan
+  con registro van con `--repeticion N`, quedan todas, y la celda de A vale
+  "sí" solo si pasa en todas.
 
 ## Costo observado
 
