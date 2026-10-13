@@ -286,24 +286,32 @@ def test_an_edited_0_9_block_is_left_alone(cual, repo: Path, monkeypatch, capsys
     assert "CONFLICT" in capsys.readouterr().out
 
 
-def instalacion_011(repo: Path) -> Path:
-    """Un repositorio como lo dejaba init de 0.11.0 a 0.12.1, con la marca v0.11."""
+def instalacion_011(repo: Path, skill_de: str) -> Path:
+    """Un repositorio como lo dejaba init de 0.11.0 a 0.12.1, con la marca v0.11.
+
+    La seccion de CLAUDE.md fue una sola en ese tramo; la skill tuvo dos textos
+    con la misma marca, el de 0.11.0 y el de 0.12.0 a 0.12.1.
+    """
     bloque = (BLOQUES / "claude-0.11.txt").read_bytes().decode("utf-8")
     (repo / "CLAUDE.md").write_bytes(("# Mi proyecto\n\nReglas de la casa.\n\n" + bloque).encode("utf-8"))
     skill = repo / ".claude" / "skills" / "disensor" / "SKILL.md"
     skill.parent.mkdir(parents=True)
-    skill.write_bytes((BLOQUES / "skill-0.11.txt").read_bytes())
+    skill.write_bytes((BLOQUES / skill_de).read_bytes())
     return skill
 
 
-def test_a_0_11_installation_is_upgraded(repo: Path, monkeypatch, capsys):
+@pytest.mark.parametrize("skill_de", ["skill-0.11.0.txt", "skill-0.12.0.txt"])
+def test_a_0_11_installation_is_upgraded(skill_de, repo: Path, monkeypatch, capsys):
     """El runbook pide ahora el cronometro del ciclo (#114), y eso tiene que
     llegar a las instalaciones que escribieron de 0.11.0 a 0.12.1, cuya marca
-    dice v0.11. Se reconocen por hash, como las de 0.9.
+    dice v0.11. Se reconocen por hash, como las de 0.9, y hay dos skills con
+    esa marca: la 0.12.0 sumo el parrafo de reviewer_seconds sin cambiarla.
+    La primera version de esta prueba instalaba solo la segunda y decia cubrir
+    el tramo entero; lo cazo la ronda adversarial del cambio.
     """
-    for nombre, tipo in (("claude-0.11.txt", "claude"), ("skill-0.11.txt", "skill")):
+    for nombre, tipo in (("claude-0.11.txt", "claude"), (skill_de, "skill")):
         assert _block_hash((BLOQUES / nombre).read_bytes().decode("utf-8")) in KNOWN_BLOCKS[tipo]
-    skill = instalacion_011(repo)
+    skill = instalacion_011(repo, skill_de)
     assert "Note the clock" not in skill.read_text(encoding="utf-8")
     assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
     salida = capsys.readouterr().out

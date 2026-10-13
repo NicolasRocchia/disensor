@@ -406,9 +406,12 @@ def main_init(args) -> int:
 # La marca de version no alcanza para reconocer: el texto de la seccion de
 # CLAUDE.md cambio en la 0.9.2 sin que la marca dejara de decir v0.9, asi que
 # hay dos bloques "v0.9" en el mundo. Se reconocen los dos por hash, y la skill
-# de 0.9.0 a 0.10.0 tambien; los de 0.11 (escritos de 0.11.0 a 0.12.1) se
-# registraron cuando el runbook paso a pedir el cronometro del ciclo (#114).
-# Los textos exactos estan en tests/bloques/.
+# de 0.9.0 a 0.10.0 tambien. Con la marca v0.11 paso lo mismo: la skill de
+# 0.12.0 sumo el parrafo de reviewer_seconds sin cambiar la marca, asi que hay
+# dos skills "v0.11" (0.11.0, y 0.12.0 a 0.12.1) y una sola seccion de
+# CLAUDE.md. Se registraron cuando el runbook paso a pedir el cronometro del
+# ciclo (#114; la variante de 0.11.0 la cazo la ronda adversarial de ese
+# cambio). Los textos exactos estan en tests/bloques/.
 KNOWN_BLOCKS = {
     "claude": {
         "efc57db2d88bbc34bc9455b99fdb6e93033cece2d65dc3de99ddc87fedfc2e4d": "0.7",
@@ -418,7 +421,8 @@ KNOWN_BLOCKS = {
     },
     "skill": {
         "652619d1d7a5906f13f8f476ec883c6acf4c047b5398640bd8ab06806e06db9a": "0.9",  # 0.9.0 a 0.10.0
-        "b32e021113e0ec359ee700440b823d60deaa483dce89f29a0ea5650a100aa31e": "0.11",  # 0.11.0 a 0.12.1
+        "dd6ff218e83e61a7abf484dc626138b8ff004433bd6fcd35ca17950536159449": "0.11",  # 0.11.0
+        "b32e021113e0ec359ee700440b823d60deaa483dce89f29a0ea5650a100aa31e": "0.11",  # 0.12.0 a 0.12.1
     },
 }
 
