@@ -1,0 +1,83 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "1f531cea-4e36-4204-9e30-6e4058270878",
+    "created_at": "2026-10-13T10:22:11-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "3ccbcfbeac08c072dfa9c5af681166b67898dbef",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "39442905c9b239e233e8e415bf7f8969ff1a2ce5"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas de la suite no se forzaron: tres smoke tests de endurecimiento (opt-in con costo real, DISENSOR_SMOKE=1), que ejercitan la receta de Codex y que este diff no toca; la prueba de permiso de ejecución, que en Windows no distingue nada y corre en el CI de POSIX; y los tres index.json de las suites de vectores. El generador corrió el resto en Windows con Python 3.14 sobre 275386e (667 pasan) y sobre 3ccbcfb (667 pasan); el revisor corrió tests/test_lectura_publica.py (28 pasan), recomputó los puntajes automáticos de las doce corridas contra puntajes.json (iguales) y los sha256 de los ocho documentos contra los objetos de git (iguales)."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no repitió las doce llamadas a Claude (no son determinísticas, cuestan, y no probarían la procedencia de las ya commiteadas) y dejó como hipótesis sin verificar que el directorio vacío desde el que corrieron no es auditable desde los artefactos retenidos: el encabezado de cada corrida guarda el comando mostrado pero no su cwd, y la salida cruda del CLI no se conserva. Lo que sí está: el corredor de 275386e crea el directorio temporal y corre ahí (prueba test_claude_corre_desde_un_directorio_vacio_fuera_del_repo), las doce respuestas de la segunda tanda no tienen ningún marcador del repo y las de la primera (a61a36a) los tienen a la vista. Mejora que queda para el corredor: registrar en el encabezado la clase de cwd (directorio vacío temporal) y, en modo búsqueda, los eventos de herramientas con --output-format stream-json; el conteo actual cli_llamadas_a_herramientas es num_turns menos uno, suficiente para A (--tools \"\" y un turno) y no necesariamente exacto en B, que es la segunda hipótesis del informe. Ninguna de las dos afecta el resultado de A ni un antes/después declarado."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 258
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:b9b9438226d1c5a6f84866ffd456d274b40404ca18d78071e079f78582af7988",
+      "report_hash": "sha256:e83da29985bf312156ca50b506440a11ac6eb16ad3c78d8da2806c6aff1f723c",
+      "reviewer_seconds": 124
+    }
+  }
+}

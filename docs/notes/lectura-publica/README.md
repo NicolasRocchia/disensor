@@ -54,11 +54,18 @@ tiene, y pedir "un ejemplo" obliga a copiar uno si lo hay o a inventarlo si no.
 
 | Id | Comando | Modo A (documento) | Modo B (búsqueda) |
 |---|---|---|---|
-| `claude-sonnet` | `claude -p --safe-mode --no-session-persistence --model sonnet` | `--tools ""` | `--tools WebSearch,WebFetch` |
+| `claude-sonnet` | `claude -p --safe-mode --no-session-persistence --model sonnet` desde un directorio vacío | `--tools ""` | `--tools WebSearch,WebFetch` |
 | `claude-haiku` | ídem con `--model haiku` | `--tools ""` | `--tools WebSearch,WebFetch` |
 | `codex` | `codex exec --json -m gpt-5.6-sol --dangerously-bypass-approvals-and-sandbox --ephemeral --ignore-user-config --ignore-rules -c project_doc_max_bytes=0 --skip-git-repo-check -o <archivo>` desde un directorio vacío | por instrucción, con las llamadas a herramientas registradas | `--search` antes de `exec` |
 
-`--safe-mode` apaga CLAUDE.md, skills, plugins, hooks y MCP; `--ephemeral`,
+`--safe-mode` apaga CLAUDE.md, skills, plugins, hooks y MCP, pero no el
+contexto del directorio: `claude -p` recibe del harness el directorio de
+trabajo y, si es un repositorio, su rama, su estado y sus commits recientes.
+Por eso los dos CLIs se corren desde un directorio vacío y temporal. Se midió
+el 13/10 con una pregunta directa y las herramientas apagadas: desde la raíz
+del repo el modelo listó la rama, la carpeta sin seguimiento de las corridas
+y cinco mensajes de commit que nombran `final_state` y "los seis estados";
+desde un directorio vacío, nada de eso. `--ephemeral`,
 `--ignore-user-config` e `--ignore-rules` son la receta endurecida del
 catálogo de revisores. No hay Gemini CLI ni Ollama en esta máquina; Google
 entra solo por la captura manual de AI Mode. Las corridas manuales de otras
@@ -80,7 +87,11 @@ un evento y no se pudieron leer en `cli_eventos_ilegibles` (una ilegible
 también saca la corrida de A: podría ser una herramienta que no se contó).
 Un registro ausente no es cero: una corrida hecha con un corredor que no
 contaba algo queda fuera de A hasta repetirse, porque el JSONL crudo no se
-guarda y lo que no se contó no se reconstruye.
+guarda y lo que no se contó no se reconstruye. Para Claude no hay un flujo de
+eventos que leer: `--output-format json` devuelve un único JSON, que se parsea
+entero o la corrida falla y no deja archivo, así que el encabezado registra
+`cli_eventos_ilegibles: 0` por construcción y `cli_llamadas_a_herramientas`
+sale de `num_turns`.
 El conteo es por descarte,
 a propósito: todo ítem completado que no sea el mensaje del agente o su
 razonamiento cuenta como herramienta, así que una versión del CLI que renombre

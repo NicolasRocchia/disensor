@@ -1,0 +1,618 @@
+{
+  "claude-haiku-busqueda-en-despues.md": {
+    "meta": {
+      "modelo": "claude-haiku",
+      "modo": "busqueda",
+      "idioma": "en",
+      "estado": "despues",
+      "llamadas_a_herramientas": 2,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: incorporated, debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": false,
+        "cita": "la respuesta entera es un pedido de permiso para buscar («Necesito tu permiso para buscar en la web»); no dice nada del archivo"
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "ningún bloque de código parseado con findings[] y final_state",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "sin verification ni fix_verification en los hallazgos de los bloques parseados",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no afirma nada sobre el gate"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no afirma nada; sin menciones de aval"
+      }
+    }
+  },
+  "claude-haiku-busqueda-es-despues.md": {
+    "meta": {
+      "modelo": "claude-haiku",
+      "modo": "busqueda",
+      "idioma": "es",
+      "estado": "despues",
+      "llamadas_a_herramientas": 2,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: incorporated, debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": false,
+        "cita": "la respuesta entera es un pedido de autorización para buscar («Necesito tu autorización para hacer búsquedas en la web»); no dice nada del archivo"
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "ningún bloque de código parseado con findings[] y final_state",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "sin verification ni fix_verification en los hallazgos de los bloques parseados",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no afirma nada sobre el gate"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no afirma nada; sin menciones de aval"
+      }
+    }
+  },
+  "claude-haiku-documento-en-antes.md": {
+    "meta": {
+      "modelo": "claude-haiku",
+      "modo": "documento",
+      "idioma": "en",
+      "estado": "antes",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: incorporated, debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "El artefacto es un archivo JSON llamado `<event_id>.json` que se guarda en el directorio `.residue/` del repositorio. Contiene la **\"declaración de residuo\"** —lo que la revisión dejó para que una persona examine— con campos como:",
+        "juicio": true,
+        "cita": "«un archivo JSON llamado <event_id>.json que se guarda en el directorio .residue/ del repositorio»"
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "ningún bloque de código parseado con findings[] y final_state",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "sin verification ni fix_verification en los hallazgos de los bloques parseados",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no menciona el gate ni modelos"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      }
+    }
+  },
+  "claude-haiku-documento-en-despues.md": {
+    "meta": {
+      "modelo": "claude-haiku",
+      "modo": "documento",
+      "idioma": "en",
+      "estado": "despues",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: debt_recorded, owner_decision, refuted_interpretive, escalated_open",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "El archivo generado es un **archivo JSON** almacenado en el directorio `.residue/` del repositorio. Tiene una estructura que incluye: | Este es un fragmento real del archivo `.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json` de la PR #101:",
+        "juicio": true,
+        "cita": "«archivo JSON almacenado en el directorio .residue/ del repositorio» y «fragmento real del archivo .residue/27089d19-ee91-4c6c-b517-63b9627969e0.json de la PR #101»"
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "un bloque de código parseado con findings[] y final_state adentro",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "verification o fix_verification en un hallazgo de un bloque de código parseado",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no menciona el gate ni modelos"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«Todo queda registrado de forma auditoria» no es un aval institucional; sin menciones de aval"
+      }
+    }
+  },
+  "claude-haiku-documento-es-antes.md": {
+    "meta": {
+      "modelo": "claude-haiku",
+      "modo": "documento",
+      "idioma": "es",
+      "estado": "antes",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: incorporated, debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": false,
+        "cita": "«El archivo se coloca en el repositorio junto al código que juzga, al lado del código versionado»: no dice dónde vive ni que sea uno por evento; event_id aparece solo como «identificador único»"
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "ningún bloque de código parseado con findings[] y final_state",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "sin verification ni fix_verification en los hallazgos de los bloques parseados",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "no menciona el gate ni modelos; lo más cercano es «Un validador (reglas R0 a R13)»"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      }
+    }
+  },
+  "claude-haiku-documento-es-despues.md": {
+    "meta": {
+      "modelo": "claude-haiku",
+      "modo": "documento",
+      "idioma": "es",
+      "estado": "despues",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": false,
+        "evidencia": "faltan: debt_recorded, owner_decision, refuted_verifiable, refuted_interpretive, escalated_open",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "El archivo se guarda en `.residue/<event_id>.json` al lado del código, es versionado en git y validado automáticamente por un gate en CI.",
+        "juicio": true,
+        "cita": "«El archivo se guarda en .residue/<event_id>.json al lado del código»"
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "un bloque de código parseado con findings[] y final_state adentro",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "verification o fix_verification en un hallazgo de un bloque de código parseado",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«validado automáticamente por un gate en CI»: no afirma que corra modelos ni pide claves"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      }
+    }
+  },
+  "claude-sonnet-busqueda-en-despues.md": {
+    "meta": {
+      "modelo": "claude-sonnet",
+      "modo": "busqueda",
+      "idioma": "en",
+      "estado": "despues",
+      "llamadas_a_herramientas": 7,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "- **Ubicación:** `.residue/<event_id>.json`, donde `event_id` es un UUID ([GitHub](https://github.com/NicolasRocchia/disensor)). | Es la declaración del PR #101 del propio repo ([fuente raw](https://raw.githubusercontent.com/NicolasRocchia/disensor/main/.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json)). La recorté así: | - [Ejemplo de declaración (raw)](https://raw.githubusercontent.com/NicolasRocchia/disensor/main/.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json)",
+        "juicio": true,
+        "cita": "«.residue/<event_id>.json, donde event_id es un UUID»"
+      },
+      "findings_final_state": {
+        "auto": null,
+        "evidencia": "ningún bloque de código parsea, ni reparado: juicio a mano",
+        "juicio": true,
+        "cita": "el bloque muestra findings[] con final_state: \"incorporated\" en h1; no parsea, ni reparado, por los comentarios /* … */ con que la respuesta marca el recorte, y por eso quedó a juicio"
+      },
+      "verification": {
+        "auto": null,
+        "evidencia": "ningún bloque de código parsea, ni reparado: juicio a mano",
+        "juicio": true,
+        "cita": "h1 trae verification.against: \"repository\" con detail, y fix_verification.type: \"specific_test\" con reference"
+      },
+      "sin_campos_inventados": {
+        "auto": false,
+        "evidencia": "claves fuera del esquema: dev.disensor.round, pack_hash, report_hash, result_version",
+        "juicio": true,
+        "cita": "las cuatro claves que marcó el camino sin parsear (dev.disensor.round, pack_hash, report_hash, result_version) están adentro de extensions, que el esquema admite libre y el camino parseado excluye; el bloque no parsea por los comentarios de recorte. Los valores son los del archivo .residue/27089d19 (verificado: prompt_hash de r1, pack_hash, los títulos de h1 y r1, result_version 2)"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "El gate de CI no ejecuta ningún modelo ni usa API keys. Solo valida el archivo que la revisión dejó en el repo: el esquema, las reglas y el cambio que hace el PR ([GitHub](https://github.com/NicolasRocchia/disensor)). El autor explica la idea en [DEV Community](https://dev.to/nicolasrocchia/your-ai-code-reviewer-approved-the-pr-what-did-it-leave-open-4nhg).",
+        "juicio": true,
+        "cita": "«El gate de CI no ejecuta ningún modelo ni usa API keys»"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "fuentes citadas: disensor.dev, GitHub, el archivo raw y DEV Community; sin menciones de aval"
+      }
+    }
+  },
+  "claude-sonnet-busqueda-es-despues.md": {
+    "meta": {
+      "modelo": "claude-sonnet",
+      "modo": "busqueda",
+      "idioma": "es",
+      "estado": "despues",
+      "llamadas_a_herramientas": 5,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "- **Ubicación y nombre:** `.residue/<event_id>.json` en la raíz del repo. El `event_id` es un UUID. Por ejemplo: `.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json`. | Si quiere el JSON completo, el archivo está en la carpeta `.residue/` del repo.",
+        "juicio": true,
+        "cita": "«.residue/<event_id>.json en la raíz del repo. El event_id es un UUID»"
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "ningún bloque de código parseado con findings[] y final_state",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "sin verification ni fix_verification en los hallazgos de los bloques parseados",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "Disensor es una CLI en Python y una GitHub Action que implementa lo que llaman \"controlled disagreement\" en el código escrito con IA. Una IA genera el código y otra, de una familia de modelos distinta, lo ataca como revisora. Después, el generador resuelve los hallazgos. En vez de dar un visto bueno, la herramienta deja un registro estructurado de qué hallazgos se verificaron, cuáles se refutaron, cuáles se escalaron y cuáles quedaron sin decidir. El gate de CI valida ese registro contra el schema, contra sus reglas y contra el cambio real del pull request ([repo en GitHub](https://github.com/NicolasRocchia/disensor), [disensor.dev](https://disensor.dev/)). Según el repo, el gate no usa modelos ni API keys. Se instala con `pip install disensor` ([PyPI](https://pypi.org/project/disensor/0.11.0/)).",
+        "juicio": true,
+        "cita": "«Según el repo, el gate no usa modelos ni API keys»"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "fuentes citadas: GitHub, disensor.dev y PyPI; sin menciones de aval"
+      }
+    }
+  },
+  "claude-sonnet-documento-en-antes.md": {
+    "meta": {
+      "modelo": "claude-sonnet",
+      "modo": "documento",
+      "idioma": "en",
+      "estado": "antes",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "El artefacto es un archivo JSON versionado en el repo (en `.residue/`), junto al código que juzga. No es un sello de calidad ni una métrica de cobertura. Registra lo que la revisión **no pudo establecer**: qué hallazgos se verificaron y contra qué, cuáles se refutaron, qué no se pudo ejecutar y qué queda a criterio de alguien. | Para ver un artefacto real, abre los archivos de `spec/examples/` en el repositorio, o genera una plantilla con `disensor new --gate diff --level B`, que la deja prellenada en `.residue/`.",
+        "juicio": true,
+        "cita": "«el nombre del archivo es <event_id>.json, con event_id como UUID canónico» y «archivo JSON versionado en el repo (en .residue/)»"
+      },
+      "findings_final_state": {
+        "auto": false,
+        "evidencia": "ningún bloque de código parseado con findings[] y final_state",
+        "juicio": null
+      },
+      "verification": {
+        "auto": false,
+        "evidencia": "sin verification ni fix_verification en los hallazgos de los bloques parseados",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": false,
+        "evidencia": "claves fuera del esquema: level_A_enabled",
+        "juicio": true,
+        "cita": "el único bloque de código es disensor.config.json, que la respuesta presenta como «no es el artefacto sino la política del repo»; level_A_enabled es una clave real de esa configuración, no un campo inventado del artefacto, y la respuesta se niega a inventar el JSON del artefacto («no voy a inventar un JSON completo que podría no coincidir con el esquema real»)"
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«Un gate de CI (checks G1 a G9) que frena el PR si el cambio exige un registro y falta, es genérico o no corresponde al cambio»: no afirma que corra modelos"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      }
+    }
+  },
+  "claude-sonnet-documento-en-despues.md": {
+    "meta": {
+      "modelo": "claude-sonnet",
+      "modo": "documento",
+      "idioma": "en",
+      "estado": "despues",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "Este es un extracto de un evento real del propio repositorio (`.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json`, la declaración del PR #101). Un cambio generado por un modelo de Anthropic pasó por doce corridas de un revisor de OpenAI, que devolvió 19 hallazgos: 18 se incorporaron y 1 se refutó con evidencia. El extracto muestra la entrada del revisor de una de esas corridas, dos de los hallazgos y el ítem de residuo que dejó uno de ellos. Las claves y los valores enumerados son el contrato; la prosa está en español porque quienes mantienen el repositorio escriben en ese idioma.",
+        "juicio": true,
+        "cita": "«.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json, la declaración del PR #101» y «declaración JSON versionada en el repositorio, junto al código que juzga»"
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "un bloque de código parseado con findings[] y final_state adentro",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "verification o fix_verification en un hallazgo de un bloque de código parseado",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«Un gate de CI (G1 a G9) que frena el pull request si el cambio exige un registro y este falta, es genérico o no corresponde al cambio»: no afirma que corra modelos"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      }
+    }
+  },
+  "claude-sonnet-documento-es-antes.md": {
+    "meta": {
+      "modelo": "claude-sonnet",
+      "modo": "documento",
+      "idioma": "es",
+      "estado": "antes",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "- Es un JSON en `.residue/<event_id>.json`, donde `event_id` es un UUID canónico, versionado en git junto al código. | Para ver uno real, mirá `spec/examples/`, o generá una plantilla con `disensor new --gate diff --level B` y validala con `disensor validate .residue/<id>.json`.",
+        "juicio": true,
+        "cita": "«Es un JSON en .residue/<event_id>.json, donde event_id es un UUID canónico, versionado en git junto al código»"
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "un bloque de código parseado con findings[] y final_state adentro",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "verification o fix_verification en un hallazgo de un bloque de código parseado",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«un gate de CI (G1 a G9) frena el PR si el cambio exige una declaración y esta falta, es genérica o no coincide con el cambio»: no afirma que corra modelos ni pide claves"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      }
+    }
+  },
+  "claude-sonnet-documento-es-despues.md": {
+    "meta": {
+      "modelo": "claude-sonnet",
+      "modo": "documento",
+      "idioma": "es",
+      "estado": "despues",
+      "llamadas_a_herramientas": 0,
+      "repeticion": 1,
+      "eventos_ilegibles": 0
+    },
+    "items": {
+      "estados": {
+        "auto": true,
+        "evidencia": "los seis, con su grafía",
+        "juicio": null
+      },
+      "archivo_por_evento": {
+        "auto": null,
+        "evidencia": "Es la implementación de referencia de un artefacto: un **archivo JSON versionado en el repo** (en `.residue/`), al lado del código que juzga. Registra lo que pasó en la revisión de un cambio generado por una IA y revisado por otra IA, y sobre todo **lo que la revisión no pudo establecer** (el \"residuo\"). No es un badge verde ni un puntaje de cobertura: dirige el escrutinio del revisor humano en lugar de funcionar como sello de calidad.",
+        "juicio": true,
+        "cita": "«un archivo JSON versionado en el repo (en .residue/), al lado del código que juzga», y el ejemplo es «el evento de la declaración del PR #101»: dice dónde vive y lo presenta como uno por evento, aunque no da el nombre <event_id>.json"
+      },
+      "findings_final_state": {
+        "auto": true,
+        "evidencia": "un bloque de código parseado con findings[] y final_state adentro",
+        "juicio": null
+      },
+      "verification": {
+        "auto": true,
+        "evidencia": "verification o fix_verification en un hallazgo de un bloque de código parseado",
+        "juicio": null
+      },
+      "sin_campos_inventados": {
+        "auto": true,
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
+        "juicio": null
+      },
+      "gate_sin_modelos": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "«Gate de CI (GitHub Action): frena el PR si el cambio exige un registro y falta, es genérico o no coincide con el cambio»: no afirma que corra modelos"
+      },
+      "sin_aval": {
+        "auto": null,
+        "evidencia": "sin palabras sospechosas",
+        "juicio": true,
+        "cita": "sin menciones de aval"
+      }
+    }
+  }
+}
