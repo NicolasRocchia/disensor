@@ -286,6 +286,38 @@ def test_an_edited_0_9_block_is_left_alone(cual, repo: Path, monkeypatch, capsys
     assert "CONFLICT" in capsys.readouterr().out
 
 
+def instalacion_011(repo: Path) -> Path:
+    """Un repositorio como lo dejaba init de 0.11.0 a 0.12.1, con la marca v0.11."""
+    bloque = (BLOQUES / "claude-0.11.txt").read_bytes().decode("utf-8")
+    (repo / "CLAUDE.md").write_bytes(("# Mi proyecto\n\nReglas de la casa.\n\n" + bloque).encode("utf-8"))
+    skill = repo / ".claude" / "skills" / "disensor" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_bytes((BLOQUES / "skill-0.11.txt").read_bytes())
+    return skill
+
+
+def test_a_0_11_installation_is_upgraded(repo: Path, monkeypatch, capsys):
+    """El runbook pide ahora el cronometro del ciclo (#114), y eso tiene que
+    llegar a las instalaciones que escribieron de 0.11.0 a 0.12.1, cuya marca
+    dice v0.11. Se reconocen por hash, como las de 0.9.
+    """
+    for nombre, tipo in (("claude-0.11.txt", "claude"), ("skill-0.11.txt", "skill")):
+        assert _block_hash((BLOQUES / nombre).read_bytes().decode("utf-8")) in KNOWN_BLOCKS[tipo]
+    skill = instalacion_011(repo)
+    assert "Note the clock" not in skill.read_text(encoding="utf-8")
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    salida = capsys.readouterr().out
+    assert f"upgraded CLAUDE.md (v0.11 -> v{BLOCK_VERSION})" in salida
+    assert f"(runbook v0.11 -> runbook v{BLOCK_VERSION})" in salida
+    claude = (repo / "CLAUDE.md").read_text(encoding="utf-8")
+    assert claude.startswith("# Mi proyecto\n\nReglas de la casa.\n\n")
+    assert f"disensor:block v{BLOCK_VERSION}" in claude
+    assert skill.read_text(encoding="utf-8") == SKILL_FRONTMATTER + RUNBOOK
+    assert "Note the clock" in skill.read_text(encoding="utf-8")
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    assert "upgraded" not in capsys.readouterr().out, "la segunda corrida no tiene nada que hacer"
+
+
 def test_upgrade_adds_the_gitignore_entry_once(repo: Path, monkeypatch, capsys):
     """Una instalacion anterior no ignoraba el informe; el upgrade agrega la
     linea y la segunda corrida la deja como esta."""

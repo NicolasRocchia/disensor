@@ -38,7 +38,7 @@ from .pin import PinError, pin_text, resolve_tag_commit
 # se queda con el procedimiento viejo para siempre, porque init conserva byte
 # por byte lo que ya existe y actualizar el paquete no cambia lo que el agente
 # lee. Con la marca, --upgrade sabe que reemplazar y que dejar quieto.
-BLOCK_VERSION = "0.11"
+BLOCK_VERSION = "0.13"
 
 CLAUDE_HEADING = "## disensor: residue declaration at event close"
 
@@ -88,6 +88,15 @@ The tree has to be clean: a diff round reviews commits that already exist.
 Commit your work first. The runner will not stash for you.
 
 ## 2. Run it
+
+Note the clock before you run it. `metrics.extra_time_sec` in the declaration
+is the stopwatch of the whole cycle from this point: the reviewer's runs, your
+verification of each finding, the rewriting and the refutations, up to the
+validated declaration. It excludes the implementation and the waits for the
+owner's answers. Count it from timestamps you actually have (this moment, the
+runner's `started_at` and `finished_at`, your commits); do not estimate it, and
+leave it out if you did not time it. An absent number is honest; a guessed one
+is not.
 
 ```
 disensor round --gate diff --generator-family <your family> \\
@@ -140,7 +149,8 @@ disensor new --gate diff --level <A|B|C> --round <result>
 It arrives prefilled with what the runner observed: reviewer, anchors, hashes,
 the reviewer's wall time as `reviewer_seconds` in the extension space, and the
 residue items that a degraded round owes. `metrics.extra_time_sec` is the
-whole cycle, not the reviewer: fill it only if you timed it. Fill in the findings with
+whole cycle, not the reviewer: the stopwatch of step 2, counted from
+timestamps, or left out. Fill in the findings with
 their terminal states and the residue with what stayed open. `disensor guide`
 explains every field. Do not invent findings or states: the artifact declares
 what happened, not what should have happened.
@@ -396,15 +406,19 @@ def main_init(args) -> int:
 # La marca de version no alcanza para reconocer: el texto de la seccion de
 # CLAUDE.md cambio en la 0.9.2 sin que la marca dejara de decir v0.9, asi que
 # hay dos bloques "v0.9" en el mundo. Se reconocen los dos por hash, y la skill
-# de 0.9.0 a 0.10.0 tambien. Los textos exactos estan en tests/bloques/.
+# de 0.9.0 a 0.10.0 tambien; los de 0.11 (escritos de 0.11.0 a 0.12.1) se
+# registraron cuando el runbook paso a pedir el cronometro del ciclo (#114).
+# Los textos exactos estan en tests/bloques/.
 KNOWN_BLOCKS = {
     "claude": {
         "efc57db2d88bbc34bc9455b99fdb6e93033cece2d65dc3de99ddc87fedfc2e4d": "0.7",
         "48e27292f5ee748b8d01cd3e6fad34a44434885a2b080329d7f61f5d1c660d2f": "0.9",  # 0.9.0 y 0.9.1
         "f019e46fa120f33ba052934a2a3224c986a6168197f810d382b75cf8297f0462": "0.9",  # 0.9.2 a 0.10.0
+        "a17940e14b2b3cc94b04ed160ed5e32df924ad386d0ef8e7c56e1dc7701ffa07": "0.11",  # 0.11.0 a 0.12.1
     },
     "skill": {
         "652619d1d7a5906f13f8f476ec883c6acf4c047b5398640bd8ab06806e06db9a": "0.9",  # 0.9.0 a 0.10.0
+        "b32e021113e0ec359ee700440b823d60deaa483dce89f29a0ea5650a100aa31e": "0.11",  # 0.11.0 a 0.12.1
     },
 }
 
