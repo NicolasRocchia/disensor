@@ -89,6 +89,9 @@ CODEX_BASE = [
 # faltar y colarla. El conteo completo por tipo queda en el encabezado, para
 # que se pueda releer.
 ITEMS_BENIGNOS = ("agent_message", "reasoning")
+# Tope por corrida. Un CLI que no termina es una corrida fallida, no el fin
+# de la tanda (lo cazó la ronda 4).
+TIMEOUT_S = 1800
 
 
 class CorridaFallida(RuntimeError):
@@ -137,8 +140,11 @@ def correr_claude(modelo: str, modo: str, prompt: str) -> tuple[str, dict, list[
     herramientas = "" if modo == "documento" else "WebSearch,WebFetch"
     cmd = [ejecutable("claude"), "-p", "--safe-mode", "--no-session-persistence",
            "--model", modelo, "--output-format", "json", "--tools", herramientas]
-    salida = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
-                            errors="replace", timeout=1800)
+    try:
+        salida = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
+                                errors="replace", timeout=TIMEOUT_S)
+    except subprocess.TimeoutExpired as err:
+        raise CorridaFallida(f"claude no terminó en {TIMEOUT_S} s") from err
     if salida.returncode != 0:
         raise CorridaFallida(f"claude salió con {salida.returncode}: {salida.stderr[-2000:]}")
     try:
@@ -160,10 +166,17 @@ def correr_claude(modelo: str, modo: str, prompt: str) -> tuple[str, dict, list[
     return texto, meta, cmd
 
 
-def contar_eventos(jsonl: str) -> tuple[Counter, int]:
-    """Tipos de evento e ítem de los eventos JSONL de codex, y cuántos son herramientas."""
+def contar_eventos(jsonl: str) -> tuple[Counter, int, int]:
+    """Tipos de evento e ítem de los eventos JSONL de codex, cuántos son
+    herramientas, y cuántas líneas que parecían un evento no se pudieron leer.
+
+    Una línea ilegible (un evento truncado, un envoltorio distinto) podría ser
+    una herramienta que no se contó: se registra aparte y puntuar.py saca de
+    A toda corrida de documento que tenga alguna. Lo pidió la ronda 4.
+    """
     tipos: Counter = Counter()
     herramientas = 0
+    ilegibles = 0
     for linea in jsonl.splitlines():
         linea = linea.strip()
         if not linea.startswith("{"):
@@ -171,6 +184,7 @@ def contar_eventos(jsonl: str) -> tuple[Counter, int]:
         try:
             evento = json.loads(linea)
         except json.JSONDecodeError:
+            ilegibles += 1
             continue
         tipo = str(evento.get("type", "?"))
         item = evento.get("item")
@@ -181,7 +195,7 @@ def contar_eventos(jsonl: str) -> tuple[Counter, int]:
                 herramientas += 1
         else:
             tipos[tipo] += 1
-    return tipos, herramientas
+    return tipos, herramientas, ilegibles
 
 
 def correr_codex(modo: str, prompt: str) -> tuple[str, dict, list[str]]:
@@ -194,16 +208,19 @@ def correr_codex(modo: str, prompt: str) -> tuple[str, dict, list[str]]:
     cmd = [ejecutable("codex")] + (["--search"] if modo == "busqueda" else []) + CODEX_BASE + ["-o", str(ultimo)]
     try:
         salida = subprocess.run(cmd, input=prompt, cwd=cuna, capture_output=True, text=True,
-                                encoding="utf-8", errors="replace", timeout=1800)
+                                encoding="utf-8", errors="replace", timeout=TIMEOUT_S)
         texto = ultimo.read_text(encoding="utf-8") if ultimo.exists() else ""
+    except subprocess.TimeoutExpired as err:
+        raise CorridaFallida(f"codex no terminó en {TIMEOUT_S} s") from err
     finally:
         shutil.rmtree(cuna, ignore_errors=True)
     if salida.returncode != 0:
         raise CorridaFallida(f"codex salió con {salida.returncode}: {salida.stderr[-2000:]}")
     if not texto.strip():
         raise CorridaFallida(f"codex no escribió respuesta; cola de stdout: {salida.stdout[-1000:]}")
-    tipos, herramientas = contar_eventos(salida.stdout)
-    meta = {"eventos": dict(sorted(tipos.items())), "llamadas_a_herramientas": herramientas}
+    tipos, herramientas, ilegibles = contar_eventos(salida.stdout)
+    meta = {"eventos": dict(sorted(tipos.items())), "llamadas_a_herramientas": herramientas,
+            "eventos_ilegibles": ilegibles}
     return texto, meta, cmd
 
 

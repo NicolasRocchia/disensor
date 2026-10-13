@@ -107,15 +107,68 @@ def test_los_eventos_jsonl_cuentan_las_herramientas():
         '{"type": "item.completed", "item": {"type": "agent_message", "text": "hola"}}',
         'basura que no es json',
     ])
-    tipos, herramientas = correr.contar_eventos(jsonl)
+    tipos, herramientas, ilegibles = correr.contar_eventos(jsonl)
     assert herramientas == 1
+    assert ilegibles == 0
     assert tipos["item.completed/command_execution"] == 1
     assert tipos["item.completed/agent_message"] == 1
 
 
+def test_una_linea_de_eventos_truncada_se_cuenta_como_ilegible():
+    # Hipótesis de la ronda 4, tomada por el lado seguro: lo que no se pudo
+    # leer podría ser una herramienta, y saca la corrida de A.
+    _tipos, herramientas, ilegibles = correr.contar_eventos('{"type": "item.completed", "item": {"type": "comm')
+    assert herramientas == 0
+    assert ilegibles == 1
+
+
+def test_un_timeout_es_una_corrida_fallida_y_no_el_fin_de_la_tanda(monkeypatch):
+    # Hallazgo 3 de la ronda 4: TimeoutExpired escapaba de main().
+    def se_cuelga(*a, **k):
+        raise subprocess.TimeoutExpired(cmd="x", timeout=1)
+    monkeypatch.setattr(correr, "ejecutable", lambda nombre: nombre)
+    monkeypatch.setattr(correr.subprocess, "run", se_cuelga)
+    with pytest.raises(correr.CorridaFallida):
+        correr.correr_codex("documento", "hola")
+    with pytest.raises(correr.CorridaFallida):
+        correr.correr_claude("sonnet", "documento", "hola")
+
+
+def test_un_estado_inventado_como_valor_no_pasa():
+    # Hallazgo 1 de la ronda 4: la lista blanca mira claves; "resolved" como
+    # valor de final_state pasaba.
+    r = puntuar.puntuar("```json" + chr(10) + '{"findings": [{"final_state": "resolved", "verification": {}}]}' + chr(10) + "```")
+    assert r["sin_campos_inventados"]["auto"] is False
+    assert "resolved" in r["sin_campos_inventados"]["evidencia"]
+    # y en un bloque que no parsea, por expresión regular
+    r = puntuar.puntuar("```json" + chr(10) + '{"findings": [{"final_state": "fixed", ...' + chr(10) + "```")
+    assert r["sin_campos_inventados"]["auto"] is False
+
+
+def test_un_juicio_pendiente_queda_pendiente_en_la_celda_de_a():
+    # Hallazgo 2 de la ronda 4: un None se convertía en "no".
+    def reg(estado, valor):
+        items = {i: {"auto": valor, "juicio": None} for i in puntuar.ITEMS}
+        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado, "llamadas_a_herramientas": 0}
+        return {"meta": meta, "items": items}
+    filas, _ = puntuar.filas_experimento_a({"a.md": reg("antes", None), "d.md": reg("despues", True)})
+    assert "estados: ? a sí" in filas[0]
+
+
+def test_una_corrida_con_eventos_ilegibles_queda_fuera_de_a():
+    def reg(estado, ilegibles):
+        items = {i: {"auto": True, "juicio": None} for i in puntuar.ITEMS}
+        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado,
+                "llamadas_a_herramientas": 0, "eventos_ilegibles": ilegibles}
+        return {"meta": meta, "items": items}
+    filas, excluidas = puntuar.filas_experimento_a({"a.md": reg("antes", 1), "d.md": reg("despues", 0)})
+    assert filas == []
+    assert excluidas and "ilegible" in excluidas[0]
+
+
 def test_un_item_desconocido_cuenta_como_herramienta():
     # Lado seguro: lo que no se reconoce sobra y saca la corrida de A, no se cuela.
-    _tipos, herramientas = correr.contar_eventos(
+    _tipos, herramientas, _ilegibles = correr.contar_eventos(
         '{"type": "item.completed", "item": {"type": "algo_nuevo"}}' + chr(10)
         + '{"type": "item.completed", "item": {"type": "reasoning"}}'
     )

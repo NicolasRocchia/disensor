@@ -68,6 +68,7 @@ PISTAS = {
 # forma (json, JSON, jsonc, yaml, nada), hasta el cierre.
 FENCE = re.compile(r"^(`{3,})[^\n]*\n(.*?)^\1[ \t]*$", re.M | re.S)
 CLAVE = re.compile(r'"([A-Za-z_$][A-Za-z0-9_.$-]*)"\s*:')
+FINAL_STATE = re.compile(r'"final_state"\s*:\s*"([^"]*)"')
 # Lo que un ejemplo abreviado trae y JSON no admite: puntos suspensivos (los
 # tres puntos o el carácter) como valor o como elemento, y la coma que queda
 # colgando antes del cierre cuando se los saca.
@@ -190,6 +191,26 @@ def estructura(respuesta: str, condicion) -> bool | None:
     return False if hubo_parseado else None
 
 
+def estados_fuera_del_esquema(respuesta: str) -> set[str]:
+    """Los valores de `final_state` de los bloques que no son uno de los seis.
+
+    La lista blanca mira nombres de clave; un estado inventado como valor
+    (`"final_state": "resolved"`) usaba solo claves conocidas y pasaba. Lo cazó
+    la ronda 4. En un bloque que no parsea se leen los valores por expresión
+    regular.
+    """
+    valores: set[str] = set()
+    for crudo, parseado in bloques(respuesta):
+        if parseado is not None:
+            for h in hallazgos_de(parseado):
+                v = h.get("final_state")
+                if isinstance(v, str):
+                    valores.add(v)
+        else:
+            valores.update(FINAL_STATE.findall(crudo))
+    return valores - set(ESTADOS)
+
+
 def muestra_findings_con_final_state(respuesta: str) -> bool | None:
     return estructura(respuesta, lambda h: "final_state" in h)
 
@@ -246,13 +267,16 @@ def puntuar(respuesta: str) -> dict:
     textos_bloques = [crudo for crudo, _parseado in bloques(respuesta)]
     hallados = [c for c in INVENTADOS if any(c in crudo for crudo in textos_bloques)]
     desconocidas = sorted(claves_de_los_bloques(respuesta) - claves_del_esquema())
+    estados_invalidos = sorted(estados_fuera_del_esquema(respuesta))
     partes = []
     if hallados:
         partes.append("lista negra: " + ", ".join(hallados))
     if desconocidas:
         partes.append("claves fuera del esquema: " + ", ".join(desconocidas))
-    r["sin_campos_inventados"] = {"auto": not hallados and not desconocidas,
-                                  "evidencia": "; ".join(partes) if partes else "ninguna clave fuera del esquema ni de la lista negra"}
+    if estados_invalidos:
+        partes.append("estados fuera del esquema: " + ", ".join(estados_invalidos))
+    r["sin_campos_inventados"] = {"auto": not hallados and not desconocidas and not estados_invalidos,
+                                  "evidencia": "; ".join(partes) if partes else "ninguna clave ni estado fuera del esquema, ni de la lista negra"}
     for item in JUICIO:
         pistas = lineas_con(PISTAS[item], respuesta)
         r[item] = {"auto": None, "evidencia": " | ".join(pistas) if pistas else "sin palabras sospechosas"}
@@ -287,13 +311,26 @@ def filas_experimento_a(puntajes: dict) -> tuple[list[str], list[str]]:
         if m["modo"] != "documento":
             continue
         h = m["llamadas_a_herramientas"]
-        if h is None or h > 0:
-            excluidas.append(f"{nombre[:-3]} ({'sin registro' if h is None else str(h) + ' llamada(s)'})")
+        ilegibles = m.get("eventos_ilegibles", 0)
+        if h is None or h > 0 or ilegibles > 0:
+            motivo = ("sin registro" if h is None else f"{h} llamada(s)" if h > 0 else f"{ilegibles} evento(s) ilegible(s)")
+            excluidas.append(f"{nombre[:-3]} ({motivo})")
             continue
         por_clave.setdefault((m["modelo"], m["idioma"]), {}).setdefault(m["estado"], []).append(reg["items"])
 
-    def celda(corridas: list[dict]) -> tuple[list[bool], list[int]]:
-        valores = [all(final(c[i]) is True for c in corridas) for i in ITEMS]
+    def celda(corridas: list[dict]) -> tuple[list[bool | None], list[int]]:
+        # Tres valores, como en la tabla por corrida: "sí" si pasa en todas,
+        # "no" si falla en alguna, "?" si ninguna falla pero alguna está
+        # pendiente. Un juicio pendiente no es un "no" (lo cazó la ronda 4).
+        valores: list[bool | None] = []
+        for i in ITEMS:
+            finales = [final(c[i]) for c in corridas]
+            if any(v is False for v in finales):
+                valores.append(False)
+            elif all(v is True for v in finales):
+                valores.append(True)
+            else:
+                valores.append(None)
         totales = [sum(1 for i in ITEMS if final(c[i]) is True) for c in corridas]
         return valores, totales
 
@@ -349,6 +386,11 @@ def main() -> int:
         registro_meta = {k: meta[k] for k in ("modelo", "modo", "idioma", "estado")}
         registro_meta["llamadas_a_herramientas"] = herramientas_en(meta)
         registro_meta["repeticion"] = int(meta.get("repeticion", "1") or 1)
+        # Las corridas anteriores a este campo no contaban líneas ilegibles;
+        # las cuatro de Codex del 12/10 tienen la secuencia completa de eventos
+        # (thread.started, turn.started, agent_message, turn.completed), que es
+        # el argumento para tomarlas como cero.
+        registro_meta["eventos_ilegibles"] = int(meta.get("cli_eventos_ilegibles", "0") or 0)
         puntajes[ruta.name] = {"meta": registro_meta, "items": nuevo}
     ruta_puntajes.write_text(json.dumps(puntajes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
