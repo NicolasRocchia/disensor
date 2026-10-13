@@ -47,8 +47,9 @@ este no es el tools/segundo-motivo.py del directorio actual, si algún
 directorio del repositorio está en `sys.path` (hay que correrlo con `-P`,
 Python 3.11 o más: sin eso Python antepone `tools/` a la ruta de importación),
 si hay algo sin versionar o ignorado bajo `src/`, de donde importa el
-validador, si hay archivos versionados modificados, o si el destino está
-dentro del repositorio y git no lo ignora, o ya existe con archivos que este
+validador, si hay archivos versionados modificados, o si el destino es un
+enlace, está dentro del repositorio y git no lo ignora (mirado en la ruta
+resuelta, que es donde cae la escritura), o ya existe con archivos que este
 script no escribe o con enlaces. Lee vectores e índices de los objetos de git
 del commit, resuelto una vez al empezar y nunca por el nombre HEAD, e importa
 `disensor.rules` del checkout, verificando que viene de
@@ -108,9 +109,10 @@ this is not the tools/segundo-motivo.py of the current directory, if any
 repository directory is on `sys.path` (it has to run with `-P`, Python 3.11 or
 newer: without it Python prepends `tools/` to the import path), if anything
 untracked or ignored sits under `src/`, where the validator is imported from,
-if tracked files are modified, or if the destination is inside the repository
-and git does not ignore it, or already exists holding files this script does
-not write or links. It reads vectors and indexes from the git objects of the
+if tracked files are modified, or if the destination is a link, is inside the
+repository and git does not ignore it (checked on the resolved path, which is
+where the write lands), or already exists holding files this script does not
+write or links. It reads vectors and indexes from the git objects of the
 commit, resolved once at the start and never through the name HEAD, and
 imports `disensor.rules` from the checkout, checking that it comes from
 `src/disensor/rules.py` (and `jsonschema` from outside it). Before writing it
@@ -266,14 +268,22 @@ def destino_seguro(salida):
     clase: se sobreescribe la salida de una corrida anterior y nada más. Así
     `.` o `tools` no siembran archivos en el checkout, un directorio ajeno no
     pierde lo que tenía, y un `segundo-motivo.json` que sea enlace no redirige
-    la escritura fuera de lo revisado."""
+    la escritura fuera de lo revisado. El destino mismo tampoco puede ser un
+    enlace, y las preguntas se hacen sobre la ruta resuelta, que es donde cae
+    la escritura: una junction llamada `salida-segundo-motivo` que apunte a un
+    directorio no ignorado del checkout pasaba la pregunta a git por su nombre
+    y sembraba el archivo del otro lado."""
+    if os.path.lexists(salida) and es_enlace(os.path.abspath(salida)):
+        sys.exit(f"{salida} es un enlace (simbolico o junction): usa el directorio al que apunta o otro.")
     real = os.path.realpath(salida)
     if real == _RAIZ or bajo(real, _RAIZ):
-        # Se pregunta por un hijo del destino y no por el destino: así una regla
-        # de directorio como `salida-segundo-motivo/` lo alcanza aunque el
-        # directorio no exista todavía, y un destino que git no ignora da 1
-        # exista o no.
-        r = subprocess.run(["git", "--no-optional-locks", "check-ignore", "-q", "--", os.path.join(salida, JSON_SALIDA)],
+        # Se pregunta por un hijo del destino resuelto y no por el destino: así
+        # una regla de directorio como `salida-segundo-motivo/` lo alcanza
+        # aunque el directorio no exista todavía, y un destino que git no
+        # ignora da 1 exista o no. Resuelto, porque un enlace en el camino
+        # cambia dónde se escribe y no el nombre que git ve.
+        hijo = os.path.join(os.path.relpath(real, _RAIZ), JSON_SALIDA)
+        r = subprocess.run(["git", "--no-optional-locks", "check-ignore", "-q", "--", hijo],
                            capture_output=True)
         if r.returncode != 0:
             sys.exit(f"{salida} esta dentro del repositorio y git no lo ignora: "
