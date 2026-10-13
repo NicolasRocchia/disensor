@@ -513,15 +513,17 @@ def test_the_readme_example_is_a_verbatim_excerpt_of_the_declaration_it_names():
 # "15 hasta el 13/10", la declaracion de esa ronda hizo 16, y lo vio el
 # generador al declarar, no el revisor, porque el archivo todavia no existia.
 COSTO = {
+    # La mediana puede llevar decimales (N par: el promedio de los dos del
+    # medio), con punto en ingles y coma en castellano.
     "README.md": re.compile(
         r"up to (\d{4}-\d{2}-\d{2}), (\d+) declarations carry the\s+reviewer's time: "
-        r"between (\d+) and (\d+) seconds, median (\d+),.*?(\d+) carry the cycle: "
-        r"between (\d+) and (\d+) seconds, median (\d+)\. None carries\s+`token_cost`",
+        r"between (\d+) and (\d+) seconds, median (\d+(?:\.\d+)?),.*?(\d+) carry the cycle: "
+        r"between (\d+) and (\d+) seconds, median (\d+(?:\.\d+)?)\. None carries\s+`token_cost`",
         re.S),
     "README.es.md": re.compile(
         r"hasta el (\d{4}-\d{2}-\d{2}), (\d+) declaraciones\s+llevan el tiempo del revisor: "
-        r"entre (\d+) y (\d+) segundos, mediana (\d+),.*?(\d+) llevan el ciclo: "
-        r"entre (\d+) y (\d+) segundos, mediana (\d+)\. Ninguna\s+lleva `token_cost`",
+        r"entre (\d+) y (\d+) segundos, mediana (\d+(?:,\d+)?),.*?(\d+) llevan el ciclo: "
+        r"entre (\d+) y (\d+) segundos, mediana (\d+(?:,\d+)?)\. Ninguna\s+lleva `token_cost`",
         re.S),
 }
 
@@ -531,8 +533,11 @@ def costo_observado(hasta: str) -> dict[str, int]:
 
     `reviewer_seconds` es lo que el runner midio del intento que produjo el
     informe declarado, en la extension; `extra_time_sec` es el ciclo a mano, en
-    `metrics`. La mediana es `median_low`: con N par, el menor de los dos del
-    medio, para que sea siempre un valor observado y un entero.
+    `metrics`. La mediana es la convencional (`statistics.median`): con N par,
+    el promedio de los dos del medio, que puede no ser entero. La primera
+    version usaba `median_low` y la prosa decia "mediana" a secas: con 12 y 6
+    valores publicaba 193 y 540 donde la mediana es 196 y 662,5. Lo cazo la
+    ronda 3 del PR de #114.
     """
     import json
     import statistics
@@ -562,9 +567,9 @@ def costo_observado(hasta: str) -> dict[str, int]:
     )
     return {
         "revisor_n": len(revisor), "revisor_min": min(revisor),
-        "revisor_max": max(revisor), "revisor_mediana": statistics.median_low(revisor),
+        "revisor_max": max(revisor), "revisor_mediana": statistics.median(revisor),
         "ciclo_n": len(ciclo), "ciclo_min": min(ciclo),
-        "ciclo_max": max(ciclo), "ciclo_mediana": statistics.median_low(ciclo),
+        "ciclo_max": max(ciclo), "ciclo_mediana": statistics.median(ciclo),
         "token_cost": tokens,
     }
 
@@ -593,7 +598,9 @@ def test_the_published_cost_matches_the_corpus_up_to_its_date():
         claves = ("revisor_n", "revisor_min", "revisor_max", "revisor_mediana",
                   "ciclo_n", "ciclo_min", "ciclo_max", "ciclo_mediana")
         for valor, clave in zip(valores, claves):
-            assert int(valor) == real[clave], (
+            # Enteros salvo las medianas, que se comparan como numero: "662,5"
+            # en castellano y "662.5" en ingles son el mismo valor.
+            assert float(valor.replace(",", ".")) == float(real[clave]), (
                 f"{nombre}: la prosa dice {valor} donde {clave} cuenta {real[clave]} hasta "
                 f"{fecha}. La cifra no corresponde a su fecha."
             )
