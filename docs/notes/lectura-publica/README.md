@@ -78,6 +78,9 @@ cuántas herramientas llamó: `cli_llamadas_a_herramientas` en el encabezado,
 con el conteo por tipo de evento en `cli_eventos` y las líneas que parecían
 un evento y no se pudieron leer en `cli_eventos_ilegibles` (una ilegible
 también saca la corrida de A: podría ser una herramienta que no se contó).
+Un registro ausente no es cero: una corrida hecha con un corredor que no
+contaba algo queda fuera de A hasta repetirse, porque el JSONL crudo no se
+guarda y lo que no se contó no se reconstruye.
 El conteo es por descarte,
 a propósito: todo ítem completado que no sea el mensaje del agente o su
 razonamiento cuenta como herramienta, así que una versión del CLI que renombre

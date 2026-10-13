@@ -21,5 +21,5 @@ Entran solo las corridas de documento con llamadas a herramientas registradas e 
 
 | modelo | idioma | antes | después | ítems que cambian |
 |---|---|---|---|---|
-| codex | en | 5/7 | 7/7 | estados: no a sí; sin_campos_inventados: no a sí |
-| codex | es | 5/7 | 7/7 | estados: no a sí; sin_campos_inventados: no a sí |
+
+Fuera de A: codex-documento-en-antes (sin registro de eventos ilegibles); codex-documento-en-despues (sin registro de eventos ilegibles); codex-documento-es-antes (sin registro de eventos ilegibles); codex-documento-es-despues (sin registro de eventos ilegibles).
