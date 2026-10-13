@@ -30,9 +30,10 @@ Se niega también si hay algo sin versionar bajo `src/`: de ahí importa el
 validador, y un módulo suelto (un `src/jsonschema/`, por ejemplo) correría en
 lugar del instalado sin que `git status --untracked-files=no` lo viera. Y
 comprueba de dónde importó lo que corre: `disensor.rules` del checkout,
-`jsonschema` de fuera de él. El directorio de salida tiene que estar fuera del
-repositorio o ignorado por git, y si ya existe solo puede tener lo que este
-script emite, sin enlaces simbólicos, junctions ni enlaces duros: se
+`jsonschema` de fuera de él. El directorio de salida no puede ser él mismo un
+enlace y tiene que estar fuera del repositorio o ignorado por git, mirado en la
+ruta resuelta, que es donde cae la escritura; si ya existe solo puede tener lo
+que este script emite, sin enlaces simbólicos, junctions ni enlaces duros: se
 sobreescribe la salida de una corrida anterior y nada más. Y hay que correrlo
 con `-P` (Python 3.11 o más): sin eso Python antepone `tools/` a la ruta de
 importación y un módulo suelto ahí correría en lugar de una dependencia; el
@@ -125,13 +126,15 @@ It also refuses if anything untracked sits under `src/`: the validator is
 imported from there, and a loose module (a `src/jsonschema/`, say) would run in
 place of the installed one without `git status --untracked-files=no` noticing.
 And it checks where what runs was imported from: `disensor.rules` from the
-checkout, `jsonschema` from outside it. The output directory has to be outside
-the repository or ignored by git, and if it already exists it may only hold
-what this script emits, with no symlinks, junctions or hard links: a previous
-run's output is overwritten, nothing else. And it has to run with `-P` (Python
-3.11 or newer): without it Python prepends `tools/` to the import path and a
-loose module there would run in place of a dependency; the script refuses if
-any repository directory is on `sys.path` other than the `src/` it adds itself.
+checkout, `jsonschema` from outside it. The output directory may not itself be
+a link and has to be outside the repository or ignored by git, checked on the
+resolved path, which is where the write lands; if it already exists it may only
+hold what this script emits, with no symlinks, junctions or hard links: a
+previous run's output is overwritten, nothing else. And it has to run with
+`-P` (Python 3.11 or newer): without it Python prepends `tools/` to the import
+path and a loose module there would run in place of a dependency; the script
+refuses if any repository directory is on `sys.path` other than the `src/` it
+adds itself.
 
 What it emits, in the output directory:
 
@@ -371,13 +374,22 @@ def destino_seguro(salida):
     clase: se sobreescribe la salida de una corrida anterior y nada más. Así
     `.` o `tools` no siembran archivos en el checkout, un directorio ajeno no
     pierde lo que tenía, y un `configs` que sea junction o un `fixtures.json`
-    que sea enlace no redirigen la escritura fuera de lo revisado."""
+    que sea enlace no redirigen la escritura fuera de lo revisado. El destino
+    mismo tampoco puede ser un enlace, y las preguntas se hacen sobre la ruta
+    resuelta, que es donde cae la escritura: una junction llamada `salida-55`
+    que apunte a un directorio no ignorado del checkout pasaba la pregunta a
+    git por su nombre y sembraba la salida del otro lado."""
+    if os.path.lexists(salida) and es_enlace(os.path.abspath(salida)):
+        sys.exit(f"{salida} es un enlace (simbolico o junction): usa el directorio al que apunta o otro.")
     real = os.path.realpath(salida)
     if real == _RAIZ or bajo(real, _RAIZ):
-        # Se pregunta por un hijo del destino y no por el destino: así una regla
-        # de directorio como `salida-55/` lo alcanza aunque el directorio no
-        # exista todavía, y un destino que git no ignora da 1 exista o no.
-        r = subprocess.run(["git", "--no-optional-locks", "check-ignore", "-q", "--", os.path.join(salida, "SHA256SUMS")],
+        # Se pregunta por un hijo del destino resuelto y no por el destino: así
+        # una regla de directorio como `salida-55/` lo alcanza aunque el
+        # directorio no exista todavía, y un destino que git no ignora da 1
+        # exista o no. Resuelto, porque un enlace en el camino cambia dónde se
+        # escribe y no el nombre que git ve.
+        hijo = os.path.join(os.path.relpath(real, _RAIZ), "SHA256SUMS")
+        r = subprocess.run(["git", "--no-optional-locks", "check-ignore", "-q", "--", hijo],
                            capture_output=True)
         if r.returncode != 0:
             sys.exit(f"{salida} esta dentro del repositorio y git no lo ignora: "
