@@ -308,10 +308,10 @@ resolution, and at the pull request.
 **What it costs, as measured.** Every declaration the runner prefills carries
 the reviewer's wall time (`reviewer_seconds`); the whole cycle
 (`extra_time_sec`) is timed by hand, and `token_cost` only when a CLI reports
-it. In this repository's corpus up to 2026-10-13, 15 declarations carry the
-reviewer's time: between 56 and 377 seconds, median 199, all of them with the
+it. In this repository's corpus up to 2026-10-12, 12 declarations carry the
+reviewer's time: between 56 and 377 seconds, median 193, all of them with the
 same reviewer (Codex, `gpt-5.6-sol`) on this repository's own pull requests.
-9 carry the cycle: between 104 and 3151 seconds, median 785. None carries
+6 carry the cycle: between 104 and 2272 seconds, median 540. None carries
 `token_cost`: no recipe in the catalogue reports tokens. These are dated counts
 from `.residue/`, not a total, and a test compares them with the declarations
 up to that date.

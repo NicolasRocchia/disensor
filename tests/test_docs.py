@@ -504,6 +504,14 @@ def test_the_readme_example_is_a_verbatim_excerpt_of_the_declaration_it_names():
 # mueve HEAD y pide otra ronda. Lo que se vigila es que lo dicho sea cierto a la
 # fecha que dice; que la fecha envejezca queda a la vista en la prosa y no lo
 # detecta ninguna prueba (#114).
+#
+# La fecha de corte tiene que ser ANTERIOR al dia de la declaracion mas nueva
+# del corpus, y en particular al dia en que se declara el PR que escribe la
+# cifra: esa declaracion lleva reviewer_seconds y extra_time_sec, entra en el
+# corpus del dia, y una prosa fechada ese mismo dia queda falsa en el commit
+# siguiente al que la ronda reviso. Paso en el PR de #114: la ronda aprobo
+# "15 hasta el 13/10", la declaracion de esa ronda hizo 16, y lo vio el
+# generador al declarar, no el revisor, porque el archivo todavia no existia.
 COSTO = {
     "README.md": re.compile(
         r"up to (\d{4}-\d{2}-\d{2}), (\d+) declarations carry the\s+reviewer's time: "
@@ -532,8 +540,10 @@ def costo_observado(hasta: str) -> dict[str, int]:
     revisor: list[int] = []
     ciclo: list[int] = []
     tokens = 0
+    mas_nueva = ""
     for ruta in sorted((ROOT / ".residue").glob("*.json")):
         d = json.loads(ruta.read_text(encoding="utf-8"))
+        mas_nueva = max(mas_nueva, d["event"]["created_at"][:10])
         if d["event"]["created_at"][:10] > hasta:
             continue
         ext = (d.get("extensions") or {}).get("dev.disensor.round") or {}
@@ -545,6 +555,11 @@ def costo_observado(hasta: str) -> dict[str, int]:
         if m.get("token_cost") is not None:
             tokens += 1
     assert revisor and ciclo, "la prosa afirma cifras sobre un corpus que no las tiene"
+    assert hasta < mas_nueva, (
+        f"la fecha de corte {hasta} no es anterior a la declaracion mas nueva del corpus "
+        f"({mas_nueva}): la declaracion del PR que publica la cifra entra en ese dia y la "
+        "vuelve falsa. Fechar el corte al dia anterior y contar hasta ahi."
+    )
     return {
         "revisor_n": len(revisor), "revisor_min": min(revisor),
         "revisor_max": max(revisor), "revisor_mediana": statistics.median_low(revisor),

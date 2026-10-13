@@ -251,10 +251,10 @@ escala sin resolver, y en el PR.
 **Lo que cuesta, medido.** Cada declaración que el runner prellena lleva el
 tiempo de pared del revisor (`reviewer_seconds`); el ciclo entero
 (`extra_time_sec`) se cronometra a mano, y `token_cost` solo cuando un CLI lo
-informa. En el corpus de este repositorio hasta el 2026-10-13, 15 declaraciones
-llevan el tiempo del revisor: entre 56 y 377 segundos, mediana 199, todas con
+informa. En el corpus de este repositorio hasta el 2026-10-12, 12 declaraciones
+llevan el tiempo del revisor: entre 56 y 377 segundos, mediana 193, todas con
 el mismo revisor (Codex, `gpt-5.6-sol`) sobre pull requests de este mismo
-repositorio. 9 llevan el ciclo: entre 104 y 3151 segundos, mediana 785. Ninguna
+repositorio. 6 llevan el ciclo: entre 104 y 2272 segundos, mediana 540. Ninguna
 lleva `token_cost`: ninguna receta del catálogo informa tokens. Son conteos con
 fecha sacados de `.residue/`, no un total, y una prueba los compara con las
 declaraciones hasta esa fecha.
