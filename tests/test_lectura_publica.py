@@ -159,6 +159,20 @@ def test_un_estado_inventado_fuera_de_un_hallazgo_tampoco_pasa():
     assert r["sin_campos_inventados"]["auto"] is True
 
 
+def test_un_final_state_que_no_es_cadena_tampoco_pasa():
+    # Ronda 1 del PR de #125: el recolector guardaba solo cadenas, y 7, null,
+    # {} o [] como final_state pasaban como si fueran uno de los seis.
+    for valor in ("7", "null", "{}", "[]"):
+        bloque = '{"findings": [{"final_state": ' + valor + ', "verification": {}}]}'
+        r = puntuar.puntuar("```json\n" + bloque + "\n```")
+        assert r["sin_campos_inventados"]["auto"] is False, valor
+        assert valor in r["sin_campos_inventados"]["evidencia"], valor
+    # y en un bloque que no parsea, por expresión regular
+    r = puntuar.puntuar("```json\n" + '{"findings": [{"final_state": 7, ...' + "\n```")
+    assert r["sin_campos_inventados"]["auto"] is False
+    assert "7" in r["sin_campos_inventados"]["evidencia"]
+
+
 def test_los_items_salen_en_el_orden_del_protocolo():
     # Los de juicio se iteraban desde un set: el orden dependía del hash seed
     # del proceso y repuntuar reordenaba puntajes.json sin cambiar un valor.
