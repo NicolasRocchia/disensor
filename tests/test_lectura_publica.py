@@ -144,6 +144,39 @@ def test_un_bloque_abreviado_que_se_repara_puntua_por_estructura():
     assert r["verification"]["auto"] is True
 
 
+def test_la_lista_negra_no_cuenta_una_advertencia_en_prosa():
+    # Hallazgo 1 de la ronda 3: "no existe el campo blocking_issues" puntuaba
+    # como inventarlo.
+    r = puntuar.puntuar("```json" + chr(10) + ARTEFACTO + chr(10) + "```" + chr(10)
+                        + "No existe el campo blocking_issues; sería inventado.")
+    assert r["sin_campos_inventados"]["auto"] is True
+
+
+def test_la_lista_negra_si_cuenta_adentro_del_bloque():
+    r = puntuar.puntuar("```json" + chr(10) + '{"findings": [{"final_state": "INCORPORATED"}]}' + chr(10) + "```")
+    assert r["sin_campos_inventados"]["auto"] is False
+    assert "INCORPORATED" in r["sin_campos_inventados"]["evidencia"]
+
+
+def test_las_repeticiones_de_una_celda_cuentan_todas():
+    # Hallazgo 2 de la ronda 3: la tabla de A se quedaba con la última corrida
+    # de la celda. Dos "antes" con resultados distintos, un "después".
+    def reg(estado, pasa):
+        items = {i: {"auto": pasa, "juicio": None} for i in puntuar.ITEMS}
+        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado, "llamadas_a_herramientas": 0}
+        return {"meta": meta, "items": items}
+    puntajes = {
+        "m-documento-es-antes.md": reg("antes", True),
+        "m-documento-es-antes-r2.md": reg("antes", False),
+        "m-documento-es-despues.md": reg("despues", True),
+    }
+    filas, excluidas = puntuar.filas_experimento_a(puntajes)
+    assert excluidas == []
+    assert len(filas) == 1
+    assert "7/7, 0/7 (n=2)" in filas[0]          # las dos corridas de "antes", a la vista
+    assert "estados: no a sí" in filas[0]        # la celda vale "sí" solo si pasa en todas
+
+
 def test_un_bloque_que_no_parsea_ni_reparado_queda_a_juicio():
     r = puntuar.puntuar("```json" + chr(10) + "{esto no es json" + chr(10) + "```")
     assert r["findings_final_state"]["auto"] is None

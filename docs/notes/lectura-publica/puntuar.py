@@ -49,8 +49,10 @@ ESQUEMA = RAIZ / "src" / "disensor" / "residue.schema.json"
 ESTADOS = ["incorporated", "debt_recorded", "owner_decision", "refuted_verifiable",
            "refuted_interpretive", "escalated_open"]
 # Lo que inventó la lectura superficial del 12/10 y variantes cercanas, mirado
-# en toda la respuesta: los estados en mayúsculas son invento aunque la palabra
-# exista en minúsculas. La lista blanca de abajo cubre el resto.
+# adentro de los bloques de código, igual que la lista blanca: una advertencia
+# correcta en prosa ("no existe el campo blocking_issues") no es inventar el
+# campo, y la primera versión la contaba como tal (lo cazó la ronda 3). Los
+# estados en mayúsculas son invento aunque la palabra exista en minúsculas.
 INVENTADOS = ["adversarial_rounds", "attacker", "defender", "blocking_issues", "status_counts",
               "auditor_model", "resolved_in_commit", "INCORPORATED", "DEBT_REGISTERED", "DEBT_RECORDED",
               "REFUTED", "SCALED", "ESCALATED", "OWNER_DECISION"]
@@ -241,7 +243,8 @@ def puntuar(respuesta: str) -> dict:
         False: "sin verification ni fix_verification en los hallazgos de los bloques parseados",
         None: "ningún bloque de código parsea, ni reparado: juicio a mano",
     }[ok]}
-    hallados = [c for c in INVENTADOS if c in respuesta]
+    textos_bloques = [crudo for crudo, _parseado in bloques(respuesta)]
+    hallados = [c for c in INVENTADOS if any(c in crudo for crudo in textos_bloques)]
     desconocidas = sorted(claves_de_los_bloques(respuesta) - claves_del_esquema())
     partes = []
     if hallados:
@@ -264,6 +267,49 @@ def final(registro: dict) -> bool | None:
 
 def marca(valor: bool | None) -> str:
     return {True: "sí", False: "no", None: "?"}[valor]
+
+
+def filas_experimento_a(puntajes: dict) -> tuple[list[str], list[str]]:
+    """Las filas de la tabla del experimento A y las corridas que quedan afuera.
+
+    Una celda (modelo, idioma, estado) puede tener varias corridas: las
+    repeticiones, que el corredor guarda con nombre propio (sufijo -rN). Regla
+    de agregación, explícita: un ítem vale "sí" en la celda solo si pasa en
+    TODAS sus corridas, y la fila muestra además el total de cada corrida, en
+    el orden de los archivos, para que ninguna se pierda. Lo cazó la ronda 3:
+    la versión anterior se quedaba con la última corrida de la celda y no lo
+    decía.
+    """
+    por_clave: dict[tuple[str, str], dict[str, list[dict]]] = {}
+    excluidas: list[str] = []
+    for nombre, reg in puntajes.items():
+        m = reg["meta"]
+        if m["modo"] != "documento":
+            continue
+        h = m["llamadas_a_herramientas"]
+        if h is None or h > 0:
+            excluidas.append(f"{nombre[:-3]} ({'sin registro' if h is None else str(h) + ' llamada(s)'})")
+            continue
+        por_clave.setdefault((m["modelo"], m["idioma"]), {}).setdefault(m["estado"], []).append(reg["items"])
+
+    def celda(corridas: list[dict]) -> tuple[list[bool], list[int]]:
+        valores = [all(final(c[i]) is True for c in corridas) for i in ITEMS]
+        totales = [sum(1 for i in ITEMS if final(c[i]) is True) for c in corridas]
+        return valores, totales
+
+    def mostrar(totales: list[int]) -> str:
+        texto = ", ".join(f"{t}/{len(ITEMS)}" for t in totales)
+        return texto + (f" (n={len(totales)})" if len(totales) > 1 else "")
+
+    filas = []
+    for (modelo, idioma), estados in sorted(por_clave.items()):
+        if "antes" not in estados or "despues" not in estados:
+            continue
+        va, ta = celda(estados["antes"])
+        vd, td = celda(estados["despues"])
+        cambios = [f"{i}: {marca(x)} a {marca(y)}" for i, x, y in zip(ITEMS, va, vd) if x != y]
+        filas.append(f"| {modelo} | {idioma} | {mostrar(ta)} | {mostrar(td)} | " + ("; ".join(cambios) if cambios else "ninguno") + " |")
+    return filas, excluidas
 
 
 def herramientas_en(meta: dict) -> int | None:
@@ -302,6 +348,7 @@ def main() -> int:
                 nuevo[item]["cita"] = viejo[item]["cita"]
         registro_meta = {k: meta[k] for k in ("modelo", "modo", "idioma", "estado")}
         registro_meta["llamadas_a_herramientas"] = herramientas_en(meta)
+        registro_meta["repeticion"] = int(meta.get("repeticion", "1") or 1)
         puntajes[ruta.name] = {"meta": registro_meta, "items": nuevo}
     ruta_puntajes.write_text(json.dumps(puntajes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
@@ -318,26 +365,11 @@ def main() -> int:
         h = reg["meta"]["llamadas_a_herramientas"]
         lineas.append(f"| {nombre[:-3]} | " + " | ".join(marca(v) for v in valores) + f" | {total}/{len(ITEMS)} | {'-' if h is None else h} |")
     lineas += ["", f"Juicios pendientes: {pendientes}.", "", "## Experimento A: antes y después por modelo e idioma", "",
-               "Entran solo las corridas de documento con llamadas a herramientas registradas e iguales a cero.", "",
+               "Entran solo las corridas de documento con llamadas a herramientas registradas e iguales a cero. "
+               "Si una celda tiene varias corridas (repeticiones), un ítem vale \"sí\" solo si pasa en todas, y se muestra el total de cada una.", "",
                "| modelo | idioma | antes | después | ítems que cambian |", "|---|---|---|---|---|"]
-    por_clave: dict[tuple[str, str], dict[str, dict]] = {}
-    excluidas = []
-    for nombre, reg in puntajes.items():
-        m = reg["meta"]
-        if m["modo"] != "documento":
-            continue
-        if m["llamadas_a_herramientas"] is None or m["llamadas_a_herramientas"] > 0:
-            excluidas.append(f"{nombre[:-3]} ({'sin registro' if m['llamadas_a_herramientas'] is None else str(m['llamadas_a_herramientas']) + ' llamada(s)'})")
-            continue
-        por_clave.setdefault((m["modelo"], m["idioma"]), {})[m["estado"]] = reg["items"]
-    for (modelo, idioma), estados in sorted(por_clave.items()):
-        if "antes" not in estados or "despues" not in estados:
-            continue
-        a = [final(estados["antes"][i]) for i in ITEMS]
-        d = [final(estados["despues"][i]) for i in ITEMS]
-        cambios = [f"{i}: {marca(x)} a {marca(y)}" for i, x, y in zip(ITEMS, a, d) if x != y]
-        lineas.append(f"| {modelo} | {idioma} | {sum(v is True for v in a)}/{len(ITEMS)} | {sum(v is True for v in d)}/{len(ITEMS)} | "
-                      + ("; ".join(cambios) if cambios else "ninguno") + " |")
+    filas, excluidas = filas_experimento_a(puntajes)
+    lineas += filas
     if excluidas:
         lineas += ["", "Fuera de A: " + "; ".join(excluidas) + "."]
     (carpeta / "resultado.md").write_text("\n".join(lineas) + "\n", encoding="utf-8", newline="\n")

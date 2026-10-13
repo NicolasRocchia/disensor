@@ -15,8 +15,9 @@ Correr desde la raíz del repositorio:
         [--modelos claude-sonnet,claude-haiku,codex] [--idiomas es,en] [--estados antes,despues]
 
 Los README salen de git (`git show <commit>:<ruta>`), no del árbol de trabajo.
-Una corrida que ya existe no se repite: borrar el archivo para repetirla, y
-que quede en el historial que se repitió. Una corrida que falla (el CLI sale
+Una corrida que ya existe no se repite con el mismo nombre: `--repeticion N`
+la guarda aparte, con sufijo -rN y `repeticion: N` en el encabezado, y
+puntuar.py las cuenta todas. Una corrida que falla (el CLI sale
 con error o no contesta) no deja archivo: se informa y se sigue con la
 siguiente, para que un fallo de infraestructura no quede como si fuera una
 respuesta del modelo.
@@ -240,7 +241,12 @@ def main() -> int:
     ap.add_argument("--modelos", default=",".join(MODELOS))
     ap.add_argument("--idiomas", default="es,en")
     ap.add_argument("--estados", default="antes,despues", help="Solo para el modo documento.")
+    ap.add_argument("--repeticion", type=int, default=1,
+                    help="Número de repetición: 1 es la corrida base; N > 1 agrega el sufijo -rN al archivo.")
     args = ap.parse_args()
+    if args.repeticion < 1:
+        raise SystemExit("--repeticion empieza en 1")
+    sufijo = f"-r{args.repeticion}" if args.repeticion > 1 else ""
 
     modelos = [m.strip() for m in args.modelos.split(",") if m.strip()]
     for m in modelos:
@@ -266,7 +272,7 @@ def main() -> int:
 
     fallidas: list[str] = []
     for modelo, modo, idioma, estado in plan:
-        destino = carpeta / f"{modelo}-{modo}-{idioma}-{estado}.md"
+        destino = carpeta / f"{modelo}-{modo}-{idioma}-{estado}{sufijo}.md"
         if destino.exists():
             log(f"ya existe, no se repite: {destino.name}")
             continue
@@ -278,6 +284,7 @@ def main() -> int:
             "modo": modo,
             "idioma": idioma,
             "estado": estado,
+            "repeticion": args.repeticion,
             "pregunta": PREGUNTA[idioma],
         }
         if modo == "documento":
