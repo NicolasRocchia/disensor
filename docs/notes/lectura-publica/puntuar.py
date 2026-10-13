@@ -68,7 +68,10 @@ PISTAS = {
 # forma (json, JSON, jsonc, yaml, nada), hasta el cierre.
 FENCE = re.compile(r"^(`{3,})[^\n]*\n(.*?)^\1[ \t]*$", re.M | re.S)
 CLAVE = re.compile(r'"([A-Za-z_$][A-Za-z0-9_.$-]*)"\s*:')
-FINAL_STATE = re.compile(r'"final_state"\s*:\s*"([^"]*)"')
+# El valor de final_state: una cadena entre comillas, o cualquier otro valor
+# JSON hasta el separador (un número, null, un objeto o lista sin anidar).
+# Ninguno de los segundos es uno de los seis estados.
+FINAL_STATE = re.compile(r'"final_state"\s*:\s*("[^"]*"|\{[^{}]*\}|\[[^\[\]]*\]|[^\s,}\]]+)')
 # Lo que un ejemplo abreviado trae y JSON no admite: puntos suspensivos (los
 # tres puntos o el carácter) como valor o como elemento, y la coma que queda
 # colgando antes del cierre cuando se los saca.
@@ -191,23 +194,44 @@ def estructura(respuesta: str, condicion) -> bool | None:
     return False if hubo_parseado else None
 
 
+def valores_de_final_state(nodo, salida: set[str]) -> None:
+    """Todo valor de `final_state` del JSON, esté donde esté, fuera de `extensions`.
+
+    Un valor que no es cadena (7, null, {}, []) se guarda como su JSON: no es
+    ninguno de los seis estados y tiene que verse en la evidencia, no
+    omitirse (lo cazó la ronda 1 del PR de #125).
+    """
+    if isinstance(nodo, dict):
+        for k, v in nodo.items():
+            if k == "extensions":
+                continue
+            if k == "final_state":
+                salida.add(v if isinstance(v, str) else json.dumps(v, ensure_ascii=False))
+            valores_de_final_state(v, salida)
+    elif isinstance(nodo, list):
+        for v in nodo:
+            valores_de_final_state(v, salida)
+
+
 def estados_fuera_del_esquema(respuesta: str) -> set[str]:
     """Los valores de `final_state` de los bloques que no son uno de los seis.
 
     La lista blanca mira nombres de clave; un estado inventado como valor
     (`"final_state": "resolved"`) usaba solo claves conocidas y pasaba. Lo cazó
-    la ronda 4. En un bloque que no parsea se leen los valores por expresión
-    regular.
+    la ronda 4. Se mira todo `final_state` del bloque, no solo los de
+    `findings[]`: un estado inventado es inválido en cualquier lugar, y la
+    primera versión dejaba pasar `"final_state": "RESOLVED"` en la raíz (lo
+    cazó la ronda 6, #125). En un bloque que no parsea se leen los valores por
+    expresión regular, que ya miraba toda ocurrencia; una cadena se compara
+    sin sus comillas y cualquier otro valor, tal cual.
     """
     valores: set[str] = set()
     for crudo, parseado in bloques(respuesta):
         if parseado is not None:
-            for h in hallazgos_de(parseado):
-                v = h.get("final_state")
-                if isinstance(v, str):
-                    valores.add(v)
+            valores_de_final_state(parseado, valores)
         else:
-            valores.update(FINAL_STATE.findall(crudo))
+            for crudo_valor in FINAL_STATE.findall(crudo):
+                valores.add(crudo_valor[1:-1] if crudo_valor.startswith('"') else crudo_valor)
     return valores - set(ESTADOS)
 
 
@@ -280,7 +304,10 @@ def puntuar(respuesta: str) -> dict:
     for item in JUICIO:
         pistas = lineas_con(PISTAS[item], respuesta)
         r[item] = {"auto": None, "evidencia": " | ".join(pistas) if pistas else "sin palabras sospechosas"}
-    return r
+    # En el orden de la tabla del protocolo: el de iteración de un set de
+    # cadenas cambia con el hash seed de cada proceso, y repuntuar reordenaba
+    # puntajes.json sin cambiar ningún valor.
+    return {item: r[item] for item in ITEMS}
 
 
 def final(registro: dict) -> bool | None:

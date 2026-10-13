@@ -1,0 +1,114 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "204515c1-beb7-4eb2-a4dc-d9532d8eb63d",
+    "created_at": "2026-10-13T08:53:08-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "0ab4d276f36aeb940c5b523254a52711f218ae2e",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "96fc228488656e36c2f532c13950753f5511eaf5"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Un final_state que no es cadena pasaba la lista de los seis estados",
+      "description": "valores_de_final_state guardaba solo cadenas: un bloque parseable con \"final_state\": 7 (o null, {}, []) no aportaba ningún valor, estados_fuera_del_esquema quedaba vacío y sin_campos_inventados daba true con la evidencia de que no había estado fuera del esquema. ronda 1 sobre 76a66a1: pack sha256:1e28456fcb25274e5c2f6132996789503fec5b24b19919f15b39e49c226d86dd, informe sha256:4b2a64113294b7cec057589dbda1148e92c95c5e3a7760f57c720ce34188ce03, 274 s.",
+      "location": "docs/notes/lectura-publica/puntuar.py (valores_de_final_state; FINAL_STATE y su uso en estados_fuera_del_esquema)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido con 7, null, {} y [] en el camino parseado: los cuatro daban auto true. Reproducido además con 7 en un bloque que no parsea: la expresión regular FINAL_STATE solo capturaba cadenas entre comillas, el mismo hueco en el camino de respaldo, que el informe no mencionaba. Corregido en 0ab4d27: un valor que no es cadena se guarda como su JSON y cuenta como inválido, y la expresión regular captura también valores sin comillas. De los dos remedios que ofrecía el informe (representar o rechazar) se tomó representar, para que el valor se vea en la evidencia."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_un_final_state_que_no_es_cadena_tampoco_pasa (7, null, {} y [] parseados, y 7 en un bloque sin parsear); la ronda 2 sobre 0ab4d27 lo reprodujo con 7, null, {}, [], true y 1.2 y no encontró hallazgos; suite completa sobre 0ab4d27: 665 pasan, 7 saltadas."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas de la suite no se forzaron: tres smoke tests de endurecimiento (opt-in con costo real, DISENSOR_SMOKE=1), que ejercitan la receta de Codex y que este diff no toca; la prueba de permiso de ejecución, que en Windows no distingue nada y corre en el CI de POSIX; y los tres index.json de las suites de vectores. El generador corrió el resto en Windows con Python 3.14 sobre 76a66a1 (664 pasan) y sobre 0ab4d27 (665 pasan); el revisor de la ronda 1 la corrió completa sobre 76a66a1 con el mismo resultado."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor de la ronda 2 arrancó la suite completa sobre 0ab4d27, pero su ventana de salida se cortó tras los primeros 78 tests y declaró no poder afirmar que pasara; completo corrió solo tests/test_lectura_publica.py (26 pasan). En ninguna de las dos rondas corrió puntuar.py --fecha 2026-10-12, porque escribe puntajes.json y resultado.md dentro del repo: la ronda 1 comparó los JSON de base y head semánticamente y los halló iguales. Lo que el revisor no ejecutó lo ejecutó el generador: la suite completa sobre 0ab4d27 (665 pasan, 7 saltadas) y el repuntuado con PYTHONHASHSEED 0 y 1, que deja corridas/2026-10-12 idéntico a HEAD byte a byte."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 934
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:3c7f403e68dacfd4bc951957ce14808646f119d19d91b31c949f2a5d2695e8ed",
+      "report_hash": "sha256:75f1626799490b7fc051beeefbd2e9a00a449c19234d76812a65e796455de797",
+      "reviewer_seconds": 202
+    }
+  }
+}
