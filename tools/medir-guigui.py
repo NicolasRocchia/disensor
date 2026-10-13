@@ -68,8 +68,16 @@ vs = []
 for f in sorted(glob.glob(os.path.join(RAIZ, "vectors", "mustfail-v1", "*", "case.json"))):
     with open(f, encoding="utf-8") as fh:
         vs.append((os.path.basename(os.path.dirname(f)), json.load(fh)))
-print(f"vectores leidos: {len(vs)}")
 con = [(n, d) for n, d in vs if isinstance(d.get("tool_call"), dict)]
+# Sin corpus, o con menos de dos casos con tool_call, no hay parejas que
+# contar: se sale antes de imprimir cuentas, que en cero parecerían una
+# medición y después reventaban en el min() de una lista vacía.
+if len(con) < 2:
+    sys.exit(f"hacen falta al menos dos casos con tool_call en "
+             f"{os.path.join(RAIZ, 'vectors', 'mustfail-v1')} y hay {len(con)} "
+             f"(de {len(vs)} case.json leidos): no hay parejas que contar. "
+             "Revisar que la ruta sea la del clon del corpus.")
+print(f"vectores leidos: {len(vs)}")
 print(f"con tool_call: {len(con)}  sin: {[n[:3] for n, d in vs if (n, d) not in con]}\n")
 
 for n, d in con:
