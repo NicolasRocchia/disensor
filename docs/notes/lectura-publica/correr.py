@@ -22,6 +22,11 @@ con error o no contesta) no deja archivo: se informa y se sigue con la
 siguiente, para que un fallo de infraestructura no quede como si fuera una
 respuesta del modelo.
 
+Los dos CLIs se corren desde un directorio vacío y temporal, no desde el
+repo: `claude -p` recibe del harness el directorio de trabajo y, si es un
+repositorio, su rama, su estado y sus commits recientes, aunque --safe-mode
+apague CLAUDE.md; codex explora lo que tiene a mano.
+
 Confinamiento, que no es lo mismo en los dos CLIs y el encabezado lo dice:
 `claude -p --tools ""` apaga las herramientas por construcción, y `num_turns`
 queda registrado. `codex exec` no tiene un flag que las apague, y su sandbox
@@ -140,11 +145,21 @@ def correr_claude(modelo: str, modo: str, prompt: str) -> tuple[str, dict, list[
     herramientas = "" if modo == "documento" else "WebSearch,WebFetch"
     cmd = [ejecutable("claude"), "-p", "--safe-mode", "--no-session-persistence",
            "--model", modelo, "--output-format", "json", "--tools", herramientas]
+    # Desde un directorio vacío y temporal, igual que codex, y por una razón
+    # medida: `claude -p` recibe del harness el directorio de trabajo y, si es
+    # un repositorio, su rama, su estado y sus commits recientes, aunque
+    # --safe-mode apague CLAUDE.md. Corrido desde la raíz del repo, el modelo
+    # vio mensajes de commit que nombran final_state y los seis estados, y
+    # las corridas de búsqueda hablaron de "tu worktree": eso no es "solo el
+    # documento". Lo mostraron las doce corridas del 13/10 a la mañana.
+    cuna = Path(tempfile.mkdtemp(prefix="lectura-publica-"))
     try:
-        salida = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8",
-                                errors="replace", timeout=TIMEOUT_S)
+        salida = subprocess.run(cmd, input=prompt, cwd=cuna, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=TIMEOUT_S)
     except subprocess.TimeoutExpired as err:
         raise CorridaFallida(f"claude no terminó en {TIMEOUT_S} s") from err
+    finally:
+        shutil.rmtree(cuna, ignore_errors=True)
     if salida.returncode != 0:
         raise CorridaFallida(f"claude salió con {salida.returncode}: {salida.stderr[-2000:]}")
     try:
@@ -163,6 +178,13 @@ def correr_claude(modelo: str, modo: str, prompt: str) -> tuple[str, dict, list[
     # Un turno es la respuesta; cada herramienta agrega uno. Con --tools "" no
     # hay herramientas, y el número lo confirma.
     meta["llamadas_a_herramientas"] = max(0, int(datos.get("num_turns") or 1) - 1)
+    # Acá no hay un flujo de eventos que leer: `--output-format json` devuelve
+    # un único JSON, que se parseó entero arriba o la corrida falló sin dejar
+    # archivo. Cero líneas ilegibles es una propiedad de la salida, no un
+    # conteo que falte, y se registra para que puntuar.py no lo tome por un
+    # registro ausente (lo que sacó de A a las ocho corridas de documento del
+    # 13/10, hechas antes de este campo).
+    meta["eventos_ilegibles"] = 0
     return texto, meta, cmd
 
 

@@ -134,6 +134,50 @@ def test_un_timeout_es_una_corrida_fallida_y_no_el_fin_de_la_tanda(monkeypatch):
         correr.correr_claude("sonnet", "documento", "hola")
 
 
+def test_claude_corre_desde_un_directorio_vacio_fuera_del_repo(monkeypatch):
+    # Medido el 13/10: `claude -p --safe-mode` recibe del harness el
+    # directorio, la rama, el estado y los commits recientes del cwd. Corrido
+    # desde la raíz del repo, las doce corridas vieron mensajes de commit que
+    # nombran final_state y los seis estados. Igual que codex: directorio
+    # vacío y temporal, que se va con la corrida.
+    visto = {}
+
+    class Salida:
+        returncode = 0
+        stderr = ""
+        stdout = '{"result": "hola", "num_turns": 1, "usage": {}}'
+
+    def run(cmd, **kw):
+        cuna = Path(kw["cwd"]).resolve()
+        visto["cwd"] = cuna
+        visto["vacio"] = cuna.is_dir() and not any(cuna.iterdir())
+        return Salida()
+
+    monkeypatch.setattr(correr, "ejecutable", lambda nombre: nombre)
+    monkeypatch.setattr(correr.subprocess, "run", run)
+    texto, meta, _cmd = correr.correr_claude("sonnet", "documento", "hola")
+    assert texto == "hola"
+    assert visto["vacio"]
+    assert visto["cwd"] != correr.RAIZ and correr.RAIZ not in visto["cwd"].parents
+    assert not visto["cwd"].exists()
+    # y el registro de confinamiento que puntuar.py exige para entrar en A
+    assert meta["llamadas_a_herramientas"] == 0
+    assert meta["eventos_ilegibles"] == 0
+
+
+def test_una_corrida_de_claude_con_el_registro_completo_entra_en_a():
+    # Las ocho corridas de documento del 13/10 a la mañana quedaron fuera de A
+    # por "sin registro de eventos ilegibles": el corredor de claude no lo
+    # escribía. Con el registro, la celda se arma.
+    def corrida(estado):
+        return {"meta": {"modelo": "claude-sonnet", "modo": "documento", "idioma": "es", "estado": estado,
+                         "llamadas_a_herramientas": 0, "eventos_ilegibles": 0},
+                "items": {i: {"auto": True} for i in puntuar.ITEMS}}
+    filas, excluidas = puntuar.filas_experimento_a({"a.md": corrida("antes"), "d.md": corrida("despues")})
+    assert excluidas == []
+    assert len(filas) == 1 and "claude-sonnet" in filas[0]
+
+
 def test_un_estado_inventado_como_valor_no_pasa():
     # Hallazgo 1 de la ronda 4: la lista blanca mira claves; "resolved" como
     # valor de final_state pasaba.
