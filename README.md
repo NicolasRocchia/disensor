@@ -305,6 +305,17 @@ your assistant's work. You appear when you consent to material leaving your
 machine, when a risk needs an owner, when something is escalated without
 resolution, and at the pull request.
 
+**What it costs, as measured.** Every declaration the runner prefills carries
+the reviewer's wall time (`reviewer_seconds`); the whole cycle
+(`extra_time_sec`) is timed by hand, and `token_cost` only when a CLI reports
+it. In this repository's corpus up to 2026-10-12, 12 declarations carry the
+reviewer's time: between 56 and 377 seconds, median 196, all of them with the
+same reviewer (Codex, `gpt-5.6-sol`) on this repository's own pull requests.
+6 carry the cycle: between 104 and 2272 seconds, median 662.5. None carries
+`token_cost`: no recipe in the catalogue reports tokens. These are dated counts
+from `.residue/`, not a total, and a test compares them with the declarations
+up to that date.
+
 **When there is no second family.** The method wants a reviewer from another
 model family, and that is still what the policy demands at Level A. Below that,
 a round with the same model and no context is a declarable degraded mode: the

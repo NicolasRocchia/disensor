@@ -494,3 +494,118 @@ def test_the_readme_example_is_a_verbatim_excerpt_of_the_declaration_it_names():
         )
         assert recorte["residue"].get("items"), f"{path.name}: el ejemplo no muestra residuo"
     assert len(origenes) == 1, f"los dos README citan declaraciones distintas: {origenes}"
+
+
+# El costo medido que publica cada README: cuantas declaraciones llevan el
+# tiempo del revisor y el del ciclo, con minimo, mediana y maximo, y que
+# ninguna lleva token_cost. A diferencia de CLAIMS, la afirmacion lleva fecha y
+# se compara con las declaraciones HASTA esa fecha, no con el corpus de hoy: una
+# cifra atada a HEAD se rompe con cada evento nuevo, y arreglarla en el mismo PR
+# mueve HEAD y pide otra ronda. Lo que se vigila es que lo dicho sea cierto a la
+# fecha que dice; que la fecha envejezca queda a la vista en la prosa y no lo
+# detecta ninguna prueba (#114).
+#
+# La fecha de corte tiene que ser ANTERIOR al dia de la declaracion mas nueva
+# del corpus, y en particular al dia en que se declara el PR que escribe la
+# cifra: esa declaracion lleva reviewer_seconds y extra_time_sec, entra en el
+# corpus del dia, y una prosa fechada ese mismo dia queda falsa en el commit
+# siguiente al que la ronda reviso. Paso en el PR de #114: la ronda aprobo
+# "15 hasta el 13/10", la declaracion de esa ronda hizo 16, y lo vio el
+# generador al declarar, no el revisor, porque el archivo todavia no existia.
+COSTO = {
+    # La mediana puede llevar decimales (N par: el promedio de los dos del
+    # medio), con punto en ingles y coma en castellano.
+    "README.md": re.compile(
+        r"up to (\d{4}-\d{2}-\d{2}), (\d+) declarations carry the\s+reviewer's time: "
+        r"between (\d+) and (\d+) seconds, median (\d+(?:\.\d+)?),.*?(\d+) carry the cycle: "
+        r"between (\d+) and (\d+) seconds, median (\d+(?:\.\d+)?)\. None carries\s+`token_cost`",
+        re.S),
+    "README.es.md": re.compile(
+        r"hasta el (\d{4}-\d{2}-\d{2}), (\d+) declaraciones\s+llevan el tiempo del revisor: "
+        r"entre (\d+) y (\d+) segundos, mediana (\d+(?:,\d+)?),.*?(\d+) llevan el ciclo: "
+        r"entre (\d+) y (\d+) segundos, mediana (\d+(?:,\d+)?)\. Ninguna\s+lleva `token_cost`",
+        re.S),
+}
+
+
+def costo_observado(hasta: str) -> dict[str, int]:
+    """Lo contado en `.residue/` entre las declaraciones creadas hasta esa fecha.
+
+    `reviewer_seconds` es lo que el runner midio del intento que produjo el
+    informe declarado, en la extension; `extra_time_sec` es el ciclo a mano, en
+    `metrics`. La mediana es la convencional (`statistics.median`): con N par,
+    el promedio de los dos del medio, que puede no ser entero. La primera
+    version usaba `median_low` y la prosa decia "mediana" a secas: con 12 y 6
+    valores publicaba 193 y 540 donde la mediana es 196 y 662,5. Lo cazo la
+    ronda 3 del PR de #114.
+    """
+    import json
+    import statistics
+
+    revisor: list[int] = []
+    ciclo: list[int] = []
+    tokens = 0
+    mas_nueva = ""
+    for ruta in sorted((ROOT / ".residue").glob("*.json")):
+        d = json.loads(ruta.read_text(encoding="utf-8"))
+        mas_nueva = max(mas_nueva, d["event"]["created_at"][:10])
+        if d["event"]["created_at"][:10] > hasta:
+            continue
+        ext = (d.get("extensions") or {}).get("dev.disensor.round") or {}
+        if isinstance(ext.get("reviewer_seconds"), int):
+            revisor.append(ext["reviewer_seconds"])
+        m = d.get("metrics") or {}
+        if isinstance(m.get("extra_time_sec"), int):
+            ciclo.append(m["extra_time_sec"])
+        if m.get("token_cost") is not None:
+            tokens += 1
+    assert revisor and ciclo, "la prosa afirma cifras sobre un corpus que no las tiene"
+    assert hasta < mas_nueva, (
+        f"la fecha de corte {hasta} no es anterior a la declaracion mas nueva del corpus "
+        f"({mas_nueva}): la declaracion del PR que publica la cifra entra en ese dia y la "
+        "vuelve falsa. Fechar el corte al dia anterior y contar hasta ahi."
+    )
+    return {
+        "revisor_n": len(revisor), "revisor_min": min(revisor),
+        "revisor_max": max(revisor), "revisor_mediana": statistics.median(revisor),
+        "ciclo_n": len(ciclo), "ciclo_min": min(ciclo),
+        "ciclo_max": max(ciclo), "ciclo_mediana": statistics.median(ciclo),
+        "token_cost": tokens,
+    }
+
+
+def test_the_published_cost_matches_the_corpus_up_to_its_date():
+    """La cifra de costo de cada README es lo contado en `.residue/` a su fecha.
+
+    Misma doctrina que test_documented_counts_match_what_they_count: la frase
+    tiene que aparecer exactamente una vez (cero es una reescritura que quedo
+    sin vigilar, dos una duplicacion), los dos README tienen que nombrar la
+    misma fecha, y cada numero se compara como entero con lo contado. No vigila
+    la prosa alrededor ("todas con el mismo revisor") ni que la fecha sea
+    reciente.
+    """
+    fechas = set()
+    for nombre, patron in COSTO.items():
+        texto = (ROOT / nombre).read_text(encoding="utf-8")
+        hits = patron.findall(texto)
+        assert len(hits) == 1, (
+            f"{nombre}: la afirmacion de costo aparece {len(hits)} veces y tiene que "
+            "aparecer exactamente una."
+        )
+        fecha, *valores = hits[0]
+        fechas.add(fecha)
+        real = costo_observado(fecha)
+        claves = ("revisor_n", "revisor_min", "revisor_max", "revisor_mediana",
+                  "ciclo_n", "ciclo_min", "ciclo_max", "ciclo_mediana")
+        for valor, clave in zip(valores, claves):
+            # Enteros salvo las medianas, que se comparan como numero: "662,5"
+            # en castellano y "662.5" en ingles son el mismo valor.
+            assert float(valor.replace(",", ".")) == float(real[clave]), (
+                f"{nombre}: la prosa dice {valor} donde {clave} cuenta {real[clave]} hasta "
+                f"{fecha}. La cifra no corresponde a su fecha."
+            )
+        assert real["token_cost"] == 0, (
+            f"{nombre}: la prosa dice que ninguna declaracion lleva token_cost y hasta "
+            f"{fecha} hay {real['token_cost']}."
+        )
+    assert len(fechas) == 1, f"los dos README fechan el costo distinto: {fechas}"

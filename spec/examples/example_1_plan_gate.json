@@ -167,10 +167,6 @@
         "refuted_interpretive": 0
       },
       "escalated_open": 0
-    },
-    "extra_time_sec": 2700,
-    "token_cost": {
-      "reviewers": 41000
     }
   }
 }

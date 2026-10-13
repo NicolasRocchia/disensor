@@ -22,7 +22,10 @@ their errors.
    family.
    A free tier is enough. Same family as the generator is a degraded mode: it
    is declarable, with its independence recorded and its own residue item, but
-   it is not the same thing and the record has to say so.
+   it is not the same thing and the record has to say so. Note the clock
+   before handing it over: `metrics.extra_time_sec` is the stopwatch of the
+   cycle from here to the validated declaration, without the implementation;
+   count it from timestamps or leave it out.
 2. Verify every finding against the actual code before accepting it. The
    reviewer is decorrelated, not right, and an unverified finding is not a
    finding.
