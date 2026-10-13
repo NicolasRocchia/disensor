@@ -97,7 +97,11 @@ def test_no_em_dashes_in_the_documents():
     `.residue/` queda afuera a propósito. Son declaraciones ya emitidas y la
     evidencia es de solo agregar (G8): corregirles el texto para satisfacer una
     regla de estilo sería reescribir un registro histórico, que es exactamente
-    lo que la herramienta existe para impedir.
+    lo que la herramienta existe para impedir. Por la misma razón queda afuera
+    `docs/notes/lectura-publica/corridas/`: son respuestas de otros modelos,
+    guardadas tal cual para puntuarlas (#110), y sus guiones son dato, no estilo
+    propio. La prosa de ese directorio que sí es nuestra (el README, los
+    scripts) sigue adentro.
     """
     # -z y corte por NUL: `git ls-files` separa por salto de línea y entrecomilla
     # los nombres raros, y `.split()` además corta en los espacios. Un archivo
@@ -107,7 +111,7 @@ def test_no_em_dashes_in_the_documents():
     tracked = tracked_markdown()
     offenders = {}
     for name in tracked:
-        if name.startswith(".residue/"):
+        if name.startswith((".residue/", "docs/notes/lectura-publica/corridas/")):
             continue
         text = (ROOT / name).read_text(encoding="utf-8")
         if EM_DASH in text:
