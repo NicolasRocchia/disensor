@@ -1,0 +1,128 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "70074cc2-3be3-4d3c-8a4d-6791bbb4ddbb",
+    "created_at": "2026-10-13T12:25:09-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "9e117d50e31b747011abb304a865e6f0ab25543c",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "e084023f6db4df403c6e1511c91321baf99772a0"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un destino que es él mismo un enlace no pasaba por la guarda de enlaces",
+      "description": "Ronda 1 sobre 91b7bfd. destino_seguro resolvía el destino con realpath y revisaba con es_enlace solo lo que había debajo: el destino mismo nunca pasaba por es_enlace, y la pregunta a git check-ignore se hacía por el nombre sin resolver. El revisor lo planteó como una escritura a través de un enlace hacia un directorio de afuera. La misma forma está en tools/emitir-55.py, de donde se copió, y el brief deja ese archivo fuera de este PR.",
+      "location": "tools/segundo-motivo.py:263-301 (destino_seguro)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido en 91b7bfd con un escenario más concreto que el del revisor: una junction llamada salida-segundo-motivo (nombre ignorado) que apuntaba a un directorio vacío y no ignorado del checkout pasó check-ignore por su nombre, y el script escribió segundo-motivo.json del otro lado; git status mostró el archivo sin versionar. El escenario del revisor tal como lo planteó (un enlace a un directorio de afuera que solo tiene segundo-motivo.json) escribe dentro del directorio que se revisó, que es el resuelto."
+      },
+      "remedy_adjustment": "El revisor pedía mirar el destino sin resolver y cada componente existente del camino, más una prueba de regresión. Se rechaza el destino si él mismo es un enlace, y la pregunta a git va sobre la ruta resuelta, que es donde cae la escritura. No se rechazan los enlaces en los ancestros: se resuelven a la ruta que sí se revisa (y en macOS /tmp ya es un enlace). No hay prueba en tests/ porque el brief deja tests/ fuera y la suite no ejercita tools/; la verificación son las corridas a mano.",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "d222c16. Probado con junctions plantadas antes de correr: como destino, dentro y fuera del repo, se niega por enlace; un ancestro junction hacia docs/ (no ignorado) se niega por no ignorado; el destino por defecto y un directorio real fuera del repo pasan. La ronda 2, sobre d222c16, no lo volvió a traer, y la ronda 3, sobre 9e117d5, no trajo hallazgos."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "En Windows una ruta extendida o UNC del checkout pasaba por una de afuera",
+      "description": "Ronda 2 sobre d222c16. bajo() decidía la contención con os.path.commonpath, que da ValueError entre una ruta en el espacio de rutas extendidas y la raíz escrita con letra de unidad, y bajo() lo tomaba como False. Un destino no ignorado dentro del checkout, escrito así, recibía el JSON sin preguntarle a git. tools/emitir-55.py tiene la misma forma y el brief lo deja fuera de este PR.",
+      "location": "tools/segundo-motivo.py:195-200 (bajo) y 278-290 (destino_seguro)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido de punta a punta en d222c16: con el destino en el espacio de rutas extendidas hacia un directorio nuevo y no ignorado del checkout, el script escribió el JSON y git status mostró el directorio sin versionar. Por la misma causa, un PYTHONPATH con tools/ escrito así pasaba la guarda de -P, cosa que el revisor no había señalado."
+      },
+      "remedy_adjustment": "El revisor proponía normalizar los espacios de nombres o comparar identidades de archivo. Se compara identidad (volumen e índice del primer ancestro existente contra los de la raíz) y se aplicó a los tres usos del predicado, no solo al destino: la guarda de sys.path, el origen de jsonschema y destino_seguro. Si la raíz no tiene una identidad estable (índice 0), el script se niega.",
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "9e117d5. Probado en negativo: un destino extendido no ignorado, un destino extendido a la raíz y un destino UNC por localhost se niegan por no ignorados; un PYTHONPATH extendido hacia tools/ se niega por la guarda de -P; un destino extendido hacia salida-segundo-motivo/ pasa. Se repitieron todas las negativas de 91b7bfd y d222c16 con el mismo resultado. La ronda 3, sobre 9e117d5, no trajo hallazgos."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor no ejecutó tools/segundo-motivo.py en ninguna de las tres rondas (el paquete solo le permite escribir el informe), ni la suite, ni reprodujo con enlaces, rutas extendidas o UNC; en la ronda 3 recalculó por su cuenta, en solo lectura, las cuentas sobre los blobs del commit, y le dieron lo mismo. Lo ejecutó solo el generador, en una sola máquina (Windows 11, Python 3.14.2, jsonschema 4.26.0): dos corridas por commit con el mismo sha256 del JSON (1f0bca7f en 91b7bfd, 1c658f2b en d222c16, ce83e05f en 9e117d5), las negativas de cada fix y pytest (667 passed, 7 skipped) antes de cada commit. La suite no ejercita tools/ y el brief deja tests/ fuera, así que el script se verificó solo por estas corridas. Linux y macOS no se probaron."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:55d4092f4d4e43a0a330973db4af0756f1885120e687be88d38102199a252d30",
+      "report_hash": "sha256:81c2aad17d5f884633045241091b91e1ac7e8f566f342eae8c1d59b7224682a3",
+      "reviewer_seconds": 141
+    },
+    "dev.disensor.round.first": {
+      "result_version": 3,
+      "head_oid": "91b7bfd527870330da2162c7cb19702ba6ce005a",
+      "pack_hash": "sha256:326c7a168b0bbfbed11e7950e478d35185429c72bc15a6f5bb37ab48fae72502",
+      "report_hash": "sha256:d1fe4da6e16eee0296cd32e691863604821e44b74d2cd6b64fd0f7afb40435a2",
+      "reviewer_seconds": 83,
+      "tree_unchanged": true
+    },
+    "dev.disensor.round.second": {
+      "result_version": 3,
+      "head_oid": "d222c1603a8706814d5055e883226b5d443096c6",
+      "pack_hash": "sha256:ab687fa7a8b308d9b7a16adf4217cb6dddea7d0729e72d8f36caeafadfbbf7b5",
+      "report_hash": "sha256:add4f69da6c91e9266e30c1ffa90f13064aea61ca1385f82ffbd4edf9b53e65b",
+      "reviewer_seconds": 125,
+      "tree_unchanged": true
+    }
+  }
+}
