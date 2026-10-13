@@ -1,0 +1,418 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "48a4e408-31a8-426f-a42b-10e0cf76b742",
+    "created_at": "2026-10-13T08:12:50-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "794076b72134ed13f7f0738231076ed45dbb4c14",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "96e12ae5e1dd24b04cdc4b180042e9a053a6e366"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r4",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r5",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r6",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El modo documento de Codex no apagaba las herramientas",
+      "description": "El bypass del sandbox deja todas las herramientas; 'sin herramientas' era una instrucción, no un confinamiento, y la atribución causal del experimento A no estaba respaldada por lo guardado. ronda 1 sobre 6cfba42: pack sha256:39615286e1a509829cff2d7cd7f23d0fdac22c2288e6069c14518db6868ab1f6, informe sha256:f26410c1ca068c924a7203f2462863dd291fe704f86e5d3cce35d33273e1bc88, 328 s.",
+      "location": "docs/notes/lectura-publica/correr.py (correr_codex, contar_eventos); README del protocolo",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Leída la invocación: ningún flag apaga herramientas. Corregido con --json y el conteo de llamadas en los eventos JSONL; las cuatro corridas de documento se repitieron con el registro (y una tercera vez tras la ronda 5, con el registro de líneas ilegibles) y declaran cero llamadas y cero ilegibles. Las tandas anteriores se retiraron del directorio y quedan en el historial (6cfba42 y 2451714)."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_los_eventos_jsonl_cuentan_las_herramientas, tests/test_lectura_publica.py::test_un_item_desconocido_cuenta_como_herramienta; y los encabezados cli_llamadas_a_herramientas: 0 de las cuatro corridas repetidas"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Las claves inventadas solo se veían en fences json en minúsculas",
+      "description": "Un fence JSON, yaml o sin etiqueta con claves inventadas pasaba sin_campos_inventados. Reproducido llamando a puntuar() con un fence JSON y una clave made_up.",
+      "location": "docs/notes/lectura-publica/puntuar.py (bloques, claves_de_los_bloques)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido antes de tocar nada: auto True con 'ninguna clave fuera del esquema'. Ahora cualquier fence, y sin fence el objeto JSON de la respuesta."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_las_claves_inventadas_se_ven_con_cualquier_etiqueta_de_fence, tests/test_lectura_publica.py::test_sin_fence_la_respuesta_entera_es_el_bloque"
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Las menciones en prosa puntuaban como estructura",
+      "description": "findings_final_state y verification se decidían por subcadenas en toda la respuesta: 'no hay findings' contenía la palabra y pasaba. Reproducido con la frase del revisor.",
+      "location": "docs/notes/lectura-publica/puntuar.py (muestra_findings_con_final_state, muestra_verification)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido: auto True para los dos ítems con una frase de prosa. Ahora se exige estructura en bloques parseados."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_una_mencion_en_prosa_no_es_estructura, tests/test_lectura_publica.py::test_la_estructura_real_puntua_por_estructura"
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un fallo del CLI quedaba guardado como corrida y bloqueaba el reintento",
+      "description": "correr_codex devolvía texto vacío con metadatos de error, main() escribía '(sin respuesta)' y la siguiente invocación salteaba el archivo. Las dos corridas de búsqueda falladas por el flag --search mal puesto eran exactamente ese caso.",
+      "location": "docs/notes/lectura-publica/correr.py (correr_codex, main)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Leídos los tres puntos del flujo. Ahora CorridaFallida: sin archivo, se sigue con la siguiente, salida 1."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_un_fallo_de_codex_no_devuelve_respuesta, tests/test_lectura_publica.py::test_codex_sin_respuesta_escrita_tambien_falla"
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r2",
+      "severity": "major",
+      "title": "En un bloque que no parseaba, verification se buscaba en cualquier parte del bloque",
+      "description": "Con un ejemplo abreviado ([...]) el bloque no parseaba y la caída a expresión regular encontraba la clave fuera de un hallazgo. Reproducido con el bloque del revisor. ronda 2 sobre 2451714: pack sha256:e359ae769bede76d4dad3d0e76d15021e9c10fbc5480aa60ef3056062c1e1335, informe sha256:dbb1b5fa35d9c38a4228ce057a61cd10a071f4840a4588d4d1dadd6acb106380, 104 s.",
+      "location": "docs/notes/lectura-publica/puntuar.py (reparar, parsear, estructura)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido: verification auto True. Ahora el bloque se repara (sin elipsis ni comas colgantes) y, si no parsea, los ítems de estructura quedan a juicio."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_un_bloque_abreviado_con_verification_fuera_de_un_hallazgo_no_puntua, tests/test_lectura_publica.py::test_un_bloque_abreviado_que_se_repara_puntua_por_estructura, tests/test_lectura_publica.py::test_un_bloque_que_no_parsea_ni_reparado_queda_a_juicio"
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r2",
+      "severity": "minor",
+      "title": "El comando del encabezado filtraba la ruta temporal con el nombre de la cuenta",
+      "description": "mostrar_comando solo sacaba la ruta del ejecutable; el -o con el temporal quedaba en los seis encabezados de Codex.",
+      "location": "docs/notes/lectura-publica/correr.py (mostrar_comando); corridas/2026-10-12/codex-*.md",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Visto en los seis encabezados. Ahora -o <archivo>, y los seis corregidos."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_el_comando_mostrado_no_lleva_la_ruta_del_archivo_de_salida"
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r2",
+      "severity": "info",
+      "title": "Hipótesis: el conteo de herramientas podía quedarse corto con tipos de evento nuevos",
+      "description": "El revisor no pudo verificar que todo tipo de ítem del CLI estuviera cubierto por los fragmentos. Se tomó como cierta y se invirtió la regla: cuenta por descarte.",
+      "location": "docs/notes/lectura-publica/correr.py (ITEMS_BENIGNOS, contar_eventos)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Todo ítem completado que no sea agent_message ni reasoning cuenta: un tipo nuevo sobra y saca la corrida de A, no la cuela."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_un_item_desconocido_cuenta_como_herramienta"
+      }
+    },
+    {
+      "id": "h8",
+      "origin": "r2",
+      "severity": "info",
+      "title": "Hipótesis: el chequeo de los seis estados premia una negación que los liste",
+      "description": "Cierto como ocurrencia literal. Se dejó así, con el límite escrito en la rúbrica y el juicio como vía para corregirlo en una corrida concreta.",
+      "location": "docs/notes/lectura-publica/README.md (rúbrica); puntuar.py (docstring)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Reproducido con la frase del revisor: estados auto True. Límite documentado, no corregido mecánicamente."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "docs/notes/lectura-publica/README.md, rúbrica: el límite de `estados` escrito; revisado por las rondas 3, 4 y 5"
+      }
+    },
+    {
+      "id": "h9",
+      "origin": "r3",
+      "severity": "major",
+      "title": "Una advertencia correcta en prosa sobre un campo inventado puntuaba como inventarlo",
+      "description": "La lista negra se buscaba en toda la respuesta: 'no existe el campo blocking_issues' daba sin_campos_inventados False. ronda 3 sobre 914b0c6: pack sha256:de75e6f25c1eab1bbee18d269e426530e25baebec0f1c254121b252520eedbe4, informe sha256:b2d0e55317a2dfb092a3dbd180a4c5d3114de4739262f4f41aed49d6683373e8, 101 s.",
+      "location": "docs/notes/lectura-publica/puntuar.py (puntuar, lista negra)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Leída la comparación c in respuesta. Ahora la lista negra se mira adentro de los bloques, como la blanca."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_la_lista_negra_no_cuenta_una_advertencia_en_prosa, tests/test_lectura_publica.py::test_la_lista_negra_si_cuenta_adentro_del_bloque"
+      }
+    },
+    {
+      "id": "h10",
+      "origin": "r3",
+      "severity": "major",
+      "title": "Las repeticiones que el protocolo prometía no se podían crear ni representar",
+      "description": "El corredor tenía un nombre por celda y salteaba el existente; la tabla de A se quedaba con la última corrida de la celda sin decirlo.",
+      "location": "docs/notes/lectura-publica/correr.py (--repeticion); puntuar.py (filas_experimento_a)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Leídos el destino fijo y la asignación por estado. Ahora --repeticion N con sufijo -rN, y la celda vale 'sí' solo si pasa en todas, mostrando cada total."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_las_repeticiones_de_una_celda_cuentan_todas"
+      }
+    },
+    {
+      "id": "h11",
+      "origin": "r4",
+      "severity": "major",
+      "title": "Un estado inventado como valor de final_state pasaba sin_campos_inventados",
+      "description": "La lista blanca mira nombres de clave; un artefacto con final_state 'resolved' usaba solo claves conocidas y pasaba. Reproducido con el bloque del revisor. ronda 4 sobre 9ad90b2: pack sha256:8c1a5f7c575f3f5facd84b8f3cf40cc738a5f9186334c56a64fbd85c3f7bea7e, informe sha256:5e44a06a5b10b809ae0a863288134af804cd8c37a717bac0648f760f6950a2e5, 106 s.",
+      "location": "docs/notes/lectura-publica/puntuar.py (estados_fuera_del_esquema)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido: auto True con 'resolved'. Ahora los valores de final_state de los bloques se contrastan con los seis estados, por estructura o por expresión regular si el bloque no parsea."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_un_estado_inventado_como_valor_no_pasa"
+      }
+    },
+    {
+      "id": "h12",
+      "origin": "r4",
+      "severity": "minor",
+      "title": "Un juicio pendiente se convertía en 'no' al agregar la celda de A",
+      "description": "celda() devolvía bool: all(... is True) hacía False de un None. Dos corridas con todo pendiente daban 0/7 y 'ninguno'.",
+      "location": "docs/notes/lectura-publica/puntuar.py (filas_experimento_a, celda)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Leída la agregación. Ahora tres valores: 'sí' si pasa en todas, 'no' si falla en alguna, '?' si ninguna falla pero alguna está pendiente."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_un_juicio_pendiente_queda_pendiente_en_la_celda_de_a"
+      }
+    },
+    {
+      "id": "h13",
+      "origin": "r4",
+      "severity": "minor",
+      "title": "Un timeout del CLI abortaba la tanda entera en vez de contar como corrida fallida",
+      "description": "subprocess.TimeoutExpired no se convertía en CorridaFallida y main() solo atrapaba esa; con un CLI colgado 30 minutos se perdían las corridas siguientes.",
+      "location": "docs/notes/lectura-publica/correr.py (correr_claude, correr_codex, TIMEOUT_S)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Leídos los dos subprocess.run y el except de main(). Ahora el timeout es CorridaFallida en los dos CLIs."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_un_timeout_es_una_corrida_fallida_y_no_el_fin_de_la_tanda"
+      }
+    },
+    {
+      "id": "h14",
+      "origin": "r4",
+      "severity": "info",
+      "title": "Hipótesis: una línea de eventos ilegible podía ocultar una herramienta",
+      "description": "contar_eventos ignoraba en silencio las líneas que no parseaban. Tomada por el lado seguro: se cuentan aparte y sacan la corrida de A.",
+      "location": "docs/notes/lectura-publica/correr.py (contar_eventos); puntuar.py (filas_experimento_a)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Las cuatro corridas de Codex anteriores al campo se tomaban como cero por una excepción a mano; la ronda 5 lo señaló y se repitieron con el registro."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_una_linea_de_eventos_truncada_se_cuenta_como_ilegible, tests/test_lectura_publica.py::test_una_corrida_con_eventos_ilegibles_queda_fuera_de_a"
+      }
+    },
+    {
+      "id": "h15",
+      "origin": "r5",
+      "severity": "major",
+      "title": "Las cuatro corridas de documento se admitían en A sin registro de líneas ilegibles",
+      "description": "El campo nació en la ronda 4 y puntuar.py tomaba su ausencia como cero con una excepción escrita a mano: un dato no registrado tratado como registrado, y el JSONL crudo no se guarda. ronda 5 sobre 7ac932b: pack sha256:4ed63e35a26efd4c11f6070765e1a3ae12bebe6b9947fbc09cd2d3667e8d0e0e, informe sha256:f8b6ba082c953aa0d40b4562546062f7fc01ceb22e9db228fd3246fc91ce106d, 256 s.",
+      "location": "docs/notes/lectura-publica/puntuar.py (entero_o_none, filas_experimento_a)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Leídos el default y las cabeceras de las cuatro corridas sin el campo. Ahora un registro ausente saca la corrida de A con su motivo, y las cuatro se repitieron con el corredor que lo cuenta."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_lectura_publica.py::test_una_corrida_sin_registro_de_eventos_ilegibles_queda_fuera_de_a; y los encabezados cli_eventos_ilegibles: 0 de las cuatro corridas repetidas"
+      }
+    },
+    {
+      "id": "h16",
+      "origin": "r6",
+      "severity": "minor",
+      "title": "Un final_state inventado fuera de findings[] pasa sin_campos_inventados",
+      "description": "estados_fuera_del_esquema recorre solo los hallazgos de findings[] en un bloque parseado; un {\"final_state\": \"RESOLVED\"} al nivel de arriba, con claves del esquema y un estado válido adentro del hallazgo, puntúa true. ronda 6 sobre 794076b: pack sha256:5d07e255d7aa9ef39ce94f3f52df29b6f2dc7d56c5d5e568dacea4b605b4fd0c, informe sha256:2a8a7979ee7d89dfa19eff8ec8f8af6026a26603b55b3cc4dd37d5d1e35e46ab, 242 s.",
+      "location": "docs/notes/lectura-publica/puntuar.py (estados_fuera_del_esquema)",
+      "final_state": "debt_recorded",
+      "verification": {
+        "against": "repository",
+        "detail": "Leída la función: recorre hallazgos_de(parseado) y no el bloque entero; el camino por expresión regular sí mira toda ocurrencia. Corrección de diez líneas y su prueba, preparadas y descritas en el issue; registrada como deuda para no abrir una séptima ronda por un borde del puntuador que no toca el método ni los datos."
+      },
+      "debt_id": "github.com/NicolasRocchia/disensor/issues/125"
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas de la suite no se forzaron: tres smoke tests de endurecimiento (opt-in con costo real, DISENSOR_SMOKE=1), la prueba de permiso de ejecución que en Windows no distingue nada, y tres index.json de las suites de vectores. El generador corrió el resto sobre cada head de ronda en Windows con Python 3.14 (639 pasan más las de tests/test_lectura_publica.py); los revisores corrieron la suite completa en la ronda 1 y los módulos afectados en las siguientes."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "La medición de #110 queda incompleta en lo que este PR entrega: las corridas de Claude (sonnet y haiku, experimentos A y B) no se hicieron porque el CLI anidado no pudo autenticarse ('OAuth session expired and could not be refreshed'); renovar ese login es del dueño. Tampoco hay corridas 'después' de los modos superficiales (Google AI Mode, Perplexity, ChatGPT con búsqueda), que son el objeto original del issue y se cargan a mano. El efecto de anclaje está medido en una sola familia (Codex) y por eso el PR avanza #110 sin cerrarlo."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 16,
+      "valid": {
+        "incorporated": 15,
+        "debt_recorded": 1,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 3151
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:5d07e255d7aa9ef39ce94f3f52df29b6f2dc7d56c5d5e568dacea4b605b4fd0c",
+      "report_hash": "sha256:2a8a7979ee7d89dfa19eff8ec8f8af6026a26603b55b3cc4dd37d5d1e35e46ab",
+      "reviewer_seconds": 242
+    }
+  }
+}
