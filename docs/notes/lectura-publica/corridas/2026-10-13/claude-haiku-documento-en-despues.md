@@ -15,37 +15,42 @@ sha256: 2ded6b061429bd9605ab139e78b6ce8040fd44d8c8c70b5508ec88d40596458d
 bytes: 50741
 prompt_sha256: 1480ae919bd016d6d0c86cd791000056bb8da56603faed091e3caaf491669962
 comando: claude -p --safe-mode --no-session-persistence --model haiku --output-format json --tools ""
-inicio: 2026-10-13T09:49:16-03:00
-fin: 2026-10-13T09:49:35-03:00
-duracion_s: 18
+inicio: 2026-10-13T10:02:55-03:00
+fin: 2026-10-13T10:03:16-03:00
+duracion_s: 20
 confinamiento: herramientas apagadas por construcción (--tools "")
-cli_duration_ms: 17439
-cli_duration_api_ms: 15426
+cli_duration_ms: 19218
+cli_duration_api_ms: 15421
 cli_num_turns: 1
-cli_total_cost_usd: 0.04230299999999999
+cli_total_cost_usd: 0.041762
 cli_subtype: success
-cli_usage: {"input_tokens": 9, "cache_creation_input_tokens": 17587, "cache_read_input_tokens": 0, "output_tokens": 1424, "output_tokens_details": {"thinking_tokens": 502}, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 17587, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 9, "output_tokens": 1424, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 17587, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 17587}, "type": "message"}], "speed": "standard", "fallback_credit": null}
+cli_usage: {"input_tokens": 9, "cache_creation_input_tokens": 17394, "cache_read_input_tokens": 0, "output_tokens": 1393, "output_tokens_details": {"thinking_tokens": 388}, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 17394, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 9, "output_tokens": 1393, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 17394, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 17394}, "type": "message"}], "speed": "standard", "fallback_credit": null}
 cli_modelos_usados: ["claude-haiku-4-5-20251001"]
 cli_llamadas_a_herramientas: 0
+cli_eventos_ilegibles: 0
 ```
 
 ## Respuesta
 
-# ¿Qué es disensor?
+# Disensor
 
-Disensor es una herramienta que registra y valida lo que sucede cuando una IA revisa el código escrito por otra IA. Genera un archivo JSON versionado en tu repositorio que documenta el resultado de una revisión adversarial automatizada.
+**Disensor** es un sistema que registra y valida las revisiones de código realizadas por IA. Su propósito es que cuando una IA genera código y otra IA lo revisa, el resultado de esa revisión quede documentado en un archivo JSON versionado en el repositorio, junto al código que se juzga.
 
-El método detrás de disensor se llama **desacuerdo controlado**: un modelo genera código, otro modelo de una familia diferente lo ataca (revisa adversarialmente), el generador verifica cada hallazgo, y el ciclo termina cuando cada hallazgo ha sido resuelto, refutado con evidencia o escalado a un humano.
+No es una puntuación de cobertura ni un sello de calidad, sino un **registro versioned de lo que la revisión no pudo establecer**: qué hallazgos se verificaron y contra qué, cuáles se refutaron, qué no se pudo ejecutar, y qué sigue descansando en el juicio humano.
 
-Lo que disensor crea es un **residuo** (residue): no un sello de calidad ni una puntuación de cobertura, sino un registro versionado de lo que la revisión **no pudo cerrar** — qué hallazgos fueron verificados, contra qué, cuáles fueron refutados con evidencia, cuáles no pudieron ejecutarse, y cuáles descansan en el juicio de alguien.
+## Cómo se ve el archivo
 
-## Aspecto del archivo
+El archivo generado es un **archivo JSON** almacenado en el directorio `.residue/` del repositorio. Tiene una estructura que incluye:
 
-Es un archivo JSON declarativo con estructura definida por el esquema `residue/v0.4`, ubicado en `.residue/<event_id>.json`.
+- **Esquema**: Versión del formato (ej: `residue/v0.4`)
+- **Evento**: Información sobre cuándo ocurrió, qué commits se revisaron, nivel de criticidad
+- **Actores**: Quién generó el código, quién lo revisó y de qué familia de modelos, quién fue el árbitro humano
+- **Hallazgos** (*findings*): Problemas o observaciones que el revisor encontró
+- **Residuo** (*residue*): Qué quedó sin resolver después de todo, qué necesita atención humana
 
-## Ejemplo de artefacto
+## Ejemplo del artefacto
 
-El documento incluye un fragmento real de una declaración de revisión (PR #101 del repositorio de disensor):
+Este es un fragmento real del archivo `.residue/27089d19-ee91-4c6c-b517-63b9627969e0.json` de la PR #101:
 
 ```json
 {
@@ -69,7 +74,11 @@ El documento incluye un fragmento real de una declaración de revisión (PR #101
         "reviewer_id": "r8",
         "family": "openai",
         "model": "gpt-5.6-sol",
-        "independence": "cross_family"
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true
+        }
       }
     ],
     "human_arbiter": {
@@ -81,32 +90,24 @@ El documento incluye un fragmento real de una declaración de revisión (PR #101
       "id": "h15",
       "origin": "r8",
       "severity": "major",
-      "title": "Una declaracion que el gate rechaza...",
+      "title": "Una declaracion que el gate rechaza por sus propias comprobaciones daba por cubierto el merge",
       "final_state": "incorporated",
       "verification": {
-        "against": "repository"
+        "against": "repository",
+        "detail": "Comparadas las comprobaciones inline de _run_gate..."
       }
     }
   ],
-  "residue": {
-    "items": [
-      {
-        "id": "r4",
-        "class": "principal_refutation",
-        "finding_ref": "h16",
-        "refutation_type": "verifiable"
-      }
-    ]
-  },
   "metrics": {
     "counts": {
       "total_findings": 19,
       "valid": {
-        "incorporated": 18
+        "incorporated": 18,
+        "refuted_verifiable": 1
       }
     }
   }
 }
 ```
 
-Contiene: qué se revisó (commits), quién lo generó y revisó (modelos y familias), diecinueve hallazgos identificados (dieciocho incorporados, uno refutado con evidencia), y el residuo que quedó para examen humano.
+El archivo documenta que un modelo Anthropic (Claude) generó el código, un modelo OpenAI (GPT) lo revisó, encontraron 19 hallazgos, 18 fueron incorporados y 1 fue refutado con evidencia. Todo queda registrado de forma auditoria.

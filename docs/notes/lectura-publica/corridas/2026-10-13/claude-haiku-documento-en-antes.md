@@ -15,69 +15,45 @@ sha256: 1a5723141ea0f2f6db16ee496f8fe4086e801077e737bc4df1ead52d68d0093c
 bytes: 44409
 prompt_sha256: b7fb9d47368aa45b332bc481c5fcdf2676a209f6e4106df47bf95c31a4fda8af
 comando: claude -p --safe-mode --no-session-persistence --model haiku --output-format json --tools ""
-inicio: 2026-10-13T09:49:00-03:00
-fin: 2026-10-13T09:49:16-03:00
-duracion_s: 16
+inicio: 2026-10-13T10:02:37-03:00
+fin: 2026-10-13T10:02:55-03:00
+duracion_s: 17
 confinamiento: herramientas apagadas por construcción (--tools "")
-cli_duration_ms: 14839
-cli_duration_api_ms: 12765
+cli_duration_ms: 16549
+cli_duration_api_ms: 14541
 cli_num_turns: 1
-cli_total_cost_usd: 0.037681
+cli_total_cost_usd: 0.036844
 cli_subtype: success
-cli_usage: {"input_tokens": 9, "cache_creation_input_tokens": 15566, "cache_read_input_tokens": 0, "output_tokens": 1308, "output_tokens_details": {"thinking_tokens": 665}, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 15566, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 9, "output_tokens": 1308, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 15566, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 15566}, "type": "message"}], "speed": "standard", "fallback_credit": null}
+cli_usage: {"input_tokens": 9, "cache_creation_input_tokens": 15140, "cache_read_input_tokens": 0, "output_tokens": 1311, "output_tokens_details": {"thinking_tokens": 826}, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 15140, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 9, "output_tokens": 1311, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 15140, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 15140}, "type": "message"}], "speed": "standard", "fallback_credit": null}
 cli_modelos_usados: ["claude-haiku-4-5-20251001"]
 cli_llamadas_a_herramientas: 0
+cli_eventos_ilegibles: 0
 ```
 
 ## Respuesta
 
-# Disensor
+# Qué es disensor
 
-**Disensor** es una herramienta que registra y valida lo que sucede en una revisión de código adversarial automatizada. Su propósito es documentar qué pasó cuando una IA generó código y otra IA de una familia diferente lo revisó.
+**disensor** es una herramienta que crea un registro verificable de lo que sucedió en una revisión de código realizada por múltiples asistentes de IA. Genera un archivo JSON en tu repositorio que documenta:
 
-## ¿Qué es?
+- Qué IA generó el código
+- Qué IA de otra familia lo revisó (desacuerdo controlado)
+- Cada hallazgo encontrado en la revisión
+- El estado final de cada hallazgo: incorporado, refutado con evidencia, o escalado a un humano
+- Quién es el árbitro humano responsable de los riesgos residuales
 
-Según el documento:
-
-> "Your AI wrote the code. Another AI reviewed it. What happened in that review ends up as a JSON file in your repo, next to the code it judges."
-
-Es la implementación de referencia de un artefacto llamado **residue** (residuo) que utiliza **controlled disagreement** (desacuerdo controlado):
-
-1. Un modelo genera código
-2. Un modelo de otra familia lo ataca adversarialmente
-3. El generador verifica cada hallazgo
-4. El ciclo termina cuando cada hallazgo ha sido resuelto, refutado con evidencia o escalado a una persona
+El método que implementa se llama **"desacuerdo controlado"**: un modelo genera, otro modelo de familia diferente ataca, el generador verifica cada hallazgo, y el ciclo termina cuando cada hallazgo se resuelve, se refuta con evidencia, o se escala a una persona.
 
 ## El archivo que genera
 
-El artefacto es un **archivo JSON** que se coloca en el repositorio bajo `.residue/<event_id>.json` y declara:
+El artefacto es un archivo JSON llamado `<event_id>.json` que se guarda en el directorio `.residue/` del repositorio. Contiene la **"declaración de residuo"** —lo que la revisión dejó para que una persona examine— con campos como:
 
-- **Qué hallazgos fueron verificados** y contra qué
-- **Qué fue refutado** con evidencia
-- **Qué no pudo ejecutarse** y por qué
-- **Qué sigue siendo un juicio humano**
-- **Quién** generó el cambio, quién lo revisó (y de qué familia de modelo)
-- **Sobre qué commits** se revisó
-- **Con qué consigna** (brief adversarial)
-- **Quién aceptó** el riesgo residual
+- Información del evento (`event`), incluyendo PR y commits revisados
+- Actores: generador, revisores, árbitro humano
+- Hallazgos (`findings`) con su estado final
+- Residuo: lo que quedó sin resolver, las deudas técnicas, las brechas de ejecución
+- Datos de independencia y verificación
 
-## Esquema
+## Ejemplo del artefacto
 
-El documento especifica que el esquema se encuentra en `spec/residue.schema.json` (JSON Schema 2020-12) en versión **residue/v0.4**.
-
-## Ejemplos
-
-El documento menciona que hay ejemplos en `spec/examples/`:
-- Tres artefactos de ejemplo
-- Incluyendo un evento real anonimizado
-- Y el perfil minimizado sin texto libre
-
-Sin embargo, el documento no muestra ejemplos detallados de la estructura JSON completa, solo describe que contiene campos como:
-- `event`: información del evento
-- `findings`: hallazgos encontrados
-- `residue`: lo declarado como residuo
-- `reviewers`: quiénes revisaron
-- `generator`: quién generó
-- `human_arbiter`: árbitro humano
-- `final_state`: estado final de cada hallazgo (incorporado, deuda registrada, refutado, etc.)
-- `verification`: detalles de verificación
+Lamentablemente, **el documento no incluye un ejemplo concreto del JSON completo**. Solo menciona que hay tres ejemplos de artefactos en `spec/examples/`, incluyendo un evento anonimizado real y un perfil minimizado sin texto libre, pero no los muestra en el contenido proporcionado.

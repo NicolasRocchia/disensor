@@ -15,50 +15,50 @@ sha256: 85d80fe0097ffcd4ca6e658306581787979dc26cbc7e79de7a4ceb31a2f24fc1
 bytes: 45859
 prompt_sha256: 45d77acac78c6e9718b020f5ca5d90aa305ae3a1384efb0ef90fa06eb7c83243
 comando: claude -p --safe-mode --no-session-persistence --model haiku --output-format json --tools ""
-inicio: 2026-10-13T09:48:23-03:00
-fin: 2026-10-13T09:48:41-03:00
+inicio: 2026-10-13T10:01:59-03:00
+fin: 2026-10-13T10:02:17-03:00
 duracion_s: 18
 confinamiento: herramientas apagadas por construcción (--tools "")
-cli_duration_ms: 16765
-cli_duration_api_ms: 15005
+cli_duration_ms: 17177
+cli_duration_api_ms: 15353
 cli_num_turns: 1
-cli_total_cost_usd: 0.043122
+cli_total_cost_usd: 0.042075
 cli_subtype: success
-cli_usage: {"input_tokens": 9, "cache_creation_input_tokens": 18049, "cache_read_input_tokens": 0, "output_tokens": 1403, "output_tokens_details": {"thinking_tokens": 849}, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 18049, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 9, "output_tokens": 1403, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 18049, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 18049}, "type": "message"}], "speed": "standard", "fallback_credit": null}
+cli_usage: {"input_tokens": 9, "cache_creation_input_tokens": 17623, "cache_read_input_tokens": 0, "output_tokens": 1364, "output_tokens_details": {"thinking_tokens": 853}, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 17623, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 9, "output_tokens": 1364, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 17623, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 17623}, "type": "message"}], "speed": "standard", "fallback_credit": null}
 cli_modelos_usados: ["claude-haiku-4-5-20251001"]
 cli_llamadas_a_herramientas: 0
+cli_eventos_ilegibles: 0
 ```
 
 ## Respuesta
 
-# ¿Qué es disensor?
+# Qué es disensor
 
-Disensor es un **registro versionado de revisión de código entre dos familias de modelos de IA**. Funciona así:
+**Disensor** es un paquete Python que implementa un método llamado **desacuerdo controlado**. En resumen:
 
-1. Tu IA escribió el código
-2. Otra IA de una familia distinta lo revisó y atacó
-3. Lo que pasó en esa revisión termina como un archivo JSON en tu repositorio
+- Una IA genera código
+- Otra IA de una familia de modelos distinta lo revisa de forma adversarial
+- El generador verifica cada hallazgo encontrado
+- El ciclo termina cuando cada hallazgo se resuelve, se refuta con evidencia o se escala a una persona
 
-El núcleo es el método de **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo quedó resuelto, refutado con evidencia o escalado a un humano. El resultado se llama **residuo**: lo que la ronda deja para que lo mire una persona.
-
-No es un puntaje de cobertura ni un badge verde. Es un **registro de lo que NO se pudo establecer**: qué hallazgos se verificaron y contra qué, cuáles se refutaron, qué no se pudo ejecutar y qué sigue descansando sobre el juicio de alguien.
+Disensor es la implementación de referencia que define y valida el artefacto que resulta de este proceso: la **declaración de residuo** (lo que la revisión dejó para que lo mire un humano).
 
 # El archivo que genera
 
-Es un archivo **JSON versionado** que vive en el repositorio:
+El archivo es un **JSON versionado** que registra:
 
-- **Ubicación**: directorio `.residue/`
-- **Nombre**: `<event_id>.json` (el event_id es un UUID canónico)
-- **Esquema**: JSON Schema 2020-12, versión `residue/v0.4`
-- **Contenido**: declara quién generó el cambio, quién lo revisó, de qué familia de modelos, sobre qué commits, con qué consigna, y quién aceptó el riesgo residual
+- Qué hallazgos se verificaron y contra qué
+- Cuáles se refutaron
+- Qué no se pudo ejecutar
+- Qué sigue descansando sobre el juicio de alguien
+- Quién generó el cambio, quién lo revisó (y de qué familia de modelos)
+- Sobre qué commits, con qué consigna
+- Quién aceptó el riesgo residual
 
-El gate de CI valida estos artefactos (reglas R0 a R13), lo que evita que lleguen duplicados, genéricos o que no cubran el cambio real.
+Es **residuo, no cobertura**: dirige el escrutinio del revisor humano en lugar de ser un sello de calidad. El archivo se coloca en el repositorio junto al código que juzga, al lado del código versionado.
 
 # Ejemplo del artefacto
 
-El documento menciona que existen ejemplos en `spec/examples/`, pero **no incluye un ejemplo completo en este texto**. Solo especifica que hay:
-- Tres artefactos de ejemplo
-- Un evento real anonimizado
-- El perfil minimizado sin texto libre
+El documento menciona que existen ejemplos en `spec/examples/`, incluido un evento real anonimizado, pero **no proporciona un JSON de ejemplo completo**. 
 
-Para ver un ejemplo real, habría que consultar el repositorio de disensor directamente.
+Sin embargo, describe la estructura del artefacto: versión del esquema (`residue/v0.4`), identificador único (`event_id`), datos del evento (PR, commits), actores (generador, revisores, árbitro humano), hallazgos (con texto, evidencia, estado final), ítems de residuo (escalado sin decisión, refutación, gaps de ejecución) y métricas.
