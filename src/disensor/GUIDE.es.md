@@ -27,6 +27,9 @@ sus errores.
    de modelo. Con un plan gratuito alcanza. La misma familia que el generador es
    un modo degradado: se puede declarar, con su independencia registrada y su
    propio ítem de residuo, pero no es lo mismo y el registro tiene que decirlo.
+   Anotá la hora antes de entregarlo: `metrics.extra_time_sec` es el cronómetro
+   del ciclo desde acá hasta la declaración validada, sin la implementación;
+   contalo de timestamps o dejalo afuera.
 2. Verificá cada hallazgo contra el código real antes de aceptarlo. El revisor
    está decorrelacionado, no acertado, y un hallazgo sin verificar no es un
    hallazgo.
