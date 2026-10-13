@@ -7,6 +7,7 @@ cli: codex codex-cli 0.153.4
 modo: documento
 idioma: en
 estado: despues
+repeticion: 1
 pregunta: What is disensor and what does the file it generates look like? Show an example of the artifact.
 documento: README.md
 commit: 96e12ae
@@ -14,30 +15,30 @@ sha256: 2ded6b061429bd9605ab139e78b6ce8040fd44d8c8c70b5508ec88d40596458d
 bytes: 50741
 prompt_sha256: 1480ae919bd016d6d0c86cd791000056bb8da56603faed091e3caaf491669962
 comando: codex exec --json -m gpt-5.6-sol --dangerously-bypass-approvals-and-sandbox --ephemeral --ignore-user-config --ignore-rules -c project_doc_max_bytes=0 --skip-git-repo-check -o <archivo>
-inicio: 2026-10-12T14:57:58-03:00
-fin: 2026-10-12T14:58:31-03:00
-duracion_s: 32
+inicio: 2026-10-12T23:43:31-03:00
+fin: 2026-10-12T23:43:47-03:00
+duracion_s: 16
 confinamiento: por instrucción; ver llamadas_a_herramientas
 cli_eventos: {"item.completed/agent_message": 1, "thread.started": 1, "turn.completed": 1, "turn.started": 1}
 cli_llamadas_a_herramientas: 0
+cli_eventos_ilegibles: 0
 ```
 
 ## Respuesta
 
-Disensor is a CLI and CI control for recording the outcome of adversarial AI code review.
+Disensor is a CLI and artifact format for recording the outcome of adversarial AI code review.
 
-Instead of producing an “approved” badge, it generates a versioned JSON artifact—called a residue declaration—stored in `.residue/` alongside the code. It records:
+Its method is “controlled disagreement”:
 
-- Who generated and reviewed the change, including model families.
-- Which commits and adversarial prompt were reviewed.
-- Every finding and its terminal state.
-- What each finding was verified against.
-- How incorporated fixes were tested.
-- Refutations and their evidence.
-- Remaining risks, debts, execution gaps, or decisions requiring human attention.
-- Aggregate finding counts.
+1. One model generates a change.
+2. A model from another family attacks it.
+3. The generator verifies every finding.
+4. Each finding is incorporated, refuted with evidence, recorded as debt or an owner decision, or escalated.
+5. The remaining uncertainty—called the **residue**—is saved as versioned JSON beside the code.
 
-The CLI validates the artifact against its schema and coherence rules. Its CI gate can reject a pull request when a required declaration is missing, generic, stale, inconsistent, or does not cover the final change.
+It is not a quality badge or coverage score. The artifact records who generated and reviewed the change, which commits and prompt were reviewed, what was found, how each finding ended, what evidence supports that outcome, what still needs human attention, and who accepted residual risk.
+
+The CLI validates these declarations, and its CI gate can reject a pull request when the required artifact is absent, generic, stale, or inconsistent with the change.
 
 A simplified artifact looks like this:
 
@@ -82,33 +83,33 @@ A simplified artifact looks like this:
       "id": "h1",
       "origin": "r1",
       "severity": "major",
-      "title": "The reviewed path could be accepted without all gate checks",
-      "description": "The reviewer found that one code path did not apply the same checks as the CI gate.",
-      "location": "src/example/gate.py",
+      "title": "The validation omitted a gate check",
+      "description": "The reviewer found that one validation path did not apply all required checks.",
+      "location": "src/disensor/gate.py",
       "final_state": "incorporated",
       "verification": {
         "against": "repository",
-        "detail": "Compared both implementations and confirmed the missing checks."
+        "detail": "The relevant validation paths were compared against the gate implementation."
       },
       "fix_verification": {
         "type": "specific_test",
-        "reference": "tests/test_gate.py::test_rejected_artifact_provides_no_coverage"
+        "reference": "tests/test_gate.py::test_rejected_declaration_does_not_cover_change"
       }
     },
     {
       "id": "h2",
       "origin": "r1",
       "severity": "info",
-      "title": "Merge-conflict resolutions may not enter coverage",
-      "description": "The reviewer suggested evaluating the merge commit rather than the reviewed PR head.",
-      "location": "src/example/gate.py",
+      "title": "Merge conflict resolution may not be covered",
+      "description": "The reviewer suggested that the merge tree should be assessed instead of the reviewed PR head.",
+      "location": "src/disensor/gate.py",
       "final_state": "refuted_verifiable",
       "verification": {
         "against": "repository",
-        "detail": "The gate contract explicitly evaluates the PR head."
+        "detail": "The gate contract explicitly evaluates the pull request head."
       },
       "evidence": {
-        "text": "The range is calculated from the merge base to the PR head."
+        "text": "resolve_context derives the judged range from the merge base and PR head."
       }
     }
   ],
@@ -120,7 +121,7 @@ A simplified artifact looks like this:
         "finding_ref": "h2",
         "refutation_type": "verifiable",
         "requires_human_attention": false,
-        "description": "The finding was refuted from the gate implementation, but the underlying protocol limitation remains recorded."
+        "description": "The finding was refuted from the gate implementation, but the protocol limitation it identified remains recorded."
       }
     ]
   },
@@ -142,4 +143,13 @@ A simplified artifact looks like this:
 }
 ```
 
-Each finding must end in one of six states: `incorporated`, `debt_recorded`, `owner_decision`, `refuted_verifiable`, `refuted_interpretive`, or `escalated_open`. Even an evidence-backed refutation remains represented in `residue`, allowing a human to examine rather than automatically trust it.
+Each finding has one of six terminal states:
+
+- `incorporated`
+- `debt_recorded`
+- `owner_decision`
+- `refuted_verifiable`
+- `refuted_interpretive`
+- `escalated_open`
+
+`verification.against` identifies what was checked—`repository`, `execution`, or `external_source`. Incorporated findings also record how the correction was tested. Residue items refer back to findings through `finding_ref`, including evidence-backed refutations so a human does not have to accept the generator’s rebuttal uncritically.

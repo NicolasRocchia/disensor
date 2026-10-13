@@ -8,7 +8,7 @@ Generado por puntuar.py desde puntajes.json. `sí`/`no` es el valor final (el ju
 | codex-busqueda-en-despues | sí | sí | sí | sí | sí | sí | sí | 7/7 | - |
 | codex-busqueda-es-despues | sí | sí | sí | sí | sí | sí | sí | 7/7 | - |
 | codex-documento-en-antes | no | sí | sí | sí | no | sí | sí | 5/7 | 0 |
-| codex-documento-en-despues | sí | sí | sí | sí | sí | sí | sí | 7/7 | 0 |
+| codex-documento-en-despues | sí | no | sí | sí | sí | sí | sí | 6/7 | 0 |
 | codex-documento-es-antes | no | sí | sí | sí | no | sí | sí | 5/7 | 0 |
 | codex-documento-es-despues | sí | sí | sí | sí | sí | sí | sí | 7/7 | 0 |
 | google-ai-mode-busqueda-es-antes | no | no | no | no | no | sí | sí | 2/7 | - |
@@ -21,5 +21,5 @@ Entran solo las corridas de documento con llamadas a herramientas registradas e 
 
 | modelo | idioma | antes | después | ítems que cambian |
 |---|---|---|---|---|
-
-Fuera de A: codex-documento-en-antes (sin registro de eventos ilegibles); codex-documento-en-despues (sin registro de eventos ilegibles); codex-documento-es-antes (sin registro de eventos ilegibles); codex-documento-es-despues (sin registro de eventos ilegibles).
+| codex | en | 5/7 | 6/7 | estados: no a sí; archivo_por_evento: sí a no; sin_campos_inventados: no a sí |
+| codex | es | 5/7 | 7/7 | estados: no a sí; sin_campos_inventados: no a sí |

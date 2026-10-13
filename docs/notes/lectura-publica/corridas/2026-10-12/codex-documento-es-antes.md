@@ -7,6 +7,7 @@ cli: codex codex-cli 0.153.4
 modo: documento
 idioma: es
 estado: antes
+repeticion: 1
 pregunta: ¿Qué es disensor y cómo es el archivo que genera? Mostrá un ejemplo del artefacto.
 documento: README.es.md
 commit: de14e5c
@@ -14,96 +15,95 @@ sha256: 85d80fe0097ffcd4ca6e658306581787979dc26cbc7e79de7a4ceb31a2f24fc1
 bytes: 45859
 prompt_sha256: 45d77acac78c6e9718b020f5ca5d90aa305ae3a1384efb0ef90fa06eb7c83243
 comando: codex exec --json -m gpt-5.6-sol --dangerously-bypass-approvals-and-sandbox --ephemeral --ignore-user-config --ignore-rules -c project_doc_max_bytes=0 --skip-git-repo-check -o <archivo>
-inicio: 2026-10-12T14:57:00-03:00
-fin: 2026-10-12T14:57:21-03:00
-duracion_s: 20
+inicio: 2026-10-12T23:42:09-03:00
+fin: 2026-10-12T23:42:31-03:00
+duracion_s: 22
 confinamiento: por instrucción; ver llamadas_a_herramientas
 cli_eventos: {"item.completed/agent_message": 1, "thread.started": 1, "turn.completed": 1, "turn.started": 1}
 cli_llamadas_a_herramientas: 0
+cli_eventos_ilegibles: 0
 ```
 
 ## Respuesta
 
-Disensor es una herramienta para registrar y hacer cumplir el resultado de una revisión adversarial de software. Un modelo genera el cambio, otro —idealmente de una familia distinta— lo ataca, y cada hallazgo debe terminar incorporado, refutado con evidencia, registrado como deuda, aceptado por su dueño o escalado.
+`disensor` es una herramienta para registrar y hacer cumplir el resultado de una revisión adversarial de software.
 
-El resultado no es un “aprobado”: es una declaración versionada del residuo que la revisión dejó para evaluación humana. El CLI valida el archivo y el gate de CI puede bloquear un PR si falta, es genérico o no corresponde al cambio revisado.
+Su método, llamado desacuerdo controlado, funciona así: un modelo genera el cambio, otro modelo —preferentemente de una familia diferente— lo ataca, el generador verifica cada hallazgo y cada punto termina incorporado, refutado con evidencia, convertido en deuda, aceptado por un responsable o escalado a una persona.
 
-El artefacto:
+El resultado se guarda como una declaración de residuo: un archivo JSON versionado dentro de `.residue/`, junto al código revisado. No es un certificado de calidad ni un puntaje; documenta qué ocurrió y, especialmente, qué quedó sin resolver o dependiendo del juicio humano.
 
-- Es JSON y usa actualmente el esquema `residue/v0.4`.
-- Vive en `.residue/`.
-- Se llama `<event_id>.json`, donde `event_id` es un UUID canónico.
-- Identifica al generador, los revisores y al árbitro humano.
-- Registra los commits exactos revisados y la compuerta (`plan`, `diff` o `architecture`).
-- Incluye el hash SHA-256 de la consigna adversarial.
-- Declara el confinamiento y la independencia real del revisor.
-- Enumera hallazgos, su estado final, verificación y evidencia.
-- Expone explícitamente el residuo que requiere atención humana.
-- Puede usar perfil `full` o `minimized`.
+El archivo incluye, entre otras cosas:
 
-Como el documento no incluye uno de los archivos completos de `spec/examples/` ni reproduce todo el JSON Schema, este es un ejemplo conceptual basado únicamente en los campos y valores documentados; no pretende sustituir la plantilla exacta producida por `disensor new`:
+- La versión del esquema, actualmente `residue/v0.4`.
+- Un `event_id` UUID que también determina el nombre: `<event_id>.json`.
+- La compuerta revisada: `plan`, `diff` o `architecture`.
+- Los commits exactos; para `diff`, tanto base como head.
+- El nivel de criticidad.
+- El generador, los revisores y el árbitro humano.
+- La familia de cada modelo y la independencia real del revisor.
+- El hash SHA-256 de la consigna adversarial.
+- Los hallazgos y su estado final.
+- Cómo se verificó cada hallazgo y, cuando corresponde, su corrección.
+- El residuo restante, incluidos escalados, deudas, huecos de ejecución o correlación del revisor.
+- La aceptación humana del riesgo residual.
+- Métricas cuyos conteos deben ser coherentes con los hallazgos.
+
+Un ejemplo ilustrativo, basado en los campos descritos en el documento, sería:
 
 ```json
 {
   "schema": "residue/v0.4",
   "event": {
-    "event_id": "550e8400-e29b-41d4-a716-446655440000",
+    "event_id": "3f728657-321c-4ad1-9606-7c5a5fd9264d",
     "gate": "diff",
     "criticality_level": "B",
-    "profile": "full",
-    "repository": "sha256:REPOSITORIO",
+    "repository": "repositorio-local",
     "pr": "PR-42",
-    "base_commit": "1111111111111111111111111111111111111111",
-    "head_commit": "2222222222222222222222222222222222222222",
-    "prompt_hash": "sha256:CONSIGNA_ADVERSARIAL"
+    "base_commit": "19dd6a873278",
+    "head_commit": "8ab947c53120",
+    "prompt_hash": "sha256:4dc86f03c210fe41c98f4cf25af8d219d53cb89895e1495cf95ef5fffc70d7cc"
   },
   "actors": {
     "generator": {
-      "family": "anthropic",
-      "model": "modelo-generador"
+      "model": "modelo-generador",
+      "family": "anthropic"
     },
     "reviewers": [
       {
         "id": "reviewer-1",
-        "family": "openai",
         "model": "modelo-revisor",
+        "family": "openai",
         "independence": "cross_family",
         "hardening": "verified"
       }
     ],
     "human_arbiter": {
-      "id": "responsable-humano"
+      "id": "responsable-tecnico"
     }
-  },
-  "confinement": {
-    "mode": "read_only_by_instruction",
-    "verified": true
   },
   "findings": [
     {
       "id": "finding-1",
       "reviewer_id": "reviewer-1",
-      "description": "La autorización no comprobaba el propietario del recurso.",
+      "text": "La autorización no comprobaba la pertenencia del recurso.",
       "final_state": "incorporated",
       "verification": {
         "against": "repository",
-        "detail": "Se comprobó la validación de ownership en el código."
+        "detail": "Se comprobó el flujo de autorización en el código."
       },
       "fix_verification": {
         "method": "specific_test",
-        "evidence": {
-          "text": "La prueba rechaza el acceso de otro propietario."
-        }
+        "detail": "La prueba de acceso entre propietarios diferentes pasa."
       }
     },
     {
       "id": "finding-2",
       "reviewer_id": "reviewer-1",
-      "description": "Posible carrera durante una actualización concurrente.",
+      "text": "Podría existir una condición de carrera durante la actualización.",
       "final_state": "escalated_open",
       "verification": {
         "against": "execution",
-        "detail": "No fue posible ejecutar una prueba concurrente concluyente."
+        "detail": "No se pudo reproducir de forma concluyente."
       }
     }
   ],
@@ -111,27 +111,30 @@ Como el documento no incluye uno de los archivos completos de `spec/examples/` n
     "items": [
       {
         "id": "residue-1",
-        "class": "escalation_without_decision",
         "finding_id": "finding-2",
-        "description": "La conducta bajo concurrencia requiere decisión humana."
+        "class": "escalation_without_decision",
+        "description": "La posible condición de carrera requiere una decisión humana."
       }
     ],
     "declared_absence": false,
-    "declaration": "Queda abierta la evaluación del comportamiento concurrente."
-  }
+    "declaration": "Queda abierta la evaluación de concurrencia del segundo hallazgo."
+  },
+  "metrics": {
+    "counts": {
+      "findings": 2,
+      "incorporated": 1,
+      "escalated_open": 1,
+      "residue_items": 1
+    }
+  },
+  "lead_acceptance": "El responsable acepta revisar el riesgo antes del merge."
 }
 ```
 
-En la práctica, la plantilla se crea con:
+Este ejemplo muestra la intención y estructura general, pero el contrato normativo exacto es `spec/residue.schema.json`. El archivo real se genera con `disensor new` y se comprueba con:
 
 ```bash
-disensor new --gate diff --level B
+disensor validate .residue/3f728657-321c-4ad1-9606-7c5a5fd9264d.json
 ```
 
-Luego se completa y valida con:
-
-```bash
-disensor validate .residue/<event_id>.json
-```
-
-La idea central es que el archivo conserve no sólo qué encontró el revisor, sino también qué pudo verificarse, qué no, cómo terminó cada desacuerdo y qué riesgo sigue dependiendo de una decisión humana.
+Además del esquema JSON, el validador aplica las reglas R0 a R13; por eso un archivo puede tener JSON bien formado y aun así ser rechazado si, por ejemplo, una refutación no aporta evidencia material, los conteos no cierran o una referencia apunta a un revisor inexistente.
