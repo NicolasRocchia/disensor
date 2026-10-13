@@ -50,7 +50,10 @@ si hay algo sin versionar o ignorado bajo `src/`, de donde importa el
 validador, si hay archivos versionados modificados, o si el destino es un
 enlace, está dentro del repositorio y git no lo ignora (mirado en la ruta
 resuelta, que es donde cae la escritura), o ya existe con archivos que este
-script no escribe o con enlaces. Lee vectores e índices de los objetos de git
+script no escribe o con enlaces. Qué cae dentro del repositorio, para la ruta
+de importación y para el destino, se decide por identidad de archivo y no por
+el texto de la ruta: así una ruta extendida o UNC de Windows no pasa por de
+afuera. Lee vectores e índices de los objetos de git
 del commit, resuelto una vez al empezar y nunca por el nombre HEAD, e importa
 `disensor.rules` del checkout, verificando que viene de
 `src/disensor/rules.py` (y `jsonschema` de fuera de él). Antes de escribir
@@ -112,7 +115,10 @@ untracked or ignored sits under `src/`, where the validator is imported from,
 if tracked files are modified, or if the destination is a link, is inside the
 repository and git does not ignore it (checked on the resolved path, which is
 where the write lands), or already exists holding files this script does not
-write or links. It reads vectors and indexes from the git objects of the
+write or links. What falls inside the repository, for the import path and for
+the destination, is decided by file identity and not by the text of the path,
+so a Windows extended or UNC path does not pass for an outside one. It reads
+vectors and indexes from the git objects of the
 commit, resolved once at the start and never through the name HEAD, and
 imports `disensor.rules` from the checkout, checking that it comes from
 `src/disensor/rules.py` (and `jsonschema` from outside it). Before writing it
@@ -145,12 +151,36 @@ import os
 import sys
 
 
-def bajo(ruta, raiz):
-    """La ruta está dentro de la raíz (False también si están en discos distintos)."""
-    try:
-        return os.path.commonpath([ruta, raiz]) == raiz
-    except ValueError:
-        return False
+_RAIZ = os.path.realpath(os.getcwd())
+_ST_RAIZ = os.stat(_RAIZ)
+_ID_RAIZ = (_ST_RAIZ.st_dev, _ST_RAIZ.st_ino)
+if not _ST_RAIZ.st_ino:
+    sys.exit("el sistema de archivos no da una identidad estable para el directorio actual: "
+             "no puedo saber que rutas caen dentro del repositorio")
+
+
+def bajo_la_raiz(ruta):
+    """Si la ruta cae dentro de la raíz del repositorio, su ruta relativa con
+    barras `/` ("" para la raíz misma); si no, None. Se decide por identidad
+    de archivo (volumen e índice) del primer ancestro existente que coincida, y
+    no por el texto: en Windows la misma carpeta se escribe con letra de
+    unidad, en el espacio de rutas extendidas o por un recurso UNC, y
+    `commonpath` da ValueError entre dos escrituras distintas como si fueran
+    discos distintos, con lo que una ruta del checkout pasaba por de afuera."""
+    actual = os.path.abspath(ruta)
+    cola = []
+    while True:
+        try:
+            st = os.stat(actual)
+        except OSError:
+            st = None
+        if st is not None and (st.st_dev, st.st_ino) == _ID_RAIZ:
+            return "/".join(reversed(cola))
+        padre, nombre = os.path.split(actual)
+        if padre == actual or not nombre:
+            return None
+        cola.append(nombre)
+        actual = padre
 
 
 # Antes de cualquier otro import, con os y sys solos, que ya estaban cargados al
@@ -162,11 +192,10 @@ def bajo(ruta, raiz):
 # guarda lo viera. Con `-P` (Python 3.11 o más) el directorio del script no
 # entra. Lo que se imprime va en ASCII, para que una salida redirigida no
 # dependa de la página de códigos de quien reproduce.
-_RAIZ = os.path.realpath(os.getcwd())
 if os.path.realpath(__file__) != os.path.realpath(os.path.join(_RAIZ, "tools", "segundo-motivo.py")):
     sys.exit("este script tiene que ser el tools/segundo-motivo.py del directorio actual, "
              "y el directorio actual la raiz del repositorio")
-_dentro = [p for p in sys.path if p and (os.path.realpath(p) == _RAIZ or bajo(os.path.realpath(p), _RAIZ))]
+_dentro = [p for p in sys.path if p and bajo_la_raiz(os.path.realpath(p)) is not None]
 if _dentro:
     sys.exit("hay directorios del repositorio en la ruta de importacion de Python (" + ", ".join(_dentro)
              + "): correr con `python -P tools/segundo-motivo.py ...` (Python 3.11 o mas) "
@@ -212,7 +241,7 @@ from disensor.rules import rule_errors, validate_artifact  # noqa: E402
 # dependencia, de fuera de él.
 if os.path.realpath(disensor.rules.__file__) != os.path.realpath(os.path.join("src", "disensor", "rules.py")):
     sys.exit(f"disensor.rules se importo de {disensor.rules.__file__} y no del checkout")
-if bajo(os.path.realpath(jsonschema.__file__), _RAIZ):
+if bajo_la_raiz(os.path.realpath(jsonschema.__file__)) is not None:
     sys.exit(f"jsonschema se importo desde el checkout ({jsonschema.__file__}) y no del entorno")
 
 SUITES = ("v0.2", "v0.3", "v0.4")
@@ -276,13 +305,14 @@ def destino_seguro(salida):
     if os.path.lexists(salida) and es_enlace(os.path.abspath(salida)):
         sys.exit(f"{salida} es un enlace (simbolico o junction): usa el directorio al que apunta o otro.")
     real = os.path.realpath(salida)
-    if real == _RAIZ or bajo(real, _RAIZ):
+    rel = bajo_la_raiz(real)
+    if rel is not None:
         # Se pregunta por un hijo del destino resuelto y no por el destino: así
         # una regla de directorio como `salida-segundo-motivo/` lo alcanza
         # aunque el directorio no exista todavía, y un destino que git no
         # ignora da 1 exista o no. Resuelto, porque un enlace en el camino
         # cambia dónde se escribe y no el nombre que git ve.
-        hijo = os.path.join(os.path.relpath(real, _RAIZ), JSON_SALIDA)
+        hijo = f"{rel}/{JSON_SALIDA}" if rel else JSON_SALIDA
         r = subprocess.run(["git", "--no-optional-locks", "check-ignore", "-q", "--", hijo],
                            capture_output=True)
         if r.returncode != 0:
