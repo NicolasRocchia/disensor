@@ -311,9 +311,16 @@ def filas_experimento_a(puntajes: dict) -> tuple[list[str], list[str]]:
         if m["modo"] != "documento":
             continue
         h = m["llamadas_a_herramientas"]
-        ilegibles = m.get("eventos_ilegibles", 0)
-        if h is None or h > 0 or ilegibles > 0:
-            motivo = ("sin registro" if h is None else f"{h} llamada(s)" if h > 0 else f"{ilegibles} evento(s) ilegible(s)")
+        ilegibles = m.get("eventos_ilegibles")
+        if h is None or h > 0 or ilegibles is None or ilegibles > 0:
+            if h is None:
+                motivo = "sin registro de herramientas"
+            elif h > 0:
+                motivo = f"{h} llamada(s) a herramientas"
+            elif ilegibles is None:
+                motivo = "sin registro de eventos ilegibles"
+            else:
+                motivo = f"{ilegibles} evento(s) ilegible(s)"
             excluidas.append(f"{nombre[:-3]} ({motivo})")
             continue
         por_clave.setdefault((m["modelo"], m["idioma"]), {}).setdefault(m["estado"], []).append(reg["items"])
@@ -349,15 +356,19 @@ def filas_experimento_a(puntajes: dict) -> tuple[list[str], list[str]]:
     return filas, excluidas
 
 
-def herramientas_en(meta: dict) -> int | None:
-    """Las llamadas a herramientas que el encabezado declara, o None si no las registra."""
-    valor = meta.get("cli_llamadas_a_herramientas")
+def entero_o_none(valor) -> int | None:
+    """Un conteo del encabezado, o None si no está o no es un entero."""
     if valor is None:
         return None
     try:
         return int(valor)
     except ValueError:
         return None
+
+
+def herramientas_en(meta: dict) -> int | None:
+    """Las llamadas a herramientas que el encabezado declara, o None si no las registra."""
+    return entero_o_none(meta.get("cli_llamadas_a_herramientas"))
 
 
 def main() -> int:
@@ -386,11 +397,12 @@ def main() -> int:
         registro_meta = {k: meta[k] for k in ("modelo", "modo", "idioma", "estado")}
         registro_meta["llamadas_a_herramientas"] = herramientas_en(meta)
         registro_meta["repeticion"] = int(meta.get("repeticion", "1") or 1)
-        # Las corridas anteriores a este campo no contaban líneas ilegibles;
-        # las cuatro de Codex del 12/10 tienen la secuencia completa de eventos
-        # (thread.started, turn.started, agent_message, turn.completed), que es
-        # el argumento para tomarlas como cero.
-        registro_meta["eventos_ilegibles"] = int(meta.get("cli_eventos_ilegibles", "0") or 0)
+        # Sin registro no es cero: una corrida anterior al campo no dice si hubo
+        # líneas ilegibles, y el JSONL crudo no se guarda. Queda fuera de A,
+        # como cualquier otro dato de confinamiento ausente (lo cazó la ronda 5:
+        # la versión anterior las tomaba como cero con una excepción escrita a
+        # mano).
+        registro_meta["eventos_ilegibles"] = entero_o_none(meta.get("cli_eventos_ilegibles"))
         puntajes[ruta.name] = {"meta": registro_meta, "items": nuevo}
     ruta_puntajes.write_text(json.dumps(puntajes, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 

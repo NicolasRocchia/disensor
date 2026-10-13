@@ -149,10 +149,23 @@ def test_un_juicio_pendiente_queda_pendiente_en_la_celda_de_a():
     # Hallazgo 2 de la ronda 4: un None se convertía en "no".
     def reg(estado, valor):
         items = {i: {"auto": valor, "juicio": None} for i in puntuar.ITEMS}
-        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado, "llamadas_a_herramientas": 0}
+        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado,
+                "llamadas_a_herramientas": 0, "eventos_ilegibles": 0}
         return {"meta": meta, "items": items}
     filas, _ = puntuar.filas_experimento_a({"a.md": reg("antes", None), "d.md": reg("despues", True)})
     assert "estados: ? a sí" in filas[0]
+
+
+def test_una_corrida_sin_registro_de_eventos_ilegibles_queda_fuera_de_a():
+    # Hallazgo de la ronda 5: sin registro no es cero.
+    def reg(estado):
+        items = {i: {"auto": True, "juicio": None} for i in puntuar.ITEMS}
+        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado,
+                "llamadas_a_herramientas": 0, "eventos_ilegibles": None}
+        return {"meta": meta, "items": items}
+    filas, excluidas = puntuar.filas_experimento_a({"a.md": reg("antes"), "d.md": reg("despues")})
+    assert filas == []
+    assert len(excluidas) == 2 and "sin registro de eventos ilegibles" in excluidas[0]
 
 
 def test_una_corrida_con_eventos_ilegibles_queda_fuera_de_a():
@@ -216,7 +229,8 @@ def test_las_repeticiones_de_una_celda_cuentan_todas():
     # de la celda. Dos "antes" con resultados distintos, un "después".
     def reg(estado, pasa):
         items = {i: {"auto": pasa, "juicio": None} for i in puntuar.ITEMS}
-        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado, "llamadas_a_herramientas": 0}
+        meta = {"modelo": "m", "modo": "documento", "idioma": "es", "estado": estado,
+                "llamadas_a_herramientas": 0, "eventos_ilegibles": 0}
         return {"meta": meta, "items": items}
     puntajes = {
         "m-documento-es-antes.md": reg("antes", True),
