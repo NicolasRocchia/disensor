@@ -6,7 +6,8 @@
       "idioma": "es",
       "estado": "antes",
       "llamadas_a_herramientas": null,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {
@@ -28,7 +29,7 @@
       },
       "sin_campos_inventados": {
         "auto": true,
-        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
         "juicio": null
       },
       "sin_aval": {
@@ -58,7 +59,8 @@
       "idioma": "en",
       "estado": "despues",
       "llamadas_a_herramientas": null,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {
@@ -78,7 +80,7 @@
       },
       "sin_campos_inventados": {
         "auto": true,
-        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
         "juicio": null
       },
       "sin_aval": {
@@ -108,7 +110,8 @@
       "idioma": "es",
       "estado": "despues",
       "llamadas_a_herramientas": null,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {
@@ -128,7 +131,7 @@
       },
       "sin_campos_inventados": {
         "auto": true,
-        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
         "juicio": null
       },
       "sin_aval": {
@@ -158,7 +161,8 @@
       "idioma": "en",
       "estado": "antes",
       "llamadas_a_herramientas": 0,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {
@@ -208,7 +212,8 @@
       "idioma": "en",
       "estado": "despues",
       "llamadas_a_herramientas": 0,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {
@@ -228,7 +233,7 @@
       },
       "sin_campos_inventados": {
         "auto": true,
-        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
         "juicio": null
       },
       "sin_aval": {
@@ -258,7 +263,8 @@
       "idioma": "es",
       "estado": "antes",
       "llamadas_a_herramientas": 0,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {
@@ -308,7 +314,8 @@
       "idioma": "es",
       "estado": "despues",
       "llamadas_a_herramientas": 0,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {
@@ -328,7 +335,7 @@
       },
       "sin_campos_inventados": {
         "auto": true,
-        "evidencia": "ninguna clave fuera del esquema ni de la lista negra",
+        "evidencia": "ninguna clave ni estado fuera del esquema, ni de la lista negra",
         "juicio": null
       },
       "sin_aval": {
@@ -358,7 +365,8 @@
       "idioma": "es",
       "estado": "antes",
       "llamadas_a_herramientas": null,
-      "repeticion": 1
+      "repeticion": 1,
+      "eventos_ilegibles": 0
     },
     "items": {
       "estados": {

@@ -75,7 +75,10 @@ que la receta `read_only_by_instruction` del catálogo de revisores, y el
 directorio vacío acota lo que tiene a mano pero no lo que puede alcanzar. Lo
 que sí se registra, leyendo los eventos JSONL de la corrida (`--json`), es
 cuántas herramientas llamó: `cli_llamadas_a_herramientas` en el encabezado,
-con el conteo por tipo de evento en `cli_eventos`. El conteo es por descarte,
+con el conteo por tipo de evento en `cli_eventos` y las líneas que parecían
+un evento y no se pudieron leer en `cli_eventos_ilegibles` (una ilegible
+también saca la corrida de A: podría ser una herramienta que no se contó).
+El conteo es por descarte,
 a propósito: todo ítem completado que no sea el mensaje del agente o su
 razonamiento cuenta como herramienta, así que una versión del CLI que renombre
 o agregue tipos sobra y saca la corrida de A, no falta y la cuela. Una corrida
@@ -111,10 +114,11 @@ cualquier ítem. Lo mecánico, y sus límites conocidos:
   repara antes); si ningún bloque parsea, quedan a juicio. Una mención en
   prosa no cuenta.
 - `sin_campos_inventados` contrasta las claves de los bloques con la lista
-  blanca del esquema, más una lista negra de lo que ya se vio inventar, las
-  dos miradas solo adentro de los bloques: una advertencia en prosa sobre un
-  campo que no existe no es inventarlo. Mira el nombre, no la posición: una
-  clave real en el lugar equivocado pasa.
+  blanca del esquema, y los valores de `final_state` con los seis estados,
+  más una lista negra de lo que ya se vio inventar; todo mirado solo adentro
+  de los bloques: una advertencia en prosa sobre un campo que no existe no es
+  inventarlo. Mira el nombre, no la posición: una clave real en el lugar
+  equivocado pasa.
 
 Una respuesta que dice "no sé" suma cero en los ítems positivos y pasa los
 negativos: eso también es un dato.
@@ -149,7 +153,8 @@ respuesta pegada entera. Se la puntúa igual.
 - No se repite una corrida hasta que "salga bien". Una repetición se guarda
   aparte (`--repeticion N`, sufijo `-rN` en el archivo) y cuenta: en la tabla
   de A, una celda con varias corridas vale "sí" en un ítem solo si pasa en
-  todas, y muestra el total de cada una. Reemplazar una corrida por otra con
+  todas, "no" si falla en alguna y "?" si ninguna falla pero alguna está
+  pendiente de juicio, y muestra el total de cada una. Reemplazar una corrida por otra con
   el mismo nombre solo se hace por una razón de método, dicha en el commit,
   como se hizo con las cuatro de Codex sin registro de herramientas.
 - No se infiere causa en B: el "después" en vivo depende de qué indexó cada
