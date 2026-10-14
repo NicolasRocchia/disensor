@@ -1,0 +1,76 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c8f57918-2bab-44b8-a15d-939cd5cc4e86",
+    "created_at": "2026-10-14T14:42:37-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "8f5a1a16989db78989ad9d39b2f189d643432ffc",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "425d96e9746c9e0e32df979569bc3c9afc485bac"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor corrió tests/test_reviewers.py (37 pasan) y la suite completa (671 pasadas, 7 salteadas) con PYTHONDONTWRITEBYTECODE=1 y -p no:cacheprovider, y lo dijo: nada quedó escrito adentro del checkout (el mtime de .pytest_cache/v/cache/nodeids no cambió durante la corrida, 17:39:07Z a 17:42:04Z). No ejecutó `disensor reviewer suggest` en vivo; lo corrió el generador con el código del checkout en esta máquina (Windows 11, Python 3.14.2): codex y claude encontrados, las notas impresas debajo de family, hardening y egress, envueltas a 78 columnas. La matriz de compatibilidad y el enlace desde docs/integracion-claude-code.md que pide #112 no están en este cambio y quedan para otro PR."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 212
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:89ccb2c0158e7715fe6b41330b59f36a08b08bf1957ce01256e6ee6cb4fb8d25",
+      "report_hash": "sha256:5629b924c0ea184d2cae5ce1489bdaa20f75813ad9b850ee7204bce553fa5fe8",
+      "reviewer_seconds": 177
+    }
+  }
+}
