@@ -100,10 +100,16 @@ Por defecto todo exige `diff`.
   comparte consigo mismo no los cubrió esta ronda, y eso es residuo. El nivel A
   no lo admite.
 - `reviewers[].hardening`: `verified` si el revisor corrió por un adaptador
-  cuya neutralización de las instrucciones del proyecto se probó contra un
-  repositorio hostil; `unverified` en cualquier otro caso. `unverified` no
-  bloquea, pero pide un ítem `reviewer_hardening_gap`: el material bajo
-  revisión puede hablarle al revisor antes que tu consigna.
+  que neutraliza, para versiones y condiciones concretas, las fuentes
+  enumeradas que el CLI carga solo antes de tu consigna: los archivos de
+  instrucciones del repositorio revisado y, para la receta `codex`, lo que
+  agrega la máquina (su `AGENTS.md` global, skills, plugins, apps, hooks,
+  memorias, roles de agentes y el entorno heredado), cada una con su prueba
+  hostil; `unverified` en cualquier otro caso. No cubre la configuración
+  administrada ni una escritura del mismo usuario entre el chequeo y la
+  corrida. `unverified` no bloquea, pero pide un ítem
+  `reviewer_hardening_gap`: el material bajo revisión, o la máquina, puede
+  hablarle al revisor antes que tu consigna.
 - `reviewers[].prompt_hash`: el hash de la consigna adversarial que recibió el
   revisor. Si usaste la empaquetada, es
   `disensor prompt --gate <plan|diff|architecture> --hash`, y cualquiera puede recomputar ese
