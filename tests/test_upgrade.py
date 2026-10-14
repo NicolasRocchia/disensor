@@ -208,17 +208,28 @@ def test_a_workflow_already_pinned_to_the_current_version_is_not_called_older_of
     """Sin red, todo lo que no estuviera literalmente en el tag tomaba la rama del
     gate mas viejo que el CLI: un workflow pineado al commit de esta misma version,
     que es el estado final que init y pin producen, recibia el aviso de que el gate
-    iba a rechazar el esquema. Lo cazo la ronda adversarial de #121."""
+    iba a rechazar el esquema (ronda 1 de #121). Pero el comentario de la version
+    lo edita cualquiera y un SHA copiado a mano puede estar mal, asi que sin red
+    tampoco se puede decir `current`: se avisa que esta sin verificar y se manda a
+    pin (ronda 2 de #121). Un SHA con el comentario de otra version sigue siendo el
+    gate viejo."""
     wf = repo / ".github" / "workflows" / "disensor.yml"
     wf.parent.mkdir(parents=True)
     pineado = f"jobs:\n  gate:\n    steps:\n      - uses: NicolasRocchia/disensor@{PINNED_SHA}  # v{__version__}\n"
     wf.write_bytes(pineado.encode("utf-8"))
     assert correr(repo, monkeypatch, "--upgrade") == 0  # la fixture deja la resolucion sin red
     salida = capsys.readouterr().out
-    assert f"current {WORKFLOW_REL}" in salida and "could not be confirmed offline" in salida
-    assert "older than this CLI" not in salida and "WARNING" not in salida
+    assert f"WARNING {WORKFLOW_REL}" in salida and "disensor pin" in salida
+    assert "nothing offline confirms" in salida
+    assert "older than this CLI" not in salida and "current" not in salida
     assert wf.read_bytes().decode("utf-8") == pineado
-    # Un SHA con el comentario de otra version sigue siendo el gate viejo.
+    # Un SHA inventado con el comentario de esta version recibe el mismo aviso: el
+    # comentario no prueba nada, y la salida no puede decir que el gate esta al dia.
+    wf.write_bytes(pineado.replace(PINNED_SHA, "0" * 40).encode("utf-8"))
+    correr(repo, monkeypatch, "--upgrade")
+    salida = capsys.readouterr().out
+    assert "WARNING" in salida and "disensor pin" in salida and "current" not in salida
+    # Y con el comentario de otra version, el aviso sigue siendo el del gate viejo.
     wf.write_bytes(pineado.replace(f"# v{__version__}", "# v0.7.0").encode("utf-8"))
     correr(repo, monkeypatch, "--upgrade")
     assert "older than this CLI" in capsys.readouterr().out

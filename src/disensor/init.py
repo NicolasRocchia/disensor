@@ -593,13 +593,17 @@ def _upgrade_workflow(root: Path, report: list[str]) -> None:
                 f"Could not resolve it ({exc}) Run `disensor pin` when you have network"
             )
         elif _pinned_to_current(texto):
-            # Sin red no se puede confirmar que ese SHA sea el commit del tag,
-            # pero avisar que el gate es mas viejo que el CLI, y que va a
-            # rechazar el esquema, era falso para el estado final que init y
-            # pin producen (hallazgo de la ronda de #121).
+            # Avisar que el gate es mas viejo que el CLI, y que va a rechazar
+            # el esquema, era falso para el estado final que init y pin
+            # producen (ronda 1 de #121). Pero el comentario lo escribe pin y
+            # lo edita cualquiera, y un SHA copiado a mano puede estar mal
+            # (pin.py): sin red nadie confirma que ese commit sea el del tag,
+            # asi que no se informa `current`, se avisa que esta sin verificar
+            # y se manda a pin (ronda 2 de #121).
             report.append(
-                f"current {rel} (pinned by SHA with the `# v{__version__}` comment `disensor pin` "
-                f"writes; the commit could not be confirmed offline: {exc})"
+                f"WARNING {rel}: pinned by SHA with the `# v{__version__}` comment, but nothing "
+                f"offline confirms that commit is the one tag v{__version__} points at ({exc}) "
+                f"Run `disensor pin` when you have network to confirm it"
             )
         else:
             report.append(
@@ -619,7 +623,12 @@ def _upgrade_workflow(root: Path, report: list[str]) -> None:
 
 
 def _pinned_to_current(texto: str) -> bool:
-    """A `uses:` line with a 40-hex SHA and the `# v<this version>` comment `pin` writes."""
+    """A `uses:` line with a 40-hex SHA and the `# v<this version>` comment `pin` writes.
+
+    Syntax only: the comment is editable metadata, so this says what the line
+    claims, never that the SHA is the commit of that tag. Only the resolved tag
+    can say that, and offline the caller reports the claim as unverified.
+    """
     for m in USES.finditer(texto):
         if SHA40.fullmatch(m.group("ref")) and m.group("tail").strip() == f"# v{__version__}":
             return True
