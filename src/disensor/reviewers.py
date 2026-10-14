@@ -30,6 +30,7 @@ import json
 import re
 import os
 import subprocess
+import textwrap
 from pathlib import Path
 
 from . import programs
@@ -402,6 +403,16 @@ def _suggest() -> int:
             encontrados += 1
             print(f"  family {receta['family']}, hardening {receta['hardening']}, "
                   f"egress {receta['egress']}")
+            # Las notas de la receta vivian solo en el catalogo (#112): que el
+            # sandbox de codex no arranca bajo algunos procesos padre en
+            # Windows, o que un endurecimiento no se probo, lo leia quien abria
+            # este archivo, y no quien registraba el revisor y chocaba con eso
+            # el primer dia.
+            if receta.get("notes"):
+                print(textwrap.fill(
+                    f"notes: {receta['notes']}", width=78,
+                    initial_indent="  ", subsequent_indent="    ",
+                ))
             # Con el modelo cuando la receta lo fija en el argv: sin el, el
             # comando sugerido falla, y lo primero que hace quien llega es
             # copiar esta linea.
