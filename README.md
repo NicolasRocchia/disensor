@@ -305,6 +305,18 @@ your assistant's work. You appear when you consent to material leaving your
 machine, when a risk needs an owner, when something is escalated without
 resolution, and at the pull request.
 
+**Asking without spending.** `disensor round --check --generator-family
+<family> --base <target> --head HEAD` answers only whether that range requires
+a round: it reads the scope policy from the target branch, runs no reviewer,
+needs none registered and does not demand a clean tree (the family is required
+by the parser, as in a real round, and `--check` does not use it). The answer
+is the exit code, three of the codes a real round uses: `0`, a round is
+required; `3`, none is; `6`, it could not decide, which is never a green light.
+With `--gate plan` or `--gate architecture` it answers `0` without consulting
+the policy, because those gates are triggered by judgement, not by scope. What
+it prints on stderr (on `0`, the gates the policy accepts for these paths) is
+prose for a person; an integration reads the exit code.
+
 **What it costs, as measured.** Every declaration the runner prefills carries
 the reviewer's wall time (`reviewer_seconds`); the whole cycle
 (`extra_time_sec`) is timed by hand, and `token_cost` only when a CLI reports
@@ -617,7 +629,9 @@ things.
 **Stable within a major series of the package.** The exit codes of
 `disensor round` (`0` reviewed, `1` error, `3` no round required, `4` chain
 exhausted, `5` tree modified during the round, `6` could not decide whether a
-round was required); the subcommands and flags documented in this file; the four
+round was required), and the three of them that `disensor round --check`
+answers with (`0` a round is required, `3` it is not, `6` it could not be
+decided); the subcommands and flags documented in this file; the four
 inputs of the Action (`github-token`, `directory`, `config`, `python-version`);
 and the keys of `disensor.config.json`, which already fail closed on anything
 unknown. Breaking these needs a major.
@@ -626,8 +640,11 @@ unknown. Breaking these needs a major.
 every artifact) and the result of `disensor round` (`result_version`). Neither
 follows the package numbering, and a change in them is not a package major.
 
-**No promise.** The reviewer registry on your machine, the recipe catalogue, and
-the ingestion API of the evidence plane. The catalogue is the one surface that
+**No promise.** The reviewer registry on your machine, the recipe catalogue, the
+ingestion API of the evidence plane, and the text of the lines `disensor round`
+prints on stderr, including the one that names the accepted gates after
+`--check`: those lines are prose for a person, and the accepted gates are not
+exposed in a parseable form yet. The catalogue is the one surface that
 depends on third-party CLIs: the Codex recipe changed the day an account stopped
 offering the model it named.
 

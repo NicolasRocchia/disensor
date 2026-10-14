@@ -248,6 +248,18 @@ revisor es trabajo de tu asistente. Vos aparecés cuando hay que consentir que e
 material salga de tu máquina, cuando un riesgo necesita dueño, cuando algo se
 escala sin resolver, y en el PR.
 
+**Preguntar sin gastar.** `disensor round --check --generator-family <familia>
+--base <destino> --head HEAD` contesta solo si ese rango exige ronda: lee la
+política de alcance de la rama destino, no corre ningún revisor, no necesita
+ninguno registrado y no exige árbol limpio (la familia la exige el parser, como
+en una ronda real, y `--check` no la usa). La respuesta es el código de salida,
+tres de los que usa una ronda real: `0`, hace falta ronda; `3`, no hace falta;
+`6`, no pudo decidir, que nunca es luz verde. Con `--gate plan` o
+`--gate architecture` contesta `0` sin consultar la política, porque esas
+compuertas las dispara el criterio, no el alcance. Lo que imprime por stderr
+(con `0`, las compuertas que la política acepta para esas rutas) es prosa para
+una persona; una integración lee el código de salida.
+
 **Lo que cuesta, medido.** Cada declaración que el runner prellena lleva el
 tiempo de pared del revisor (`reviewer_seconds`); el ciclo entero
 (`extra_time_sec`) se cronometra a mano, y `token_cost` solo cuando un CLI lo
@@ -383,7 +395,9 @@ El paquete y el esquema se numeran por separado, y prometen cosas distintas.
 **Estable dentro de una serie mayor del paquete.** Los códigos de salida de
 `disensor round` (`0` revisado, `1` error, `3` no hacía falta ronda, `4` cadena
 agotada, `5` árbol modificado durante la ronda, `6` no se pudo decidir si hacía
-falta); los subcomandos y banderas documentados en este archivo; los cuatro
+falta), y los tres con los que contesta `disensor round --check` (`0` hace falta
+ronda, `3` no hace falta, `6` no se pudo decidir); los subcomandos y banderas
+documentados en este archivo; los cuatro
 inputs de la Action (`github-token`, `directory`, `config`, `python-version`); y
 las claves de `disensor.config.json`, que ya fallan cerrado ante cualquier cosa
 desconocida. Romperlos exige una mayor.
@@ -393,10 +407,13 @@ declarado dentro de cada artefacto) y el resultado de `disensor round`
 (`result_version`). Ninguno sigue la numeración del paquete, y un cambio en ellos
 no es una mayor del paquete.
 
-**Sin promesa.** El registro de revisores de tu máquina, el catálogo de recetas y
-la API de ingesta del plano de evidencia. El catálogo es la única superficie que
-depende de CLIs de terceros: la receta de Codex cambió el día que una cuenta dejó
-de ofrecer el modelo que nombraba.
+**Sin promesa.** El registro de revisores de tu máquina, el catálogo de recetas,
+la API de ingesta del plano de evidencia, y el texto de las líneas que
+`disensor round` imprime por stderr, incluida la que nombra las compuertas
+aceptadas después de `--check`: esas líneas son prosa para una persona, y las
+compuertas aceptadas todavía no se exponen en una forma parseable. El catálogo
+es la única superficie que depende de CLIs de terceros: la receta de Codex
+cambió el día que una cuenta dejó de ofrecer el modelo que nombraba.
 
 **Una asimetría que conviene saber antes de pinear.** El gate exige que una
 declaración que el PR agrega traiga la versión de esquema vigente, y rechaza
