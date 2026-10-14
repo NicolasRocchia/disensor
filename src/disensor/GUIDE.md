@@ -2,8 +2,9 @@
 
 This guide is the single source of truth for filling the artifact that
 `disensor new` creates under `.residue/`. It ships inside the package:
-`disensor guide` prints it for any coding agent, and `disensor init` installs
-it as a Claude Code skill.
+`disensor guide` prints it, after the event runbook, for any coding agent. What
+`disensor init` installs as a Claude Code skill is that runbook, not this
+guide; the skill sends here for every field.
 
 The validator (`disensor validate`) enforces much of what is described here,
 but not all of it: where a validator rule exists, this guide names it, and what
@@ -16,6 +17,15 @@ Filling the artifact correctly the first time is cheaper than iterating against
 their errors.
 
 ## The round, and then the declaration
+
+This is the path without the runner: a person hands the brief and the material
+to the reviewer and brings the report back. An agent does not do that by hand,
+and the runbook says so. With `disensor round`, steps 1 and 3 are one command
+each: the runner packages the brief with the material, runs the reviewer and
+anchors the result, and `disensor new --gate <plan|diff|architecture> --level
+<A|B|C> --round <result>` creates the declaration prefilled with what that
+round observed (reviewer, anchors, hashes), not with whatever HEAD is when you
+run it. Steps 2, 4, 5 and 6 are the same on both paths.
 
 1. `disensor prompt --gate <plan|diff|architecture>` prints the adversarial brief. Hand it,
    together with the material under review, to a reviewer from ANOTHER model
