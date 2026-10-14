@@ -312,13 +312,19 @@ def check_ancestors(cwd: Path) -> None:
     """No ancestor of the private cwd is a git repository.
 
     The CLI reads `.codex/config.toml` from the cwd up to the project root,
-    which is the first ancestor with `.git/HEAD`. The private cwd lives under
-    the owner's home; if that home were a repository, the owner's own
+    which is the first ancestor with a `.git` marker. The private cwd lives
+    under the owner's home; if that home were a repository, the owner's own
     `~/.codex/config.toml` would enter that walk. It would be disabled for
     lack of trust, but the policy stops before depending on that.
+
+    Any `.git`, directory or file: a linked worktree and a submodule carry a
+    `.git` FILE (`gitdir: ...`), and checking `.git/HEAD` alone let them
+    through (finding of the second diff round of #108). Whether the CLI
+    counts a `.git` file as a marker is its business; the invariant says "no
+    repository above", and that is what is checked.
     """
     for ancestro in (cwd, *cwd.parents):
-        if os.path.lexists(ancestro / ".git" / "HEAD"):
+        if os.path.lexists(ancestro / ".git"):
             raise Refused(
                 "context_unverified",
                 f"{ancestro} is a git repository above the reviewer's private directory, so the "

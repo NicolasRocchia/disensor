@@ -364,6 +364,17 @@ def test_a_git_repository_above_the_private_cwd_stops_the_attempt(tmp_path):
     assert "git repository" in intento["detail"]
 
 
+def test_a_linked_worktree_or_submodule_above_the_private_cwd_stops_it_too(tmp_path):
+    """Un worktree enlazado y un submodulo llevan `.git` como ARCHIVO
+    (`gitdir: ...`): mirar solo `.git/HEAD` los dejaba pasar (ronda diff 2 de
+    #108). El invariante dice "ningun repositorio arriba", y eso se chequea."""
+    (tmp_path / ".git").write_text("gitdir: C:/en/otro/lado/.git/worktrees/x\n", encoding="utf-8")
+    with pytest.raises(Refused, match="git repository"):
+        codex_home.check_ancestors(codex_home.work_dir("codex") / "intento")
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "context_unverified"
+
+
 # --- La autenticacion ------------------------------------------------------------
 
 def test_a_home_without_credentials_names_the_command_the_owner_runs(tmp_path):
