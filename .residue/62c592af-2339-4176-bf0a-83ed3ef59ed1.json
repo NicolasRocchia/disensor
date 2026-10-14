@@ -110,6 +110,13 @@
         "gap_reason": "other",
         "requires_human_attention": false,
         "description": "Ningún revisor corrió la suite completa: la ronda 1 no corrió ninguna prueba (el diff es prosa), la ronda 2 corrió tests/test_docs.py (12 pasan) y la ronda 3 tampoco corrió la suite (git diff --check y lectura del diff). El generador corrió la suite completa antes de cada uno de los tres commits (670 pasadas, 7 salteadas; Windows 11, Python 3.14.2). Ningún revisor recalculó las 100 respuestas del experimento: la ronda 1 intentó bajar corrida/resumen.json y recibió 404, y la ronda 2 leyó solo los dos registros nombrados; el cruce lo hizo el generador (h1). Nadie reprodujo el experimento ni sus estadísticas desde los artefactos crudos; los números del README se contrastaron contra 27-RESULTADO-FASE-1.md y corrida/informe.json del commit pineado."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Visto después de declarar, al revisar la ronda siguiente de la misma tanda: el pytest tests/test_docs.py de la ronda 2 (r2) creó .pytest_cache/ adentro del checkout a las 17:21:44Z, durante su corrida (17:19 a 17:21Z), en una ruta que git ignora; el git status del runner no la ve y el informe de r2 dice que su única escritura fue el informe. Es el caso de #88, abierto. Ningún archivo versionado cambió en ninguna de las tres rondas: verified: true dice eso y no más. Se agrega en un commit propio sobre la declaración ya commiteada, sin tocar lo demás."
       }
     ]
   },
