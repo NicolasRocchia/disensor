@@ -294,7 +294,7 @@ Por PR:
 
 El gate **falla cerrado**: si no puede resolver el rango del PR, no da verde. Un control de cumplimiento que no puede decidir, no aprueba.
 
-Límite honesto, heredado del protocolo: la máquina detecta el campo vacío y el marcador genérico, no la declaración falsa. El muestreo humano de PR cerrados sigue siendo la única defensa real contra el cumplimiento cosmético.
+Límite honesto, heredado del protocolo: la máquina detecta el campo vacío y el marcador genérico, no la declaración falsa. Ese límite tiene número. En el experimento prerregistrado sobre Hide Pending Tool Call, con un hueco que el arnés había plantado, el modelo declaró en 71 de los 100 registros que no quedaba nada abierto, y el validador aceptó cada una de esas declaraciones; el mismo esquema subió el registro del hueco de 5% a 29%, sin una sola falsa alarma en los gemelos limpios ([resultado de la fase 1](https://github.com/NicolasRocchia/disensor-hide-pending/blob/c89ed59/27-RESULTADO-FASE-1.md)). Una ausencia declarada es una afirmación, no una verificación. El muestreo humano de PR cerrados sigue siendo la única defensa real contra el cumplimiento cosmético.
 
 ## Política de alcance
 
