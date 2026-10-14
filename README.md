@@ -425,9 +425,10 @@ Honest limit, inherited from the protocol: the machine detects the empty field
 and the generic marker, not the false declaration. That limit has a number. In
 the pre-registered experiment on Hide Pending Tool Call, with a gap the harness
 had planted, the model declared in 71 of the 100 records that nothing was left
-open, and the validator accepted every one of those declarations; the same
-schema raised the recording of the gap from 5% to 29%, with no false alarm on
-the clean twins
+open, and 69 of those passed the schema and every rule (the two refused fell to
+R1, for a refuted finding without its residue item, not for the absence
+itself); the same schema raised the recording of the gap from 5% to 29%, with
+no false alarm on the clean twins
 ([result of phase 1](https://github.com/NicolasRocchia/disensor-hide-pending/blob/c89ed59/27-RESULTADO-FASE-1.md)).
 A declared absence is a claim, not a verification. Human sampling of merged
 PRs remains the only real defence against cosmetic compliance.
