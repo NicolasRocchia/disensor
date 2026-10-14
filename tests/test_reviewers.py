@@ -185,6 +185,26 @@ def test_suggest_is_offline(capsys, monkeypatch):
     assert not llamadas
 
 
+def test_suggest_prints_the_notes_of_a_recipe_it_found(capsys, monkeypatch):
+    """Las notas vivian solo en el catalogo (#112): que el sandbox de codex no
+    arranca bajo algunos procesos padre en Windows lo leia quien abria el
+    archivo, no quien registraba el revisor."""
+    monkeypatch.setattr(
+        reviewers, "resolve_executable",
+        lambda cmd: "/usr/bin/codex" if cmd[0] == "codex" else None,
+    )
+    correr("suggest")
+    salida = capsys.readouterr().out
+    assert "codex: found" in salida
+    # Envueltas a 78 columnas, asi que se comparan sin los saltos de linea.
+    plano = " ".join(salida.split())
+    assert "notes: " + " ".join(CATALOG["codex"]["notes"].split()) in plano
+    # Debajo de family, hardening y egress, antes del comando sugerido.
+    assert salida.index("hardening verified") < salida.index("notes:") < salida.index("reviewer add codex")
+    # Y solo de lo que esta: una receta ausente no se describe.
+    assert CATALOG["gemini"]["notes"] not in plano
+
+
 def test_the_registry_write_refuses_a_symlink(registro_aislado, monkeypatch):
     reviewers.REGISTRY_DIR.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(Path, "is_symlink", lambda self: True)
