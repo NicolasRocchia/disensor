@@ -1,0 +1,140 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "62c592af-2339-4176-bf0a-83ed3ef59ed1",
+    "created_at": "2026-10-14T14:29:14-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "9ef39e67893bb51c645f6c4333f30d1bff8cb289",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "425d96e9746c9e0e32df979569bc3c9afc485bac"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "«El validador aceptó cada una» no tenía el cruce que lo respaldara",
+      "description": "El revisor de la ronda 1 lo dejó como hipótesis sin verificar, no como hallazgo: el resultado de la fase 1 del experimento Hide Pending en c89ed59 da 71 ausencias declaradas, esquema 100 de 100 y reglas 96 de 100 en pendientes, sin el cruce que muestre que las 4 fallas de reglas caen fuera de las 71. El texto de 5c5081d decía, como el issue #137 y como 29-INFORME-DISENSOR.md del mismo commit («esas 71 declaraciones pasan todo... ninguna falla una regla»), que el validador aceptó cada una. El generador recalculó el cruce por ítem y la hipótesis resultó cierta: 2 de las 4 fallas están entre las 71.",
+      "location": "README.md (párrafo Honest limit) y README.es.md (Límite honesto)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Bajadas con gh api, al scratchpad de la sesión y fuera del repositorio, las 100 respuestas de corrida/brazos/NNN-A2-pendiente/intento-1-ultimo-mensaje.md y los módulos herramientas/extraccion.py y herramientas/validador.py del commit c89ed59 de NicolasRocchia/disensor-hide-pending. Un script propio (python -I) aplicó ultimo_objeto_con y errores_de_reglas del propio experimento a cada respuesta: 100 legibles, 71 con declared_absence, 4 con fallas de reglas, todas R1, y 2 de esas 4 con ausencia declarada: los logs 002 y 081, con un hallazgo h1 refuted_verifiable sin ítem de residuo. El 71, el 5 de 100 del placebo, el 29 de 100 y los 0 falsos positivos coinciden con corrida/informe.json del mismo commit. Corregido en cdae423: 69 pasan, y las dos rechazadas caen por R1 por el hallazgo refutado sin ítem, no por la ausencia en sí. Lo que esto establece es el cruce sobre los registros publicados con las reglas del experimento; no reproduce el experimento."
+      },
+      "evidence": {
+        "text": "cruce por ítem sobre 100 respuestas A2 pendiente en c89ed59: declared_absence 71; fallan reglas 4 (002 R1, 015 R1, 052 R1, 081 R1); ausencia y falla 2 (002, 081)"
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "El cruce por ítem descrito en verification.detail, repetido sobre las mismas 100 respuestas con el mismo resultado (71, 4, 2); la ronda 2 sobre cdae423 leyó corrida/brazos/002 y 081-A2-pendiente/json.txt en c89ed59 y confirmó que esos dos registros sostienen la corrección por R1."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r2",
+      "severity": "major",
+      "title": "«Todas las reglas» sobreestimaba lo que validó el experimento",
+      "description": "El texto de cdae423 decía que 69 pasaron el esquema y todas las reglas. Al lado de la sección del README que nombra R0 a R13, se lee como que las ausencias falsas sobrevivieron al contrato entero del validador de disensor. El experimento no corrió eso: su validador congelado valida cada JSON contra un fragmento de residue.schema.json y corre exactamente cuatro reglas copiadas de rules.py, R1, R2, R2 bis y R8, porque los registros no traen el sobre del evento.",
+      "location": "README.md (párrafo Honest limit) y README.es.md (Límite honesto)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "external_source",
+        "detail": "Leídos en c89ed59 de NicolasRocchia/disensor-hide-pending el docstring y errores_de_reglas de herramientas/validador.py (fragmento de esquema con Draft202012Validator y las cuatro reglas) y la sección del validador de 15-VALIDADOR-Y-ANALISIS.md, que dice lo mismo. Corregido en 9ef39e6: los dos README dicen «el fragmento de esquema y las cuatro reglas que corrió el experimento (R1, R2, R2 bis y R8)». El remedio es el que pedía el informe; sin ajuste."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "La ronda 3 sobre 9ef39e6 revisó el texto acotado y no trajo hallazgos ni hipótesis; además reconstruyó por su cuenta, desde los resumen.json de corrida/brazos/ en c89ed59 (validacion.cumple_reglas por ítem), que de las 71 ausencias 69 pasan las reglas del experimento y que las dos que no son 002 y 081, por R1, y dijo que los dos idiomas conservan ese alcance y esos denominadores."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Ningún revisor corrió la suite completa: la ronda 1 no corrió ninguna prueba (el diff es prosa), la ronda 2 corrió tests/test_docs.py (12 pasan) y la ronda 3 tampoco corrió la suite (git diff --check y lectura del diff). El generador corrió la suite completa antes de cada uno de los tres commits (670 pasadas, 7 salteadas; Windows 11, Python 3.14.2). Ningún revisor recalculó las 100 respuestas del experimento: la ronda 1 intentó bajar corrida/resumen.json y recibió 404, y la ronda 2 leyó solo los dos registros nombrados; el cruce lo hizo el generador (h1). Nadie reprodujo el experimento ni sus estadísticas desde los artefactos crudos; los números del README se contrastaron contra 27-RESULTADO-FASE-1.md y corrida/informe.json del commit pineado."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 1144
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:bb75c96b10fac0a6517d11a0af416936019a9e81c94e9c10720ca267d5d56727",
+      "report_hash": "sha256:ef00bbe4543dc93a4a56718d8a7b8897a74bf5c78d967bc105f4cac56ab83396",
+      "reviewer_seconds": 146
+    }
+  }
+}
