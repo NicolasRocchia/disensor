@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from disensor import round as ronda
-from disensor.round import CHAIN_EXHAUSTED, OK, chain_for, independence_of, run_reviewer
+from disensor.round import CHAIN_EXHAUSTED, OK, chain_for, fill_argv, independence_of, run_reviewer
 
 
 def revisor_falso(tmp_path: Path, nombre: str, cuerpo: str) -> list[str]:
@@ -156,6 +156,23 @@ sys.exit(0)
     destino = tmp_path / "i.md"
     run_reviewer(e, "consigna con acentos: revisión adversarial", destino, 60)
     assert destino.read_bytes().decode("utf-8") == "consigna con acentos: revisión adversarial"
+
+
+def test_fill_argv_fills_each_placeholder_as_a_whole_argument(tmp_path: Path):
+    """La misma funcion llena el argv del runner y el de la prueba hostil.
+
+    Hasta #92 la prueba hostil armaba el suyo a mano y le mandaba al CLI el
+    literal `{model}`: lo que la prueba ejercita tiene que ser lo que el runner
+    corre, y eso se garantiza compartiendo la funcion, no copiandola.
+    """
+    informe = tmp_path / "informe.md"
+    argv = fill_argv(
+        ["tool", "--prompt", "{pack}", "-m", "{model}", "--out", "{report}", "-c", "k=v"],
+        "/abs/tool", package="el paquete", report=informe, model="m-1",
+    )
+    assert argv == [
+        "/abs/tool", "--prompt", "el paquete", "-m", "m-1", "--out", str(informe), "-c", "k=v",
+    ]
 
 
 # --- La cadena -----------------------------------------------------------------
