@@ -74,11 +74,17 @@ def entrada_catalogada(nombre: str) -> dict:
     # El binario tambien tiene que estar atado: se usa el interprete actual como
     # ejecutable de mentira, con su hash real, porque el endurecimiento heredado
     # exige que lo que va a correr sea lo que se aprobo.
+    extra = {}
+    if receta.get("isolation"):
+        # La politica de aislamiento es parte de la identidad de la receta
+        # (#108): una entrada registrada sin ella no gano el endurecimiento.
+        extra["isolation"] = receta["isolation"]
     return entrada(
         nombre, receta["family"], list(receta["command"]),
         source="catalog", stdin=receta.get("stdin"), egress=receta["egress"],
         model=receta["model"], executable=_sys.executable,
         executable_hash=executable_fingerprint(_sys.executable),
+        **extra,
     )
 
 
@@ -1213,3 +1219,102 @@ def test_the_finish_is_derived_from_the_start_never_read_again(monkeypatch):
     assert a["started_at"] == "2026-09-28T12:00:10Z"
     assert a["finished_at"] == "2026-09-28T13:01:11Z"
     assert a["seconds"] == 3661
+
+
+# --- La politica de aislamiento en la cadena (#108) ------------------------------
+
+def test_a_context_failure_moves_the_chain_to_the_next_reviewer(repo: Path, monkeypatch, tmp_path, capsys):
+    """Si el chequeo de contexto falla, el intento se corta y la cadena sigue:
+    no se corre degradado (decision del dueño). El resultado conserva el
+    motivo en el intento, y la declaracion lo ve en el fallback."""
+    import tempfile
+
+    from disensor import codex_home, reviewers
+
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    monkeypatch.setattr(reviewers, "REGISTRY_DIR", tmp_path / ".disensor")
+    (tmp_path / "temporal").mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "temporal"))
+    monkeypatch.setattr(codex_home, "system_config_dir", lambda: tmp_path / "sistema")
+    monkeypatch.setattr(codex_home, "profile_dir", lambda: tmp_path / "perfil")
+    home = codex_home.home_dir("aislado")
+    home.mkdir(parents=True)
+    (home / "AGENTS.md").write_text("hostil", encoding="utf-8")
+    aislado = dict(
+        entrada("aislado", "openai", revisor_falso(tmp_path, "aislado", ESCRIBE_Y_SALE_BIEN)),
+        egress="local", isolation=codex_home.POLICY,
+    )
+    otro = dict(
+        entrada("otro", "google", revisor_falso(tmp_path, "otro", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )
+    assert correr(repo, {"reviewers": [aislado, otro]}, monkeypatch, tmp_path) == OK
+    resultado = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    intentos = resultado["observed"]["attempts"]
+    assert [i["outcome"] for i in intentos] == ["context_unverified", "ok"]
+    assert "AGENTS.md" in intentos[0]["detail"]
+    assert resultado["declared"]["reviewer_id"] == "otro"
+    assert resultado["declared"]["isolation"] is None
+    assert not (tmp_path / "informe.md").read_text(encoding="utf-8").startswith("hostil")
+
+
+def test_the_result_declares_the_policy_and_the_attempt_records_it(repo: Path, monkeypatch, tmp_path):
+    import tempfile
+
+    from disensor import codex_home, reviewers
+
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    monkeypatch.setattr(reviewers, "REGISTRY_DIR", tmp_path / ".disensor")
+    (tmp_path / "temporal").mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "temporal"))
+    monkeypatch.setattr(codex_home, "system_config_dir", lambda: tmp_path / "sistema")
+    monkeypatch.setattr(codex_home, "profile_dir", lambda: tmp_path / "perfil")
+    # Con la forma de la receta de codex, `exec -m {model}`: el chequeo de
+    # credenciales corre lo que precede a `exec` con `login status`, y el
+    # informe es el argumento que sigue al modelo (el runner agrega
+    # `-c skills.config=...` al final, asi que no es el ultimo).
+    CONTESTA_STATUS = """import sys
+from pathlib import Path
+if sys.argv[1:3] == ["login", "status"]:
+    sys.exit(0)
+Path(sys.argv[4]).write_text("informe", encoding="utf-8")
+sys.exit(0)
+"""
+    script = tmp_path / "aislado.py"
+    script.write_text(CONTESTA_STATUS, encoding="utf-8")
+    aislado = dict(
+        entrada("aislado", "openai", [sys.executable, str(script), "exec", "-m", "{model}", "{report}"]),
+        egress="local", isolation=codex_home.POLICY,
+    )
+    assert correr(repo, {"reviewers": [aislado]}, monkeypatch, tmp_path) == OK
+    resultado = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    assert resultado["declared"]["isolation"] == codex_home.POLICY
+    intento = resultado["observed"]["attempts"][0]
+    assert intento["outcome"] == "ok" and intento["isolation"] == codex_home.POLICY
+    # Un numero, no cero: el cwd privado cuelga del perfil real de quien corre
+    # la suite, y la caminata por ancestros encuentra sus skills (a proposito).
+    assert isinstance(intento["skills_disabled"], int) and intento["skills_disabled"] >= 0
+
+
+def test_an_entry_without_the_policy_of_its_recipe_has_not_earned_the_hardening():
+    """La politica es parte de la identidad de la receta, como el argv."""
+    from disensor import codex_home
+    from disensor.round import effective_hardening, stale_entry
+
+    base = entrada_catalogada("codex")
+    assert effective_hardening(base) == "verified"
+
+    sin_politica = {k: v for k, v in base.items() if k != "isolation"}
+    assert effective_hardening(sin_politica) == "unverified"
+    assert "isolation policy" in (stale_entry(sin_politica) or "")
+
+    otra = dict(base, isolation="codex_home/0")
+    assert effective_hardening(otra) == "unverified"
+
+    lanzador = dict(base, executable="C:/npm/codex.CMD")
+    assert effective_hardening(lanzador) == "unverified", "el hash de un lanzador no cubre lo que corre"
+    assert codex_home.LAUNCHER_SUFFIXES >= {".cmd", ".bat", ".ps1", ".js", ".sh"}

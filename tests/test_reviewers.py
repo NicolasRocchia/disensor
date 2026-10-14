@@ -342,3 +342,117 @@ def test_changing_the_model_invalidates_the_egress_consent():
     uno = consent_key({**base, "model": "un-modelo"}, "github.com/x/y")
     otro = consent_key({**base, "model": "otro-modelo"}, "github.com/x/y")
     assert uno != otro
+
+
+# --- El home aislado (#108) ----------------------------------------------------
+
+def test_suggest_tells_the_owner_about_the_login_of_the_isolated_home(capsys, monkeypatch):
+    monkeypatch.setattr(
+        reviewers, "resolve_executable",
+        lambda cmd: "/usr/bin/codex" if cmd[0] == "codex" else None,
+    )
+    correr("suggest")
+    salida = capsys.readouterr().out
+    assert salida.index("reviewer add codex") < salida.index("reviewer login codex")
+
+
+def test_login_refuses_an_entry_without_an_isolated_home(capsys, registro_aislado):
+    correr("add", "raro", "--family", "other", "--model", "m", "--yes",
+           "--stdin", "pack", "--command", sys.executable, "-c", "pass")
+    capsys.readouterr()
+    assert correr("login", "raro") == 1
+    assert "no isolated home" in capsys.readouterr().out
+    assert correr("login", "fantasma") == 1
+
+
+VUELCA_LOGIN = """import json, os, sys
+from pathlib import Path
+Path(sys.argv[-1]).write_text(json.dumps({"argv": sys.argv, "home": os.environ.get("CODEX_HOME")}), encoding="utf-8")
+sys.exit(0)
+"""
+
+
+def test_login_runs_the_cli_with_the_isolated_home_and_checks_it_after(tmp_path, monkeypatch, capsys, registro_aislado):
+    """El login corre el CLI con CODEX_HOME aislado y la terminal heredada, bajo
+    el lock, y mira el home antes y despues: un login que dejo algo prohibido
+    se dice en voz alta."""
+    import tempfile
+
+    from disensor import codex_home
+
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "temporal"))
+    monkeypatch.setattr(codex_home, "system_config_dir", lambda: tmp_path / "sistema")
+    script = tmp_path / "codex.py"
+    script.write_text(VUELCA_LOGIN, encoding="utf-8")
+    volcado = tmp_path / "volcado.json"
+    entry = {
+        "id": "codex", "family": "openai", "model": "m",
+        "command": ["codex", "exec", "-m", "{model}"],
+        "executable": sys.executable,
+        "executable_hash": reviewers.executable_fingerprint(sys.executable),
+        "hardening": "verified", "egress": "cloud", "source": "catalog", "stdin": "pack",
+        "isolation": codex_home.POLICY,
+    }
+    reviewers.save_registry({"reviewers": [entry]})
+    original = reviewers.subprocess.run
+
+    def corre(argv, **kwargs):
+        # El ejecutable registrado es el interprete: se le antepone el script
+        # de mentira y se le agrega el archivo del volcado, y todo lo demas
+        # (argv, entorno, cwd) es lo que `login` armo.
+        assert argv[0] == sys.executable and argv[1] == "login"
+        assert argv[-2:] == ["-c", "skills.bundled.enabled=false"]
+        assert kwargs["env"]["CODEX_HOME"] == str(codex_home.home_dir("codex"))
+        assert Path(kwargs["cwd"]).resolve().parent == codex_home.work_dir("codex").resolve()
+        return original([sys.executable, str(script), *argv[1:], str(volcado)], **kwargs)
+
+    monkeypatch.setenv("CODEX_HOME", "C:/hostil")
+    monkeypatch.setattr(reviewers.subprocess, "run", corre)
+    assert correr("login", "codex") == 0
+    datos = json.loads(volcado.read_text(encoding="utf-8"))
+    assert datos["home"] == str(codex_home.home_dir("codex"))
+    assert "has its own credentials now" in capsys.readouterr().out
+
+    def deja_config(argv, **kwargs):
+        (codex_home.home_dir("codex") / "config.toml").write_text("", encoding="utf-8")
+        return original([sys.executable, "-c", "pass"], **kwargs)
+
+    monkeypatch.setattr(reviewers.subprocess, "run", deja_config)
+    assert correr("login", "codex") == 1
+    assert "config.toml" in capsys.readouterr().out
+
+
+def test_login_refuses_a_swapped_executable(tmp_path, monkeypatch, capsys, registro_aislado):
+    from disensor import codex_home
+
+    entry = {
+        "id": "codex", "family": "openai", "model": "m", "command": ["codex", "exec"],
+        "executable": sys.executable, "executable_hash": "sha256:" + "0" * 64,
+        "hardening": "verified", "egress": "cloud", "source": "catalog", "stdin": "pack",
+        "isolation": codex_home.POLICY,
+    }
+    reviewers.save_registry({"reviewers": [entry]})
+    assert correr("login", "codex") == 1
+    assert "not the one that was approved" in capsys.readouterr().out
+
+
+def test_the_login_parser_forwards_the_flags_the_cli_offers():
+    args = build_parser().parse_args(["reviewer", "login", "codex", "--device-auth"])
+    assert args.reviewer_action == "login" and args.device_auth and not args.with_api_key
+    args = build_parser().parse_args(["reviewer", "login", "codex", "--status"])
+    assert args.status
+
+
+def test_executable_is_only_for_a_catalogued_recipe(capsys, registro_aislado):
+    code = correr("add", "raro", "--family", "other", "--model", "m", "--yes",
+                  "--stdin", "pack", "--executable", sys.executable,
+                  "--command", sys.executable, "-c", "pass")
+    assert code == 1
+    assert "--executable is for a catalogued recipe" in capsys.readouterr().out
+    assert not registro_aislado.exists()
+
+
+def test_a_relative_or_missing_executable_override_is_refused():
+    with pytest.raises(ReviewerError, match="absolute path of an existing file"):
+        build_entry("codex", "openai", "m", CATALOG["codex"]["command"], from_catalog=True,
+                    executable="codex.exe")

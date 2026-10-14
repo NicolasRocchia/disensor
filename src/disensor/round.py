@@ -36,7 +36,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import __version__, gitctx, programs
+from . import __version__, codex_home, gitctx, programs
 from .brief import brief_text, hash_of
 from .gate import GateFailure, classify_requirement, resolve_context
 from .pack import canonical_pack_text, deliver, material_hash, pack_hash, read_material
@@ -187,15 +187,27 @@ def stale_recipe_entry(entry: dict) -> str | None:
     if entry.get("source") != "catalog":
         return None
     receta = CATALOG.get(entry.get("id"))
-    if not receta or list(entry.get("command", [])) == list(receta["command"]):
+    if not receta:
         return None
     modelo = " --model <the model your account runs>" if "{model}" in receta["command"] else ""
-    return (
-        f"the registered entry {entry.get('id')!r} was built from a catalogue recipe that has "
-        "since changed, so it would run the old command. Register it again: "
-        f"disensor reviewer remove {entry.get('id')} && disensor reviewer add "
-        f"{entry.get('id')}{modelo}"
-    )
+    if list(entry.get("command", [])) != list(receta["command"]):
+        return (
+            f"the registered entry {entry.get('id')!r} was built from a catalogue recipe that has "
+            "since changed, so it would run the old command. Register it again: "
+            f"disensor reviewer remove {entry.get('id')} && disensor reviewer add "
+            f"{entry.get('id')}{modelo}"
+        )
+    # La politica de aislamiento es parte de la receta como el argv (#108):
+    # una entrada con el comando de hoy pero sin la politica correria los
+    # flags nuevos desde el home real del dueño, y nada lo diria.
+    if receta.get("isolation") and entry.get("isolation") != receta.get("isolation"):
+        return (
+            f"the registered entry {entry.get('id')!r} predates the isolation policy "
+            f"{receta['isolation']} of its recipe, so the reviewer would run without the "
+            f"isolated home. Register it again: disensor reviewer remove {entry.get('id')} && "
+            f"disensor reviewer add {entry.get('id')}{modelo}"
+        )
+    return None
 
 
 def effective_hardening(entry: dict) -> str:
@@ -239,6 +251,15 @@ def effective_hardening(entry: dict) -> str:
     # haya en el directorio de trabajo de cada corrida: no ata ningun binario.
     if not esperado or not ruta or not programs.is_absolute(ruta):
         return "unverified"
+    # Y la politica de aislamiento, cuando la receta la tiene (#108): la
+    # prueba hostil de la maquina se corrio con el home aislado y el binario
+    # nativo. Una entrada sin la politica, o atada a un lanzador cuyo hash no
+    # cubre lo que corre, no la gano.
+    if receta.get("isolation"):
+        if entry.get("isolation") != receta.get("isolation"):
+            return "unverified"
+        if Path(ruta).suffix.lower() in codex_home.LAUNCHER_SUFFIXES:
+            return "unverified"
     return "verified" if executable_fingerprint(ruta) == esperado else "unverified"
 
 
@@ -319,6 +340,37 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
         package=package, report=report, model=entry.get("model", ""),
     )
 
+    # El cwd lo fija el runner, nunca la entrada: un directorio fuera del
+    # repositorio. Bajo una politica de aislamiento (#108) lo fija la
+    # politica, junto con el entorno y lo que agrega al argv; si la politica
+    # no se puede aplicar, el intento termina aca con su motivo y la cadena
+    # sigue con el proximo revisor. No se corre degradado.
+    lanzamiento = codex_home.Launch(argv=argv, env=None, cwd=Path(tempfile.gettempdir()))
+    politica = entry.get("isolation")
+    if politica == codex_home.POLICY:
+        try:
+            lanzamiento = codex_home.prepare(entry["id"], argv)
+        except codex_home.Refused as exc:
+            return {"id": entry["id"], "outcome": exc.outcome, "detail": exc.detail}
+    elif politica:
+        return {
+            "id": entry["id"],
+            "outcome": "not_runnable",
+            "detail": (
+                f"the entry declares an isolation policy {politica!r} this disensor does not "
+                "know how to apply. Register the reviewer again"
+            ),
+        }
+    try:
+        intento = _run_prepared(entry, lanzamiento, package, report, timeout)
+    finally:
+        lanzamiento.cleanup()
+    intento.update(lanzamiento.observed)
+    return intento
+
+
+def _run_prepared(entry: dict, lanzamiento: codex_home.Launch, package: str, report: Path, timeout: int) -> dict:
+    """Start the reviewer as prepared and classify what came back."""
     # BYTES UTF-8 y no texto: text=True codifica en la pagina local del sistema
     # y el revisor recibe algo que no puede decodificar. Ya paso: el CLI
     # contesto "input is not valid UTF-8" y la corrida parecia un fallo del
@@ -333,8 +385,9 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     reloj = _Stopwatch()
     try:
         out = subprocess.run(
-            argv,
-            cwd=str(Path(tempfile.gettempdir())),  # el cwd lo fija el runner
+            lanzamiento.argv,
+            cwd=str(lanzamiento.cwd),
+            env=lanzamiento.env,
             input=entrada,
             capture_output=True,
             timeout=timeout,
@@ -926,6 +979,9 @@ def _result(
             "model": entry.get("model") if entry else None,
             "independence": independence,
             "hardening": entry.get("hardening", "unverified") if entry else None,
+            # La politica que la entrada declara; lo que el runner aplico va
+            # en el intento, bajo `observed`, y `new --round` compara las dos.
+            "isolation": entry.get("isolation") if entry else None,
             "note": (
                 "The identity of the reviewer comes from the registry entry. The runner cannot "
                 "prove which model answered."
