@@ -32,7 +32,7 @@ from pathlib import Path
 
 from . import __version__, gitctx
 from .guide import guide_text
-from .pin import PinError, pin_text, resolve_tag_commit
+from .pin import SHA40, USES, PinError, pin_text, resolve_tag_commit
 
 # Los bloques que init escribe llevan version: sin eso, una instalacion vieja
 # se queda con el procedimiento viejo para siempre, porque init conserva byte
@@ -111,11 +111,14 @@ Read the exit code, do not guess from the text:
   not demand one. Go to the pull request; the gate will agree.
 - `4`: no reviewer answered. Run `disensor reviewer suggest`. The catalogue is
   a shortcut, not the list of what is allowed: ANY assistant with a command
-  line can review, whatever the vendor. Look at what this machine actually has,
-  read its `--help`, and register it. An entry outside the catalogue needs the
-  OWNER to approve it, so ask; do not approve it yourself. If the round says
-  the material of this repository was not authorised, stop there too: the
-  consent to send it out of this machine is the OWNER's, given with
+  line can review, whatever the vendor. Look at what this machine actually has
+  without running it: reading a program's `--help` is already running it, and
+  a candidate runs only after the OWNER approved it. Its name and its path are
+  enough to propose it with `disensor reviewer add`, which prints the entry in
+  full and stops; an entry outside the catalogue needs the OWNER to approve it
+  with `--yes`, so ask; do not approve it yourself. If the round says the
+  material of this repository was not authorised, stop there too: the consent
+  to send it out of this machine is the OWNER's, given with
   `disensor reviewer consent <id>`. Never run that command yourself, not even
   after the owner approved the round in the chat: ask them to run it.
 - `5`: the tree changed during the round. Do NOT declare. Tell the user what
@@ -123,9 +126,10 @@ Read the exit code, do not guess from the text:
 - `6`: could not decide whether a round was needed. Stop and report. This is
   never a green light.
 
-For a plan or an architecture decision, pass `--gate plan --material <file>`:
-that material does not live in the git range, and the scope cannot trigger it.
-Deciding that a plan crosses the impact bar is your judgement.
+For a plan or an architecture decision, pass `--gate plan --material <file>` or
+`--gate architecture --material <file>`: that material does not live in the git
+range, and the scope cannot trigger it. Deciding that a plan crosses the impact
+bar is your judgement.
 
 ## 3. Read the report and verify
 
@@ -136,16 +140,21 @@ what is real, refute what is not, with evidence.
 ## 4. If you changed anything, run the round again
 
 The rule is the freshness of the material, not the verdict of the report. If
-you incorporated even a minor finding, HEAD moved and the previous round no
-longer covers what is going to be merged. `disensor new --round` will refuse
-the stale result, which is the mechanism working, not an error to route around.
+you incorporated even a minor finding, the material moved and the previous
+round no longer covers what is going to be merged. In a diff round HEAD moved,
+and `disensor new --round` will refuse the stale result, which is the mechanism
+working, not an error to route around. In a plan or an architecture round the
+document changes and HEAD does not, so the CLI cannot tell: there, repeating
+the round is on you.
 
 ## 5. Declare
 
 ```
-disensor new --gate diff --level <A|B|C> --round <result>
+disensor new --gate <plan|diff|architecture> --level <A|B|C> --round <result>
 ```
 
+The gate is the one the round ran: a result from a plan round declared as
+`diff` is refused, because the artifact identifies the review that happened.
 It arrives prefilled with what the runner observed: reviewer, anchors, hashes,
 the reviewer's wall time as `reviewer_seconds` in the extension space, and the
 residue items that a degraded round owes. `metrics.extra_time_sec` is the
@@ -155,8 +164,12 @@ their terminal states and the residue with what stayed open. `disensor guide`
 explains every field. Do not invent findings or states: the artifact declares
 what happened, not what should have happened.
 
-Then `disensor validate` until it says VALID, and `disensor gate --no-comment`
-green. The declaration goes in its own commit, never mixed with code.
+Then `disensor validate` until it says VALID. The declaration goes in its own
+commit, never mixed with code, and the gate reads it from that commit, not from
+the working tree: commit it first, then run
+`disensor gate --no-comment --base <target branch> --head HEAD` (outside
+GitHub Actions the range has to be given) and get it green before the pull
+request.
 
 ## 6. The pull request
 
@@ -563,20 +576,60 @@ def _upgrade_workflow(root: Path, report: list[str]) -> None:
     path = root / ".github" / "workflows" / "disensor.yml"
     if not path.exists():
         return
+    rel = path.relative_to(root)
     texto = path.read_bytes().decode("utf-8")
-    if f"@v{__version__}" in texto:
-        report.append(f"current {path.relative_to(root)}")
-        return
+    # Un workflow que quedo en el TAG de esta version (init sin red) no esta
+    # al dia: un tag se puede mover, y el README exige el pin por SHA. Antes
+    # se informaba `current` y se volvia sin resolver nada, asi que esa
+    # instalacion seguia en el tag aunque ahora hubiera red, y sin el aviso
+    # que manda a `disensor pin` (#121).
+    en_tag_actual = f"@v{__version__}" in texto
     try:
         sha = resolve_tag_commit(__version__)
     except PinError as exc:
-        report.append(
-            f"WARNING {path.relative_to(root)}: the pinned gate is older than this CLI, and it "
-            f"will reject the schema this version emits. Could not resolve the new pin ({exc}) "
-            f"Run `disensor pin` when you have network"
-        )
+        if en_tag_actual:
+            report.append(
+                f"WARNING {rel}: still on tag v{__version__}, not pinned to its commit SHA. "
+                f"Could not resolve it ({exc}) Run `disensor pin` when you have network"
+            )
+        elif _pinned_to_current(texto):
+            # Avisar que el gate es mas viejo que el CLI, y que va a rechazar
+            # el esquema, era falso para el estado final que init y pin
+            # producen (ronda 1 de #121). Pero el comentario lo escribe pin y
+            # lo edita cualquiera, y un SHA copiado a mano puede estar mal
+            # (pin.py): sin red nadie confirma que ese commit sea el del tag,
+            # asi que no se informa `current`, se avisa que esta sin verificar
+            # y se manda a pin (ronda 2 de #121).
+            report.append(
+                f"WARNING {rel}: pinned by SHA with the `# v{__version__}` comment, but nothing "
+                f"offline confirms that commit is the one tag v{__version__} points at ({exc}) "
+                f"Run `disensor pin` when you have network to confirm it"
+            )
+        else:
+            report.append(
+                f"WARNING {rel}: the pinned gate is older than this CLI, and it "
+                f"will reject the schema this version emits. Could not resolve the new pin ({exc}) "
+                f"Run `disensor pin` when you have network"
+            )
         return
     nuevo, matches = pin_text(texto, sha, __version__)
-    if matches:
-        path.write_bytes(nuevo.encode("utf-8"))
-        report.append(f"upgraded {path.relative_to(root)} (gate pinned to {__version__})")
+    if not matches:
+        return
+    if nuevo == texto:
+        report.append(f"current {rel} (pinned to {sha}, the commit of tag v{__version__})")
+        return
+    path.write_bytes(nuevo.encode("utf-8"))
+    report.append(f"upgraded {rel} (pinned to {sha}, the commit of tag v{__version__})")
+
+
+def _pinned_to_current(texto: str) -> bool:
+    """A `uses:` line with a 40-hex SHA and the `# v<this version>` comment `pin` writes.
+
+    Syntax only: the comment is editable metadata, so this says what the line
+    claims, never that the SHA is the commit of that tag. Only the resolved tag
+    can say that, and offline the caller reports the claim as unverified.
+    """
+    for m in USES.finditer(texto):
+        if SHA40.fullmatch(m.group("ref")) and m.group("tail").strip() == f"# v{__version__}":
+            return True
+    return False

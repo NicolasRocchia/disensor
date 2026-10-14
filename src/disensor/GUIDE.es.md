@@ -1,14 +1,15 @@
 # Cómo se llena una declaración de residuo (residue/v0.4)
 
 > **Traducción.** La versión normativa es [`GUIDE.md`](GUIDE.md), en inglés, que
-> es la que imprime `disensor guide` y la que `disensor init` instala como
-> skill. Si las dos difieren, manda la inglesa: dos guías normativas harían que
-> el mismo evento se llenara distinto según el idioma del repositorio.
+> es la que imprime `disensor guide`. Si las dos difieren, manda la inglesa:
+> dos guías normativas harían que el mismo evento se llenara distinto según el
+> idioma del repositorio.
 
 Esta es la traducción castellana de la guía para llenar el artefacto que
 `disensor new` crea bajo `.residue/`. Viaja adentro del paquete junto a la
-inglesa, que es la que `disensor guide` imprime y la que `disensor init`
-instala como skill de Claude Code.
+inglesa, que es la que `disensor guide` imprime, después del runbook del
+evento. Lo que `disensor init` instala como skill de Claude Code es ese
+runbook, no esta guía; la skill manda acá para cada campo.
 
 El validador (`disensor validate`) hace cumplir buena parte de lo que está
 descrito acá, pero no todo: donde hay una regla del validador, esta guía la
@@ -21,6 +22,15 @@ acá. Llenar el artefacto bien la primera vez sale más barato que iterar contra
 sus errores.
 
 ## La ronda, y después la declaración
+
+Este es el camino sin runner: una persona le entrega la consigna y el material
+al revisor y trae el informe de vuelta. Un agente no lo hace a mano, y el
+runbook lo dice. Con `disensor round`, los pasos 1 y 3 son un comando cada
+uno: el runner empaqueta la consigna con el material, corre al revisor y ancla
+el resultado, y `disensor new --gate <plan|diff|architecture> --level <A|B|C>
+--round <resultado>` crea la declaración prellenada con lo que esa ronda
+observó (revisor, anclas, hashes), y no con el HEAD que haya cuando la corras.
+Los pasos 2, 4, 5 y 6 son los mismos en los dos caminos.
 
 1. `disensor prompt --gate <plan|diff|architecture>` imprime la consigna adversarial.
    Entregásela, junto con el material bajo revisión, a un revisor de OTRA familia
