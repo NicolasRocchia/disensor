@@ -325,13 +325,13 @@ def test_the_canonical_shape_is_pinned_to_the_result_version():
     from disensor.round import RESULT_VERSION
     from disensor.template import ROUND_RESULT_ORDINAL, ROUND_RESULT_VERSION
 
-    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v3"
-    assert ROUND_RESULT_ORDINAL == 3
+    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v4"
+    assert ROUND_RESULT_ORDINAL == 4
     # Brief inyectado: solo la forma entra al hash.
     diff = canonical_pack_text("diff", repository="r", base="a", head="b", brief="B\n")
     plan = canonical_pack_text("plan", repository="r", material_text="M\n", brief="B\n")
-    assert pack_hash(diff) == "sha256:86dbbb566e3d05b3b1118fcbe9e3743118fe3cf3e44563715e276c490d7e42b5"
-    assert pack_hash(plan) == "sha256:4ec6671f257cc4248e7159799d286c056c02e98e0f24a9143b2e996eebe821d7"
+    assert pack_hash(diff) == "sha256:56e47b3a13cf876de3e910a8ccbd1bdf56a892dede91207dff714cf7e731f914"
+    assert pack_hash(plan) == "sha256:e20c8e796d63c0193a40da06cfdf0db2c26428a971635b27689fcee2f82d843f"
 
 
 def test_the_confinement_distinguishes_the_addressee():

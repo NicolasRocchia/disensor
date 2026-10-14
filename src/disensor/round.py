@@ -51,14 +51,17 @@ from .reviewers import (
 # v2: `pack_hash` es canonico. El v1 hasheaba el paquete tal como se entrego,
 # con la ruta local del worktree, la rama y la ruta temporal del informe
 # adentro, asi que nadie fuera de esa maquina podia recomputarlo (#73).
+# v3: el preambulo distingue destinatario (#91). v4: el preambulo dice como
+# correr la suite sin dejar nada nuevo adentro del checkout, ni siquiera un
+# archivo ignorado, y que una escritura que igual ocurrio se declara (#88).
 # El ordinal FIJA LA FORMA del texto canonico: quien recomputa el hash
 # necesita esta forma y el brief que `prompt_hash` nombra, y nada mas. Si la
-# forma cambia, esto sube a v3 junto con `ROUND_RESULT_ORDINAL` en
-# template.py; el golden de tests/test_pack.py rompe si se cambia una sola.
+# forma cambia, esto sube junto con `ROUND_RESULT_ORDINAL` en template.py;
+# el golden de tests/test_pack.py rompe si se cambia una sola.
 # Los tiempos observados por intento (#98) no tocan la forma del paquete: son
 # campos aditivos de `observed`, y `new --round` tolera que un resultado
 # guardado antes no los traiga. Por eso no suben el ordinal.
-RESULT_VERSION = "disensor/round-result/v3"
+RESULT_VERSION = "disensor/round-result/v4"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
 # tener que leer prosa para saber que paso, y "no se requiere ronda" no puede

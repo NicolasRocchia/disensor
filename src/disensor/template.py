@@ -146,6 +146,16 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
                 "(#91), so the pack_hash it records is not the one this disensor would build "
                 "for the same event. Run the round again with this disensor"
             )
+        if version == "disensor/round-result/v3":
+            # El preambulo cambio otra vez (#88): dice como correr la suite sin
+            # dejar nada nuevo adentro del checkout. Mismo criterio que v2: el
+            # pack_hash de un resultado v3 es de una forma que este disensor ya
+            # no arma, asi que no se convierte y la ronda se corre de nuevo.
+            raise RoundMismatch(
+                "the result is a v3 round: the confinement of the package changed after 0.12.1 "
+                "(#88), so the pack_hash it records is not the one this disensor would build "
+                "for the same event. Run the round again with this disensor"
+            )
         raise RoundMismatch(
             f"the result declares {version!r} and this disensor reads {ROUND_RESULT_VERSION}"
         )
@@ -310,8 +320,8 @@ FILL_HARDENING = (
     "FILL_IN: the adapter's hardening is not verified, so the material under review could "
     "have addressed the reviewer before the brief did. Say what you did about it."
 )
-ROUND_RESULT_VERSION = "disensor/round-result/v3"
-ROUND_RESULT_ORDINAL = 3
+ROUND_RESULT_VERSION = "disensor/round-result/v4"
+ROUND_RESULT_ORDINAL = 4
 
 
 def _reviewer_seconds(resultado: dict) -> int | None:
