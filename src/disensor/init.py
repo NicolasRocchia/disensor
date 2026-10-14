@@ -576,20 +576,34 @@ def _upgrade_workflow(root: Path, report: list[str]) -> None:
     path = root / ".github" / "workflows" / "disensor.yml"
     if not path.exists():
         return
+    rel = path.relative_to(root)
     texto = path.read_bytes().decode("utf-8")
-    if f"@v{__version__}" in texto:
-        report.append(f"current {path.relative_to(root)}")
-        return
+    # Un workflow que quedo en el TAG de esta version (init sin red) no esta
+    # al dia: un tag se puede mover, y el README exige el pin por SHA. Antes
+    # se informaba `current` y se volvia sin resolver nada, asi que esa
+    # instalacion seguia en el tag aunque ahora hubiera red, y sin el aviso
+    # que manda a `disensor pin` (#121).
+    en_tag_actual = f"@v{__version__}" in texto
     try:
         sha = resolve_tag_commit(__version__)
     except PinError as exc:
-        report.append(
-            f"WARNING {path.relative_to(root)}: the pinned gate is older than this CLI, and it "
-            f"will reject the schema this version emits. Could not resolve the new pin ({exc}) "
-            f"Run `disensor pin` when you have network"
-        )
+        if en_tag_actual:
+            report.append(
+                f"WARNING {rel}: still on tag v{__version__}, not pinned to its commit SHA. "
+                f"Could not resolve it ({exc}) Run `disensor pin` when you have network"
+            )
+        else:
+            report.append(
+                f"WARNING {rel}: the pinned gate is older than this CLI, and it "
+                f"will reject the schema this version emits. Could not resolve the new pin ({exc}) "
+                f"Run `disensor pin` when you have network"
+            )
         return
     nuevo, matches = pin_text(texto, sha, __version__)
-    if matches:
-        path.write_bytes(nuevo.encode("utf-8"))
-        report.append(f"upgraded {path.relative_to(root)} (gate pinned to {__version__})")
+    if not matches:
+        return
+    if nuevo == texto:
+        report.append(f"current {rel} (pinned to {sha}, the commit of tag v{__version__})")
+        return
+    path.write_bytes(nuevo.encode("utf-8"))
+    report.append(f"upgraded {rel} (pinned to {sha}, the commit of tag v{__version__})")

@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from disensor import __version__
 from disensor.cli import build_parser
 from disensor.guide import guide_text
 from disensor.init import (
@@ -164,6 +165,43 @@ def test_the_pinned_gate_is_warned_about_when_it_is_older(repo: Path, monkeypatc
     correr(repo, monkeypatch, "--upgrade")
     salida = capsys.readouterr().out
     assert "WARNING" in salida and "disensor pin" in salida
+
+
+PINNED_SHA = "693f9f5b" + "0" * 32
+WORKFLOW_REL = str(Path(".github") / "workflows" / "disensor.yml")
+
+
+def test_a_workflow_left_on_the_current_tag_is_pinned_once_there_is_network(repo: Path, monkeypatch, capsys):
+    """init sin red deja el workflow en el tag de esta version. --upgrade lo
+    encontraba, informaba `current` y volvia sin resolver el SHA, asi que la
+    instalacion seguia en el tag con red disponible y sin el aviso que manda
+    a `disensor pin` (#121). Un tag se puede mover; el README exige el SHA.
+    """
+    wf = repo / ".github" / "workflows" / "disensor.yml"
+    wf.parent.mkdir(parents=True)
+    en_tag = f"jobs:\n  gate:\n    steps:\n      - uses: NicolasRocchia/disensor@v{__version__}\n"
+    wf.write_bytes(en_tag.encode("utf-8"))
+
+    # Sin red (la fixture): queda en el tag, y el aviso lo dice y manda a pin.
+    assert correr(repo, monkeypatch, "--upgrade") == 0
+    salida = capsys.readouterr().out
+    assert f"WARNING {WORKFLOW_REL}: still on tag v{__version__}" in salida
+    assert "disensor pin" in salida and f"current {WORKFLOW_REL}" not in salida
+    assert wf.read_bytes().decode("utf-8") == en_tag
+
+    # Con red: se fija al commit del tag, como lo habria hecho init.
+    monkeypatch.setattr("disensor.init.resolve_tag_commit", lambda v, runner=None: PINNED_SHA)
+    assert correr(repo, monkeypatch, "--upgrade") == 0
+    salida = capsys.readouterr().out
+    assert f"upgraded {WORKFLOW_REL} (pinned to {PINNED_SHA}, the commit of tag v{__version__})" in salida
+    texto = wf.read_bytes().decode("utf-8")
+    assert f"NicolasRocchia/disensor@{PINNED_SHA}  # v{__version__}" in texto
+    assert f"@v{__version__}\n" not in texto
+
+    # Y ya pineado, la siguiente corrida lo dice sin tocarlo.
+    assert correr(repo, monkeypatch, "--upgrade") == 0
+    assert f"current {WORKFLOW_REL} (pinned to {PINNED_SHA}" in capsys.readouterr().out
+    assert wf.read_bytes().decode("utf-8") == texto
 
 
 def test_upgrade_with_only_skill_leaves_claude_md_untouched(repo: Path, monkeypatch, capsys):
