@@ -1,0 +1,76 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c7c38b0e-0e2c-4422-9a1e-3671535be7bd",
+    "created_at": "2026-10-14T14:35:22-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "f827b2a7ea0fa96169eee77a455fa337bf8fcac7",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "425d96e9746c9e0e32df979569bc3c9afc485bac"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El revisor corrió la suite completa (670 pasadas, 7 salteadas) y las tres sondas de --check (diff con el rango, plan y architecture) con PYTHONPATH=src, y los códigos coincidieron con lo que el README dice. Lo que ni él ni el runner registran: pytest reescribió .pytest_cache/v/cache/nodeids adentro del checkout a las 17:34:04Z, durante la corrida (17:31:31Z a 17:34:50Z), en un directorio que git ignora y que la ronda 2 del #137 había creado minutos antes (17:21:44Z); el git status del runner no ve rutas ignoradas y el informe del revisor no lo declara. Es el caso de #88, abierto. Ningún archivo versionado cambió: verified: true dice eso y no más. El generador corrió la suite completa con -p no:cacheprovider antes del commit y verificó en vivo, con el código del checkout, las siete afirmaciones del párrafo nuevo (rango real, rango vacío, sin rango, plan, árbol sucio, registro vacío, --generator-family obligatorio)."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 282
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:47788be2ea229ccbca6b3c82c23d42e802bee396af81de31ce5dfe957030500d",
+      "report_hash": "sha256:26c6aafa0b4998231e3960710a414fbcccf0b1543009a8be940a6ea783b928a5",
+      "reviewer_seconds": 199
+    }
+  }
+}
