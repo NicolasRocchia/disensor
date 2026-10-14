@@ -32,7 +32,7 @@ from pathlib import Path
 
 from . import __version__, gitctx
 from .guide import guide_text
-from .pin import PinError, pin_text, resolve_tag_commit
+from .pin import SHA40, USES, PinError, pin_text, resolve_tag_commit
 
 # Los bloques que init escribe llevan version: sin eso, una instalacion vieja
 # se queda con el procedimiento viejo para siempre, porque init conserva byte
@@ -592,6 +592,15 @@ def _upgrade_workflow(root: Path, report: list[str]) -> None:
                 f"WARNING {rel}: still on tag v{__version__}, not pinned to its commit SHA. "
                 f"Could not resolve it ({exc}) Run `disensor pin` when you have network"
             )
+        elif _pinned_to_current(texto):
+            # Sin red no se puede confirmar que ese SHA sea el commit del tag,
+            # pero avisar que el gate es mas viejo que el CLI, y que va a
+            # rechazar el esquema, era falso para el estado final que init y
+            # pin producen (hallazgo de la ronda de #121).
+            report.append(
+                f"current {rel} (pinned by SHA with the `# v{__version__}` comment `disensor pin` "
+                f"writes; the commit could not be confirmed offline: {exc})"
+            )
         else:
             report.append(
                 f"WARNING {rel}: the pinned gate is older than this CLI, and it "
@@ -607,3 +616,11 @@ def _upgrade_workflow(root: Path, report: list[str]) -> None:
         return
     path.write_bytes(nuevo.encode("utf-8"))
     report.append(f"upgraded {rel} (pinned to {sha}, the commit of tag v{__version__})")
+
+
+def _pinned_to_current(texto: str) -> bool:
+    """A `uses:` line with a 40-hex SHA and the `# v<this version>` comment `pin` writes."""
+    for m in USES.finditer(texto):
+        if SHA40.fullmatch(m.group("ref")) and m.group("tail").strip() == f"# v{__version__}":
+            return True
+    return False

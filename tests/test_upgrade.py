@@ -204,6 +204,26 @@ def test_a_workflow_left_on_the_current_tag_is_pinned_once_there_is_network(repo
     assert wf.read_bytes().decode("utf-8") == texto
 
 
+def test_a_workflow_already_pinned_to_the_current_version_is_not_called_older_offline(repo: Path, monkeypatch, capsys):
+    """Sin red, todo lo que no estuviera literalmente en el tag tomaba la rama del
+    gate mas viejo que el CLI: un workflow pineado al commit de esta misma version,
+    que es el estado final que init y pin producen, recibia el aviso de que el gate
+    iba a rechazar el esquema. Lo cazo la ronda adversarial de #121."""
+    wf = repo / ".github" / "workflows" / "disensor.yml"
+    wf.parent.mkdir(parents=True)
+    pineado = f"jobs:\n  gate:\n    steps:\n      - uses: NicolasRocchia/disensor@{PINNED_SHA}  # v{__version__}\n"
+    wf.write_bytes(pineado.encode("utf-8"))
+    assert correr(repo, monkeypatch, "--upgrade") == 0  # la fixture deja la resolucion sin red
+    salida = capsys.readouterr().out
+    assert f"current {WORKFLOW_REL}" in salida and "could not be confirmed offline" in salida
+    assert "older than this CLI" not in salida and "WARNING" not in salida
+    assert wf.read_bytes().decode("utf-8") == pineado
+    # Un SHA con el comentario de otra version sigue siendo el gate viejo.
+    wf.write_bytes(pineado.replace(f"# v{__version__}", "# v0.7.0").encode("utf-8"))
+    correr(repo, monkeypatch, "--upgrade")
+    assert "older than this CLI" in capsys.readouterr().out
+
+
 def test_upgrade_with_only_skill_leaves_claude_md_untouched(repo: Path, monkeypatch, capsys):
     """El camino de migracion es el que usa quien ya tenia una instalacion vieja.
 
