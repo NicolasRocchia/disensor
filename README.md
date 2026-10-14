@@ -254,7 +254,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.12.1
+      - uses: NicolasRocchia/disensor@v0.13.0
 ```
 
 The gate validates the declarations **the PR adds**, applies the policy and
@@ -811,7 +811,7 @@ it says.
 
 ## Status
 
-v0.12.1, on **residue/v0.4**. What each version changed is in
+v0.13.0, on **residue/v0.4**. What each version changed is in
 [CHANGELOG.md](https://github.com/NicolasRocchia/disensor/blob/main/CHANGELOG.md),
 newest first.
 
