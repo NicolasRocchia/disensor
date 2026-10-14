@@ -11,6 +11,62 @@ sentence ends with a full stop, and the references to README sections became
 links. The versions that paragraph did not describe (0.9.1, 0.6.5, 0.6.2,
 0.3.0 and 0.1.0) have no entry, and there was no 0.8.0.
 
+## 0.13.0 (2026-10-14)
+
+This version is about what the reviewer may write, what `init` leaves in the
+repository and what the README shows, still on residue/v0.4. The brief and the
+pack say the same thing about writes: the suite runs so that it leaves nothing
+new inside the repository, not even a file git ignores, and a write that
+happened anyway is declared as an execution gap; the canonical text of the pack
+changed, so the round result moves to v4, a v3 result is refused with the
+reason and the `prompt_hash` of the three gates changes
+([#88](https://github.com/NicolasRocchia/disensor/issues/88)). The `claude`
+recipe of the catalogue starts with `--safe-mode`, still unverified, and a
+registered entry whose command no longer matches today's recipe is left out of
+the chain with the instruction to register it again
+([#116](https://github.com/NicolasRocchia/disensor/issues/116)).
+`reviewer suggest` prints the notes of each recipe it finds
+([#112](https://github.com/NicolasRocchia/disensor/issues/112), in part), and
+`round --check` and its exit codes 0, 3 and 6 enter what the README promises,
+while the lines `round` prints on standard error stay without promise
+([#78](https://github.com/NicolasRocchia/disensor/issues/78)). The runbook
+`init` writes asks for the stopwatch of the cycle and defines `extra_time_sec`;
+the block moves to v0.13 and the blocks with the v0.11 mark are registered by
+hash so that `init --upgrade` replaces them; the README publishes the measured
+cost of the corpus up to 2026-10-12, with a test that compares each number with
+`.residue/`, and the examples of `spec/` drop the time and token figures the
+corpus did not have
+([#114](https://github.com/NicolasRocchia/disensor/issues/114)). The runbook no
+longer runs a candidate reviewer before the owner's approval, closes with the
+gate of the round and runs the gate with a range; the guide says that `init`
+installs the runbook and that its manual round is the path without a runner;
+`init --upgrade` pins the workflow left on the tag of the current version and,
+without network, a SHA with this version's comment is warned about instead of
+reported as current
+([#121](https://github.com/NicolasRocchia/disensor/issues/121)). The two
+READMEs show an extract of a real declaration from `.residue/` as the example
+of the artifact, with a test that each value shown is the file's, in its order
+([#111](https://github.com/NicolasRocchia/disensor/issues/111),
+[#123](https://github.com/NicolasRocchia/disensor/pull/123)), and the honest
+limit cites the Hide Pending experiment: in 71 of 100 records with a planted
+gap the model declared that nothing was left open, and 69 of those 71 pass the
+schema fragment and the four rules the experiment ran
+([#137](https://github.com/NicolasRocchia/disensor/issues/137)). `tools/`
+publishes the three measurement scripts behind the numbers cited to the W3C
+community group
+([#109](https://github.com/NicolasRocchia/disensor/pull/109)), the emitter of
+the `.residue/` run as v0.1 reports and of the MUST-FAIL vectors as 5.5 records
+([#119](https://github.com/NicolasRocchia/disensor/pull/119),
+[#122](https://github.com/NicolasRocchia/disensor/pull/122),
+[#124](https://github.com/NicolasRocchia/disensor/pull/124),
+[#132](https://github.com/NicolasRocchia/disensor/pull/132)) and the script
+behind the 37/24 (10) case
+([#131](https://github.com/NicolasRocchia/disensor/pull/131)); `docs/notes/`
+publishes the protocol, the runner and the scorer of the public-reading
+measurement, with the runs of Codex and Claude
+([#110](https://github.com/NicolasRocchia/disensor/issues/110), in part;
+[#125](https://github.com/NicolasRocchia/disensor/issues/125)).
+
 ## 0.12.1 (2026-09-29)
 
 This version changes wording only, still on residue/v0.4. The README, the

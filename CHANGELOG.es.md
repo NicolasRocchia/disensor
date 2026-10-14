@@ -11,6 +11,63 @@ oración cierra con punto, y las referencias a secciones del README pasaron a
 ser enlaces. Las versiones que ese párrafo no describía (0.9.1, 0.6.5, 0.6.2,
 0.3.0 y 0.1.0) no tienen entrada, y no hubo 0.8.0.
 
+## 0.13.0 (2026-10-14)
+
+Esta versión es sobre lo que el revisor puede escribir, lo que `init` deja en
+el repositorio y lo que el README muestra, todavía sobre residue/v0.4. La
+consigna y el paquete dicen lo mismo sobre las escrituras: la suite se corre de
+modo que no deje nada nuevo adentro del repositorio, ni siquiera un archivo que
+git ignora, y una escritura que igual ocurrió se declara como hueco de
+ejecución; el texto canónico del paquete cambió, así que el resultado de la
+ronda pasa a v4, un resultado v3 se rechaza con la razón y el `prompt_hash` de
+las tres compuertas cambia
+([#88](https://github.com/NicolasRocchia/disensor/issues/88)). La receta
+`claude` del catálogo arranca con `--safe-mode`, todavía sin verificar, y una
+entrada registrada cuyo comando ya no coincide con la receta de hoy queda fuera
+de la cadena con la instrucción de registrarla de nuevo
+([#116](https://github.com/NicolasRocchia/disensor/issues/116)).
+`reviewer suggest` imprime las notas de cada receta que encuentra
+([#112](https://github.com/NicolasRocchia/disensor/issues/112), en parte), y
+`round --check` y sus códigos de salida 0, 3 y 6 entran en lo que el README
+promete, mientras las líneas que `round` imprime por la salida de error quedan
+sin promesa ([#78](https://github.com/NicolasRocchia/disensor/issues/78)). El
+runbook que escribe `init` pide el cronómetro del ciclo y define
+`extra_time_sec`; el bloque pasa a v0.13 y los bloques con la marca v0.11
+quedan registrados por hash para que `init --upgrade` los reemplace; el README
+publica el costo medido del corpus hasta el 2026-10-12, con una prueba que
+compara cada número con `.residue/`, y los ejemplos de `spec/` dejan de llevar
+las cifras de tiempo y tokens que el corpus no tenía
+([#114](https://github.com/NicolasRocchia/disensor/issues/114)). El runbook ya
+no ejecuta a un revisor candidato antes de la aprobación del dueño, cierra con
+la compuerta de la ronda y corre el gate con rango; la guía dice que `init`
+instala el runbook y que su ronda manual es el camino sin runner;
+`init --upgrade` pinea el workflow que quedó en el tag de la versión actual y,
+sin red, un SHA con el comentario de esta versión se avisa en vez de informarse
+como al día ([#121](https://github.com/NicolasRocchia/disensor/issues/121)).
+Los dos README muestran un recorte de una declaración real de `.residue/` como
+ejemplo del artefacto, con una prueba de que cada valor que se ve es el del
+archivo, en su orden
+([#111](https://github.com/NicolasRocchia/disensor/issues/111),
+[#123](https://github.com/NicolasRocchia/disensor/pull/123)), y el límite
+honesto cita el experimento Hide Pending: en 71 de 100 registros con un hueco
+plantado el modelo declaró que no quedaba nada abierto, y 69 de esos 71 pasan
+el fragmento de esquema y las cuatro reglas que corrió el experimento
+([#137](https://github.com/NicolasRocchia/disensor/issues/137)). `tools/`
+publica los tres scripts de medición detrás de los números citados en el grupo
+comunitario del W3C
+([#109](https://github.com/NicolasRocchia/disensor/pull/109)), el emisor de la
+corrida de `.residue/` como reportes v0.1 y de los vectores MUST-FAIL como
+registros 5.5 ([#119](https://github.com/NicolasRocchia/disensor/pull/119),
+[#122](https://github.com/NicolasRocchia/disensor/pull/122),
+[#124](https://github.com/NicolasRocchia/disensor/pull/124),
+[#132](https://github.com/NicolasRocchia/disensor/pull/132)) y el script
+detrás del caso 37/24 (10)
+([#131](https://github.com/NicolasRocchia/disensor/pull/131)); `docs/notes/`
+publica el protocolo, el corredor y el puntuador de la medición de lectura
+pública, con las corridas de Codex y de Claude
+([#110](https://github.com/NicolasRocchia/disensor/issues/110), en parte;
+[#125](https://github.com/NicolasRocchia/disensor/issues/125)).
+
 ## 0.12.1 (2026-09-29)
 
 Esta versión cambia solo redacción, todavía sobre residue/v0.4. El README, la

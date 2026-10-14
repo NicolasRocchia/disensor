@@ -1,0 +1,83 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "f7d5a92d-2df0-4e64-979b-95b4ab324475",
+    "created_at": "2026-10-14T18:11:55-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "cbfcfdbf861fe4cbd0c1831d7609bcd824cfb5dd",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "3e1b9ca920b4144e69d9517d5d713228b64c2aae"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas de la suite no se forzaron: tres smoke de endurecimiento (test_hardening.py, opt-in con costo, que ejercitan las recetas y que este diff no toca), el bit de ejecución en POSIX (test_programs.py, corre en el CI) y tres índices de vectores (test_vectors.py). El revisor corrió el resto de la suite sobre cbfcfdb con PYTHONDONTWRITEBYTECODE=1, PYTHONPYCACHEPREFIX y TMP fuera del checkout y -p no:cacheprovider (674 pasadas, 7 salteadas, 110 s), y el generador antes de cada commit con -p no:cacheprovider (674 pasadas, 7 salteadas; Windows 11, Python 3.14.2), incluidas las que atan la versión, los pines y la forma de los dos changelogs. La correspondencia entre cada frase de la entrada 0.13.0 del changelog y lo que hizo cada uno de los 18 PR mergeados desde v0.12.1 la verificó solo el generador, contra git log v0.12.1..main y el cuerpo de cada PR; el revisor leyó el diff entero y no objetó el texto, pero no recomputó esa correspondencia PR por PR."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Lo publicado no se puede observar antes de publicarlo: el tag v0.13.0, el paquete en PyPI, una instalación limpia de disensor==0.13.0, la Action en el tag y el Release. Este diff introduce esas referencias (los pines de los dos README, docs/ejemplo-workflow.yml y docs/ejemplo-gitlab-ci.yml); la publicación la hace el push del tag después del merge, con el sí explícito del dueño, y hasta entonces los ejemplos de copiar y pegar apuntan a un tag que no existe (la lista local de tags termina en v0.12.1), como señaló el revisor. Lo que sí se ejecutó sobre el head exacto (cbfcfdb): clon limpio con core.autocrlf=false fuera del árbol, python -m build 1.5.0 con la salida fuera del checkout, wheel y sdist con Version 0.13.0 en METADATA y PKG-INFO, GUIDE.md, prompts/_common.md y report.html dentro del wheel, twine check PASSED en los dos (wheel sha256 a4a17cd429d32157fd3d3382186dd62424186d13288af43e6d2c568940e5697f, sdist 8dad74728f8b553f5507f448803161e9fb0ebc667d1cf50659088db8c442d0c4). Después quedan por mirar: que el tag resuelva al commit del merge, el build y el humo en un clon limpio de ese commit, una instalación limpia desde PyPI y los hashes de lo que suba el workflow contra el build local. El pin del auto-gate de ci.yml sigue en la 0.12.0 por la convención del README: gate.py, rules.py y los dos residue.schema.json no cambiaron desde v0.12.1."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 330
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:b0e8e44b63a9e9e1e03c088260c382d81836673f5acc37f24dfede88158822f7",
+      "report_hash": "sha256:185bb9c2297cf8a0800abe7b1414f1164c567f1d2f946702f3a503184d92268d",
+      "reviewer_seconds": 191
+    }
+  }
+}
