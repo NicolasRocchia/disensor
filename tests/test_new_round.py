@@ -50,7 +50,10 @@ def resultado_de(repo: Path, informe: Path, **cambios) -> dict:
         "repository": "github.com/ejemplo/repo",
         "anchors": {"target_tip_oid": head, "merge_base_oid": head, "head_oid": head},
         "observed": {
-            "attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family"}],
+            # El intento exitoso registra la politica de aislamiento que el
+            # runner aplico (#108): sin ese dato, `verified` no se conserva.
+            "attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family",
+                          "isolation": "codex_home/1"}],
             "report_path": str(informe),
             "report_hash": "sha256:" + hashlib.sha256(informe.read_bytes()).hexdigest(),
             "tree_unchanged": True,
@@ -355,3 +358,75 @@ def test_only_the_successful_attempts_seconds_count(repo: Path, informe: Path):
     ]})
     a = from_round(r, "diff", "B", "full", repo)
     assert "reviewer_seconds" not in a["extensions"]["dev.disensor.round"]
+
+
+# --- La evidencia de la politica de aislamiento (#108) ---------------------------
+
+def test_verified_needs_the_isolation_evidence_of_the_recipe(repo: Path, informe: Path):
+    """Un resultado de un runner anterior declara `verified` sin haber aislado
+    nada: no se convierte, se degrada, con su item diciendo por que."""
+    from disensor.template import FILL_HARDENING_EVIDENCE
+
+    sin_evidencia = resultado_de(repo, informe, observed={
+        "attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family"}],
+    })
+    a = from_round(sin_evidencia, "diff", "B", "full", repo)
+    r = a["actors"]["reviewers"][0]
+    assert r["hardening"] == "unverified"
+    items = a["residue"]["items"]
+    assert [i["class"] for i in items] == ["reviewer_hardening_gap"]
+    assert items[0]["description"] == FILL_HARDENING_EVIDENCE
+
+    otra_politica = resultado_de(repo, informe, observed={
+        "attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family",
+                      "isolation": "codex_home/0"}],
+    })
+    r = from_round(otra_politica, "diff", "B", "full", repo)["actors"]["reviewers"][0]
+    assert r["hardening"] == "unverified"
+
+
+def test_a_verified_claim_for_a_reviewer_outside_the_catalogue_is_not_kept(repo: Path, informe: Path):
+    ajeno = resultado_de(repo, informe, declared={"reviewer_id": "propio", "hardening": "verified"},
+                         observed={"attempts": [{"id": "propio", "outcome": "ok",
+                                                 "independence": "cross_family",
+                                                 "isolation": "codex_home/1"}]})
+    a = from_round(ajeno, "diff", "B", "full", repo)
+    assert a["actors"]["reviewers"][0]["hardening"] == "unverified"
+    assert [i["class"] for i in a["residue"]["items"]] == ["reviewer_hardening_gap"]
+
+
+def test_the_reviewer_and_its_item_come_from_one_value(repo: Path, informe: Path):
+    """Consultado dos veces, el revisor podia decir `verified` mientras el item
+    se abria, o al reves (ronda 2 del plan de #108)."""
+    for observado in (
+        {"attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family",
+                       "isolation": "codex_home/1"}]},
+        {"attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family"}]},
+    ):
+        a = from_round(resultado_de(repo, informe, observed=observado), "diff", "B", "full", repo)
+        valor = a["actors"]["reviewers"][0]["hardening"]
+        items = a.get("residue", {}).get("items", [])
+        abierto = any(i["class"] == "reviewer_hardening_gap" for i in items)
+        assert abierto == (valor == "unverified")
+
+
+def test_the_fallback_keeps_every_failure_and_never_guesses_a_quota(repo: Path, informe: Path):
+    """Antes se quedaba con el primer fallo y mandaba lo desconocido a
+    `quota_exhausted`, que el runner nunca observa: un fallo de contexto en
+    segundo lugar desaparecia de la declaracion."""
+    degradado = resultado_de(
+        repo, informe,
+        declared={"independence": "same_family_distinct_model"},
+        observed={"attempts": [
+            {"id": "gemini", "outcome": "no_consent", "detail": "not authorised"},
+            {"id": "codex", "outcome": "context_unverified",
+             "detail": "managed codex configuration at C:/ProgramData/OpenAI/Codex"},
+            {"id": "mio", "outcome": "ok", "independence": "same_family_distinct_model"},
+        ]},
+    )
+    revisor = from_round(degradado, "diff", "B", "full", repo)["actors"]["reviewers"][0]
+    razon = revisor["fallback_reason"]
+    assert razon["code"] == "reviewer_unavailable"
+    assert "gemini: no_consent" in razon["detail"]
+    assert "codex: context_unverified (managed codex configuration" in razon["detail"]
+    assert "quota" not in razon["detail"]

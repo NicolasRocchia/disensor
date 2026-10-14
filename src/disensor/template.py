@@ -15,6 +15,7 @@ import uuid
 
 from . import gitctx
 from pathlib import Path
+from .reviewers import CATALOG
 from .rules import CURRENT
 
 
@@ -237,8 +238,14 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     revisor["family"] = declarado["family"]
     revisor["model"] = declarado.get("model") or "FILL_IN_reviewer_model"
     revisor["independence"] = declarado["independence"]
-    if declarado.get("hardening"):
-        revisor["hardening"] = declarado["hardening"]
+    # UN solo endurecimiento efectivo, para el revisor y para su item de
+    # residuo: consultado dos veces, uno podia decir `verified` mientras el
+    # otro no abria el item, o al reves. Y `verified` se conserva solo con la
+    # evidencia de la politica vigente (#108): un resultado de un runner
+    # anterior lo declara sin haber aislado nada, y baja.
+    efectivo = _effective_hardening(resultado)
+    if efectivo:
+        revisor["hardening"] = efectivo
     hashes = resultado.get("hashes", {})
     if hashes.get("prompt_hash"):
         revisor["prompt_hash"] = hashes["prompt_hash"]
@@ -267,13 +274,14 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
             "requires_human_attention": True,
             "description": FILL_CORRELATION,
         })
-    if declarado.get("hardening") == "unverified":
+    if efectivo == "unverified":
+        degradado = declarado.get("hardening") == "verified"
         items.append({
             "id": f"r{len(items) + 1}",
             "class": "reviewer_hardening_gap",
             "reviewer_ref": "r1",
             "requires_human_attention": True,
-            "description": FILL_HARDENING,
+            "description": FILL_HARDENING_EVIDENCE if degradado else FILL_HARDENING,
         })
     if items:
         a["residue"] = {"items": items}
@@ -320,8 +328,39 @@ FILL_HARDENING = (
     "FILL_IN: the adapter's hardening is not verified, so the material under review could "
     "have addressed the reviewer before the brief did. Say what you did about it."
 )
+FILL_HARDENING_EVIDENCE = (
+    "FILL_IN: the round declared verified hardening, but its result carries no evidence of "
+    "the isolation policy the recipe requires now, so it ran with an earlier adapter: the "
+    "machine's own instruction sources (global AGENTS.md, user skills) may have reached the "
+    "reviewer before the brief did. Say what you did about it."
+)
 ROUND_RESULT_VERSION = "disensor/round-result/v4"
 ROUND_RESULT_ORDINAL = 4
+
+
+def _effective_hardening(resultado: dict) -> str | None:
+    """The hardening this round EARNED, from what the runner recorded.
+
+    `verified` needs three things: the round declared it, the recipe behind
+    the declared reviewer is a verified one, and, when that recipe runs under
+    an isolation policy, the successful attempt recorded that very policy. A
+    result from a runner that predates the policy declares `verified` without
+    the evidence, and it is not converted: it is degraded, with its item.
+    """
+    declarado = resultado.get("declared", {})
+    valor = declarado.get("hardening")
+    if valor != "verified":
+        return valor
+    receta = CATALOG.get(declarado.get("reviewer_id") or "")
+    if not receta or receta.get("hardening") != "verified":
+        return "unverified"
+    politica = receta.get("isolation")
+    if not politica:
+        return "verified"
+    for intento in resultado.get("observed", {}).get("attempts", []):
+        if intento.get("outcome") == "ok" and intento.get("id") == declarado.get("reviewer_id"):
+            return "verified" if intento.get("isolation") == politica else "unverified"
+    return "unverified"
 
 
 def _reviewer_seconds(resultado: dict) -> int | None:
@@ -337,21 +376,29 @@ def _reviewer_seconds(resultado: dict) -> int | None:
 
 
 def _fallback_from(resultado: dict) -> dict:
-    """Why the round settled for less, taken from the attempts when possible."""
+    """Why the round settled for less, taken from the attempts when possible.
+
+    Every failed attempt, in order, with its outcome and the start of its
+    detail: the previous version kept the first failure only, so a context
+    failure in second place vanished, and it mapped anything it did not know
+    to `quota_exhausted`, which the runner never observes. The code is
+    `reviewer_unavailable` for all of them: that is what the runner saw, a
+    reviewer that did not answer; why it did not is in the detail.
+    """
     intentos = resultado.get("observed", {}).get("attempts", [])
     fallidos = [i for i in intentos if i.get("outcome") != "ok"]
     if not fallidos:
         return {"code": "no_other_family_available"}
-    motivo = fallidos[0].get("outcome")
-    codigo = {
-        "not_found": "reviewer_unavailable",
-        "not_runnable": "reviewer_unavailable",
-        "executable_changed": "reviewer_unavailable",
-        "timeout": "reviewer_unavailable",
-    }.get(motivo, "quota_exhausted")
+    partes = []
+    for intento in fallidos:
+        detalle = " ".join(str(intento.get("detail") or "").split())
+        parte = f"{intento.get('id')}: {intento.get('outcome')}"
+        if detalle:
+            parte += f" ({detalle[:160]})"
+        partes.append(parte)
     return {
-        "code": codigo,
-        "detail": f"the better reviewers were tried first and failed: {motivo}",
+        "code": "reviewer_unavailable",
+        "detail": "the better reviewers were tried first and failed: " + "; ".join(partes),
     }
 
 
