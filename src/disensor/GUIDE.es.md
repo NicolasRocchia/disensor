@@ -105,9 +105,11 @@ Por defecto todo exige `diff`.
   instrucciones del repositorio revisado y, para la receta `codex`, lo que
   agrega la máquina (su `AGENTS.md` global, skills, plugins, apps, hooks,
   memorias, roles de agentes y el entorno heredado), cada una con su prueba
-  hostil; `unverified` en cualquier otro caso. No cubre la configuración
-  administrada ni una escritura del mismo usuario entre el chequeo y la
-  corrida. `unverified` no bloquea, pero pide un ítem
+  hostil, y solo en las plataformas y versiones del CLI en que esa prueba
+  corrió: la ronda registra la versión del CLI, y cualquier otra
+  combinación se declara `unverified`; `unverified` en cualquier otro caso.
+  No cubre la configuración administrada ni una escritura del mismo usuario
+  entre el chequeo y la corrida. `unverified` no bloquea, pero pide un ítem
   `reviewer_hardening_gap`: el material bajo revisión, o la máquina, puede
   hablarle al revisor antes que tu consigna.
 - `reviewers[].prompt_hash`: el hash de la consigna adversarial que recibió el

@@ -101,7 +101,9 @@ paths. By default everything demands `diff`.
   of the repository under review and, for the `codex` recipe, what the
   machine adds (its global `AGENTS.md`, skills, plugins, apps, hooks,
   memories, agent roles and the inherited environment), each with a hostile
-  test behind it; `unverified` otherwise. It does not cover managed
+  test behind it, and only on the platforms and CLI versions that test ran
+  on: the round records the CLI version, and any other combination is
+  declared `unverified`; `unverified` otherwise. It does not cover managed
   configuration nor a same-user write between the check and the run.
   `unverified` does not block, but it requires a `reviewer_hardening_gap`
   item: the material under review, or the machine, can address the reviewer
