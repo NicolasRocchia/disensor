@@ -329,10 +329,12 @@ FILL_HARDENING = (
     "have addressed the reviewer before the brief did. Say what you did about it."
 )
 FILL_HARDENING_EVIDENCE = (
-    "FILL_IN: the round declared verified hardening, but its result carries no evidence of "
-    "the isolation policy the recipe requires now, so it ran with an earlier adapter: the "
-    "machine's own instruction sources (global AGENTS.md, user skills) may have reached the "
-    "reviewer before the brief did. Say what you did about it."
+    "FILL_IN: the round declared verified hardening, but its result carries no evidence that "
+    "the isolation policy the recipe requires now ran on a platform and CLI version the "
+    "hostile test covered: it ran with an earlier adapter, or with a CLI version nobody "
+    "tested against a hostile machine profile, so the machine's own instruction sources "
+    "(global AGENTS.md, user skills) may have reached the reviewer before the brief did. "
+    "Say what you did about it."
 )
 ROUND_RESULT_VERSION = "disensor/round-result/v4"
 ROUND_RESULT_ORDINAL = 4
@@ -343,9 +345,11 @@ def _effective_hardening(resultado: dict) -> str | None:
 
     `verified` needs three things: the round declared it, the recipe behind
     the declared reviewer is a verified one, and, when that recipe runs under
-    an isolation policy, the successful attempt recorded that very policy. A
+    an isolation policy, the successful attempt recorded that very policy on
+    a platform and CLI version the hostile test covered (`certified`). A
     result from a runner that predates the policy declares `verified` without
-    the evidence, and it is not converted: it is degraded, with its item.
+    the evidence, and it is not converted: it is degraded, with its item. So
+    is a run on a CLI version nobody tested (ronda diff 3 de #108).
     """
     declarado = resultado.get("declared", {})
     valor = declarado.get("hardening")
@@ -359,7 +363,8 @@ def _effective_hardening(resultado: dict) -> str | None:
         return "verified"
     for intento in resultado.get("observed", {}).get("attempts", []):
         if intento.get("outcome") == "ok" and intento.get("id") == declarado.get("reviewer_id"):
-            return "verified" if intento.get("isolation") == politica else "unverified"
+            con_politica = intento.get("isolation") == politica
+            return "verified" if con_politica and intento.get("certified") is True else "unverified"
     return "unverified"
 
 

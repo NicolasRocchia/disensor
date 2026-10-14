@@ -929,6 +929,16 @@ def _round(args, repo: Path) -> int:
             "round: the adapter's hardening is not verified. The material under review may have "
             "addressed the reviewer before the brief did: declare a reviewer_hardening_gap item."
         )
+    elif attempts and attempts[-1].get("isolation") and not attempts[-1].get("certified"):
+        # La politica corrio, pero sobre una version del CLI, o una
+        # plataforma, que la prueba hostil no cubrio: `verified` no se
+        # extiende solo a lo que nadie probo (ronda diff 3 de #108).
+        estado(
+            f"round: the CLI version {attempts[-1].get('cli_version') or 'unknown'} on this "
+            f"platform is not one the hostile test of {attempts[-1]['isolation']} ran on "
+            f"({', '.join(sorted(v for _, v in codex_home.CERTIFIED))}). The declaration will "
+            "carry unverified hardening and its reviewer_hardening_gap item."
+        )
     return OK
 
 

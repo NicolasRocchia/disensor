@@ -31,6 +31,7 @@ from __future__ import annotations
 import ctypes
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -116,6 +117,19 @@ MAX_ARG_CHARS = 24000
 
 LOCK_TIMEOUT = 30.0
 AUTH_TIMEOUT = 60
+
+# Las combinaciones (plataforma, version del CLI) contra las que corrio la
+# prueba hostil de esta politica. `verified` vale para ellas y para nada mas:
+# una version nueva del CLI puede agregar una fuente de carga automatica que
+# la lista de arriba no nombra, y registrar el binario que haya instalado no
+# prueba nada sobre el (ronda diff 3 de #108). Con otra combinacion la
+# politica se aplica igual, el intento la registra, y `new --round` declara
+# el endurecimiento como no verificado, con su item. Cada release que corra
+# el smoke con otra version la agrega aca.
+CERTIFIED = frozenset({
+    ("win32", "0.153.4"),
+})
+VERSION_RE = re.compile(r"codex-cli\s+(\d+\.\d+\.\d+)")
 
 _FOLDERID_PROFILE = "{5E6C858F-0E22-4760-9AFE-EA3317B67173}"
 _FOLDERID_PROGRAM_DATA = "{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}"
@@ -446,8 +460,16 @@ def inventory(raices: list[Path], *, max_skills: int = MAX_SKILLS, max_dirs: int
             try:
                 with os.scandir(actual) as entradas:
                     hijos = list(entradas)
-            except OSError:
-                continue
+            except OSError as exc:
+                # Cerrado, no salteado: un subarbol que este proceso no pudo
+                # leer puede tener skills que el CLI, con otra suerte o un
+                # instante despues, si encuentre. Un inventario que no termino
+                # de recorrer no puede decir que deshabilito todo.
+                raise Refused(
+                    "context_unverified",
+                    f"the skill inventory could not read {actual} ({exc.strerror or exc}): "
+                    "a subtree it cannot list may hold skills the CLI would find",
+                ) from exc
             for hijo in hijos:
                 try:
                     if hijo.is_dir(follow_symlinks=True):
@@ -652,6 +674,33 @@ def login_status(programa: list[str], env: dict[str, str], cwd: Path, timeout: i
     )
 
 
+def cli_version(programa: list[str], env: dict[str, str], cwd: Path, timeout: int = AUTH_TIMEOUT) -> str | None:
+    """What `--version` answers, as `codex-cli X.Y.Z`, or None when it cannot be read.
+
+    None is not an error: the attempt runs under the policy anyway. What it
+    cannot do is claim a hostile test it never had, and that is what
+    `certified` decides from this value.
+    """
+    try:
+        out = subprocess.run(
+            [*programa, "--version"],
+            cwd=str(cwd), env=env, capture_output=True, timeout=timeout, check=False,
+            stdin=subprocess.DEVNULL,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    texto = ((out.stdout or b"") + b"\n" + (out.stderr or b"")).decode("utf-8", "replace")
+    encontrado = VERSION_RE.search(texto)
+    return encontrado.group(1) if encontrado else None
+
+
+def certified(version: str | None, sistema: str | None = None) -> bool:
+    """Whether the hostile test of this policy ran on this platform and CLI version."""
+    if version is None:
+        return False
+    return (sistema or _platform_key()[0], version) in CERTIFIED
+
+
 # --- La preparacion de un intento ------------------------------------------------
 
 def prepare(
@@ -690,9 +739,16 @@ def prepare(
             raise
     env = child_env(home)
     try:
-        login_status(program_of(argv), env, privado)
+        programa = program_of(argv)
+        login_status(programa, env, privado)
+        version = cli_version(programa, env, privado)
         completo = list(argv)
-        observado = {"isolation": POLICY, "codex_home": str(home)}
+        observado = {
+            "isolation": POLICY,
+            "codex_home": str(home),
+            "cli_version": version,
+            "certified": certified(version),
+        }
         if "skills_config" not in relax:
             rutas = inventory(skill_roots(privado))
             completo += ["-c", skills_config_arg(rutas)]

@@ -53,7 +53,8 @@ def resultado_de(repo: Path, informe: Path, **cambios) -> dict:
             # El intento exitoso registra la politica de aislamiento que el
             # runner aplico (#108): sin ese dato, `verified` no se conserva.
             "attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family",
-                          "isolation": "codex_home/1"}],
+                          "isolation": "codex_home/1", "cli_version": "0.153.4",
+                          "certified": True}],
             "report_path": str(informe),
             "report_hash": "sha256:" + hashlib.sha256(informe.read_bytes()).hexdigest(),
             "tree_unchanged": True,
@@ -400,7 +401,7 @@ def test_the_reviewer_and_its_item_come_from_one_value(repo: Path, informe: Path
     se abria, o al reves (ronda 2 del plan de #108)."""
     for observado in (
         {"attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family",
-                       "isolation": "codex_home/1"}]},
+                       "isolation": "codex_home/1", "certified": True}]},
         {"attempts": [{"id": "codex", "outcome": "ok", "independence": "cross_family"}]},
     ):
         a = from_round(resultado_de(repo, informe, observed=observado), "diff", "B", "full", repo)
@@ -430,3 +431,19 @@ def test_the_fallback_keeps_every_failure_and_never_guesses_a_quota(repo: Path, 
     assert "gemini: no_consent" in razon["detail"]
     assert "codex: context_unverified (managed codex configuration" in razon["detail"]
     assert "quota" not in razon["detail"]
+
+
+def test_verified_needs_a_certified_platform_and_cli_version(repo: Path, informe: Path):
+    """La politica corrio, pero sobre una version del CLI que la prueba hostil
+    no cubrio: `verified` no se extiende solo (ronda diff 3 de #108)."""
+    from disensor.template import FILL_HARDENING_EVIDENCE
+
+    for certificado in (False, None):
+        intento = {"id": "codex", "outcome": "ok", "independence": "cross_family",
+                   "isolation": "codex_home/1", "cli_version": "0.162.1"}
+        if certificado is not None:
+            intento["certified"] = certificado
+        a = from_round(resultado_de(repo, informe, observed={"attempts": [intento]}),
+                       "diff", "B", "full", repo)
+        assert a["actors"]["reviewers"][0]["hardening"] == "unverified"
+        assert a["residue"]["items"][0]["description"] == FILL_HARDENING_EVIDENCE

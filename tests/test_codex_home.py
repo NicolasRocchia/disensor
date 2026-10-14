@@ -608,3 +608,72 @@ def test_a_child_env_built_from_a_given_environment_keeps_only_the_allowlist(tmp
     assert env["PATH"] == str(tmp_path)
     assert {"HOME", "LC_ALL", "SYSTEMROOT", "XDG_CONFIG_HOME"} <= set(env)
     assert not {"OPENAI_API_KEY", "PYTHONPATH", "TOTALMENTE_AJENA"} & set(env)
+
+
+# --- La version del CLI y la prueba hostil (ronda diff 3 de #108) ----------------
+
+VERSIONADO = """import sys
+from pathlib import Path
+if sys.argv[1:3] == ["login", "status"]:
+    sys.exit(0)
+if sys.argv[1:2] == ["--version"]:
+    print("codex-cli X.Y.Z")
+    sys.exit(0)
+Path(sys.argv[4]).write_text("informe", encoding="utf-8")
+sys.exit(0)
+"""
+
+
+def _con_version(tmp_path: Path, version: str) -> str:
+    return cli_falso(tmp_path, f"v{version.replace('.', '_')}", VERSIONADO.replace("X.Y.Z", version))
+
+
+def test_a_tested_platform_and_version_is_recorded_as_certified(tmp_path, monkeypatch):
+    monkeypatch.setattr(codex_home, "_platform_key", lambda: ("win32", "x64"))
+    intento = run_reviewer(entrada(_con_version(tmp_path, "0.153.4")), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "ok"
+    assert intento["cli_version"] == "0.153.4" and intento["certified"] is True
+
+
+def test_an_untested_version_runs_under_the_policy_but_is_not_certified(tmp_path, monkeypatch):
+    """`verified` no se extiende solo a lo que nadie probo: el intento corre con
+    el home aislado igual, registra la version, y la declaracion lo degrada."""
+    monkeypatch.setattr(codex_home, "_platform_key", lambda: ("win32", "x64"))
+    intento = run_reviewer(entrada(_con_version(tmp_path, "0.162.1")), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "ok" and intento["isolation"] == POLICY
+    assert intento["cli_version"] == "0.162.1" and intento["certified"] is False
+
+
+def test_a_version_that_cannot_be_read_is_not_certified(tmp_path, monkeypatch):
+    monkeypatch.setattr(codex_home, "_platform_key", lambda: ("win32", "x64"))
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "ok"
+    assert intento["cli_version"] is None and intento["certified"] is False
+
+
+def test_certified_is_a_pair_of_platform_and_version():
+    assert codex_home.certified("0.153.4", sistema="win32")
+    assert not codex_home.certified("0.153.4", sistema="linux"), "la prueba hostil no corrio ahi"
+    assert not codex_home.certified("0.162.1", sistema="win32")
+    assert not codex_home.certified(None, sistema="win32")
+    assert ("win32", "0.153.4") in codex_home.CERTIFIED
+
+
+def test_an_unreadable_subtree_stops_the_inventory(tmp_path, monkeypatch):
+    """Cerrado, no salteado (hipotesis de la ronda diff 3): un subarbol que este
+    proceso no pudo listar puede tener skills que el CLI si encuentre."""
+    raiz = tmp_path / "perfil" / ".agents" / "skills"
+    plantar(raiz, "a", "SKILL.md")
+    (raiz / "cerrado").mkdir()
+    original = os.scandir
+
+    def scandir_que_falla(ruta=".", *args, **kwargs):
+        if os.path.normcase(str(ruta)) == os.path.normcase(str(raiz / "cerrado")):
+            raise PermissionError(13, "Access is denied")
+        return original(ruta, *args, **kwargs)
+
+    monkeypatch.setattr(os, "scandir", scandir_que_falla)
+    with pytest.raises(Refused) as exc:
+        inventory([raiz])
+    assert exc.value.outcome == "context_unverified"
+    assert "could not read" in exc.value.detail and "cerrado" in exc.value.detail
