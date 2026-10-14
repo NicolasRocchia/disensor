@@ -1,0 +1,83 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "78a7e40d-3159-4de8-ab09-9dbc28c8e71a",
+    "created_at": "2026-10-14T14:50:44-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "8e0058a0409d461b3fd7824ee2b0ef838dc5d13b",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "425d96e9746c9e0e32df979569bc3c9afc485bac"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas de la suite no se forzaron: tres smoke tests de endurecimiento (opt-in con costo real), el bit de ejecución que en Windows no distingue nada, y los tres índices de las suites de vectores. El revisor corrió la suite completa dos veces con PYTHONDONTWRITEBYTECODE=1 y -p no:cacheprovider (671 pasadas, 7 salteadas), la segunda con un inventario por nombre y sha256 de los archivos ignorados antes y después, sin diferencias; el mtime de .pytest_cache/v/cache/nodeids no cambió durante la corrida (17:43:43Z a 17:49:59Z). Esta es la primera ronda con la forma v4 del paquete, y el revisor siguió la instrucción nueva. Nadie corrió una ronda con la 0.12.1 de pip contra el new --round del checkout para ver el rechazo del resultado v3 en vivo; lo cubre tests/test_new_round.py::test_a_v3_result_is_refused_with_the_reason. El generador corrió la suite completa con -p no:cacheprovider antes de cada commit (670 y 671 pasadas)."
+      },
+      {
+        "id": "r2",
+        "class": "reviewer_hardening_gap",
+        "reviewer_ref": "r1",
+        "requires_human_attention": true,
+        "description": "El registro de comandos del revisor empieza con la lectura de C:/Users/Usuario/.agents/skills/review/SKILL.md, una skill global de la máquina y no material del repositorio: es la fuga que sigue abierta en #108 (la receta del catálogo apaga los plugins y las instrucciones del proyecto, pero deja pasar las skills de ~/.agents/skills). El endurecimiento declarado como verified se probó contra las instrucciones del proyecto, no contra lo de la máquina. La ronda no trajo hallazgos y el informe no muestra que la skill haya cambiado qué se revisó, pero no se puede descartar: lo que esa skill le dijo al revisor llegó antes que la consigna. En las rondas de #137, #78 y #112 de esta misma tanda esa lectura no aparece en el registro."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 421
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:0cd9d76e1f39b9dbe7a225f330998c0b794cde777c1603f78451162feda4bba8",
+      "report_hash": "sha256:845f624536a8bb73bcd1126f95892b3b1cd4610b077af3d137e6485f580c9eb2",
+      "reviewer_seconds": 376
+    }
+  }
+}
