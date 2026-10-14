@@ -1,0 +1,138 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "fce7c2c9-eddf-4f10-a569-f69a4b289dfb",
+    "created_at": "2026-10-14T15:15:09-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "e21e3c846bceea31b334a8825e33a5eff2443c11",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "425d96e9746c9e0e32df979569bc3c9afc485bac"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:bec19c395856be4fdb4cad9bb941875a1510edbb05772b822f2f6b370649ea2d"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Sin red, un workflow ya pineado a esta versión se informaba como más viejo que el CLI",
+      "description": "En _upgrade_workflow, sin red, todo lo que no estuviera literalmente en @v<versión actual> tomaba la rama del gate más viejo que el CLI, incluido un workflow pineado por SHA al commit de esta misma versión, que es el estado final que init y pin producen. El archivo no se tocaba, pero el informe decía que CI iba a rechazar el esquema y mandaba a reparar. El revisor lo reprodujo por ejecución con resolve_tag_commit parcheado para fallar y una línea uses con el SHA del tag local v0.12.1 y el comentario de la versión. El defecto es anterior a d66b16e: ese commit no cambió el orden de esa rama, y el generador lo había anotado como sobra preexistente sin corregirlo.",
+      "location": "src/disensor/init.py (_upgrade_workflow, _pinned_to_current); tests/test_upgrade.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido con la prueba nueva antes del arreglo: un workflow con NicolasRocchia/disensor@<sha40>  # v<versión actual> y la fixture sin red daba WARNING ... older than this CLI. Primer arreglo en e768424: esa forma, reconocida con USES y SHA40 de pin.py, se informaba como current sin aviso; la ronda 2 mostró que eso tomaba un comentario editable como prueba (h2). Arreglo definitivo en e21e3c8: sin red se avisa que está pineado por SHA pero nada confirma que el commit sea el del tag, y se manda a disensor pin; con el comentario de otra versión sigue el aviso del gate viejo; con red no cambia nada."
+      },
+      "remedy_adjustment": "El revisor pedía arreglarlo o aceptarlo como deuda de diagnóstico. El primer arreglo (informar current por el comentario) fue incorrecto y lo cazó la ronda 2: el remedio final conserva la distinción entre gate viejo y gate sin verificar, pero deja el segundo como aviso accionable y no como verde.",
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_upgrade.py::test_a_workflow_already_pinned_to_the_current_version_is_not_called_older_offline, que sin red exige WARNING con disensor pin y sin older than this CLI para el SHA con el comentario de esta versión, lo mismo para un SHA inventado con ese comentario, y el aviso del gate viejo con el comentario de otra versión; la ronda 3 sobre e21e3c8 (189 s) no trajo hallazgos ni hipótesis y corrió la suite completa (672 pasadas, 7 salteadas) con la caché de pytest redirigida fuera del checkout"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r2",
+      "severity": "major",
+      "title": "Un comentario de versión sin verificar se tomaba como prueba de que el gate pineado está al día",
+      "description": "El primer arreglo de h1 (e768424) informaba current, sin aviso y sin la instrucción de correr pin, a cualquier línea uses con un SHA de 40 hex seguido de # v<versión actual> cuando no había red. El comentario es metadato editable y no establece que el SHA sea el commit del release: un workflow con un SHA inexistente, o uno viejo copiado a mano, con ese comentario, salía de init --upgrade con exit 0 y como current, y el repositorio podía quedar con un gate que no existe o que rechaza el esquema vigente. Contradice la razón de ser de disensor pin, escrita en pin.py: un SHA copiado a mano puede estar mal, y el tag canónico se resuelve, no se infiere de un comentario.",
+      "location": "src/disensor/init.py (_upgrade_workflow, rama PinError; _pinned_to_current); tests/test_upgrade.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Confirmado leyendo la rama PinError de e768424 (solo sintaxis y comentario) y con la prueba ampliada antes del arreglo: un SHA de cuarenta ceros con # v<versión actual> y la fixture sin red salía como current. Corregido en e21e3c8: ese caso sale como WARNING (pineado por SHA, pero sin red nada confirma que ese commit sea el del tag; correr disensor pin para confirmarlo), se conserva el aviso distinto del gate conocido como viejo, y con red el SHA se resuelve y se compara como antes. El remedio es el que pedía el informe; sin ajuste."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "La misma prueba, tests/test_upgrade.py::test_a_workflow_already_pinned_to_the_current_version_is_not_called_older_offline, en su caso del SHA inventado con el comentario de esta versión (WARNING, disensor pin, sin current); la ronda 3 sobre e21e3c8 (189 s) no trajo hallazgos ni hipótesis y corrió la suite completa (672 pasadas, 7 salteadas) con la caché de pytest redirigida fuera del checkout"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Las siete pruebas salteadas no se forzaron (tres smoke de endurecimiento, el bit de ejecución en POSIX, tres índices de vectores). Ningún revisor corrió disensor init ni init --upgrade en vivo sobre un repositorio real ni resolvió el tag contra GitHub: la ronda 1 ejercitó _upgrade_workflow por ejecución directa en un directorio temporal y las rondas 2 y 3 leyeron el código y corrieron la suite. Las demás afirmaciones del runbook (que reviewer add no ejecuta el candidato, que el gate falla sin rango, que from_round rechaza la compuerta distinta) las verificó el generador contra el código y, la del gate, corriéndolo sin rango (FAILED: the PR range is missing). El pytest -q de las rondas 1 y 2 reescribió .pytest_cache/v/cache/nodeids adentro del checkout (17:54:13Z y 18:01:45Z, dentro de cada corrida), en una ruta que git ignora: el git status del runner no la ve y los informes no lo declaran, el caso de #88. La ronda 3 redirigió la caché de pytest a su directorio temporal y apagó el bytecode, y lo dijo: nodeids no cambió durante su corrida (18:11:30Z a 18:14:39Z). Ningún archivo versionado cambió en ninguna ronda; verified: true dice eso y no más. El generador corrió la suite completa con -p no:cacheprovider antes de cada uno de los cinco commits (670, 670, 671, 672 y 672 pasadas, 7 salteadas; Windows 11, Python 3.14.2); antes del quinto, una corrida completa falló en tests/test_branch.py::test_gate_not_required_lists_no_merge_as_missing, una prueba local de git en tmp_path sin red y ajena a init.py, que pasó sola y en la repetición completa; la causa no se investigó. Linux y macOS sin probar."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 1388
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 3,
+      "pack_hash": "sha256:be3399c5ae6a4b82d80aeb361a46eabd25fbbe5a160440baa29d65534608c137",
+      "report_hash": "sha256:0a668d50871c72fe3e2bfe9694f27b9093d8b9d39b96c8614a6b57925a335973",
+      "reviewer_seconds": 189
+    }
+  }
+}
