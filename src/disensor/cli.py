@@ -265,7 +265,10 @@ def build_parser() -> argparse.ArgumentParser:
                       help="Approve exactly what the command prints before writing it.")
     radd.add_argument("--executable", metavar="PATH",
                       help="Absolute path of the native binary, for a catalogued recipe under "
-                           "an isolation policy whose launcher this version cannot see through.")
+                           "an isolation policy whose launcher this version cannot see through. "
+                           "The entry is registered with unverified hardening: the hostile test "
+                           "ran against the binary the installation resolves, not a file named "
+                           "by hand.")
     # REMAINDER y no nargs=+: el argv de un revisor esta lleno de cosas que
     # parecen flags nuestros (-c, --model), y argparse las reclamaria para si.
     # Todo lo que sigue a --command es del revisor.

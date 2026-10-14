@@ -260,6 +260,12 @@ def effective_hardening(entry: dict) -> str:
             return "unverified"
         if Path(ruta).suffix.lower() in codex_home.LAUNCHER_SUFFIXES:
             return "unverified"
+    # Un ejecutable nombrado a mano (`reviewer add --executable`) no es el que
+    # la prueba hostil corrio: la instalacion resuelve el suyo y ese es el
+    # probado. Se registra `unverified` y se vuelve a decidir aca, porque el
+    # registro es un JSON editable.
+    if entry.get("executable_source") == "manual":
+        return "unverified"
     return "verified" if executable_fingerprint(ruta) == esperado else "unverified"
 
 

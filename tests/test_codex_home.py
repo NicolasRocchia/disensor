@@ -553,6 +553,32 @@ def test_an_unresolvable_launcher_asks_for_the_binary_by_hand(tmp_path, monkeypa
     entry = reviewers.build_entry("codex", "openai", "m", reviewers.CATALOG["codex"]["command"],
                                  from_catalog=True, executable=str(binario))
     assert entry["executable"] == str(binario)
+    assert entry["isolation"] == POLICY, "la politica se aplica igual"
+    # Pero no hereda el endurecimiento: la prueba hostil corrio contra el
+    # binario que la instalacion resuelve, no contra un archivo nombrado a
+    # mano (hallazgo de la ronda diff 1 de #108). Ni al registrar, ni al
+    # decidirlo de nuevo en la ronda con el registro editado a mano.
+    from disensor.round import effective_hardening
+
+    assert entry["hardening"] == "unverified"
+    assert entry["executable_source"] == "manual"
+    assert effective_hardening(entry) == "unverified"
+    editada = dict(entry, hardening="verified")
+    assert effective_hardening(editada) == "unverified"
+    assert "named by hand" in reviewers.describe(entry)
+
+
+def test_any_file_named_by_hand_would_otherwise_inherit_the_catalogue_identity(tmp_path, monkeypatch):
+    """Lo que el revisor reprodujo: `python.exe` como ejecutable de la receta
+    codex salia registrado como OpenAI con endurecimiento verificado."""
+    from disensor.round import effective_hardening
+
+    monkeypatch.setattr(codex_home, "_platform_key", lambda: ("win32", "x64"))
+    entry = reviewers.build_entry("codex", "openai", "m", reviewers.CATALOG["codex"]["command"],
+                                 from_catalog=True, executable=sys.executable)
+    assert entry["source"] == "catalog" and entry["family"] == "openai"
+    assert entry["hardening"] == "unverified"
+    assert effective_hardening(entry) == "unverified"
 
 
 def test_an_entry_under_an_unknown_policy_does_not_run(tmp_path):

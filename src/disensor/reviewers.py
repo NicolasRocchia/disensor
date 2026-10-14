@@ -351,6 +351,13 @@ def build_entry(
                 f"{exc}. Name the native binary yourself: disensor reviewer add {reviewer_id} "
                 "--executable <absolute path>"
             ) from exc
+    # Un ejecutable nombrado a mano no hereda el endurecimiento de la receta:
+    # la prueba hostil corrio contra el binario que el lanzador de la
+    # instalacion resuelve, y un archivo cualquiera con la identidad de la
+    # receta encima seria una revision de otro programa declarada como la del
+    # adaptador probado (hallazgo de la ronda diff 1 de #108). La politica del
+    # home aislado se aplica igual; lo que no viaja es `verified`.
+    a_mano = executable is not None
     entry = {
         "id": reviewer_id,
         "family": family,
@@ -358,7 +365,7 @@ def build_entry(
         "command": list(command),
         "executable": ruta,
         "executable_hash": executable_fingerprint(ruta),
-        "hardening": receta["hardening"] if receta else "unverified",
+        "hardening": receta["hardening"] if receta and not a_mano else "unverified",
         "egress": receta["egress"] if receta else egress,
         "provider": receta.get("provider", "") if receta else provider,
         "source": "catalog" if receta else "assistant",
@@ -367,6 +374,8 @@ def build_entry(
         entry["stdin"] = stdin or receta["stdin"]
     if receta and receta.get("isolation"):
         entry["isolation"] = receta["isolation"]
+    if a_mano:
+        entry["executable_source"] = "manual"
     return entry
 
 
@@ -419,6 +428,11 @@ def describe(entry: dict) -> str:
         lineas.append(
             f"  isolation:  {entry['isolation']}, home {codex_home.home_dir(entry['id'])} "
             f"(signed in by the owner with `disensor reviewer login {entry['id']}`)"
+        )
+    if entry.get("executable_source") == "manual":
+        lineas.append(
+            "  note:       the executable was named by hand, so the hardening stays unverified: "
+            "the hostile test ran against the binary the installation resolves, not this file"
         )
     if entry.get("egress") == "cloud":
         lineas.append(
