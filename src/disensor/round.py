@@ -246,6 +246,29 @@ def file_hash(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def fill_argv(
+    command: list[str], executable: str, *, package: str, report: Path, model: str
+) -> list[str]:
+    """The argv as it runs: the resolved executable, then each placeholder filled.
+
+    The hostile test (tests/test_hardening.py) runs the catalogued recipe
+    through this same function. Filling the placeholders in two places, here
+    and there, is how that test came to send the literal `{model}` to the CLI
+    (#92): what the test exercises has to be what the runner runs.
+    """
+    argv = [executable]
+    for arg in command[1:]:
+        if arg == "{report}":
+            argv.append(str(report))
+        elif arg == "{pack}":
+            argv.append(package)
+        elif arg == "{model}":
+            argv.append(model)
+        else:
+            argv.append(arg)
+    return argv
+
+
 def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     """Run one reviewer. Returns what was observed, never an opinion about it."""
     # La ruta absoluta y no el nombre: en Windows un CLI instalado por npm es un
@@ -291,16 +314,10 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
                 ),
             }
 
-    argv = [executable]
-    for arg in entry["command"][1:]:
-        if arg == "{report}":
-            argv.append(str(report))
-        elif arg == "{pack}":
-            argv.append(package)
-        elif arg == "{model}":
-            argv.append(entry.get("model", ""))
-        else:
-            argv.append(arg)
+    argv = fill_argv(
+        entry["command"], executable,
+        package=package, report=report, model=entry.get("model", ""),
+    )
 
     # BYTES UTF-8 y no texto: text=True codifica en la pagina local del sistema
     # y el revisor recibe algo que no puede decodificar. Ya paso: el CLI
