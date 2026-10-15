@@ -33,6 +33,7 @@ from disensor.codex_home import (
     inventory,
     is_trust_state,
     sweep_trust_state,
+    trust_paths,
     native_executable,
     prepare,
     skills_config_arg,
@@ -302,16 +303,24 @@ CONFIANZA_DE_CODEX = (
     'trust_level = "trusted"\n'
 )
 
+
+def confianza(*rutas) -> str:
+    """El mismo archivo, con las rutas dadas (en minusculas, como lo escribe el CLI en Windows)."""
+    return "".join(f"[projects.'{str(r).lower()}']\ntrust_level = \"trusted\"\n" for r in rutas)
+
+
 # Un CLI que, como el real de 0.153.4, anota la confianza del cwd en el home
-# antes de contestar.
+# antes de contestar: la ruta en minusculas y entre comillas simples.
 ANOTA_CONFIANZA = """import json, os, sys
 from pathlib import Path
 if sys.argv[1:3] == ["login", "status"]:
     print("Logged in using ChatGPT")
     sys.exit(0)
+if sys.argv[1:2] == ["--version"]:
+    sys.exit(0)
 home = Path(os.environ["CODEX_HOME"])
 with open(home / "config.toml", "a", encoding="utf-8") as f:
-    f.write("[projects." + repr(os.getcwd()) + "]" + chr(10) + 'trust_level = "trusted"' + chr(10))
+    f.write("[projects.'" + os.getcwd().lower() + "']" + chr(10) + 'trust_level = "trusted"' + chr(10))
 Path(sys.argv[4]).write_text(json.dumps({"argv": sys.argv, "cwd": os.getcwd()}), encoding="utf-8")
 sys.exit(0)
 """
@@ -325,6 +334,12 @@ sys.exit(0)
 ])
 def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
     assert is_trust_state(texto)
+    assert trust_paths(texto) and all(p for p in trust_paths(texto))
+
+
+def test_the_recogniser_returns_the_paths_as_written():
+    rutas = trust_paths(CONFIANZA_DE_CODEX + "[projects.\"/home/u/x\"]\ntrust_level = \"trusted\"\n")
+    assert rutas == ["c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc", "/home/u/x"]
 
 
 @pytest.mark.parametrize("texto", [
@@ -353,6 +368,7 @@ def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
 ])
 def test_anything_but_that_trust_is_configuration(texto):
     assert not is_trust_state(texto)
+    assert trust_paths(texto) is None
 
 
 def test_the_trust_the_cli_left_is_swept_before_the_check_and_the_attempt_runs(tmp_path):
@@ -363,7 +379,10 @@ def test_the_trust_the_cli_left_is_swept_before_the_check_and_the_attempt_runs(t
     corria nunca. Ese archivo, y solo ese, se barre antes del chequeo."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
-    (home / "config.toml").write_text(CONFIANZA_DE_CODEX, encoding="utf-8")
+    (home / "config.toml").write_text(
+        confianza(codex_home.work_dir("codex") / "attempt-abc", codex_home.work_dir("codex") / "attempt-def"),
+        encoding="utf-8",
+    )
     datos = volcado(tmp_path, cli_falso(tmp_path, "vuelca", VUELCA))
     assert datos["intento"]["trust_state_swept"] is True
     assert datos["env"]["CODEX_HOME"] == str(home)
@@ -390,18 +409,57 @@ def test_two_attempts_in_a_row_with_a_cli_that_records_trust_both_run(tmp_path):
     CONFIANZA_DE_CODEX + 'model = "gpt"\n',
     "[projects.\"x\\\\q\"]\ntrust_level = \"trusted\"\n",
     "[projects.\"\"]\ntrust_level = \"made_up\"\n",
+    # Ronda 3: la forma exacta pero la ruta de un proyecto del dueño. Escrito a
+    # mano en el home tiene la misma sintaxis que lo que el CLI deja, y no es
+    # nuestro: se queda, y el intento se corta.
+    "[projects.'D:\\\\permanent-project']\ntrust_level = \"trusted\"\n",
+    "[projects.\"/home/u/proyecto\"]\ntrust_level = \"trusted\"\n",
 ])
 def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path, texto):
-    """El barrido no toca configuracion: una clave mas, un escape invalido o
-    un valor que el CLI no escribe, y el archivo queda donde estaba y el
-    intento se corta como antes (los dos ultimos, la ronda 2)."""
+    """El barrido no toca configuracion: una clave mas, un escape invalido, un
+    valor que el CLI no escribe (ronda 2) o una ruta que no es de esta
+    politica (ronda 3), y el archivo queda donde estaba y el intento se corta
+    como antes."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
     (home / "config.toml").write_text(texto, encoding="utf-8")
-    assert not sweep_trust_state(home)
+    assert not sweep_trust_state(home, "codex")
     intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
     assert intento["outcome"] == "context_unverified" and "config.toml" in intento["detail"]
     assert (home / "config.toml").read_text(encoding="utf-8") == texto
+
+
+def test_one_foreign_entry_among_ours_keeps_the_whole_file(tmp_path):
+    """Una sola entrada ajena entre las nuestras y el archivo entero se queda:
+    el barrido no edita, dispone del archivo o lo deja."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    texto = confianza(codex_home.work_dir("codex") / "attempt-abc", "D:/permanent-project")
+    (home / "config.toml").write_text(texto, encoding="utf-8")
+    assert not sweep_trust_state(home, "codex")
+    assert (home / "config.toml").read_text(encoding="utf-8") == texto
+
+
+def test_the_cleanup_disposes_of_the_entry_for_the_attempts_own_cwd(tmp_path):
+    """Con el cwd privado relajado (la prueba hostil corre desde su propio
+    directorio), lo que el CLI anota es ese cwd, que no esta bajo work/: el
+    cleanup lo barre porque es el cwd del intento que limpia, y el barrido
+    previo al chequeo no, porque no sabe de el."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    cwd = tmp_path / "Hostil"
+    cwd.mkdir()
+    (home / "config.toml").write_text(confianza(cwd), encoding="utf-8")
+    assert not sweep_trust_state(home, "codex"), "antes del chequeo esa ruta es ajena"
+    assert sweep_trust_state(home, "codex", (cwd,)), "para el intento que corrio ahi es suya"
+    assert not (home / "config.toml").exists()
+    script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
+    argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
+    lanzamiento = prepare("codex", argv, relax=frozenset({"private_cwd", "ancestors"}), cwd=cwd)
+    subprocess.run(lanzamiento.argv, cwd=str(lanzamiento.cwd), env=lanzamiento.env, input=b"p", check=True)
+    assert trust_paths((home / "config.toml").read_text(encoding="utf-8")) == [str(cwd).lower()]
+    lanzamiento.cleanup()
+    assert not (home / "config.toml").exists(), "el cleanup barrio la entrada de su propio cwd"
 
 
 def test_a_link_in_the_home_with_a_closed_name_breaks_it_too(tmp_path):

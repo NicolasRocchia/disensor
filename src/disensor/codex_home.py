@@ -327,13 +327,19 @@ def check_home(home: Path, *, create: bool = True) -> None:
 # en Windows) o basica sin barras invertidas (`"..."`, como en POSIX). El valor
 # es el que la receta provoca con el bypass, `"trusted"`, y ningun otro: si una
 # version escribiera otra cosa, el barrido no la reconoce y el intento se corta,
-# que es el lado seguro.
-TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'[^']+'|"[^"\\]+")\]$""")
+# que es el lado seguro. Y la sintaxis sola no alcanza (ronda 3): un archivo
+# asi escrito a mano por el dueño, con la ruta de un proyecto suyo, tiene la
+# misma forma. La procedencia la da la ruta: el barrido dispone solo de
+# entradas cuya ruta sea un directorio de intento de esta politica, bajo
+# `work/`, o el cwd del intento que se esta limpiando; cualquier otra ruta
+# deja el archivo donde esta y el intento se corta.
+TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'([^']+)'|"([^"\\]+)")\]$""")
 TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"trusted"$""")
 
 
-def is_trust_state(texto: str) -> bool:
-    """Whether a `config.toml` holds nothing but the trust the CLI records per cwd.
+def trust_paths(texto: str) -> list[str] | None:
+    """The project paths of a `config.toml` that holds nothing but the trust the
+    CLI records per cwd, or None when the file is anything else.
 
     `[projects.'<cwd>']` (the key quoted and not empty, without escapes, as
     the CLI writes a path) followed by `trust_level = "trusted"`, any number
@@ -341,26 +347,44 @@ def is_trust_state(texto: str) -> bool:
     value or table, an unquoted or empty key, a backslash inside a basic
     string, or a key before its table, is not trust state.
     """
-    tablas = 0
+    rutas: list[str] = []
     esperando_clave = False
     for linea in texto.splitlines():
         linea = linea.strip()
         if not linea:
             continue
-        if TRUST_TABLE_RE.match(linea):
+        tabla = TRUST_TABLE_RE.match(linea)
+        if tabla:
             if esperando_clave:
-                return False
-            tablas += 1
+                return None
+            rutas.append(tabla.group(1) or tabla.group(2))
             esperando_clave = True
             continue
         if TRUST_KEY_RE.match(linea) and esperando_clave:
             esperando_clave = False
             continue
-        return False
-    return tablas > 0 and not esperando_clave
+        return None
+    if not rutas or esperando_clave:
+        return None
+    return rutas
 
 
-def sweep_trust_state(home: Path) -> bool:
+def is_trust_state(texto: str) -> bool:
+    """Whether a `config.toml` has the shape of the trust the CLI records, and nothing else."""
+    return trust_paths(texto) is not None
+
+
+def _same_path(a: str, b: str | Path) -> bool:
+    return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
+
+
+def _under(ruta: str, raiz: Path) -> bool:
+    arriba = os.path.normcase(os.path.normpath(str(raiz)))
+    abajo = os.path.normcase(os.path.normpath(ruta))
+    return abajo.startswith(arriba + os.sep)
+
+
+def sweep_trust_state(home: Path, reviewer_id: str, cwds: tuple[Path, ...] = ()) -> bool:
     """Remove the trust file the CLI writes into its home, and only that. True if it did.
 
     codex-cli 0.153.4 records the cwd of every `exec` as trusted in
@@ -373,12 +397,16 @@ def sweep_trust_state(home: Path) -> bool:
     first smoke with that version found it.
 
     What is removed is a file that parses as trust state and nothing else
-    (`is_trust_state`): the CLI's own record about directories that no
-    longer exist, not a source of instructions or configuration. A file with
-    anything else, a link, or a file that cannot be read is left where it is,
-    and `check_home` refuses the attempt as before. The contract of the
-    policy did not move: the same sources stay closed and checked on disk;
-    the check now tells the CLI's state from the owner's configuration.
+    (`trust_paths`), AND whose every entry names a directory this policy owns:
+    an attempt directory under `work/` of this reviewer, or one of `cwds`,
+    the directory of the attempt being cleaned up. That is the CLI's own
+    record about directories of ours, not a source of instructions or
+    configuration. A file with anything else, an entry for any other path
+    (the third round of this change: a trust-only file the owner wrote by
+    hand has the same shape), a link, or a file that cannot be read is left
+    where it is, and `check_home` refuses the attempt as before. The contract
+    of the policy did not move: the same sources stay closed and checked on
+    disk; the check now tells the CLI's state from the owner's configuration.
     """
     ruta = home / "config.toml"
     if not os.path.lexists(ruta) or _is_link(ruta) or not ruta.is_file():
@@ -387,8 +415,13 @@ def sweep_trust_state(home: Path) -> bool:
         texto = ruta.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return False
-    if not is_trust_state(texto):
+    rutas = trust_paths(texto)
+    if rutas is None:
         return False
+    trabajo = work_dir(reviewer_id)
+    for proyecto in rutas:
+        if not (_under(proyecto, trabajo) or any(_same_path(proyecto, cwd) for cwd in cwds)):
+            return False
     try:
         ruta.unlink()
     except OSError:
@@ -832,12 +865,12 @@ def prepare(
         if "home_invariants" in relax:
             home.mkdir(parents=True, exist_ok=True)
         else:
-            barrido = home.is_dir() and sweep_trust_state(home)
+            barrido = home.is_dir() and sweep_trust_state(home, reviewer_id)
             check_home(home)
         check_system_config()
         if cwd is not None and "private_cwd" in relax:
             privado = cwd
-            limpiar: Callable[[], None] = lambda: sweep_trust_state(home)
+            limpiar: Callable[[], None] = lambda: sweep_trust_state(home, reviewer_id, (privado,))
         else:
             work_dir(reviewer_id).mkdir(parents=True, exist_ok=True)
             privado = Path(tempfile.mkdtemp(prefix="attempt-", dir=work_dir(reviewer_id)))
@@ -846,7 +879,7 @@ def prepare(
                 shutil.rmtree(privado, ignore_errors=True)
                 # Lo que el CLI dejo en el home al correr, para que entre
                 # intentos el home este como la politica lo describe.
-                sweep_trust_state(home)
+                sweep_trust_state(home, reviewer_id, (privado,))
         if "ancestors" not in relax:
             try:
                 check_ancestors(privado)
