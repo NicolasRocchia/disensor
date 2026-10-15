@@ -25,10 +25,11 @@ One thing the CLI itself writes into that home is not a source and is not
 left there: codex-cli 0.153.4 records the cwd of every `exec` as trusted in
 `CODEX_HOME/config.toml`, even with `--ignore-user-config` and even when the
 request fails before the model answers. The cleanup of the attempt that ran
-there removes that file when it holds nothing but the entry for its own cwd
-(`sweep_trust_state`); that is the only provenance the policy can prove, so
-nothing is swept before the check, and a `config.toml` found there, trust
-state or not, refuses the attempt as the owner's configuration would.
+there removes its own entry from that file, under the reviewer's lock, and
+the file itself once nothing is left (`sweep_trust_state`); that is the only
+provenance the policy can prove, so nothing is swept before the check, and a
+`config.toml` found there, trust state or not, refuses the attempt as the
+owner's configuration would.
 
 The policy is a closed, versioned contract: which home, which environment,
 which cwd, which flags, which invariants, which sources. Changing any of it is
@@ -310,8 +311,8 @@ def check_home(home: Path, *, create: bool = True) -> None:
         if encontrados == ["config.toml"] and _is_trust_file(home / "config.toml"):
             pista = (
                 ". It holds nothing but the trust the CLI records for the cwd of an attempt whose cleanup "
-                "did not run (codex-cli 0.153.4 writes it after every exec); the policy sweeps it only "
-                "from the attempt that produced it, so remove it by hand"
+                "did not run (codex-cli 0.153.4 writes it after every exec); the policy removes only "
+                "the entries of the attempts that produced them, so remove it by hand"
             )
         raise Refused(
             "context_unverified",
@@ -351,13 +352,14 @@ def _is_trust_file(ruta: Path) -> bool:
 # de ese intento (rondas 5 y 6: un directorio bajo `work/`, o un nombre
 # `attempt-*`, se escriben a mano igual). Cualquier otra ruta deja el archivo
 # donde esta y el intento siguiente se corta.
-TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'([^']+)'|"([^"\\]+)")\]$""")
+TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?P<clave>'[^']+'|"[^"\\]+")\]$""")
 TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"trusted"$""")
 
 
-def trust_paths(texto: str) -> list[str] | None:
-    """The project paths of a `config.toml` that holds nothing but the trust the
-    CLI records per cwd, or None when the file is anything else.
+def trust_entries(texto: str) -> list[tuple[str, str]] | None:
+    """The entries of a `config.toml` that holds nothing but the trust the CLI
+    records per cwd, as (key as written, path), or None when the file is
+    anything else.
 
     `[projects.'<cwd>']` (the key quoted and not empty, without escapes, as
     the CLI writes a path) followed by `trust_level = "trusted"`, any number
@@ -365,7 +367,7 @@ def trust_paths(texto: str) -> list[str] | None:
     value or table, an unquoted or empty key, a backslash inside a basic
     string, or a key before its table, is not trust state.
     """
-    rutas: list[str] = []
+    entradas: list[tuple[str, str]] = []
     esperando_clave = False
     for linea in texto.splitlines():
         linea = linea.strip()
@@ -375,16 +377,23 @@ def trust_paths(texto: str) -> list[str] | None:
         if tabla:
             if esperando_clave:
                 return None
-            rutas.append(tabla.group(1) or tabla.group(2))
+            clave = tabla.group("clave")
+            entradas.append((clave, clave[1:-1]))
             esperando_clave = True
             continue
         if TRUST_KEY_RE.match(linea) and esperando_clave:
             esperando_clave = False
             continue
         return None
-    if not rutas or esperando_clave:
+    if not entradas or esperando_clave:
         return None
-    return rutas
+    return entradas
+
+
+def trust_paths(texto: str) -> list[str] | None:
+    """The project paths of a trust-only `config.toml`, or None (see `trust_entries`)."""
+    entradas = trust_entries(texto)
+    return None if entradas is None else [ruta for _, ruta in entradas]
 
 
 def is_trust_state(texto: str) -> bool:
@@ -400,7 +409,8 @@ ATTEMPT_PREFIX = "attempt-"
 
 
 def sweep_trust_state(home: Path, cwd: Path) -> bool:
-    """Remove the trust file the CLI wrote for the attempt that ran from `cwd`, and only that. True if it did.
+    """Remove from the trust file the entry the CLI wrote for the attempt that ran
+    from `cwd`, and the file itself once nothing is left. True when the file is gone.
 
     codex-cli 0.153.4 records the cwd of every `exec` as trusted in
     `CODEX_HOME/config.toml` (`[projects.'<cwd>'] trust_level = "trusted"`),
@@ -411,21 +421,26 @@ def sweep_trust_state(home: Path, cwd: Path) -> bool:
     refused, and the second attempt on a machine with 0.153.4 never ran; the
     first smoke with that version found it.
 
-    What is removed is a file that parses as trust state and nothing else
-    (`trust_paths`) AND whose every entry names `cwd`, the directory the
-    attempt being cleaned up ran from: the CLI's own record about a directory
-    of ours, not a source of instructions or configuration. That is the only
-    provenance the policy can prove, and only the cleanup of that attempt
-    knows it: a trust-only file the owner wrote by hand has the same shape
-    (third round of this change), a path under `work/` or a name `attempt-*`
-    can be written by hand too (fifth and sixth rounds), and the directories
-    the policy created before are gone. So nothing is swept before the
-    check: a file with anything else, an entry for any other path, a link,
-    or a file that cannot be read is left where it is, and `check_home`
-    refuses the next attempt, naming it. An attempt killed between the CLI's
-    write and its cleanup leaves that file behind, and the owner removes it;
-    failing closed there is the point. The contract of the policy did not
-    move: the same sources stay closed and checked on disk.
+    What is touched is a file that parses as trust state and nothing else
+    (`trust_entries`), and in it only the entries that name `cwd`, the
+    directory the attempt being cleaned up ran from: the CLI's own record
+    about a directory of ours, not a source of instructions or configuration.
+    That is the only provenance the policy can prove, and only the cleanup of
+    that attempt knows it: a trust-only file the owner wrote by hand has the
+    same shape (third round of this change), a path under `work/` or a name
+    `attempt-*` can be written by hand too (fifth and sixth rounds), and the
+    directories the policy created before are gone. So nothing is swept
+    before the check: a file with anything else, a link, or a file that
+    cannot be read is left untouched, an entry for any other path stays
+    where it is, and `check_home` refuses the next attempt, naming it. Two
+    attempts may overlap (the lock covers the preparation, not the run), and
+    with 0.153.4 both append their cwd to the same file: each cleanup takes
+    out its own entry, under the lock, and the last one deletes the file
+    (seventh round: a cleanup that needed the whole file to be its own left
+    both entries behind and every later attempt refused). An attempt killed
+    between the CLI's write and its cleanup leaves its entry behind, and the
+    owner removes it; failing closed there is the point. The contract of the
+    policy did not move: the same sources stay closed and checked on disk.
     """
     ruta = home / "config.toml"
     if not os.path.lexists(ruta) or _is_link(ruta) or not ruta.is_file():
@@ -434,14 +449,37 @@ def sweep_trust_state(home: Path, cwd: Path) -> bool:
         texto = ruta.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return False
-    rutas = trust_paths(texto)
-    if rutas is None or not all(_same_path(proyecto, cwd) for proyecto in rutas):
+    entradas = trust_entries(texto)
+    if entradas is None:
+        return False
+    restantes = [(clave, proyecto) for clave, proyecto in entradas if not _same_path(proyecto, cwd)]
+    if len(restantes) == len(entradas):
         return False
     try:
+        if restantes:
+            ruta.write_text(
+                "".join(f"[projects.{clave}]\ntrust_level = \"trusted\"\n" for clave, _ in restantes),
+                encoding="utf-8",
+            )
+            return False
         ruta.unlink()
     except OSError:
         return False
     return True
+
+
+def _sweep_own_entry(reviewer_id: str, home: Path, cwd: Path) -> None:
+    """The cleanup's sweep, serialised with the other attempts of this reviewer.
+
+    Two overlapping cleanups, or a cleanup and a preparation, must not read
+    and rewrite the same file at once. A lock that stays busy means the entry
+    stays too, and the next attempt fails closed and names it.
+    """
+    try:
+        with Lock(lock_path(reviewer_id)):
+            sweep_trust_state(home, cwd)
+    except Refused:
+        pass
 
 
 def system_config_dir() -> Path:
@@ -883,7 +921,7 @@ def prepare(
         check_system_config()
         if cwd is not None and "private_cwd" in relax:
             privado = cwd
-            limpiar: Callable[[], None] = lambda: sweep_trust_state(home, privado)
+            limpiar: Callable[[], None] = lambda: _sweep_own_entry(reviewer_id, home, privado)
         else:
             work_dir(reviewer_id).mkdir(parents=True, exist_ok=True)
             privado = Path(tempfile.mkdtemp(prefix=ATTEMPT_PREFIX, dir=work_dir(reviewer_id)))
@@ -892,12 +930,16 @@ def prepare(
                 shutil.rmtree(privado, ignore_errors=True)
                 # Lo que el CLI dejo en el home al correr desde este cwd, para
                 # que entre intentos el home este como la politica lo describe.
-                sweep_trust_state(home, privado)
+                _sweep_own_entry(reviewer_id, home, privado)
         if "ancestors" not in relax:
             try:
                 check_ancestors(privado)
             except Refused:
-                limpiar()
+                # Nada corrio todavia, asi que no hay confianza que barrer, y
+                # el lock sigue tomado: el barrido lo pediria y esperaria su
+                # propio timeout. Solo el directorio privado, si es nuestro.
+                if cwd is None or "private_cwd" not in relax:
+                    shutil.rmtree(privado, ignore_errors=True)
                 raise
     env = child_env(home)
     try:

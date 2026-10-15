@@ -33,6 +33,7 @@ from disensor.codex_home import (
     inventory,
     is_trust_state,
     sweep_trust_state,
+    trust_entries,
     trust_paths,
     native_executable,
     prepare,
@@ -347,8 +348,10 @@ def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
 
 
 def test_the_recogniser_returns_the_paths_as_written():
-    rutas = trust_paths(CONFIANZA_DE_CODEX + "[projects.\"/home/u/x\"]\ntrust_level = \"trusted\"\n")
-    assert rutas == ["c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc", "/home/u/x"]
+    texto = CONFIANZA_DE_CODEX + "[projects.\"/home/u/x\"]\ntrust_level = \"trusted\"\n"
+    assert trust_paths(texto) == ["c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc", "/home/u/x"]
+    claves = [clave for clave, _ in trust_entries(texto)]
+    assert claves == ["'c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc'", '"/home/u/x"']
 
 
 @pytest.mark.parametrize("texto", [
@@ -461,16 +464,43 @@ def test_the_cleanup_disposes_only_of_the_entry_for_its_own_cwd(tmp_path, relati
     assert sweep_trust_state(home, trabajo / "attempt-abc"), "la entrada del propio cwd si"
 
 
-def test_one_foreign_entry_next_to_ours_keeps_the_whole_file(tmp_path):
-    """Una sola entrada ajena junto a la nuestra y el archivo entero se queda:
-    el barrido no edita, dispone del archivo o lo deja."""
+def test_a_foreign_entry_next_to_ours_stays_and_ours_goes(tmp_path):
+    """El barrido quita la entrada propia y deja las demas tal cual, con su
+    comilla original: la ajena sigue ahi, y el intento siguiente se corta."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
     propio = codex_home.work_dir("codex") / "attempt-abc"
-    texto = confianza(propio, "D:/permanent-project")
-    (home / "config.toml").write_text(texto, encoding="utf-8")
-    assert not sweep_trust_state(home, propio)
-    assert (home / "config.toml").read_text(encoding="utf-8") == texto
+    ajena = "[projects.\"/home/u/permanent-project\"]\ntrust_level = \"trusted\"\n"
+    (home / "config.toml").write_text(confianza(propio) + ajena, encoding="utf-8")
+    assert not sweep_trust_state(home, propio), "el archivo sigue: queda la ajena"
+    assert (home / "config.toml").read_text(encoding="utf-8") == ajena
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "context_unverified" and "config.toml" in intento["detail"]
+
+
+def test_two_overlapping_attempts_each_remove_their_own_entry(tmp_path):
+    """La ronda 7 sobre este cambio: el lock cubre la preparacion y no la
+    corrida, asi que dos intentos pueden pasar `check_home` con el home vacio y
+    correr a la vez, y con 0.153.4 los dos anotan su cwd en el mismo archivo.
+    Un cleanup que exigia que el archivo entero fuera suyo dejaba las dos
+    entradas, y todos los intentos siguientes se cortaban hasta que el dueño
+    borrara el archivo. Ahora cada cleanup quita la suya y el ultimo borra el
+    archivo. Determinista: las dos preparaciones antes de las dos corridas."""
+    home = codex_home.home_dir("codex")
+    script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
+    argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
+    a = prepare("codex", argv)
+    b = prepare("codex", argv)
+    assert a.cwd != b.cwd
+    for lanzamiento in (a, b):
+        subprocess.run(lanzamiento.argv, cwd=str(lanzamiento.cwd), env=lanzamiento.env, input=b"p", check=True)
+    assert len(trust_paths((home / "config.toml").read_text(encoding="utf-8"))) == 2
+    a.cleanup()
+    assert trust_paths((home / "config.toml").read_text(encoding="utf-8")) == [como_la_escribe_el_cli(b.cwd)]
+    b.cleanup()
+    assert not (home / "config.toml").exists()
+    tercero = run_reviewer(entrada(script), "p", tmp_path / "i3", 60)
+    assert tercero["outcome"] == "ok", tercero
 
 
 def test_the_cleanup_disposes_of_the_entry_for_the_attempts_own_cwd(tmp_path):
