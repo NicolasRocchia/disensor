@@ -24,10 +24,11 @@ does NOT do is as much part of the contract as what it does:
 One thing the CLI itself writes into that home is not a source and is not
 left there: codex-cli 0.153.4 records the cwd of every `exec` as trusted in
 `CODEX_HOME/config.toml`, even with `--ignore-user-config` and even when the
-request fails before the model answers. A file with nothing but that is the
-CLI's own state about directories that no longer exist; `sweep_trust_state`
-removes it before the check and after the attempt, and anything else in a
-`config.toml` keeps refusing the attempt as the owner's configuration.
+request fails before the model answers. The cleanup of the attempt that ran
+there removes that file when it holds nothing but the entry for its own cwd
+(`sweep_trust_state`); that is the only provenance the policy can prove, so
+nothing is swept before the check, and a `config.toml` found there, trust
+state or not, refuses the attempt as the owner's configuration would.
 
 The policy is a closed, versioned contract: which home, which environment,
 which cwd, which flags, which invariants, which sources. Changing any of it is
@@ -55,8 +56,8 @@ POLICY = "codex_home/1"
 # directorio, ni como enlace. Es una lista de nombres PROHIBIDOS y no de
 # permitidos: el CLI deja archivos de estado propios por version (sqlite,
 # installation_id, .sandbox-bin, y en 0.153.4 un config.toml con la confianza
-# del cwd de cada exec, que `sweep_trust_state` barre antes del chequeo porque
-# no es configuracion del dueño) que no son fuentes de instrucciones, y una
+# del cwd de cada exec, que el cleanup del intento barre porque es suyo) que no
+# son fuentes de instrucciones, y una
 # lista de permitidos dejaria la receta inusable en cada actualizacion sin
 # ganar nada. Cada nombre de aca es una fuente de carga automatica: la
 # configuracion de usuario y sus perfiles, los archivos de instrucciones, los
@@ -305,11 +306,27 @@ def check_home(home: Path, *, create: bool = True) -> None:
     except OSError as exc:
         raise Refused("context_unverified", f"the isolated home {home} cannot be listed ({exc})") from exc
     if encontrados:
+        pista = ""
+        if encontrados == ["config.toml"] and _is_trust_file(home / "config.toml"):
+            pista = (
+                ". It holds nothing but the trust the CLI records for the cwd of an attempt whose cleanup "
+                "did not run (codex-cli 0.153.4 writes it after every exec); the policy sweeps it only "
+                "from the attempt that produced it, so remove it by hand"
+            )
         raise Refused(
             "context_unverified",
             f"the isolated home {home} carries sources the policy closes: {', '.join(sorted(encontrados))}. "
-            "Nothing of the owner's codex configuration belongs there; remove them",
+            "Nothing of the owner's codex configuration belongs there; remove them" + pista,
         )
+
+
+def _is_trust_file(ruta: Path) -> bool:
+    if _is_link(ruta) or not ruta.is_file():
+        return False
+    try:
+        return trust_paths(ruta.read_text(encoding="utf-8")) is not None
+    except (OSError, UnicodeDecodeError):
+        return False
 
 
 # La unica forma de config.toml que el CLI escribe solo: una tabla por cwd con
@@ -329,10 +346,11 @@ def check_home(home: Path, *, create: bool = True) -> None:
 # version escribiera otra cosa, el barrido no la reconoce y el intento se corta,
 # que es el lado seguro. Y la sintaxis sola no alcanza (ronda 3): un archivo
 # asi escrito a mano por el dueño, con la ruta de un proyecto suyo, tiene la
-# misma forma. La procedencia la da la ruta: el barrido dispone solo de
-# entradas cuya ruta sea un directorio de intento de esta politica, bajo
-# `work/`, o el cwd del intento que se esta limpiando; cualquier otra ruta
-# deja el archivo donde esta y el intento se corta.
+# misma forma. La procedencia la da la ruta, y la unica ruta que la politica
+# puede probar suya es el cwd del intento que acaba de correr, en el cleanup
+# de ese intento (rondas 5 y 6: un directorio bajo `work/`, o un nombre
+# `attempt-*`, se escriben a mano igual). Cualquier otra ruta deja el archivo
+# donde esta y el intento siguiente se corta.
 TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'([^']+)'|"([^"\\]+)")\]$""")
 TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"trusted"$""")
 
@@ -381,18 +399,8 @@ def _same_path(a: str, b: str | Path) -> bool:
 ATTEMPT_PREFIX = "attempt-"
 
 
-def _attempt_dir(ruta: str, trabajo: Path) -> bool:
-    """Whether `ruta` is one of the private directories this policy creates:
-    a DIRECT child of `work/` named `attempt-*`, as `tempfile.mkdtemp` makes
-    them. Any other descendant of `work/` is not ours (fifth round of this
-    change: lexical containment let `work/permanent-project` through)."""
-    normal = os.path.normcase(os.path.normpath(ruta))
-    padre, nombre = os.path.split(normal)
-    return padre == os.path.normcase(os.path.normpath(str(trabajo))) and nombre.startswith(ATTEMPT_PREFIX)
-
-
-def sweep_trust_state(home: Path, reviewer_id: str, cwds: tuple[Path, ...] = ()) -> bool:
-    """Remove the trust file the CLI writes into its home, and only that. True if it did.
+def sweep_trust_state(home: Path, cwd: Path) -> bool:
+    """Remove the trust file the CLI wrote for the attempt that ran from `cwd`, and only that. True if it did.
 
     codex-cli 0.153.4 records the cwd of every `exec` as trusted in
     `CODEX_HOME/config.toml` (`[projects.'<cwd>'] trust_level = "trusted"`),
@@ -404,17 +412,20 @@ def sweep_trust_state(home: Path, reviewer_id: str, cwds: tuple[Path, ...] = ())
     first smoke with that version found it.
 
     What is removed is a file that parses as trust state and nothing else
-    (`trust_paths`), AND whose every entry names a directory this policy owns:
-    an attempt directory of this reviewer (a direct child of `work/` named
-    `attempt-*`, as `tempfile.mkdtemp` creates them), or one of `cwds`, the
-    directory of the attempt being cleaned up. That is the CLI's own
-    record about directories of ours, not a source of instructions or
-    configuration. A file with anything else, an entry for any other path
-    (the third round of this change: a trust-only file the owner wrote by
-    hand has the same shape), a link, or a file that cannot be read is left
-    where it is, and `check_home` refuses the attempt as before. The contract
-    of the policy did not move: the same sources stay closed and checked on
-    disk; the check now tells the CLI's state from the owner's configuration.
+    (`trust_paths`) AND whose every entry names `cwd`, the directory the
+    attempt being cleaned up ran from: the CLI's own record about a directory
+    of ours, not a source of instructions or configuration. That is the only
+    provenance the policy can prove, and only the cleanup of that attempt
+    knows it: a trust-only file the owner wrote by hand has the same shape
+    (third round of this change), a path under `work/` or a name `attempt-*`
+    can be written by hand too (fifth and sixth rounds), and the directories
+    the policy created before are gone. So nothing is swept before the
+    check: a file with anything else, an entry for any other path, a link,
+    or a file that cannot be read is left where it is, and `check_home`
+    refuses the next attempt, naming it. An attempt killed between the CLI's
+    write and its cleanup leaves that file behind, and the owner removes it;
+    failing closed there is the point. The contract of the policy did not
+    move: the same sources stay closed and checked on disk.
     """
     ruta = home / "config.toml"
     if not os.path.lexists(ruta) or _is_link(ruta) or not ruta.is_file():
@@ -424,12 +435,8 @@ def sweep_trust_state(home: Path, reviewer_id: str, cwds: tuple[Path, ...] = ())
     except (OSError, UnicodeDecodeError):
         return False
     rutas = trust_paths(texto)
-    if rutas is None:
+    if rutas is None or not all(_same_path(proyecto, cwd) for proyecto in rutas):
         return False
-    trabajo = work_dir(reviewer_id)
-    for proyecto in rutas:
-        if not (_attempt_dir(proyecto, trabajo) or any(_same_path(proyecto, cwd) for cwd in cwds)):
-            return False
     try:
         ruta.unlink()
     except OSError:
@@ -868,26 +875,24 @@ def prepare(
       it; nothing else does, and `check_ancestors` itself did not change.
     """
     home = home_dir(reviewer_id)
-    barrido = False
     with Lock(lock_path(reviewer_id)):
         if "home_invariants" in relax:
             home.mkdir(parents=True, exist_ok=True)
         else:
-            barrido = home.is_dir() and sweep_trust_state(home, reviewer_id)
             check_home(home)
         check_system_config()
         if cwd is not None and "private_cwd" in relax:
             privado = cwd
-            limpiar: Callable[[], None] = lambda: sweep_trust_state(home, reviewer_id, (privado,))
+            limpiar: Callable[[], None] = lambda: sweep_trust_state(home, privado)
         else:
             work_dir(reviewer_id).mkdir(parents=True, exist_ok=True)
             privado = Path(tempfile.mkdtemp(prefix=ATTEMPT_PREFIX, dir=work_dir(reviewer_id)))
 
             def limpiar() -> None:
                 shutil.rmtree(privado, ignore_errors=True)
-                # Lo que el CLI dejo en el home al correr, para que entre
-                # intentos el home este como la politica lo describe.
-                sweep_trust_state(home, reviewer_id, (privado,))
+                # Lo que el CLI dejo en el home al correr desde este cwd, para
+                # que entre intentos el home este como la politica lo describe.
+                sweep_trust_state(home, privado)
         if "ancestors" not in relax:
             try:
                 check_ancestors(privado)
@@ -906,8 +911,6 @@ def prepare(
             "cli_version": version,
             "certified": certified(version),
         }
-        if barrido:
-            observado["trust_state_swept"] = True
         if "skills_config" not in relax:
             rutas = inventory(skill_roots(privado))
             completo += ["-c", skills_config_arg(rutas)]

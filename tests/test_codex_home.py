@@ -380,30 +380,30 @@ def test_anything_but_that_trust_is_configuration(texto):
     assert trust_paths(texto) is None
 
 
-def test_the_trust_the_cli_left_is_swept_before_the_check_and_the_attempt_runs(tmp_path):
+def test_a_trust_file_left_behind_refuses_the_next_attempt_and_says_what_it_is(tmp_path):
     """codex-cli 0.153.4 anota el cwd de cada exec como confiable en
     CODEX_HOME/config.toml (medido el 2026-10-15 con un modelo inexistente, sin
-    inferencia); con el cwd privado nuevo por intento, cada intento dejaba un
-    archivo que el siguiente `check_home` rechazaba y el segundo intento no
-    corria nunca. Ese archivo, y solo ese, se barre antes del chequeo."""
+    inferencia). Lo barre el cleanup del intento que lo produjo, y nadie mas:
+    nada se barre antes del chequeo (rondas 3, 5 y 6: la forma, un directorio
+    bajo work/ y un nombre attempt-* se escriben a mano igual). Un archivo
+    que quedo, de un intento matado antes de limpiar o del dueño, corta el
+    intento siguiente, y el detalle dice que es y que hacer."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
     (home / "config.toml").write_text(
-        confianza(codex_home.work_dir("codex") / "attempt-abc", codex_home.work_dir("codex") / "attempt-def"),
-        encoding="utf-8",
+        confianza(codex_home.work_dir("codex") / "attempt-abc"), encoding="utf-8",
     )
-    datos = volcado(tmp_path, cli_falso(tmp_path, "vuelca", VUELCA))
-    assert datos["intento"]["trust_state_swept"] is True
-    assert datos["env"]["CODEX_HOME"] == str(home)
-    assert not (home / "config.toml").exists()
-    datos = volcado(tmp_path, cli_falso(tmp_path, "vuelca", VUELCA))
-    assert "trust_state_swept" not in datos["intento"], "sin archivo no hay barrido que registrar"
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "context_unverified"
+    assert "config.toml" in intento["detail"] and "cleanup" in intento["detail"]
+    assert (home / "config.toml").exists(), "nada se barre antes del chequeo"
+    assert not (tmp_path / "i").exists(), "el intento se corto antes de correr nada"
 
 
 def test_two_attempts_in_a_row_with_a_cli_that_records_trust_both_run(tmp_path):
     """La forma real del fallo: un CLI que anota la confianza al correr. El
-    primer intento la deja, el cleanup la barre, y si algo impidiera el
-    cleanup el barrido previo al chequeo la saca igual."""
+    primer intento la deja y su cleanup la barre, porque es la entrada de su
+    propio cwd; el segundo encuentra el home como la politica lo describe."""
     home = codex_home.home_dir("codex")
     script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
     primero = run_reviewer(entrada(script), "p", tmp_path / "i1", 60)
@@ -411,7 +411,7 @@ def test_two_attempts_in_a_row_with_a_cli_that_records_trust_both_run(tmp_path):
     assert not (home / "config.toml").exists(), "el cleanup del intento barre lo que el CLI dejo"
     segundo = run_reviewer(entrada(script), "p", tmp_path / "i2", 60)
     assert segundo["outcome"] == "ok", segundo
-    assert "trust_state_swept" not in segundo
+    assert not (home / "config.toml").exists()
 
 
 @pytest.mark.parametrize("texto", [
@@ -432,7 +432,7 @@ def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path, texto)
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
     (home / "config.toml").write_text(texto, encoding="utf-8")
-    assert not sweep_trust_state(home, "codex")
+    assert not sweep_trust_state(home, tmp_path / "un-intento")
     intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
     assert intento["outcome"] == "context_unverified" and "config.toml" in intento["detail"]
     assert (home / "config.toml").read_text(encoding="utf-8") == texto
@@ -440,49 +440,50 @@ def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path, texto)
 
 @pytest.mark.parametrize("relativa", [
     "permanent-project",          # hijo directo de work/ que no es un intento (ronda 5)
-    "attempt-abc/sub",            # un descendiente de un intento, no el intento
-    "attempt-abc/../otro",        # lexicamente adentro, normalizado afuera
+    "attempt-manual",             # el nombre de un intento, escrito a mano (ronda 6)
+    "attempt-abc/sub",            # un descendiente de un intento
     "attempts/attempt-abc",       # otro padre
 ])
-def test_only_a_direct_attempt_child_of_work_is_ours(tmp_path, relativa):
-    """La procedencia bajo work/ es un directorio de intento, hijo directo con el
-    prefijo de mkdtemp; cualquier otro descendiente de work/ es ajeno y el
-    archivo se queda (ronda 5: la contencion lexica dejaba pasar
-    work/permanent-project)."""
+def test_the_cleanup_disposes_only_of_the_entry_for_its_own_cwd(tmp_path, relativa):
+    """La unica procedencia que la politica puede probar es el cwd del intento
+    que acaba de correr: un directorio bajo work/ (ronda 5) o un nombre
+    attempt-* (ronda 6) se escriben a mano igual, y los directorios que la
+    politica creo antes ya no existen. El cleanup de un intento barre solo la
+    entrada de su propio cwd; cualquier otra ruta deja el archivo."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
     trabajo = codex_home.work_dir("codex")
     texto = confianza(trabajo / relativa)
     (home / "config.toml").write_text(texto, encoding="utf-8")
-    assert not sweep_trust_state(home, "codex")
+    assert not sweep_trust_state(home, trabajo / "attempt-abc")
     assert (home / "config.toml").read_text(encoding="utf-8") == texto
     (home / "config.toml").write_text(confianza(trabajo / "attempt-abc"), encoding="utf-8")
-    assert sweep_trust_state(home, "codex"), "el intento si es nuestro"
+    assert sweep_trust_state(home, trabajo / "attempt-abc"), "la entrada del propio cwd si"
 
 
-def test_one_foreign_entry_among_ours_keeps_the_whole_file(tmp_path):
-    """Una sola entrada ajena entre las nuestras y el archivo entero se queda:
+def test_one_foreign_entry_next_to_ours_keeps_the_whole_file(tmp_path):
+    """Una sola entrada ajena junto a la nuestra y el archivo entero se queda:
     el barrido no edita, dispone del archivo o lo deja."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
-    texto = confianza(codex_home.work_dir("codex") / "attempt-abc", "D:/permanent-project")
+    propio = codex_home.work_dir("codex") / "attempt-abc"
+    texto = confianza(propio, "D:/permanent-project")
     (home / "config.toml").write_text(texto, encoding="utf-8")
-    assert not sweep_trust_state(home, "codex")
+    assert not sweep_trust_state(home, propio)
     assert (home / "config.toml").read_text(encoding="utf-8") == texto
 
 
 def test_the_cleanup_disposes_of_the_entry_for_the_attempts_own_cwd(tmp_path):
     """Con el cwd privado relajado (la prueba hostil corre desde su propio
-    directorio), lo que el CLI anota es ese cwd, que no esta bajo work/: el
-    cleanup lo barre porque es el cwd del intento que limpia, y el barrido
-    previo al chequeo no, porque no sabe de el."""
+    directorio), lo que el CLI anota es ese cwd: el cleanup lo barre porque es
+    el cwd del intento que limpia."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
     cwd = tmp_path / "Hostil"
     cwd.mkdir()
     (home / "config.toml").write_text(confianza(cwd), encoding="utf-8")
-    assert not sweep_trust_state(home, "codex"), "antes del chequeo esa ruta es ajena"
-    assert sweep_trust_state(home, "codex", (cwd,)), "para el intento que corrio ahi es suya"
+    assert not sweep_trust_state(home, tmp_path / "otro"), "para otro intento esa ruta es ajena"
+    assert sweep_trust_state(home, cwd), "para el intento que corrio ahi es suya"
     assert not (home / "config.toml").exists()
     script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
     argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
