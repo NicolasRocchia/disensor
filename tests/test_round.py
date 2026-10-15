@@ -582,6 +582,35 @@ def test_a_consent_given_from_a_subdirectory_serves_the_round_from_the_root(
     assert correr(repo, registro, monkeypatch, tmp_path) == OK, capsys.readouterr().err
 
 
+@pytest.mark.parametrize("familia, modelo_generador, avisa", [
+    ("anthropic", None, True),
+    ("anthropic", "anthropic-modelo", False),
+    ("openai", None, False),
+])
+def test_a_same_family_reviewer_without_the_generator_model_is_warned(
+    familia, modelo_generador, avisa, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Sin --generator-model la ronda compara contra un modelo vacio, y un revisor
+    de la familia del generador sale `same_family_distinct_model` aunque haya
+    corrido el mismo modelo (#79). La ronda avisa que mirar antes de declarar."""
+    (repo / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {"reviewers": [dict(
+        entrada("mismo", familia, revisor_falso(tmp_path, "mismo", ESCRIBE_Y_SALE_BIEN)),
+        egress="local", model="anthropic-modelo",
+    )]}
+    extra = {"generator-model": modelo_generador} if modelo_generador else {}
+    assert correr(repo, registro, monkeypatch, tmp_path, **extra) == OK
+    err = capsys.readouterr().err
+    assert ("--generator-model was not given" in err) == avisa
+    if avisa:
+        assert "it recorded same_family_distinct_model" in err
+    declarado = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["declared"]
+    if modelo_generador:
+        assert declarado["independence"] == "same_model_fresh_context"
+
+
 def test_an_assistant_entry_cannot_forge_catalogued_hardening():
     """Copiar el argv de una receta no hereda su prueba hostil.
 

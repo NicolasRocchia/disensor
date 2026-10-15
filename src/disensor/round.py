@@ -938,6 +938,21 @@ def _round(args, repo: Path) -> int:
             "the reviewer shares with the generator were not covered. The declaration has to say "
             "so: independence, fallback_reason and a reviewer_correlation residue item."
         )
+    # El modelo del generador es lo unico con que la ronda separa el mismo
+    # modelo de otro de la misma familia (`independence_of`), y sin el compara
+    # contra un modelo vacio: un revisor de la familia que corrio el modelo del
+    # generador sale `same_family_distinct_model`, que afirma mas independencia
+    # de la que hubo (#79). La ronda ya corrio, asi que el aviso no la frena:
+    # dice que mirar antes de declarar.
+    if entry["family"] == args.generator_family and not args.generator_model:
+        estado(
+            f"round: {entry['id']} is from the generator's family and --generator-model was not "
+            "given, so the round could not tell the generator's own model from another model of "
+            f"that family, and it recorded {independence}. Check it before declaring: if the "
+            "reviewer ran the generator's model, the independence was same_model_fresh_context. "
+            "Next time pass --generator-model with the generator's exact model name, spelled as "
+            "the reviewer was registered."
+        )
     if entry.get("hardening") != "verified":
         estado(
             "round: the adapter's hardening is not verified. The material under review may have "
