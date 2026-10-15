@@ -315,17 +315,23 @@ def check_home(home: Path, *, create: bool = True) -> None:
 # La unica forma de config.toml que el CLI escribe solo: una tabla por cwd con
 # su nivel de confianza, y nada mas. Lineas en blanco entre medio; ningun
 # comentario, ninguna otra clave, ninguna otra tabla. Lo que no tenga EXACTAMENTE
-# esta forma es configuracion del dueño hasta que se demuestre lo contrario.
-TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'[^']*'|"[^"]*"|[A-Za-z0-9_.:-]+)\]$""")
+# esta forma es configuracion del dueño hasta que se demuestre lo contrario. La
+# clave de la tabla es la ruta del cwd y el CLI la escribe siempre entre
+# comillas (una ruta lleva barras y dos puntos, que una clave desnuda de TOML
+# no admite): una clave sin comillas no es esta forma. La ronda 1 sobre este
+# cambio cazo que admitirlas dejaba pasar `[projects.foo.bar]`, una tabla
+# anidada, y `[projects.foo:bar]`, TOML invalido, y el barrido los borraba.
+TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'[^']*'|"[^"]*")\]$""")
 TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"[a-z_]+"$""")
 
 
 def is_trust_state(texto: str) -> bool:
     """Whether a `config.toml` holds nothing but the trust the CLI records per cwd.
 
-    `[projects.'<cwd>']` followed by `trust_level = "..."`, any number of
-    times, blank lines allowed. An empty file, a comment, any other key or
-    table, or a key before its table, is not trust state.
+    `[projects.'<cwd>']` (the key quoted, as the CLI writes a path) followed
+    by `trust_level = "..."`, any number of times, blank lines allowed. An
+    empty file, a comment, any other key or table, an unquoted key, or a key
+    before its table, is not trust state.
     """
     tablas = 0
     esperando_clave = False

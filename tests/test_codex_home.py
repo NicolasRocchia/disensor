@@ -337,6 +337,11 @@ def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
     "[projects.'a']\n[projects.'b']\ntrust_level = \"trusted\"\n",
     "[profiles.x]\ntrust_level = \"trusted\"\n",
     "[projects.'a']\ntrust_level = \"trusted\"\nmodel = \"gpt\"\n",
+    # Ronda 1: una clave sin comillas no es la forma que el CLI escribe; con el
+    # punto es una tabla anidada y con los dos puntos ni siquiera es TOML.
+    "[projects.foo.bar]\ntrust_level = \"trusted\"\n",
+    "[projects.foo:bar]\ntrust_level = \"trusted\"\n",
+    "[projects.foo]\ntrust_level = \"trusted\"\n",
 ])
 def test_anything_but_that_trust_is_configuration(texto):
     assert not is_trust_state(texto)
