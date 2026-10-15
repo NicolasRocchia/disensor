@@ -1,0 +1,299 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "8aba7167-13a8-4971-a7ee-74568d2fa9c2",
+    "created_at": "2026-10-15T00:00:27-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "d3906b292510eabe5caac1f0c2c0e00a86dfbadc",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "42a64607dc83e11189f684fec0f43fccb63fe55a"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r4",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r5",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r6",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r7",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r8",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El reconocedor del estado de confianza admitía claves sin comillas y el barrido borraba tablas anidadas o TOML inválido",
+      "description": "En 9f49e07, TRUST_TABLE_RE aceptaba como clave de la tabla [projects.<clave>] una alternativa sin comillas ([A-Za-z0-9_.:-]+). Con el punto, [projects.foo.bar] es una tabla anidada y no una entrada de ruta; con los dos puntos, [projects.foo:bar] ni siquiera es TOML. is_trust_state devolvía True para las dos, sweep_trust_state las borraba antes de check_home y el intento seguía, en vez de dejar el archivo y cortar, que es lo que la política promete para cualquier config.toml que no sea el estado exacto que el CLI escribe.",
+      "location": "src/disensor/codex_home.py, TRUST_TABLE_RE e is_trust_state; el unlink de sweep_trust_state",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura del regex: la clase de caracteres de la alternativa desnuda incluye el punto y los dos puntos. El revisor lo reprodujo con una sonda directa sobre is_trust_state que imprimió True para los dos ejemplos. El CLI escribe la ruta del cwd siempre entre comillas (una ruta lleva barras y dos puntos, que una clave desnuda de TOML no admite; medido en los config.toml que 0.153.4 dejó el 2026-10-15: [projects.'c:\\users\\...'] trust_level = \"trusted\"), así que la forma exacta es solo la entrecomillada. Corregido en a1251a5: la alternativa sin comillas desaparece."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_anything_but_that_trust_is_configuration con [projects.foo.bar], [projects.foo:bar] y [projects.foo] como casos que no son estado de confianza. La ronda 2 sobre a1251a5 no lo volvió a levantar."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r2",
+      "severity": "minor",
+      "title": "Entre comillas entraba cualquier cosa: la clave vacía, un escape inválido y cualquier valor de trust_level se barrían como estado del CLI",
+      "description": "En a1251a5, TRUST_TABLE_RE validaba los delimitadores ('...' o \"...\") pero no la sintaxis de la cadena: [projects.\"x\\q\"] (escape que TOML no admite en una cadena básica) y [projects.\"\"] (clave vacía) pasaban; y TRUST_KEY_RE aceptaba cualquier valor en minúsculas, trust_level = \"made_up\" incluido. Ninguna de esas formas es la que el CLI escribe, y sweep_trust_state las borraba en vez de dejarlas para que check_home cortara el intento.",
+      "location": "src/disensor/codex_home.py, TRUST_TABLE_RE y TRUST_KEY_RE",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura de los dos regex; el revisor lo reprodujo con una sonda sobre is_trust_state que imprimió True para [projects.\"x\\q\"] y [projects.\"\"] con trust_level = \"made_up\". Lo que el CLI escribe con la receta (bypass de aprobaciones) es una clave no vacía, literal sin escapes en Windows, y el valor \"trusted\"; en POSIX la clave viaja como cadena básica sin barras invertidas. Corregido en 02bd3e6: clave no vacía, '[^']+' o \"[^\"\\\\]+\", y el valor exacto \"trusted\"; cualquier otra cosa no se reconoce y el intento se corta, que es el lado seguro."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_anything_but_that_trust_is_configuration (clave vacía con las dos comillas, \"x\\q\", made_up, untrusted) y ::test_a_config_file_with_anything_else_still_breaks_the_home parametrizada con los dos ejemplos del revisor: sweep_trust_state devuelve False, el archivo queda byte a byte y run_reviewer termina context_unverified. La ronda 3 sobre 02bd3e6 no lo volvio a levantar."
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r3",
+      "severity": "minor",
+      "title": "Un archivo de confianza con la forma exacta pero escrito a mano por el dueño, con la ruta de un proyecto suyo, se borraba igual",
+      "description": "En 02bd3e6 el reconocedor miraba solo sintaxis y valor: cualquier clave entrecomillada no vacia con trust_level = \"trusted\". Un config.toml asi escrito por el dueño en el home aislado, por ejemplo [projects.'D:\\permanent-project'] trust_level = \"trusted\", tiene la misma forma que lo que el CLI deja, is_trust_state devolvia True y sweep_trust_state lo borraba antes de check_home, en vez de dejarlo y cortar el intento. Borrado silencioso de configuracion del dueño, acotado a un archivo que solo tenga entradas de confianza.",
+      "location": "src/disensor/codex_home.py, is_trust_state y sweep_trust_state",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura: el regex y el unlink incondicional tras is_trust_state no distinguen de quien es la ruta. La procedencia la da la ruta de cada entrada: el CLI anota el cwd del intento, y los cwd de esta politica son los directorios attempt-* bajo work/ del revisor o, con el cwd privado relajado en la prueba hostil, el cwd del intento que se limpia. Corregido en 937727c: trust_paths devuelve las rutas, sweep_trust_state dispone del archivo solo si TODAS sus entradas estan bajo work/ o son el cwd del intento que limpia (normcase y normpath, porque el CLI escribe la ruta en minusculas en Windows); una sola entrada ajena deja el archivo entero y el intento se corta."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_a_config_file_with_anything_else_still_breaks_the_home con el ejemplo del revisor ([projects.'D:\\permanent-project']) y una ruta POSIX ajena; ::test_one_foreign_entry_among_ours_keeps_the_whole_file; ::test_the_cleanup_disposes_of_the_entry_for_the_attempts_own_cwd (la prueba hostil: el barrido previo no la toca, el cleanup del intento si). La ronda 4 sobre 6986af5 no lo volvio a levantar; la ronda 5 sobre 88f60b5 tampoco, y levanto h4 sobre el predicado."
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r5",
+      "severity": "minor",
+      "title": "La procedencia bajo work/ era contencion lexica: cualquier descendiente de work/ contaba como directorio de la politica",
+      "description": "En 88f60b5, _under daba por nuestro cualquier descendiente lexico de work/ del revisor, por ejemplo work/permanent-project, que no es un directorio de intento. Una entrada de confianza escrita a mano para un directorio asi se barria como estado del CLI en vez de dejar el archivo y cortar el intento. La prueba de la entrada ajena cubria solo rutas fuera de work/.",
+      "location": "src/disensor/codex_home.py, _under y sweep_trust_state",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Confirmado por lectura de _under (startswith sobre la ruta normalizada) y por la reproduccion del revisor, que con REGISTRY_DIR redirigido escribio una entrada para work/permanent-project y vio sweep_trust_state devolver True y el archivo desaparecer. Los directorios que la politica crea son hijos directos de work/ con el prefijo attempt- de tempfile.mkdtemp. Corregido en 244f8fb: _attempt_dir exige padre igual a work/ y nombre con ese prefijo, normalizados; ATTEMPT_PREFIX comparte el prefijo con mkdtemp."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_only_a_direct_attempt_child_of_work_is_ours, parametrizada con work/permanent-project (el caso del revisor), un descendiente de un intento, una ruta que se normaliza afuera y otro padre: el archivo queda byte a byte; y el intento attempt-abc si se barria. La ronda 6 sobre 244f8fb no lo volvio a levantar y levanto h5 sobre el mismo predicado; desde 8972ffd esos cuatro casos siguen sin barrerse, ahora porque ninguno es el cwd del intento que limpia."
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r6",
+      "severity": "minor",
+      "title": "El nombre attempt-* bajo work/ se escribe a mano igual: la procedencia inferida del nombre borraba configuracion del dueño",
+      "description": "En 244f8fb, _attempt_dir daba por nuestro cualquier hijo directo de work/ con el prefijo attempt-, exista o no y lo haya creado la politica o no. Un config.toml del dueño con [projects.'<work>/attempt-manual'] trust_level = \"trusted\" se barria antes del chequeo en vez de quedar y cortar el intento. La politica no puede probar que creo un directorio que ya borro.",
+      "location": "src/disensor/codex_home.py, _attempt_dir, sweep_trust_state y el barrido previo al chequeo en prepare",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura: el predicado era padre igual a work/ y prefijo del nombre, sin ninguna relacion con lo que la politica creo; los directorios de intento se borran al terminar cada intento, asi que no hay forma de recuperarla despues. La unica procedencia demostrable es el cwd del intento que acaba de correr, y solo la conoce el cleanup de ese intento. Corregido en 8972ffd con el diseño que el hallazgo pide: sweep_trust_state(home, cwd) dispone del archivo solo si todas sus entradas son ese cwd; se elimina el barrido previo al chequeo y el observado trust_state_swept; un archivo de confianza que quede (intento matado antes de su cleanup, o el dueño) corta el intento siguiente como cualquier config.toml, y check_home dice en el detalle que es y que se quita a mano. Falla cerrado sin un registro de intentos."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_the_cleanup_disposes_only_of_the_entry_for_its_own_cwd (attempt-manual, el caso del revisor, mas permanent-project, un descendiente y otro padre: el archivo queda byte a byte; la entrada del propio cwd si se barre); ::test_a_trust_file_left_behind_refuses_the_next_attempt_and_says_what_it_is (nada se barre antes del chequeo, el detalle nombra el cleanup); ::test_two_attempts_in_a_row_with_a_cli_that_records_trust_both_run (el flujo real sigue andando). La ronda 7 sobre 8972ffd no lo volvio a levantar y levanto h6 sobre el solapamiento."
+      },
+      "remedy_adjustment": "El revisor pedia atar la procedencia a un intento creado o registrado por la politica. No hay registro de intentos y crear uno seria mas estado en el home por un caso que ya falla cerrado: se eligio probar la procedencia en el unico lugar donde existe, el cleanup del intento que produjo la entrada, y no barrer nada antes del chequeo."
+    },
+    {
+      "id": "h6",
+      "origin": "r7",
+      "severity": "major",
+      "title": "Dos intentos solapados con codex-cli 0.153.4 dejaban el home aislado envenenado: el cleanup exigia que el archivo de confianza entero fuera suyo",
+      "description": "En 8972ffd el lock cubre la preparacion (check_home, cwd privado, ancestros) y no la corrida ni el cleanup. Dos procesos de disensor pueden pasar check_home con el home vacio y correr a la vez, cosa que round admite; con 0.153.4 los dos CLI anotan su cwd en el mismo config.toml. Cada cleanup veia la entrada del otro, la condicion de que todas las entradas fueran su cwd fallaba y el archivo quedaba; todos los intentos siguientes se cortaban en check_home hasta que el dueño lo borrara a mano. Un solapamiento transitorio se volvia indisponibilidad persistente del revisor.",
+      "location": "src/disensor/codex_home.py, prepare (alcance del lock) y sweep_trust_state; src/disensor/round.py, _run_prepared y cleanup",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura: el with Lock termina antes de login_status y de la corrida; _run_prepared y cleanup corren sin el lock; la condicion all(_same_path(...)) de sweep_trust_state rechazaba el archivo con la entrada del otro intento. Que el CLI agrega entradas (no reemplaza) se vio en los config.toml del 2026-10-15, con dos tablas de dos corridas. Corregido en d3906b2: trust_entries devuelve (clave tal cual, ruta); sweep_trust_state quita solo las entradas del cwd propio, reescribe las demas con su comilla original y borra el archivo cuando no queda ninguna; _sweep_own_entry lo hace bajo el lock del revisor y, si esta ocupado, deja la entrada para que el intento siguiente falle cerrado con su detalle."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_two_overlapping_attempts_each_remove_their_own_entry (dos prepare antes de las dos corridas con un CLI que anota como 0.153.4: el archivo tiene las dos entradas, el primer cleanup deja solo la del otro, el segundo borra el archivo, un tercer intento corre) y ::test_a_foreign_entry_next_to_ours_stays_and_ours_goes (la ajena queda tal cual y el intento siguiente se corta). La ronda 8 sobre d3906b2 no lo volvio a levantar."
+      }
+    },
+    {
+      "id": "h7",
+      "origin": "r8",
+      "severity": "major",
+      "title": "Un perfil de Windows con apostrofo en la ruta dejaria una entrada de confianza que el cleanup no reconoce",
+      "description": "En d3906b2, TRUST_TABLE_RE acepta la clave de la tabla de confianza como cadena literal ('...', sin escapes, como la escribe el CLI en Windows) o como cadena basica sin barras invertidas (\"...\", como en POSIX). Una ruta de Windows con apostrofo, por ejemplo C:/Users/O'Brien/.disensor/reviewers/codex/work/attempt-x con barras de Windows, no puede escribirse como literal, y un serializador TOML la escribiria como cadena basica con las barras escapadas, que trust_entries rechaza. El cleanup del intento dejaria el archivo y el intento siguiente se cortaria en check_home, con el detalle que dice que es y que se quita a mano. El revisor lo clasifico como major porque corta las revisiones siguientes hasta que el dueño borre el archivo.",
+      "location": "src/disensor/codex_home.py, TRUST_TABLE_RE y trust_entries",
+      "final_state": "debt_recorded",
+      "debt_id": "confianza-clave-basica-con-escapes",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura del regex: una cadena basica con barras invertidas no entra, y una ruta con apostrofo no cabe en una literal. No verificado contra el CLI: en esta maquina no hay un perfil con apostrofo y no se midio como serializa codex-cli 0.153.4 esa clave (podria ser una basica con escapes, que es lo que el hallazgo supone). El efecto seria fallar cerrado con mensaje, no corrupcion ni carga de ninguna fuente, y solo en perfiles de Windows con apostrofo y con 0.153.4 (0.162.1 no escribe el archivo). Por instruccion del dueño para este PR, lo que no afecta el funcionamiento normal se declara como deuda y no se vuelve a rondar: queda registrado con su id y en el cuerpo del PR, para reconocer la cadena basica con escapes TOML validos (decodificandolos) cuando se mida como la escribe el CLI."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "Los ocho revisores no corrieron las pruebas con costo de tests/test_hardening.py (opt-in: DISENSOR_SMOKE=1, DISENSOR_SMOKE_MODEL, DISENSOR_SMOKE_HOME_CANARY=1, DISENSOR_SMOKE_USER_SKILL=1 y, para el segundo binario, DISENSOR_SMOKE_CODEX) ni reprodujeron los bytes que codex-cli 0.153.4 y 0.162.1 escriben en CODEX_HOME/config.toml: en cada ronda quedaron 9 salteadas y lo juzgaron desde el repositorio; varios lo dijeron como hipotesis no verificada sobre la certificacion de 0.162.1. Lo corrio el generador, con OK del dueño por adelantado: 37 inferencias de codex gpt-5.6-sol (1 diagnostica, 1 en el primer smoke sobre el arbol sin commitear, y 5 por smoke en siete smokes: dos sobre fa1da30 con cada binario, uno con 0.153.4 sobre el arreglo de la ronda 3 que cazo el control del repositorio en LIMPIO, dos sobre el diseño por alcance con cada binario, uno con 0.153.4 sobre el diseño de la ronda 6 y uno con 0.153.4 sobre el arreglo de la ronda 7), tres corridas de codex exec con modelo inexistente (400, sin inferencia) para medir cuando el CLI escribe la confianza, y dieciseis llamadas a claude -p haiku de la prueba de la receta claude. Los dos ultimos smokes con los dos binarios (02:13Z y 02:14Z sobre el diseño final de las tres parejas) y los dos con 0.153.4 sobre los arreglos de las rondas 6 y 7 (02:40Z y 02:53Z) dieron 28 pasadas, con las respuestas del modelo pegadas en el cuerpo del PR; el home aislado y ~/.agents/skills quedaron limpios despues de cada uno. El arreglo de la ronda 7 (dos intentos solapados) se probo con un CLI de mentira que anota como 0.153.4 y dos preparaciones antes de las dos corridas, no con dos procesos reales de codex a la vez. La suite completa corrio antes de cada commit (810 a 830 pasadas, 9 salteadas; Windows 11, Python 3.14.2, -B -p no:cacheprovider) y los revisores tambien la corrieron (825 a 830). Confinamiento: tree_unchanged en los ocho resultados del runner y git status limpio despues de cada ronda; verified: true dice eso y nada mas. Las hipotesis no verificadas de los revisores (la carrera del cleanup con un proceso de codex que aun escribe, en las rondas 2 y 8; la evidencia de la certificacion de 0.162.1, en las rondas 1, 6, 7 y 8) estan tratadas en el cuerpo del PR y no cambiaron el codigo."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 7,
+      "valid": {
+        "incorporated": 6,
+        "debt_recorded": 1,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 4937
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:f94c256154ec199551f2237a4160771b8f9967e275825c928227b9c4fe1ff5fc",
+      "report_hash": "sha256:508a45dde853aa959fbf5f17211200131cf61da09a435182b3d30073f4b71802",
+      "reviewer_seconds": 199
+    },
+    "dev.disensor.rounds": {
+      "count": 8,
+      "reviewer_seconds_total": 1890,
+      "heads": [
+        "9f49e07",
+        "a1251a5",
+        "02bd3e6",
+        "6986af5",
+        "88f60b5",
+        "244f8fb",
+        "8972ffd",
+        "d3906b2"
+      ]
+    }
+  }
+}
