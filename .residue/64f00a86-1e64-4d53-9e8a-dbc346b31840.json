@@ -1,0 +1,83 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "64f00a86-1e64-4d53-9e8a-dbc346b31840",
+    "created_at": "2026-10-15T08:54:10-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "ec21fe70b8b81fdddd4360181f5e5036ad88e77b",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "610f216294c4f858507df15f0110720de9107921"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El registro del smoke que publica la entrada 0.14.0 del changelog (2026-10-15, Windows 11, Python 3.14.2, gpt-5.6-sol, 28 pasadas con codex-cli 0.153.4 y 28 con 0.162.1, y la respuesta de cada pareja) no lo reprodujo nadie en este evento: lo corrió la sesión del PR #149, con OK del dueño por corrida, y los datos salen de la sección Smoke de su cuerpo. El generador los cotejó contra el docstring de tests/test_hardening.py, que pide ese registro, y contra el código del head (los dos pares win32 de CERTIFIED, los flags de la receta en CATALOG); el revisor lo declaró como hueco porque el smoke es opt-in, con costo, y planta canarios en el home aislado real y en ~/.agents/skills. Las nueve pruebas salteadas de la suite no se forzaron: cinco de test_hardening.py (las del smoke), el bit de ejecución en POSIX (test_programs.py, corre en el CI) y tres índices de vectores (test_vectors.py). El revisor corrió el resto de la suite sobre ec21fe7 con PYTHONDONTWRITEBYTECODE=1, TEMP y TMP fuera del checkout y -p no:cacheprovider (830 pasadas, 9 salteadas, 116 s), y el generador antes del push (830 pasadas, 9 salteadas, 181 s; Windows 11, Python 3.14.2), incluidas las que atan la versión, los pines y la forma de los dos changelogs. La correspondencia entre cada frase de la entrada 0.14.0 y lo que hizo cada uno de los tres PR mergeados desde v0.13.0 (#146, #147 y #149) la verificó solo el generador, contra git log v0.13.0..main, el cuerpo de cada PR y el código del head; el revisor leyó el diff entero y no objetó el texto, pero su informe no muestra que haya recomputado esa correspondencia: no corrió git log v0.13.0..main."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Lo publicado no se puede observar antes de publicarlo: el tag v0.14.0, el paquete en PyPI, una instalación limpia de disensor==0.14.0, la Action en el tag y el Release. Este diff introduce esas referencias (los pines de los dos README, docs/ejemplo-workflow.yml y docs/ejemplo-gitlab-ci.yml); la publicación la hace el push del tag después del merge, con el sí explícito del dueño, y hasta entonces los ejemplos de copiar y pegar apuntan a un tag que no existe. Lo que sí se ejecutó sobre el head exacto (ec21fe7): clon limpio con core.autocrlf=false fuera del árbol, python -m build 1.5.0 con la salida fuera del checkout, wheel y sdist con Version 0.14.0 en METADATA y PKG-INFO, codex_home.py, GUIDE.md, GUIDE.es.md, prompts/_common.md y report.html dentro del wheel, twine check PASSED en los dos (wheel sha256 cf7c71abf6240fda482d44ed6386e4fe690d4496d158c8791f0ab455bf7dca3d, sdist 90670af8319fae43e0331db7378bf9d52257369b973f1cfb84da2dccadb33062). Ese build de Windows escribe METADATA, PKG-INFO y setup.cfg con CRLF, así que sus hashes no van a coincidir con los del workflow, que construye en Ubuntu, como pasó en la 0.13.0: la comparación es archivo por archivo sin el fin de línea. Después quedan por mirar: que el tag resuelva al commit del merge, el build y el humo en un clon limpio de ese commit, una instalación limpia desde PyPI y los hashes de lo que suba el workflow. El pin del auto-gate de ci.yml sigue en la 0.13.0 (c6ba6a2) por la convención del README: gate.py, rules.py, spec/ y los residue.schema*.json no cambiaron desde v0.13.0."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 387
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:e0f5597879e53b6c5e2536a643b140daf741c266e1edb94a49c8488dbe63817f",
+      "report_hash": "sha256:4c651206db7e72c1d95e749fab50265caeec4ebea6fc3f6ea534cb5b443263c6",
+      "reviewer_seconds": 204
+    }
+  }
+}

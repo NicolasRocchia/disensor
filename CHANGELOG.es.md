@@ -11,6 +11,64 @@ oración cierra con punto, y las referencias a secciones del README pasaron a
 ser enlaces. Las versiones que ese párrafo no describía (0.9.1, 0.6.5, 0.6.2,
 0.3.0 y 0.1.0) no tienen entrada, y no hubo 0.8.0.
 
+## 0.14.0 (2026-10-15)
+
+Esta versión es sobre lo que le llega al revisor desde la máquina donde corre,
+todavía sobre residue/v0.4. La receta `codex` del catálogo corre desde un
+`CODEX_HOME` aislado bajo la política `codex_home/1`
+(`~/.disensor/reviewers/codex/home`): sus invariantes se chequean en disco antes
+de cada intento, cada intento corre desde su propio directorio de trabajo
+privado y bajo un lock, el entorno del subproceso pasa por allowlist, la receta
+suma `--disable` por nombre para plugins, apps, hooks, memories, multi_agent y
+remote_plugin, apaga las skills incluidas y lleva el `skills.config` armado con
+el inventario del disco, y el registro guarda en `executable` el binario nativo
+detrás del lanzador de npm (`reviewer add --executable` para un lanzador que no
+sabe resolver); hasta ahora el `AGENTS.md` global y las skills del dueño le
+llegaban al revisor con los tres flags de endurecimiento puestos.
+`disensor reviewer login codex` loguea ese home una vez, con la terminal del
+dueño, y disensor nunca lee, copia ni guarda credenciales. `new --round`
+conserva `verified` solo con la evidencia de la política y una versión del CLI
+certificada en el intento exitoso, y declara todo lo demás `unverified` con su
+ítem; `verified` queda redactado como la neutralización de fuentes enumeradas
+para versiones y condiciones concretas del CLI, hoy codex-cli 0.153.4 y 0.162.1
+en Windows, y el motivo del fallback conserva cada intento fallido con su
+detalle en vez de informar un `quota_exhausted` que el runner nunca observó
+([#108](https://github.com/NicolasRocchia/disensor/issues/108),
+[#147](https://github.com/NicolasRocchia/disensor/pull/147)). La prueba hostil
+de la receta ya no puede pasar sin que el modelo conteste: lee solo la
+respuesta que el CLI escribe en un archivo, exige exit 0, toma `{model}` de
+`DISENSOR_SMOKE_MODEL`, comparte `fill_argv` con el runner y toma como
+veredicto solo la palabra contestada
+([#92](https://github.com/NicolasRocchia/disensor/issues/92)); sus tres parejas
+miden si una fuente alcanza al modelo, por la cita literal de un nombre
+aleatorio, y no si el modelo obedece una orden plantada en ella,
+`DISENSOR_SMOKE_CODEX` elige el binario, y el cleanup de cada intento quita,
+bajo el lock, la entrada de confianza que codex-cli 0.153.4 escribe en el home,
+solo cuando tiene exactamente esa forma
+([#149](https://github.com/NicolasRocchia/disensor/pull/149)). El smoke de esta
+release, como pide la prueba: el 2026-10-15, en Windows 11 con Python 3.14.2 y
+el modelo gpt-5.6-sol, `tests/test_hardening.py` dio 28 pasadas con codex-cli
+0.153.4 y 28 con codex-cli 0.162.1; con el `AGENTS.md` canario en el
+repositorio la receta contestó `NINGUNO` y su control citó el canario, con el
+canario en el home aislado la receta cortó como `context_unverified` antes de
+inferir y su control citó el canario, y con la skill canario en
+`~/.agents/skills` la receta contestó `NINGUNA` y su control listó 41 skills,
+la canario entre ellas; con el diseño anterior de #92 para el repositorio la
+receta había contestado `LIMPIO` y su control `COMPROMETIDO`, también 28 y 28,
+y el cleanup tal como se publica volvió a pasar con 0.153.4, la versión que
+escribe el archivo que barre. Queda como deuda: con codex-cli 0.153.4, en un
+perfil de Windows cuya ruta lleva un apóstrofo el cleanup no reconocería la
+entrada de confianza y el intento siguiente fallaría cerrado
+(`confianza-clave-basica-con-escapes`). Para quien ya tenía `codex`
+registrado: la entrada armada con la receta vieja ya no coincide con el
+catálogo, así que `round` la deja fuera de la cadena con la instrucción de
+registrarla de nuevo; corré `disensor reviewer remove codex`,
+`disensor reviewer add codex --model <modelo> --yes`,
+`disensor reviewer login codex` y, en cada repositorio que corre rondas,
+`disensor reviewer consent codex`, porque el consentimiento cubre la receta que
+cambió. Una entrada nueva cuyo home no se logueó termina su intento en
+`not_authenticated`, y la cadena pasa al siguiente revisor.
+
 ## 0.13.0 (2026-10-14)
 
 Esta versión es sobre lo que el revisor puede escribir, lo que `init` deja en
