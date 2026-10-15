@@ -109,7 +109,8 @@ Por defecto todo exige `diff`.
   pasó como `--generator-model`, `same_model_fresh_context`. La comparación es
   literal, así que pasá el nombre exacto del modelo, el mismo con que se
   registró el revisor: sin `--generator-model` un revisor de tu familia queda
-  registrado como un modelo distinto, y la ronda avisa.
+  registrado como tu propio modelo, la menor independencia que la ronda puede
+  afirmar, y la ronda avisa.
 - `reviewers[].hardening`: `verified` si el revisor corrió por un adaptador
   que neutraliza, para versiones y condiciones concretas, las fuentes
   enumeradas que el CLI carga solo antes de tu consigna: los archivos de

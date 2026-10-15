@@ -105,7 +105,8 @@ paths. By default everything demands `diff`.
   name passed as `--generator-model`, `same_model_fresh_context`. The
   comparison is literal, so pass the exact model name, the one the reviewer
   was registered with: without `--generator-model` a reviewer of your family
-  is recorded as a distinct model, and the round warns.
+  is recorded as your own model, the least independence the round can claim,
+  and the round warns.
 - `reviewers[].hardening`: `verified` if the reviewer ran through an adapter
   that neutralises, for concrete CLI versions and conditions, the enumerated
   sources the CLI loads on its own before your brief: the instruction files

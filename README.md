@@ -378,9 +378,9 @@ so what the declaration names is what ran; an entry registered before 0.15
 does not, and the round leaves it out with the command to register it again.
 The round compares the two names literally: the same name is
 `same_model_fresh_context`, and an alias (`opus`) reads as another model.
-Without `--generator-model` a reviewer of your family is recorded as a
-distinct model, which claims more independence than there was, and the round
-says so ([#79](https://github.com/NicolasRocchia/disensor/issues/79)).
+Without `--generator-model` the round cannot tell the two apart: it records a
+reviewer of your family as your own model, the least independence it can
+claim, and says so ([#79](https://github.com/NicolasRocchia/disensor/issues/79)).
 
 ## The residue report
 

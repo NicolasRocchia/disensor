@@ -321,9 +321,9 @@ que lo que la declaración nombra es lo que corrió; una entrada registrada ante
 de 0.15 no lo pone, y la ronda la deja afuera con el comando para registrarla
 de nuevo. La ronda compara los dos nombres al pie de la letra: el mismo nombre
 es `same_model_fresh_context`, y un alias (`opus`) se lee como otro modelo. Sin
-`--generator-model`, un revisor de tu familia queda registrado como un modelo
-distinto, que afirma más independencia de la que hubo, y la ronda lo avisa
-([#79](https://github.com/NicolasRocchia/disensor/issues/79)).
+`--generator-model` la ronda no puede distinguirlos: registra a un revisor de tu
+familia como tu propio modelo, la menor independencia que puede afirmar, y lo
+avisa ([#79](https://github.com/NicolasRocchia/disensor/issues/79)).
 
 ## El informe de residuo
 
