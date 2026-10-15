@@ -320,18 +320,26 @@ def check_home(home: Path, *, create: bool = True) -> None:
 # comillas (una ruta lleva barras y dos puntos, que una clave desnuda de TOML
 # no admite): una clave sin comillas no es esta forma. La ronda 1 sobre este
 # cambio cazo que admitirlas dejaba pasar `[projects.foo.bar]`, una tabla
-# anidada, y `[projects.foo:bar]`, TOML invalido, y el barrido los borraba.
-TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'[^']*'|"[^"]*")\]$""")
-TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"[a-z_]+"$""")
+# anidada, y `[projects.foo:bar]`, TOML invalido, y el barrido los borraba. La
+# ronda 2 cazo que entre comillas entraba cualquier cosa: la clave vacia, un
+# escape que TOML no admite (`"x\q"`) y cualquier valor de confianza. La clave
+# es una ruta no vacia: literal (`'...'`, sin escapes, como la escribe el CLI
+# en Windows) o basica sin barras invertidas (`"..."`, como en POSIX). El valor
+# es el que la receta provoca con el bypass, `"trusted"`, y ningun otro: si una
+# version escribiera otra cosa, el barrido no la reconoce y el intento se corta,
+# que es el lado seguro.
+TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'[^']+'|"[^"\\]+")\]$""")
+TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"trusted"$""")
 
 
 def is_trust_state(texto: str) -> bool:
     """Whether a `config.toml` holds nothing but the trust the CLI records per cwd.
 
-    `[projects.'<cwd>']` (the key quoted, as the CLI writes a path) followed
-    by `trust_level = "..."`, any number of times, blank lines allowed. An
-    empty file, a comment, any other key or table, an unquoted key, or a key
-    before its table, is not trust state.
+    `[projects.'<cwd>']` (the key quoted and not empty, without escapes, as
+    the CLI writes a path) followed by `trust_level = "trusted"`, any number
+    of times, blank lines allowed. An empty file, a comment, any other key,
+    value or table, an unquoted or empty key, a backslash inside a basic
+    string, or a key before its table, is not trust state.
     """
     tablas = 0
     esperando_clave = False

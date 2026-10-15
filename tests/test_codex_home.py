@@ -320,7 +320,7 @@ sys.exit(0)
 @pytest.mark.parametrize("texto", [
     CONFIANZA_DE_CODEX,
     CONFIANZA_DE_CODEX * 3,
-    "\n" + CONFIANZA_DE_CODEX + "\n\n[projects.\"D:/otro\"]\ntrust_level = \"untrusted\"\n",
+    "\n" + CONFIANZA_DE_CODEX + "\n\n[projects.\"/home/u/.disensor/reviewers/codex/work/attempt-x\"]\ntrust_level = \"trusted\"\n",
     "[projects.'C:\\\\x']\ntrust_level=\"trusted\"",
 ])
 def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
@@ -342,6 +342,14 @@ def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
     "[projects.foo.bar]\ntrust_level = \"trusted\"\n",
     "[projects.foo:bar]\ntrust_level = \"trusted\"\n",
     "[projects.foo]\ntrust_level = \"trusted\"\n",
+    # Ronda 2: entre comillas tampoco entra cualquier cosa. La clave vacia, un
+    # escape que TOML no admite en una cadena basica, y un valor que la receta
+    # no provoca (el CLI escribe "trusted" con el bypass) no son esta forma.
+    "[projects.\"\"]\ntrust_level = \"trusted\"\n",
+    "[projects.'']\ntrust_level = \"trusted\"\n",
+    "[projects.\"x\\\\q\"]\ntrust_level = \"trusted\"\n",
+    "[projects.'a']\ntrust_level = \"made_up\"\n",
+    "[projects.'a']\ntrust_level = \"untrusted\"\n",
 ])
 def test_anything_but_that_trust_is_configuration(texto):
     assert not is_trust_state(texto)
@@ -378,15 +386,22 @@ def test_two_attempts_in_a_row_with_a_cli_that_records_trust_both_run(tmp_path):
     assert "trust_state_swept" not in segundo
 
 
-def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path):
-    """El barrido no toca configuracion: una clave mas y el intento se corta como antes."""
+@pytest.mark.parametrize("texto", [
+    CONFIANZA_DE_CODEX + 'model = "gpt"\n',
+    "[projects.\"x\\\\q\"]\ntrust_level = \"trusted\"\n",
+    "[projects.\"\"]\ntrust_level = \"made_up\"\n",
+])
+def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path, texto):
+    """El barrido no toca configuracion: una clave mas, un escape invalido o
+    un valor que el CLI no escribe, y el archivo queda donde estaba y el
+    intento se corta como antes (los dos ultimos, la ronda 2)."""
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
-    (home / "config.toml").write_text(CONFIANZA_DE_CODEX + 'model = "gpt"\n', encoding="utf-8")
+    (home / "config.toml").write_text(texto, encoding="utf-8")
     assert not sweep_trust_state(home)
     intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
     assert intento["outcome"] == "context_unverified" and "config.toml" in intento["detail"]
-    assert (home / "config.toml").read_text(encoding="utf-8").endswith('model = "gpt"\n')
+    assert (home / "config.toml").read_text(encoding="utf-8") == texto
 
 
 def test_a_link_in_the_home_with_a_closed_name_breaks_it_too(tmp_path):
