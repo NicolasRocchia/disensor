@@ -560,3 +560,29 @@ def test_the_null_device_is_not_a_terminal():
     with open(os.devnull, "r", encoding="utf-8") as nulo:
         assert not reviewers._terminal(nulo)
     assert not reviewers._terminal(None)
+
+
+def test_add_and_its_message_say_the_same_about_consent(capsys, registro_aislado, monkeypatch):
+    """`add --yes` nunca registro un consentimiento, y su mensaje decia que la
+    confirmacion cubria el repositorio: la ronda salia con 4 despues de un
+    registro que prometia lo contrario (#79). Se arreglo el mensaje y no el
+    comportamiento: `--yes` lo pasa cualquiera, agente incluido (#84)."""
+    monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
+    assert correr("add", "codex", "--model", "un-modelo") == 2
+    sin_yes = capsys.readouterr().out
+    assert "covers THIS repository" not in sin_yes
+    assert "Registering authorises nothing" in sin_yes
+    assert "disensor reviewer consent codex" in sin_yes
+
+    assert correr("add", "nube", "--family", "other", "--model", "m", "--egress", "cloud",
+                  "--yes", "--stdin", "pack", "--command", sys.executable, "-c", "pass") == 0
+    con_yes = capsys.readouterr().out
+    assert "Nothing will be sent yet" in con_yes and "disensor reviewer consent nube" in con_yes
+    data = json.loads(registro_aislado.read_text(encoding="utf-8"))
+    assert not data.get("consents") and not data.get("consent_provenance")
+
+
+def test_a_local_reviewer_is_not_told_to_get_a_consent(capsys, registro_aislado):
+    assert correr("add", "local", "--family", "other", "--model", "m", "--egress", "local",
+                  "--yes", "--stdin", "pack", "--command", sys.executable, "-c", "pass") == 0
+    assert "reviewer consent" not in capsys.readouterr().out

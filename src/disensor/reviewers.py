@@ -697,18 +697,29 @@ def _add(args) -> int:
             "Re-run with --yes if you approve exactly what is printed above."
         )
         return 2
+    # El mensaje prometia que esta confirmacion cubria el repositorio, y `--yes`
+    # nunca registro ningun consentimiento: la ronda salia con 4 despues de un
+    # registro que decia lo contrario (#79). Se arreglo el mensaje y no el
+    # comportamiento a proposito: `--yes` lo pasa cualquiera que corra el
+    # comando, agente incluido, y hacerlo consentir le abria un segundo camino
+    # para darse a si mismo lo que #84 separa del agente.
     if entry.get("egress") != "local" and not args.yes:
         print(
-            "The material under review would leave this machine. Re-run with --yes to confirm, "
-            "or register a local reviewer instead.\n"
-            "That confirmation covers THIS repository, this recipe and this executable: "
-            "consenting that one project leaves the machine is not consenting for the next one."
+            "The material under review would leave this machine. Re-run with --yes to register "
+            "it, or register a local reviewer instead.\n"
+            "Registering authorises nothing: no repository's material is sent until the owner "
+            f"consents for it, from that repository, with `disensor reviewer consent {args.id}`."
         )
         return 2
 
     data["reviewers"].append(entry)
     save_registry(data)
     print(f"registered {args.id} in {REGISTRY}")
+    if entry.get("egress") != "local":
+        print(
+            "Nothing will be sent yet: each repository needs the owner's consent, given from it "
+            f"with `disensor reviewer consent {args.id}`. An agent does not give it."
+        )
     if entry["hardening"] == "unverified":
         print(
             "hardening: unverified. It does not block, and every declaration produced with "
