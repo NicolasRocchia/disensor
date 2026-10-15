@@ -96,10 +96,18 @@ paths. By default everything demands `diff`.
   with itself were not covered by the round, and that is residue. Level A does
   not admit it at all.
 - `reviewers[].hardening`: `verified` if the reviewer ran through an adapter
-  whose neutralisation of project instructions was tested against a hostile
-  repository, `unverified` otherwise. `unverified` does not block, but it
-  requires a `reviewer_hardening_gap` item: the material under review can
-  address the reviewer before your brief does.
+  that neutralises, for concrete CLI versions and conditions, the enumerated
+  sources the CLI loads on its own before your brief: the instruction files
+  of the repository under review and, for the `codex` recipe, what the
+  machine adds (its global `AGENTS.md`, skills, plugins, apps, hooks,
+  memories, agent roles and the inherited environment), each with a hostile
+  test behind it, and only on the platforms and CLI versions that test ran
+  on: the round records the CLI version, and any other combination is
+  declared `unverified`; `unverified` otherwise. It does not cover managed
+  configuration nor a same-user write between the check and the run.
+  `unverified` does not block, but it requires a `reviewer_hardening_gap`
+  item: the material under review, or the machine, can address the reviewer
+  before your brief does.
 - `reviewers[].prompt_hash`: hash of the adversarial brief given to the
   reviewer. If you used the packaged brief, it is
   `disensor prompt --gate <plan|diff|architecture> --hash`, and anyone can recompute that

@@ -274,6 +274,7 @@ models by hand.
 ```bash
 disensor reviewer suggest          # what this machine has, offline
 disensor reviewer add codex --model <model> --yes  # once per machine, with a model your account runs
+disensor reviewer login codex      # once, as the owner: the isolated home of the reviewer signs in
 
 disensor round --gate diff --generator-family anthropic \
   --base main --head HEAD --result ../result.json
@@ -295,6 +296,14 @@ machine of whoever reviews it. And what your assistant proposes is not
 registered until you say yes, because a repository can carry instructions
 addressed to your assistant, and registering an executable that will later
 receive your private code is your decision, not its.
+
+The `codex` recipe runs from an isolated `CODEX_HOME` under `~/.disensor`,
+with nothing of your own codex configuration in it: your global `AGENTS.md`,
+your skills, plugins, hooks and agent roles used to reach the reviewer before
+the brief did ([#108](https://github.com/NicolasRocchia/disensor/issues/108)).
+That home needs its own credentials, so `disensor reviewer login codex` runs
+the CLI's login there once, with your terminal; disensor never reads, copies
+or stores credentials, and it checks that home on disk before every attempt.
 
 **What runs alone, and where you come in.** The runner asks the policy whether a
 round is required at all (a change that only touches exempt paths does not spend
@@ -767,7 +776,7 @@ What changes is what a NEW declaration has to say.
 |---|---|
 | `reviewers[].independence` (required) | R4 used to demand a different model family, full stop, so a round without a second model could not be declared at all, even truthfully. Now independence is declared and the rule checks that it matches the families declared: `cross_family` with two reviewers of the same family is rejected, and so is claiming a degraded mode while actually having another family. |
 | `reviewers[].fallback_reason` | Required below `cross_family`. An enumerated code, not prose: free text becomes boilerplate on the second event, and then the chain is an excuse to always take the cheap path. |
-| `reviewers[].hardening` | `verified` when the reviewer ran through an adapter whose neutralisation of project instructions was tested against a hostile repository. It is derived, not chosen. |
+| `reviewers[].hardening` | `verified` when the reviewer ran through an adapter that neutralises the enumerated sources the CLI loads on its own before the brief, for concrete CLI versions and conditions, each with a hostile test behind it: the instruction files of the repository under review and, for `codex`, what the machine adds (its global `AGENTS.md`, skills, plugins, apps, hooks, memories, agent roles and the inherited environment) through an isolated `CODEX_HOME` ([#108](https://github.com/NicolasRocchia/disensor/issues/108)), and only on the platforms and CLI versions that test ran on (today codex-cli 0.153.4 on Windows): the runner records the CLI version of each attempt, and any other combination is declared `unverified`, with its item. It does not cover managed configuration nor a same-user write between the check and the run. It is derived, not chosen. |
 | Residue classes `reviewer_correlation` and `reviewer_hardening_gap` | One per degraded reviewer, naming it. Correlation is what the reviewer could not see; hardening is what the reviewed material could tell it. Different risks, different items. |
 
 **How to migrate**: nothing, for what is already written. For what you write

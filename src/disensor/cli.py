@@ -263,6 +263,12 @@ def build_parser() -> argparse.ArgumentParser:
     radd.add_argument("--egress", choices=["local", "cloud", "unknown"], default="unknown")
     radd.add_argument("--yes", action="store_true",
                       help="Approve exactly what the command prints before writing it.")
+    radd.add_argument("--executable", metavar="PATH",
+                      help="Absolute path of the native binary, for a catalogued recipe under "
+                           "an isolation policy whose launcher this version cannot see through. "
+                           "The entry is registered with unverified hardening: the hostile test "
+                           "ran against the binary the installation resolves, not a file named "
+                           "by hand.")
     # REMAINDER y no nargs=+: el argv de un revisor esta lleno de cosas que
     # parecen flags nuestros (-c, --model), y argparse las reclamaria para si.
     # Todo lo que sigue a --command es del revisor.
@@ -287,6 +293,26 @@ def build_parser() -> argparse.ArgumentParser:
     rrm = racc.add_parser("remove", help="Remove a registered reviewer.")
     rrm.add_argument("id")
     rrm.set_defaults(func=main_reviewer)
+
+    rlog = racc.add_parser(
+        "login",
+        help="Sign a reviewer's isolated home in, as the owner (recipes under an isolation policy).",
+        description=(
+            "A reviewer under an isolation policy runs from its own CODEX_HOME, with nothing "
+            "of this machine's codex configuration in it, so it needs its own credentials. "
+            "This runs the CLI's login with that home and the terminal inherited: the owner "
+            "completes it in the browser, or with --device-auth, or pipes a key to "
+            "--with-api-key. disensor never reads, copies or stores credentials."
+        ),
+    )
+    rlog.add_argument("id")
+    rlog.add_argument("--status", action="store_true",
+                      help="Only ask the CLI whether the isolated home is signed in.")
+    rlog.add_argument("--device-auth", action="store_true",
+                      help="Use the CLI's device code flow instead of the browser callback.")
+    rlog.add_argument("--with-api-key", action="store_true",
+                      help="The CLI reads the key from standard input; disensor does not.")
+    rlog.set_defaults(func=main_reviewer)
 
     report = sub.add_parser(
         "report",

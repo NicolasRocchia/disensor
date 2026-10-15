@@ -217,6 +217,7 @@ entre modelos.
 ```bash
 disensor reviewer suggest          # qué tiene esta máquina, sin red
 disensor reviewer add codex --model <model> --yes  # una vez por máquina, con un modelo que corra tu cuenta
+disensor reviewer login codex      # una vez, como dueño: el home aislado del revisor inicia sesión
 
 disensor round --gate diff --generator-family anthropic \
   --base main --head HEAD --result ../result.json
@@ -238,6 +239,14 @@ máquina de quien lo revise. Y lo que propone tu asistente no se registra hasta
 que digas que sí, porque un repositorio puede traer instrucciones dirigidas a tu
 asistente, y registrar un ejecutable que después va a recibir tu código privado
 es una decisión tuya, no suya.
+
+La receta `codex` corre desde un `CODEX_HOME` aislado bajo `~/.disensor`, sin
+nada de tu propia configuración de codex adentro: tu `AGENTS.md` global, tus
+skills, plugins, hooks y roles de agentes le llegaban al revisor antes que la
+consigna ([#108](https://github.com/NicolasRocchia/disensor/issues/108)). Ese
+home necesita sus propias credenciales, así que `disensor reviewer login codex`
+corre ahí el login del CLI una vez, con tu terminal; disensor nunca lee, copia
+ni guarda credenciales, y chequea ese home en disco antes de cada intento.
 
 **Qué corre solo y dónde aparecés vos.** El runner le pregunta a la política si
 hace falta una ronda (un cambio que solo toca rutas exentas no gasta un token),
@@ -490,7 +499,7 @@ NUEVA.
 |---|---|
 | `reviewers[].independence` (obligatorio) | R4 exigía familia distinta y punto, así que una ronda sin segundo modelo no se podía declarar de ninguna manera, ni diciendo la verdad. Ahora la independencia se declara y la regla verifica que coincida con las familias declaradas: `cross_family` con dos revisores de la misma familia se rechaza, y declararse degradado teniendo otra familia también. |
 | `reviewers[].fallback_reason` | Obligatorio por debajo de `cross_family`. Un código enumerado, no prosa: el texto libre se vuelve boilerplate en el segundo evento, y ahí la cadena pasa a ser una excusa para ir siempre por el camino barato. |
-| `reviewers[].hardening` | `verified` cuando el revisor corrió por un adaptador cuya neutralización de las instrucciones del proyecto se probó contra un repositorio hostil. Se deriva, no se elige. |
+| `reviewers[].hardening` | `verified` cuando el revisor corrió por un adaptador que neutraliza las fuentes enumeradas que el CLI carga solo antes de la consigna, para versiones y condiciones concretas y cada una con su prueba hostil: los archivos de instrucciones del repositorio revisado y, para `codex`, lo que agrega la máquina (su `AGENTS.md` global, skills, plugins, apps, hooks, memorias, roles de agentes y el entorno heredado) mediante un `CODEX_HOME` aislado ([#108](https://github.com/NicolasRocchia/disensor/issues/108)), y solo en las plataformas y versiones del CLI en que esa prueba corrió (hoy codex-cli 0.153.4 en Windows): el runner registra la versión del CLI de cada intento, y cualquier otra combinación se declara `unverified`, con su ítem. No cubre la configuración administrada ni una escritura del mismo usuario entre el chequeo y la corrida. Se deriva, no se elige. |
 | Clases de residuo `reviewer_correlation` y `reviewer_hardening_gap` | Una por revisor degradado, nombrándolo. La correlación es lo que el revisor no podía ver; el endurecimiento es lo que el material revisado podía decirle. Riesgos distintos, ítems distintos. |
 
 **Cómo migrar**: nada, para lo que ya está escrito. Para lo que escribas de
