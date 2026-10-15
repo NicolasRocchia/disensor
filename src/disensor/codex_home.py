@@ -715,8 +715,20 @@ def prepare(
     `argv` is the recipe as `fill_argv` built it, native executable first. The
     result appends the machine's `skills.config`, fixes the environment and
     the private cwd, and records what it did. `relax` exists for the hostile
-    test's controls and nowhere else: each value switches off one rule so
-    that the control differs from the recipe in that rule alone.
+    test and nowhere else; the runner never passes it. Each value switches
+    off one rule so that a control differs from the recipe in that rule alone:
+
+    - `home_invariants`: the home is not checked for the sources the policy
+      forbids (the control of the planted `AGENTS.md`);
+    - `skills_config`: the inventory is not appended (the control of the
+      planted user skill);
+    - `private_cwd`: the attempt runs from `cwd` instead of a fresh private
+      directory (the hostile repository only attacks from inside);
+    - `ancestors`: the ancestors of that cwd are not checked for a git
+      repository. The hostile repository IS one, so with `private_cwd` alone
+      `check_ancestors` refused the attempt before the inference the test
+      pays for. Only the two tests that run from inside that repository relax
+      it; nothing else does, and `check_ancestors` itself did not change.
     """
     home = home_dir(reviewer_id)
     with Lock(lock_path(reviewer_id)):
@@ -732,11 +744,12 @@ def prepare(
             work_dir(reviewer_id).mkdir(parents=True, exist_ok=True)
             privado = Path(tempfile.mkdtemp(prefix="attempt-", dir=work_dir(reviewer_id)))
             limpiar = lambda: shutil.rmtree(privado, ignore_errors=True)
-        try:
-            check_ancestors(privado)
-        except Refused:
-            limpiar()
-            raise
+        if "ancestors" not in relax:
+            try:
+                check_ancestors(privado)
+            except Refused:
+                limpiar()
+                raise
     env = child_env(home)
     try:
         programa = program_of(argv)

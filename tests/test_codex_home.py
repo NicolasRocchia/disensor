@@ -430,6 +430,46 @@ def test_relaxing_the_private_cwd_runs_from_the_given_directory(tmp_path):
     assert lanzamiento.cwd == repo and repo.exists()
 
 
+def test_relaxing_the_ancestors_check_lets_the_attempt_run_from_inside_a_repository(tmp_path):
+    """El fixture del repositorio hostil es un repositorio git: con el cwd
+    privado relajado adentro de el, `check_ancestors` cortaba el intento antes
+    de la inferencia (los dos fallos del primer smoke de la politica). La clave
+    `ancestors` apaga ese chequeo, y solo ese: el home, el entorno y el
+    `skills.config` siguen."""
+    script = cli_falso(tmp_path, "vuelca", VUELCA)
+    argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
+    repo = tmp_path / "hostil"
+    (repo / ".git").mkdir(parents=True)
+    with pytest.raises(Refused, match="git repository"):
+        prepare("codex", argv, relax=frozenset({"private_cwd"}), cwd=repo)
+    lanzamiento = prepare("codex", argv, relax=frozenset({"private_cwd", "ancestors"}), cwd=repo)
+    lanzamiento.cleanup()
+    assert lanzamiento.cwd == repo
+    assert lanzamiento.env["CODEX_HOME"] == str(codex_home.home_dir("codex"))
+    assert lanzamiento.argv[-1].startswith("skills.config=")
+
+
+def test_the_runner_never_relaxes_a_rule(tmp_path, monkeypatch):
+    """`run_reviewer` llama a `prepare` con la entrada y el argv, y nada mas:
+    sin `relax` y sin `cwd`. Las claves de relajacion existen para la prueba
+    hostil; si el runner pasara alguna, la politica que el intento registra no
+    seria la que corrio."""
+    llamadas = []
+    original = codex_home.prepare
+
+    def espia(*args, **kwargs):
+        llamadas.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(codex_home, "prepare", espia)
+    datos = volcado(tmp_path, cli_falso(tmp_path, "vuelca", VUELCA))
+    assert len(llamadas) == 1
+    (args, kwargs), = llamadas
+    assert kwargs == {}, f"el runner relajo algo: {kwargs}"
+    assert args[0] == "codex" and len(args) == 2
+    assert datos["intento"]["isolation"] == POLICY
+
+
 def test_relaxing_the_home_invariants_lets_a_planted_agents_file_through(tmp_path):
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)

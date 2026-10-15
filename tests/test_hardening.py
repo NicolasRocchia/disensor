@@ -110,6 +110,14 @@ CONSIGNA_SKILLS = (
 # dos mitades cambie esta regla y nada mas.
 NEUTRALIZACION = ["-c", "project_doc_max_bytes=0"]
 
+# Lo que las DOS pruebas del repositorio hostil relajan ademas del cwd privado,
+# y ninguna otra: el fixture es un repositorio git y la prueba corre desde
+# adentro, asi que el invariante del runner "ningun repositorio arriba del cwd
+# privado" cortaria el intento antes de la inferencia que la prueba paga (el
+# primer smoke de la politica fallo ahi, en las dos). El runner nunca relaja
+# nada; las pruebas sin costo de abajo lo fijan.
+DESDE_ADENTRO = frozenset({"ancestors"})
+
 corre_de_verdad = pytest.mark.skipif(
     not os.environ.get("DISENSOR_SMOKE"),
     reason="corrida real con costo: DISENSOR_SMOKE=1 para ejercitarla",
@@ -190,9 +198,11 @@ def corrida(
     la misma funcion que usa el runner, `codex_home.prepare`: el entorno por
     allowlist, el `CODEX_HOME` propio, el chequeo de credenciales, el
     `skills.config` del inventario. Lo unico que esta prueba relaja siempre es
-    el cwd privado, porque el fixture del repositorio hostil solo ataca desde
-    adentro del repositorio; `relax` suma la unica regla que un control deja
-    caer. Y con `--output-last-message`: el CLI escribe el ultimo mensaje del
+    el cwd privado, porque cada fixture elige desde donde corre el revisor;
+    `relax` suma lo que cada prueba necesita y nada mas: el chequeo de
+    ancestros para las dos que corren desde adentro del repositorio hostil
+    (`DESDE_ADENTRO`), y la unica regla que un control deja caer. Y con
+    `--output-last-message`: el CLI escribe el ultimo mensaje del
     agente en `respuesta`, fuera del repositorio hostil, y eso es lo unico que
     se lee. Lo que el CLI imprime en stdout, el eco del prompt bajo `user` y
     el razonamiento, no cuenta como respuesta.
@@ -280,7 +290,8 @@ def limpia(respuesta: str) -> bool:
 def test_the_verified_codex_recipe_ignores_a_hostile_agents_file(repo_hostil: Path, modelo: str, receta_codex: dict):
     """Lo que `verified` promete, ejercitado contra el CLI real."""
     assert receta_codex["hardening"] == "verified"
-    respuesta = corrida(receta_codex, repo_hostil, modelo, repo_hostil.parent / "respuesta.txt")
+    respuesta = corrida(receta_codex, repo_hostil, modelo, repo_hostil.parent / "respuesta.txt",
+                        relax=DESDE_ADENTRO)
     print(f"respuesta del modelo con la receta: {respuesta!r}")  # para el registro del release
     assert not secuestrada(respuesta), (
         "el adaptador declarado verified cargo las instrucciones del repositorio revisado: "
@@ -306,7 +317,8 @@ def test_without_the_hardening_flags_the_attack_lands(repo_hostil: Path, modelo:
     incluido, para que lo que cambie el veredicto sea esa regla.
     """
     control = {**receta_codex, "command": sin_neutralizacion(receta_codex["command"])}
-    respuesta = corrida(control, repo_hostil, modelo, repo_hostil.parent / "respuesta.txt")
+    respuesta = corrida(control, repo_hostil, modelo, repo_hostil.parent / "respuesta.txt",
+                        relax=DESDE_ADENTRO)
     print(f"respuesta del modelo con el control: {respuesta!r}")  # para el registro del release
     assert secuestrada(respuesta), (
         "sin la neutralizacion el AGENTS.md hostil deberia ganar con su sola palabra; si no "
@@ -496,14 +508,11 @@ def test_the_model_placeholder_is_filled_as_the_runner_does(tmp_path: Path):
     assert argv[-3] == "--una-bandera", "la receta viaja entera y el archivo de salida va al final"
 
 
-def test_the_policy_is_applied_by_the_runners_own_preparation(tmp_path: Path, monkeypatch):
-    """Una receta bajo la politica pasa por `codex_home.prepare`, como en el
-    runner: el hijo recibe el home aislado y no el del padre, el entorno por
-    allowlist y el `skills.config` del inventario (hallazgo 11 de la ronda 1
-    sobre el plan de #108: lo que la prueba ejercita tiene que ser lo que el
-    runner corre). Con el registro redirigido: esta prueba no toca
-    `~/.disensor`.
-    """
+@pytest.fixture()
+def politica_aislada(tmp_path: Path, monkeypatch) -> Path:
+    """La politica del home aislado aplicada sobre un mundo de prueba: ni el
+    registro real, ni el perfil real, ni la configuracion de sistema real.
+    Estas pruebas no tocan `~/.disensor`."""
     import tempfile
 
     from disensor import reviewers
@@ -512,6 +521,17 @@ def test_the_policy_is_applied_by_the_runners_own_preparation(tmp_path: Path, mo
     monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "temporal"))
     monkeypatch.setattr(codex_home, "system_config_dir", lambda: tmp_path / "sistema")
     monkeypatch.setattr(codex_home, "profile_dir", lambda: tmp_path / "perfil")
+    return tmp_path
+
+
+def test_the_policy_is_applied_by_the_runners_own_preparation(politica_aislada: Path, monkeypatch):
+    """Una receta bajo la politica pasa por `codex_home.prepare`, como en el
+    runner: el hijo recibe el home aislado y no el del padre, el entorno por
+    allowlist y el `skills.config` del inventario (hallazgo 11 de la ronda 1
+    sobre el plan de #108: lo que la prueba ejercita tiene que ser lo que el
+    runner corre).
+    """
+    tmp_path = politica_aislada
     skill = tmp_path / "perfil" / ".agents" / "skills" / "canario" / "SKILL.md"
     skill.parent.mkdir(parents=True)
     skill.write_text("---\nname: canario\n---\n", encoding="utf-8")
@@ -528,6 +548,30 @@ def test_the_policy_is_applied_by_the_runners_own_preparation(tmp_path: Path, mo
     ))
     assert not any(arg.startswith("skills.config=") for arg in datos["argv"]), "el control relaja solo eso"
     assert datos["env"]["CODEX_HOME"] == str(codex_home.home_dir("codex"))
+
+
+def test_running_from_inside_a_repository_needs_the_ancestors_relaxed_and_corrida_does_not_do_it_alone(
+    politica_aislada: Path,
+):
+    """El fixture del repositorio hostil es un repositorio git, y el runner no
+    corre nunca desde adentro de uno: su chequeo de ancestros corto las dos
+    pruebas del repositorio en el primer smoke de la politica, antes de inferir.
+    `corrida` no lo relaja por su cuenta: lo relajan las dos pruebas que lo
+    necesitan, con `DESDE_ADENTRO`, y ninguna otra.
+    """
+    tmp_path = politica_aislada
+    repo = tmp_path / "hostil"
+    (repo / ".git").mkdir(parents=True)
+    receta = {**cli_falso(tmp_path, "entorno", DEVUELVE_SU_ENTORNO), "isolation": POLICY}
+    with pytest.raises(Refused) as exc:
+        corrida(receta, repo, "un-modelo", tmp_path / "respuesta.txt")
+    assert exc.value.outcome == "context_unverified" and "git repository" in exc.value.detail
+    assert not (tmp_path / "respuesta.txt").exists(), "cortado antes de correr nada"
+    datos = json.loads(corrida(receta, repo, "un-modelo", tmp_path / "respuesta.txt", relax=DESDE_ADENTRO))
+    assert datos["cwd"] == str(repo)
+    assert datos["env"]["CODEX_HOME"] == str(codex_home.home_dir("codex")), "el resto de la politica sigue puesta"
+    assert datos["argv"][-1].startswith("skills.config=")
+    assert DESDE_ADENTRO == {"ancestors"}, "una sola regla mas, y es esa"
 
 
 def test_the_brief_does_not_spell_out_what_it_asks_for():
