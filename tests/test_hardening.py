@@ -173,8 +173,14 @@ def modelo() -> str:
 @pytest.fixture()
 def receta_codex() -> dict:
     """La receta del catalogo como la registra esta maquina: con el binario
-    nativo detras del lanzador de npm y la politica del home aislado."""
-    lanzador = shutil.which("codex")
+    nativo detras del lanzador de npm y la politica del home aislado.
+
+    `DISENSOR_SMOKE_CODEX` elige otro lanzador o binario: una maquina puede
+    tener mas de un codex (el del PATH y el que el dueño registro desde otra
+    shell, 0.153.4 y 0.162.1 el 2026-10-15), y cada par (plataforma, version)
+    que entra a `CERTIFIED` tiene que haber corrido este smoke con ese binario.
+    """
+    lanzador = os.environ.get("DISENSOR_SMOKE_CODEX") or shutil.which("codex")
     if not lanzador:
         pytest.skip("codex no esta instalado")
     try:
@@ -253,6 +259,8 @@ def corrida(
             if exc.outcome == "not_authenticated":
                 pytest.skip(exc.detail)
             raise
+        # Para el registro del release: que binario y que version corrieron.
+        print(f"codex: {lanzamiento.observed.get('cli_version')} en {ejecutable}")
     assert not respuesta.exists(), "la respuesta tiene que escribirla esta corrida"
     # BYTES UTF-8, no texto: con `text=True` Python codifica en la pagina local
     # de Windows y el CLI recibe algo que no puede decodificar. La primera vez
