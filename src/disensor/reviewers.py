@@ -124,12 +124,22 @@ CATALOG: dict[str, dict] = {
     },
     "gemini": {
         "family": "google",
-        "model": "gemini",
-        "command": ["gemini", "--prompt", "{pack}"],
+        # Sin default, como codex: la receta declaraba el literal "gemini", que
+        # no es un modelo, y no lo ponia en el argv, asi que el CLI corria el
+        # suyo por defecto mientras la declaracion afirmaba otro (#79). El flag
+        # sale de la documentacion de gemini-cli (`--model`/`-m`), no de una
+        # corrida: el CLI no estaba instalado donde se cambio esto.
+        "model": None,
+        "command": ["gemini", "--model", "{model}", "--prompt", "{pack}"],
         "hardening": "unverified",
         "egress": "cloud",
         "provider": "Google",
-        "notes": "Hardening not tested against a hostile repository yet.",
+        "notes": (
+            "Registered with the model your account runs, by its full name: --model puts it "
+            "in the argv, so what the declaration names is what runs. The flag comes from the "
+            "gemini-cli documentation; this recipe has not been run against a real gemini. "
+            "Hardening not tested against a hostile repository yet."
+        ),
     },
     "ollama": {
         "family": "other",
@@ -146,7 +156,14 @@ CATALOG: dict[str, dict] = {
     },
     "claude": {
         "family": "anthropic",
-        "model": "claude-code",
+        # Sin default: el literal "claude-code" no es un modelo y no llegaba al
+        # argv, asi que la ronda de un generador Anthropic salia
+        # `same_family_distinct_model` aunque el CLI corriera el mismo modelo
+        # que genero: la declaracion afirmaba mas independencia de la que hubo
+        # (#79). `--model {model}` lo fija como `-m {model}` en codex; medido el
+        # 2026-10-15 con Claude Code 2.1.285, el CLI lo toma despues del prompt
+        # (un nombre inexistente se rechaza por su catalogo antes de inferir).
+        "model": None,
         # Sin --safe-mode el revisor arranca con lo que la maquina le agrega a
         # Claude Code: los plugins instalados y, desde la 2.1.273, los que se
         # sincronizan desde la cuenta de claude.ai, con sus skills, hooks y
@@ -156,16 +173,20 @@ CATALOG: dict[str, dict] = {
         # herramientas nativas con las que lee el checkout. Es el agujero de
         # #108 visto del lado de Claude. No cubre al repositorio revisado: esa
         # prueba hostil no se corrio, y por eso sigue `unverified`.
-        "command": ["claude", "-p", "{pack}", "--safe-mode"],
+        "command": ["claude", "-p", "{pack}", "--safe-mode", "--model", "{model}"],
         "hardening": "unverified",
         "egress": "cloud",
         "provider": "Anthropic",
         "notes": (
-            "Useful as a reviewer when the generator is NOT from this family; the runner "
-            "discards any reviewer whose family matches the generator before spending a run. "
-            "--safe-mode starts the session without what this machine adds to Claude Code: "
-            "installed and synced plugins, hooks, MCP servers, skills and CLAUDE.md. Not "
-            "tested against a hostile repository yet, so the hardening stays unverified."
+            "Registered with the model your account runs, by its full name (claude-opus-5-5, "
+            "not the alias opus): --model puts it in the argv, and the round compares it "
+            "literally with --generator-model. For a generator of another family it is a "
+            "cross-family reviewer; for a Claude generator the runner never tries it before a "
+            "reviewer from another family, and with the generator's own model the round is "
+            "the declarable degraded mode, same_model_fresh_context. --safe-mode starts the "
+            "session without what this machine adds to Claude Code: installed and synced "
+            "plugins, hooks, MCP servers, skills and CLAUDE.md. Not tested against a hostile "
+            "repository yet, so the hardening stays unverified."
         ),
     },
 }

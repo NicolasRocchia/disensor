@@ -833,10 +833,10 @@ def test_the_suggested_command_includes_the_model_when_the_recipe_needs_it(capsy
     args = build_parser().parse_args(["reviewer", "suggest"])
     args.func(args)
     salida = capsys.readouterr().out
-    assert "disensor reviewer add codex --model" in salida
-    assert "disensor reviewer add gemini" in salida, (
-        "una receta que no fija el modelo en el argv no lo pide"
-    )
+    # Todas las recetas del catalogo fijan hoy el modelo en el argv, claude y
+    # gemini desde #79: el comando sugerido lo pide en todas.
+    for receta in ("codex", "gemini", "claude", "ollama"):
+        assert f"disensor reviewer add {receta} --model" in salida
 
 
 def test_an_entry_registered_before_the_recipe_changed_is_not_used(
@@ -847,20 +847,66 @@ def test_an_entry_registered_before_the_recipe_changed_is_not_used(
     El registro copia el argv al registrar, `reviewer add` rechaza la repetida, y
     actualizar el paquete no toca el archivo: sin esto, el endurecimiento queda
     instalado y nunca corre. La entrada se excluye y el runner dice como
-    registrarla de nuevo.
+    registrarla de nuevo. La entrada ya pasa el modelo por `{model}`, para que
+    lo que se pruebe sea el cambio de la receta y no el del modelo (#79).
     """
     (repo / "e.py").write_text("w = 5\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
     vieja = {
-        "id": "claude", "family": "anthropic", "model": "claude-code", "source": "catalog",
+        "id": "claude", "family": "anthropic", "model": "claude-opus-5-5", "source": "catalog",
         "egress": "cloud", "executable": "x", "executable_hash": "sha256:0",
-        "command": ["claude", "-p", "{pack}"],
+        "command": ["claude", "-p", "{pack}", "--model", "{model}"],
     }
     assert correr(repo, {"reviewers": [vieja]}, monkeypatch, tmp_path) == 4
     salida = capsys.readouterr().err
     assert "has since changed" in salida
-    assert "reviewer remove claude && disensor reviewer add claude" in salida
+    assert "reviewer remove claude && disensor reviewer add claude --model" in salida
+
+
+@pytest.mark.parametrize("vieja", [
+    {"id": "claude", "family": "anthropic", "model": "claude-code",
+     "command": ["claude", "-p", "{pack}", "--safe-mode"]},
+    {"id": "claude", "family": "anthropic", "model": "claude-code",
+     "command": ["claude", "-p", "{pack}"]},
+    {"id": "gemini", "family": "google", "model": "gemini",
+     "command": ["gemini", "--prompt", "{pack}"]},
+], ids=["claude-0.13", "claude-anterior", "gemini"])
+def test_a_claude_or_gemini_entry_that_does_not_pass_its_model_is_not_used(
+    vieja, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Las recetas `claude` y `gemini` declaraban un modelo que no ponian en el
+    argv (#79): el CLI corria el suyo por defecto y la declaracion afirmaba
+    otro. Una entrada registrada asi queda fuera de la cadena, con el comando
+    para registrarla de nuevo, como las de codex antes del arreglo."""
+    (repo / "e.py").write_text("w = 5\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    entrada_vieja = {**vieja, "source": "catalog", "egress": "cloud", "executable": "x",
+                     "executable_hash": "sha256:0"}
+    assert correr(repo, {"reviewers": [entrada_vieja]}, monkeypatch, tmp_path) == 4
+    salida = capsys.readouterr().err
+    assert "does not pass it" in salida
+    assert f"reviewer remove {vieja['id']} && disensor reviewer add {vieja['id']} --model" in salida
+
+
+def test_the_claude_recipe_with_the_generators_model_is_the_same_model():
+    """Lo declarado es lo que corre, asi que la comparacion con el generador dice
+    la verdad: el mismo nombre es `same_model_fresh_context`. La comparacion es
+    literal, y un alias no es el nombre: registrada como `opus` contra un
+    generador `claude-opus-5-5`, la ronda la toma por otro modelo, y por eso la
+    nota de la receta pide el nombre completo."""
+    claude = dict(entrada_catalogada("claude"), model="claude-opus-5-5")
+    assert ronda.stale_entry(claude) is None
+    assert independence_of(claude, "anthropic", "claude-opus-5-5") == "same_model_fresh_context"
+    assert independence_of(claude, "anthropic", "claude-fable-5-1") == "same_family_distinct_model"
+    assert independence_of(claude, "openai", "gpt-5.6-sol") == "cross_family"
+    alias = dict(claude, model="opus")
+    assert independence_of(alias, "anthropic", "claude-opus-5-5") == "same_family_distinct_model"
+    argv = fill_argv(claude["command"], "/usr/bin/claude", package="p", report=Path("r"),
+                     model=claude["model"])
+    assert argv[argv.index("--model") + 1] == "claude-opus-5-5"
+    assert "--safe-mode" in argv
 
 
 def test_a_custom_reviewer_named_like_a_recipe_stays_in_the_chain():
