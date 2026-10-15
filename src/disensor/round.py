@@ -43,6 +43,8 @@ from .pack import canonical_pack_text, deliver, material_hash, pack_hash, read_m
 from .reviewers import (
     CATALOG,
     ReviewerError,
+    consent_record,
+    describe_consent,
     executable_fingerprint,
     has_consent,
     load_registry,
@@ -60,7 +62,8 @@ from .reviewers import (
 # el golden de tests/test_pack.py rompe si se cambia una sola.
 # Los tiempos observados por intento (#98) no tocan la forma del paquete: son
 # campos aditivos de `observed`, y `new --round` tolera que un resultado
-# guardado antes no los traiga. Por eso no suben el ordinal.
+# guardado antes no los traiga. Por eso no suben el ordinal. La procedencia del
+# consentimiento de cada intento (#84) tampoco, por el mismo motivo.
 RESULT_VERSION = "disensor/round-result/v4"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
@@ -810,6 +813,18 @@ def _round(args, repo: Path) -> int:
                     ),
                 })
                 continue
+            # Como se dio el consentimiento que autoriza este envio (#84): a la
+            # vista de quien corre la ronda, que muchas veces es un agente que
+            # se lo cuenta al dueño, y en el intento, bajo `observed`, para que
+            # el resultado y la declaracion lo lleven. Un revisor local no
+            # necesita ninguno, y su intento no trae la clave.
+            consentimiento = None
+            if entry.get("egress") != "local":
+                consentimiento = consent_record(entry, repository)
+                estado(
+                    f"round: consent for {entry['id']} to receive the material of {repository}: "
+                    f"{describe_consent(consentimiento)}"
+                )
             candidato = Path(tmp) / f"report-{numero}-{entry['id']}.md"
             # El revisor corre desde un directorio temporal y solo sabe donde
             # esta el codigo por este texto: la ruta local del checkout viaja
@@ -826,6 +841,8 @@ def _round(args, repo: Path) -> int:
             )
             intento = run_reviewer(entry, paquete, candidato, args.timeout)
             intento["independence"] = independence
+            if consentimiento is not None:
+                intento["consent"] = consentimiento
             attempts.append(intento)
             if intento["outcome"] == "ok":
                 usado = (entry, independence)

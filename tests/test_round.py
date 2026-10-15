@@ -475,6 +475,81 @@ def test_a_local_reviewer_needs_no_consent(repo: Path, monkeypatch, tmp_path):
     assert correr(repo, registro, monkeypatch, tmp_path) == OK
 
 
+def _registro_consentido(repo: Path, tmp_path: Path, monkeypatch, entry: dict, procedencia=None) -> dict:
+    """Un registro en disco con el consentimiento para este repositorio, como lo
+    dejaria `reviewer consent`, con o sin procedencia. En disco y no solo en
+    `ronda.load_registry`: el consentimiento se lee del registro de reviewers."""
+    from disensor import gitctx, reviewers
+
+    monkeypatch.setattr(reviewers, "REGISTRY_DIR", tmp_path / ".disensor")
+    monkeypatch.setattr(reviewers, "REGISTRY", tmp_path / ".disensor" / "reviewers.json")
+    raiz = gitctx.repo_root(repo)
+    clave = reviewers.consent_key(entry, gitctx.canonical_repository(raiz) or str(raiz))
+    data = {"reviewers": [entry], "consents": [clave]}
+    if procedencia is not None:
+        data["consent_provenance"] = {clave: procedencia}
+    reviewers.save_registry(data)
+    return data
+
+
+@pytest.mark.parametrize("terminal, texto", [
+    (True, "from an interactive terminal"),
+    (False, "without an interactive terminal"),
+])
+def test_the_round_shows_how_the_consent_it_uses_was_given(
+    terminal, texto, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Una ronda destrabada por un consentimiento que nadie tipeo en una terminal
+    queda a la vista de quien la corre, y en el resultado, bajo `observed` (#84)."""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    entry = dict(
+        entrada("nube", "openai", revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)),
+        egress="cloud", provider="AlgunProveedor",
+    )
+    procedencia = {"given_at": "2026-10-15T12:00:00Z", "disensor_version": "0.15.0",
+                   "stdin_terminal": terminal, "stdout_terminal": True}
+    registro = _registro_consentido(repo, tmp_path, monkeypatch, entry, procedencia)
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+    err = capsys.readouterr().err
+    assert f"consent for nube to receive the material of" in err
+    assert f"given 2026-10-15T12:00:00Z {texto} (disensor 0.15.0)" in err
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert intento["consent"] == {"recorded": True, **procedencia}
+
+
+def test_a_consent_without_provenance_runs_and_says_so(repo: Path, monkeypatch, tmp_path, capsys):
+    """Un consentimiento anterior a 0.15 sigue valiendo: lo que cubre no cambio.
+    Lo que cambia es que la ronda dice que no sabe como se dio."""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    entry = dict(
+        entrada("nube", "openai", revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)),
+        egress="cloud",
+    )
+    registro = _registro_consentido(repo, tmp_path, monkeypatch, entry)
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+    assert "provenance not recorded" in capsys.readouterr().err
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert intento["consent"] == {"recorded": False}
+
+
+def test_a_local_reviewers_attempt_carries_no_consent(repo: Path, monkeypatch, tmp_path, capsys):
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {"reviewers": [dict(
+        entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+    assert "consent for" not in capsys.readouterr().err
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert "consent" not in intento
+
+
 def test_an_assistant_entry_cannot_forge_catalogued_hardening():
     """Copiar el argv de una receta no hereda su prueba hostil.
 

@@ -30,11 +30,13 @@ import json
 import re
 import os
 import subprocess
+import sys
 import tempfile
 import textwrap
+from datetime import datetime, timezone
 from pathlib import Path
 
-from . import codex_home, programs
+from . import __version__, codex_home, programs
 
 PLACEHOLDERS = {"{pack}", "{report}"}
 
@@ -410,12 +412,123 @@ def has_consent(entry: dict, repository: str) -> bool:
     return consent_key(entry, repository) in set(load_registry().get("consents", []))
 
 
+# La procedencia vive en un mapa aparte, por clave, y no adentro de `consents`:
+# esa lista la leen las versiones anteriores como un conjunto de cadenas, y un
+# objeto ahi adentro las haria fallar con el registro de la maquina entera.
+# Las versiones anteriores conservan este mapa al guardar, porque reescriben el
+# registro que leyeron. Lo que no pueden es mantenerlo: una que revoque y vuelva
+# a dar un consentimiento deja la procedencia de antes.
+PROVENANCE = "consent_provenance"
+
+
+def _terminal(stream) -> bool:
+    """Whether `stream` is an interactive terminal, as far as this process can see.
+
+    `isatty()` alone does not say it on Windows: it answers true for NUL, the
+    device where the standard input of an agent's tool usually points (measured
+    on 2026-10-15 with Python 3.14.2: a command with its input from NUL said
+    it had a terminal). There the handle has to be a console as well, and NUL
+    is not one. The other way round, a terminal that talks through pipes, like
+    mintty without winpty, is not seen as one.
+    """
+    try:
+        if stream is None or not stream.isatty():
+            return False
+        if os.name != "nt":
+            return True
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        manejador = msvcrt.get_osfhandle(stream.fileno())
+        modo = wintypes.DWORD()
+        return bool(ctypes.windll.kernel32.GetConsoleMode(
+            ctypes.c_void_p(manejador), ctypes.byref(modo),
+        ))
+    except (AttributeError, OSError, ValueError):
+        return False
+
+
+def provenance() -> dict:
+    """How the consent being given now was given, as this process sees it (#84).
+
+    It does not say WHO gave it. Nothing in a process can: an agent that
+    drives a real terminal looks exactly like the owner, and the record is as
+    trustworthy as the file it lives in, which anyone who can write
+    `~/.disensor` can write. What it buys is that a consent given without a
+    terminal, from a script or an agent's tool, is not indistinguishable from
+    one typed by a person: the round shows it every time it uses it.
+    """
+    return {
+        "given_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "disensor_version": __version__,
+        "stdin_terminal": _terminal(sys.stdin),
+        "stdout_terminal": _terminal(sys.stdout),
+    }
+
+
+def consent_record(entry: dict, repository: str) -> dict:
+    """What the registry says about how the consent for this repository was given.
+
+    `{"recorded": False}` when there is a key and no provenance: given before
+    0.15, or written into the registry by something other than
+    `reviewer consent`. Nothing tells those two apart. A provenance that does
+    not have the shape this version writes counts as not recorded: the file is
+    editable by hand, and a half-filled record would read as more than it is.
+    """
+    mapa = load_registry().get(PROVENANCE)
+    registro = mapa.get(consent_key(entry, repository)) if isinstance(mapa, dict) else None
+    if not isinstance(registro, dict):
+        return {"recorded": False}
+    textos = ("given_at", "disensor_version")
+    booleanos = ("stdin_terminal", "stdout_terminal")
+    if not all(isinstance(registro.get(k), str) for k in textos) or not all(
+        isinstance(registro.get(k), bool) for k in booleanos
+    ):
+        return {"recorded": False}
+    return {"recorded": True, **{k: registro[k] for k in textos + booleanos}}
+
+
+def describe_consent(record: dict) -> str:
+    """One line for whoever reads the round: how the consent it uses was given."""
+    if not record.get("recorded"):
+        return (
+            "provenance not recorded (given before 0.15, or written outside "
+            "`disensor reviewer consent`)"
+        )
+    terminal = (
+        "from an interactive terminal"
+        if record["stdin_terminal"] and record["stdout_terminal"]
+        else "without an interactive terminal"
+    )
+    return f"given {record['given_at']} {terminal} (disensor {record['disensor_version']})"
+
+
 def grant_consent(entry: dict, repository: str) -> None:
     data = load_registry()
     consents = set(data.get("consents", []))
-    consents.add(consent_key(entry, repository))
+    clave = consent_key(entry, repository)
+    consents.add(clave)
     data["consents"] = sorted(consents)
+    _set_provenance(data, clave, provenance())
     save_registry(data)
+
+
+def _set_provenance(data: dict, clave: str, valor: dict | None) -> None:
+    """Write, or with None remove, the provenance of one key, and drop the orphans.
+
+    The provenance of a key that is no longer in `consents` describes nothing,
+    and if the same key came back through an older version, which does not
+    write provenance, it would describe the wrong act.
+    """
+    mapa = data.get(PROVENANCE)
+    mapa = dict(mapa) if isinstance(mapa, dict) else {}
+    if valor is None:
+        mapa.pop(clave, None)
+    else:
+        mapa[clave] = valor
+    vigentes = set(data.get("consents", []))
+    data[PROVENANCE] = {k: v for k, v in sorted(mapa.items()) if k in vigentes}
 
 
 def describe(entry: dict) -> str:
@@ -702,6 +815,7 @@ def _consent(args) -> int:
             return 1
         consents.discard(clave)
         data["consents"] = sorted(consents)
+        _set_provenance(data, clave, None)
         save_registry(data)
         print(f"withdrawn: {args.id} can no longer receive the material of {repositorio}")
         return 0
@@ -714,11 +828,20 @@ def _consent(args) -> int:
     print(f"\n  repository: {repositorio}\n")
     consents.add(clave)
     data["consents"] = sorted(consents)
+    # Darlo otra vez reescribe la procedencia: el registro dice como se dio la
+    # ultima vez que alguien lo afirmo. Un agente que lo repite sin terminal
+    # sobre uno que el dueño dio desde la suya queda a la vista, en vez de
+    # quedar tapado por el primero.
+    registro = provenance()
+    _set_provenance(data, clave, registro)
     save_registry(data)
     print(
         f"authorised: the material of {repositorio} may be sent to "
         f"{entry.get('provider') or 'this reviewer'}.\n"
         "This covers this repository, this recipe and these executable bytes. Another project, "
-        "a changed command or a replaced binary needs its own authorisation."
+        "a changed command or a replaced binary needs its own authorisation.\n"
+        f"recorded with it: {describe_consent({'recorded': True, **registro})}. "
+        "Every round that uses this consent shows that line, and its result and declaration "
+        "carry it."
     )
     return 0

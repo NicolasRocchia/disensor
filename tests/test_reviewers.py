@@ -456,3 +456,107 @@ def test_a_relative_or_missing_executable_override_is_refused():
     with pytest.raises(ReviewerError, match="absolute path of an existing file"):
         build_entry("codex", "openai", "m", CATALOG["codex"]["command"], from_catalog=True,
                     executable="codex.exe")
+
+
+# --- La procedencia del consentimiento (#84) ----------------------------------
+
+def _consentir(capsys, *extra: str) -> str:
+    """Registra un revisor en la nube y le da el consentimiento desde el cwd."""
+    correr("add", "nube", "--family", "other", "--model", "m", "--egress", "cloud", "--yes",
+           "--stdin", "pack", "--command", sys.executable, "-c", "pass")
+    capsys.readouterr()
+    assert correr("consent", "nube", *extra) == 0
+    return capsys.readouterr().out
+
+
+def test_consent_records_how_it_was_given(tmp_path, monkeypatch, capsys, registro_aislado):
+    """Sin esto, "el dueño consintio" y "un agente decidio que el dueño consintio"
+    dejaban exactamente el mismo registro (#84)."""
+    from disensor import __version__
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(reviewers, "_terminal", lambda stream: False)
+    salida = _consentir(capsys)
+    data = json.loads(registro_aislado.read_text(encoding="utf-8"))
+    [clave] = data["consents"]
+    assert isinstance(clave, str), "consents sigue siendo una lista de claves: la leen las versiones anteriores"
+    registro = data["consent_provenance"][clave]
+    assert registro["disensor_version"] == __version__
+    assert registro["stdin_terminal"] is False and registro["stdout_terminal"] is False
+    assert registro["given_at"].endswith("Z")
+    assert "without an interactive terminal" in salida
+
+
+def test_consent_given_again_records_the_last_act(tmp_path, monkeypatch, capsys, registro_aislado):
+    """Un agente que repite el consentimiento sin terminal sobre uno que el dueño
+    dio desde la suya queda a la vista, en vez de quedar tapado por el primero."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(reviewers, "_terminal", lambda stream: True)
+    assert "from an interactive terminal" in _consentir(capsys)
+    monkeypatch.setattr(reviewers, "_terminal", lambda stream: False)
+    assert correr("consent", "nube") == 0
+    data = json.loads(registro_aislado.read_text(encoding="utf-8"))
+    [registro] = data["consent_provenance"].values()
+    assert registro["stdin_terminal"] is False
+
+
+def test_revoking_a_consent_removes_its_provenance(tmp_path, monkeypatch, capsys, registro_aislado):
+    monkeypatch.chdir(tmp_path)
+    _consentir(capsys)
+    assert correr("consent", "nube", "--revoke") == 0
+    data = json.loads(registro_aislado.read_text(encoding="utf-8"))
+    assert data["consents"] == [] and data["consent_provenance"] == {}
+
+
+def test_a_key_without_provenance_is_said_to_have_none(registro_aislado):
+    """Una clave sin procedencia puede ser de antes de 0.15 o estar escrita a mano:
+    no hay como distinguirlas, y el texto no elige una."""
+    from disensor.reviewers import consent_key, consent_record, describe_consent
+
+    entry = {"id": "nube", "command": ["x"], "model": "m", "executable_hash": "h"}
+    clave = consent_key(entry, "repo")
+    reviewers.save_registry({"reviewers": [], "consents": [clave]})
+    registro = consent_record(entry, "repo")
+    assert registro == {"recorded": False}
+    texto = describe_consent(registro)
+    assert "not recorded" in texto and "before 0.15" in texto and "outside" in texto
+
+
+@pytest.mark.parametrize("malo", [
+    {"given_at": "2026-10-15T00:00:00Z", "disensor_version": "0.15.0", "stdin_terminal": "yes",
+     "stdout_terminal": True},
+    {"given_at": "2026-10-15T00:00:00Z", "stdin_terminal": True, "stdout_terminal": True},
+    "texto suelto",
+])
+def test_a_malformed_provenance_counts_as_not_recorded(malo, registro_aislado):
+    """El registro se edita a mano: uno a medio llenar se leeria como mas de lo que es."""
+    from disensor.reviewers import consent_key, consent_record
+
+    entry = {"id": "nube", "command": ["x"], "model": "m", "executable_hash": "h"}
+    clave = consent_key(entry, "repo")
+    reviewers.save_registry({"reviewers": [], "consents": [clave],
+                             "consent_provenance": {clave: malo}})
+    assert consent_record(entry, "repo") == {"recorded": False}
+
+
+def test_the_provenance_of_a_key_no_longer_consented_is_dropped(tmp_path, monkeypatch, capsys, registro_aislado):
+    """Si la misma clave volviera por una version anterior, que no escribe
+    procedencia, una huerfana describiria el acto equivocado."""
+    monkeypatch.chdir(tmp_path)
+    _consentir(capsys)
+    data = json.loads(registro_aislado.read_text(encoding="utf-8"))
+    data["consent_provenance"]["huerfana"] = {"given_at": "x"}
+    reviewers.save_registry(data)
+    assert correr("consent", "nube") == 0
+    data = json.loads(registro_aislado.read_text(encoding="utf-8"))
+    assert "huerfana" not in data["consent_provenance"]
+
+
+def test_the_null_device_is_not_a_terminal():
+    """En Windows `isatty()` contesta true para NUL, que es donde apunta la entrada
+    de la herramienta de un agente: medido el 2026-10-15 con Python 3.14.2."""
+    import os
+
+    with open(os.devnull, "r", encoding="utf-8") as nulo:
+        assert not reviewers._terminal(nulo)
+    assert not reviewers._terminal(None)
