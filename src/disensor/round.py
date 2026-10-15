@@ -43,6 +43,8 @@ from .pack import canonical_pack_text, deliver, material_hash, pack_hash, read_m
 from .reviewers import (
     CATALOG,
     ReviewerError,
+    consent_record,
+    describe_consent,
     executable_fingerprint,
     has_consent,
     load_registry,
@@ -60,7 +62,8 @@ from .reviewers import (
 # el golden de tests/test_pack.py rompe si se cambia una sola.
 # Los tiempos observados por intento (#98) no tocan la forma del paquete: son
 # campos aditivos de `observed`, y `new --round` tolera que un resultado
-# guardado antes no los traiga. Por eso no suben el ordinal.
+# guardado antes no los traiga. Por eso no suben el ordinal. La procedencia del
+# consentimiento de cada intento (#84) tampoco, por el mismo motivo.
 RESULT_VERSION = "disensor/round-result/v4"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
@@ -99,10 +102,18 @@ def tree_state(repo: Path) -> str:
 
 
 def independence_of(entry: dict, generator_family: str, generator_model: str) -> str:
-    """What this reviewer is, not what somebody would like it to be."""
+    """What this reviewer is, not what somebody would like it to be.
+
+    Distinct models need both names to say so. Without the generator's model
+    the round compared the reviewer's against an empty string and recorded
+    `same_family_distinct_model` for a reviewer that may have run the
+    generator's own model: more independence than anyone could show (ronda 1
+    del evento de #79). What cannot be told apart is recorded as the least
+    independence, which can be an understatement and never a false claim.
+    """
     if entry["family"] != generator_family:
         return "cross_family"
-    if entry.get("model") and entry["model"] != generator_model:
+    if entry.get("model") and generator_model and entry["model"] != generator_model:
         return "same_family_distinct_model"
     return "same_model_fresh_context"
 
@@ -618,10 +629,7 @@ def main_round(args) -> int:
     # diciendo tree_unchanged sobre un arbol que el propio runner acaba de
     # ensuciar. Todo lo que contiene o mide el arbol se pregunta desde la raiz.
     pedido = Path(args.repository or Path.cwd())
-    try:
-        repo = gitctx.repo_root(pedido)
-    except gitctx.GitError:
-        repo = pedido
+    repo = gitctx.root_or_self(pedido)
     try:
         return _round(args, repo)
     except (RoundError, ReviewerError) as exc:
@@ -674,7 +682,7 @@ def _round(args, repo: Path) -> int:
             return UNDECIDABLE
         base, head, merge_base = ctx.base_oid, ctx.head_oid, ctx.merge_base
         target_tip = ctx.base_oid
-        repository = gitctx.canonical_repository(repo) or str(repo)
+        repository = gitctx.repository_identity(repo)
     else:
         # Un plan o una decision de arquitectura no vive en el rango: el
         # disparador ahi es de quien conoce el impacto, y `round` orquesta.
@@ -684,7 +692,7 @@ def _round(args, repo: Path) -> int:
         if not args.material:
             raise RoundError(f"a {args.gate} gate needs --material")
         base = head = merge_base = target_tip = ""
-        repository = gitctx.canonical_repository(repo) or str(repo)
+        repository = gitctx.repository_identity(repo)
 
     # --- Los destinos, antes de correr a nadie -------------------------------
     # Se miraban despues del bucle de revisores: un --report que ya existia o
@@ -810,6 +818,18 @@ def _round(args, repo: Path) -> int:
                     ),
                 })
                 continue
+            # Como se dio el consentimiento que autoriza este envio (#84): a la
+            # vista de quien corre la ronda, que muchas veces es un agente que
+            # se lo cuenta al dueño, y en el intento, bajo `observed`, para que
+            # el resultado y la declaracion lo lleven. Un revisor local no
+            # necesita ninguno, y su intento no trae la clave.
+            consentimiento = None
+            if entry.get("egress") != "local":
+                consentimiento = consent_record(entry, repository)
+                estado(
+                    f"round: consent for {entry['id']} to receive the material of {repository}: "
+                    f"{describe_consent(consentimiento)}"
+                )
             candidato = Path(tmp) / f"report-{numero}-{entry['id']}.md"
             # El revisor corre desde un directorio temporal y solo sabe donde
             # esta el codigo por este texto: la ruta local del checkout viaja
@@ -826,6 +846,8 @@ def _round(args, repo: Path) -> int:
             )
             intento = run_reviewer(entry, paquete, candidato, args.timeout)
             intento["independence"] = independence
+            if consentimiento is not None:
+                intento["consent"] = consentimiento
             attempts.append(intento)
             if intento["outcome"] == "ok":
                 usado = (entry, independence)
@@ -923,6 +945,19 @@ def _round(args, repo: Path) -> int:
             "round: DEGRADED MODE. No reviewer from another family was available, so the errors "
             "the reviewer shares with the generator were not covered. The declaration has to say "
             "so: independence, fallback_reason and a reviewer_correlation residue item."
+        )
+    # El modelo del generador es lo unico con que la ronda separa el mismo
+    # modelo de otro de la misma familia (`independence_of`). Sin el, registra
+    # la menor independencia, que no afirma de mas (#79), y lo dice: si el
+    # revisor corrio otro modelo de la familia, el registro se queda corto, y
+    # el flag es lo que lo arregla la proxima vez.
+    if entry["family"] == args.generator_family and not args.generator_model:
+        estado(
+            f"round: {entry['id']} is from the generator's family and --generator-model was not "
+            "given, so the round could not tell the generator's own model from another model of "
+            f"that family, and it recorded {independence}, the least independence it can claim. "
+            "If the reviewer ran another model of the family, pass --generator-model with the "
+            "generator's exact model name, spelled as the reviewer was registered."
         )
     if entry.get("hardening") != "verified":
         estado(

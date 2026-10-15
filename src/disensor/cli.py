@@ -217,7 +217,11 @@ def build_parser() -> argparse.ArgumentParser:
                      choices=["anthropic", "openai", "google", "meta", "mistral", "other"],
                      help="Family of the assistant that produced the material, to keep R4.")
     rnd.add_argument("--generator-model", default=None,
-                     help="Model of the generator, to tell same-model from same-family.")
+                     help="Exact model name of the generator, spelled as a reviewer of its family "
+                          "was registered: the only thing that tells the generator's own model "
+                          "(same_model_fresh_context) from another model of the family. Without "
+                          "it, a reviewer of that family is recorded as the same model, the "
+                          "least independence the round can claim.")
     rnd.add_argument("--base", default=None)
     rnd.add_argument("--head", "--cabeza", default=None)
     rnd.add_argument("--material", default=None,

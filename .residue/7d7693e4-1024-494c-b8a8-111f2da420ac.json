@@ -1,0 +1,126 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "7d7693e4-1024-494c-b8a8-111f2da420ac",
+    "created_at": "2026-10-15T11:51:45-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "f9327661f0a0b50fbd6a7482769109ce63adc9dc",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "d518e12b262605ecca8d637e9dd07749b20a1281"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Sin --generator-model, un revisor de la familia del generador se declaraba como un modelo distinto",
+      "description": "independence_of comparaba el modelo del revisor con el del generador, y sin --generator-model lo comparaba contra una cadena vacía: un revisor de la familia del generador con un modelo registrado salía same_family_distinct_model aunque hubiera corrido el mismo modelo que generó. El aviso que agregaba 3b34ca1 lo decía en stderr, pero la ronda terminaba con 0, el resultado llevaba el valor falso y new --round lo copiaba a una declaración que valida, porque sin el modelo del generador ninguna regla puede ver que los dos nombres coinciden. Es el camino por defecto del CLI, porque el flag es opcional, y es la falta de veracidad que #79 existe para cerrar.",
+      "location": "src/disensor/round.py, independence_of y el aviso de _round; src/disensor/cli.py, la ayuda de --generator-model",
+      "final_state": "incorporated",
+      "remedy_adjustment": "El revisor proponía exigir el modelo cuando corre un revisor de la misma familia, o registrar la independencia como desconocida. El esquema v0.4 no tiene un valor desconocido, y exigir el flag después de correr dejaba una ronda pagada sin resultado. Se registra la menor independencia, same_model_fresh_context, que puede quedarse corta y nunca afirma de más, y el aviso lo dice.",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura de independence_of en 893bff7: la condición era entry.get('model') and entry['model'] != generator_model, con generator_model = args.generator_model or ''. La propia prueba del PR (test_a_same_family_reviewer_without_the_generator_model_is_warned, en 3b34ca1) fijaba ese comportamiento como esperado. Corregido en b9cc8b4, con la ayuda del flag y el runbook en el mismo commit, y los dos README y las dos guías en f932766."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_independence_is_what_the_reviewer_is (con el modelo del generador vacío y None, que fallan contra el independence_of de 893bff7) y tests/test_round.py::test_a_same_family_reviewer_without_the_generator_model_is_warned, que ahora exige same_model_fresh_context en el resultado. Suite completa en verde antes de b9cc8b4 y de f932766 (869 pasadas, 10 salteadas, Windows 11, Python 3.14.2). La ronda 2 sobre f932766 no lo volvió a levantar."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Ninguna ronda corrió las pruebas con costo ni los canarios de tests/test_hardening.py (opt-in: DISENSOR_SMOKE=1, DISENSOR_SMOKE_MODEL, DISENSOR_SMOKE_HOME_CANARY=1, DISENSOR_SMOKE_USER_SKILL=1), y el generador tampoco. Entre ellas está test_the_claude_recipe_starts_without_what_the_machine_adds, la única que corre la receta claude real, cuyo argv cambió en este evento: el modelo entra ahora por {model} con fill_argv, y test_the_inventory_fills_the_model_of_the_recipe_once fija ese argv sin costo. La receta gemini no corrió nunca contra un gemini real: el CLI no está instalado en esta máquina, y --model sale de la referencia de gemini-cli leída el 2026-10-15. El --model de claude después del prompt se verificó con Claude Code 2.1.285 con una sonda sin inferencia: un modelo inexistente, rechazado por el catálogo del CLI antes de llamar a nada. La variante de tests/test_degraded_mode.py con la receta claude del catálogo se saltea en Windows, así que ni los revisores ni el generador la corrieron en local; corrió en el CI de Linux sobre 893bff7 (run 38749738586, Python 3.10 y 3.12: ahí se saltean otras diez pruebas, y la cuenta cierra sin ella) y corre otra vez en el CI de este PR. Una corrida de la suite completa del generador falló una vez en tests/test_gate.py::test_unknown_commit_fails_closed, con un git commit de un repositorio temporal que salió con error y stderr vacío; la prueba pasó sola tres veces seguidas y la suite completa pasó en la repetición. La causa no se investigó."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "La rama interactiva de la procedencia del consentimiento no se ejercitó con una consola real. Las pruebas reemplazan reviewers._terminal; lo único medido en esta máquina (Windows 11, Python 3.14.2) es que NUL da isatty() verdadero y _terminal falso, y que la herramienta del agente no tiene consola. Ningún revisor, ni el generador, corrió reviewer consent desde una terminal tipeada por una persona (el agente no lo corre, por #84), ni en macOS o Linux, ni en mintty, donde se espera que salga sin terminal. Las dos rondas usaron el consentimiento que el dueño ya había dado para codex, y las dos lo mostraron como procedencia no registrada, que es lo correcto para un consentimiento anterior al cambio. La primera vez que el dueño dé un consentimiento con esta versión, conviene mirar que la ronda diga from an interactive terminal."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 1304
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:309b5d898221040c3967c47c58b691f56e80d4fbd819209bff7aca1b26e16134",
+      "report_hash": "sha256:591816e2db5731f2a95d404a5fe7ad8e02e5e830f3fff862e4c8d758b2b2846d",
+      "reviewer_seconds": 367,
+      "consent": {
+        "recorded": false
+      }
+    },
+    "dev.disensor.rounds": {
+      "count": 2,
+      "reviewer_seconds_total": 585,
+      "heads": [
+        "893bff7",
+        "f932766"
+      ]
+    }
+  }
+}

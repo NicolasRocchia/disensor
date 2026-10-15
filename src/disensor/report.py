@@ -359,6 +359,7 @@ def normalize(name: str, raw: dict) -> dict:
         "declaration": residue.get("declaration"),
         "counts": counts if isinstance(counts, dict) else {},
         "extensions": bool(raw.get("extensions")),
+        "consent": _round_consent(raw),
     }
     # Back references: the open view and the cases list rows without their
     # declaration, and a row has to say where it came from.
@@ -367,6 +368,21 @@ def normalize(name: str, raw: dict) -> dict:
     for it in items:
         it["decl"] = d
     return d
+
+
+def _round_consent(raw: dict) -> dict | None:
+    """How the consent behind the declared round was given, if `new --round` carried it (#84).
+
+    The extension space is not part of the protocol and nobody validates its
+    content, so anything that is not the shape `new --round` writes is read as
+    absent rather than allowed to take the declaration down with it.
+    """
+    extensiones = raw.get("extensions")
+    ronda = extensiones.get("dev.disensor.round") if isinstance(extensiones, dict) else None
+    consentimiento = ronda.get("consent") if isinstance(ronda, dict) else None
+    if not isinstance(consentimiento, dict) or not isinstance(consentimiento.get("recorded"), bool):
+        return None
+    return consentimiento
 
 
 def read_declarations(files: Iterable[tuple[str, str]]) -> tuple[list[dict], list[Unreadable]]:
@@ -962,6 +978,22 @@ def _reviewer_field(d: dict, key: str, names: dict, missing: str) -> str:
     return " / ".join(parts) or '<span class="mudo">sin revisores declarados</span>'
 
 
+def _consent_text(c: dict) -> str:
+    """The provenance of the consent, as the round recorded it: what was seen, not who."""
+    if not c["recorded"]:
+        return ('procedencia no registrada <span class="mudo">(dado antes de 0.15, o escrito '
+                'fuera de reviewer consent)</span>')
+    interactiva = c.get("stdin_terminal") is True and c.get("stdout_terminal") is True
+    texto = "dado con terminal interactiva" if interactiva else "dado <b>sin terminal interactiva</b>"
+    cuando = c.get("given_at")
+    if isinstance(cuando, str):
+        texto += f" el {E(cuando[:10])}"
+    version = c.get("disensor_version")
+    if isinstance(version, str):
+        texto += f' <span class="mudo">(disensor {E(version)})</span>'
+    return texto
+
+
 def _finding_block(f: dict) -> str:
     d = f["decl"]
     is_open = f["state"] not in CLOSED_STATES
@@ -1037,6 +1069,10 @@ def _declaration_block(d: dict, model: Model) -> str:
         ("Confinamiento", confinement),
         ("Independencia", _reviewer_field(d, "independence", INDEPENDENCE_NAME, "no declarada")),
         ("Endurecimiento", _reviewer_field(d, "hardening", HARDENING_NAME, "no declarado")),
+    ]
+    if d["consent"] is not None:
+        ficha.append(("Consentimiento de envío", _consent_text(d["consent"])))
+    ficha += [
         ("Árbitro humano", "presente" if d["arbiter"] else "AUSENTE"),
         ("Commit", E(d["head"][:10]) + (f' <span class="mudo">sobre</span> {E(d["base"][:10])}' if d["base"] else "")),
     ]

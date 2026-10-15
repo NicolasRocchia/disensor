@@ -57,7 +57,12 @@ Los pasos 2, 4, 5 y 6 son los mismos en los dos caminos.
 Mandar el material a un revisor fuera de esta máquina necesita el consentimiento
 del dueño del repositorio, y un agente nunca lo da: no corre
 `disensor reviewer consent`. Cuando `disensor round` sale con 4 porque falta ese
-consentimiento, el agente se detiene y le pide al dueño que lo dé.
+consentimiento, el agente se detiene y le pide al dueño que lo dé. El registro
+guarda cómo se dio cada consentimiento (cuándo, con qué disensor, y si la
+entrada y la salida estándar eran una terminal); la ronda lo muestra cada vez
+que lo usa, y `new --round` lo lleva como `consent` bajo
+`extensions["dev.disensor.round"]`. Es lo que vio el proceso, no quién lo
+tipeó.
 
 Declará lo que pasó, no lo que debería haber pasado. Un evento sin hallazgos y
 con una declaración expresa de ausencia es un dato válido, no un fracaso.
@@ -98,7 +103,14 @@ Por defecto todo exige `diff`.
   (por qué la ronda se conformó con menos) y un ítem de residuo de clase
   `reviewer_correlation` que nombre a ese revisor: los errores que un modelo
   comparte consigo mismo no los cubrió esta ronda, y eso es residuo. El nivel A
-  no lo admite.
+  no lo admite. Con `disensor round` se calcula, no se elige: otra familia es
+  `cross_family`; la familia del generador con otro nombre de modelo,
+  `same_family_distinct_model`; un revisor registrado con el nombre que se
+  pasó como `--generator-model`, `same_model_fresh_context`. La comparación es
+  literal, así que pasá el nombre exacto del modelo, el mismo con que se
+  registró el revisor: sin `--generator-model` un revisor de tu familia queda
+  registrado como tu propio modelo, la menor independencia que la ronda puede
+  afirmar, y la ronda avisa.
 - `reviewers[].hardening`: `verified` si el revisor corrió por un adaptador
   que neutraliza, para versiones y condiciones concretas, las fuentes
   enumeradas que el CLI carga solo antes de tu consigna: los archivos de
@@ -266,7 +278,9 @@ booleano, `null`, o contenedores de esos) y toda clave tiene que tener forma de
 identificador: un nombre, no un mensaje. El espacio de extensión no lo
 interpretan las reglas a propósito, que es exactamente por qué el texto libre
 estacionado ahí sale del entorno igual que en cualquier otro lugar al que el
-perfil no llega.
+perfil no llega. `new --round` lo cumple: en el perfil minimizado el `consent`
+de su extensión conserva solo los booleanos, porque la fecha y la versión son
+texto.
 
 ## Mapa rápido de las etiquetas del validador
 

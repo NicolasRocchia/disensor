@@ -716,6 +716,22 @@ def test_the_wrapping_of_a_single_word_answer_is_tolerated(envoltorio: str):
 
 
 PROMPT_INVENTARIO = "Responde solo: ok"
+MODELO_INVENTARIO = "haiku"
+
+
+def argv_inventario(command: list[str], afuera: Path) -> list[str]:
+    """El argv del inventario: la receta llenada como la llena el runner, y el formato.
+
+    Desde que la receta lleva `--model {model}` (#79), el modelo entra por el
+    placeholder, con `fill_argv`, la misma funcion del runner; antes se le
+    agregaba `--model haiku` a mano, y sobre la receta nueva eso dejaba el
+    literal `{model}` y un segundo `--model` en el argv, el defecto que #92
+    encontro en la prueba de codex.
+    """
+    ejecutable = shutil.which(command[0]) or command[0]
+    argv = fill_argv(command, ejecutable, package=PROMPT_INVENTARIO,
+                     report=afuera / "informe.md", model=MODELO_INVENTARIO)
+    return argv + ["--output-format", "stream-json", "--verbose", "--tools", ""]
 
 
 def inventario(command: list[str], afuera: Path) -> dict:
@@ -727,9 +743,7 @@ def inventario(command: list[str], afuera: Path) -> dict:
     directorio que no es un repositorio, como hace el runner, y sin herramientas,
     para que el modelo no tenga nada que hacer salvo contestar.
     """
-    absoluto = [shutil.which(command[0]) or command[0], *command[1:]]
-    argv = [PROMPT_INVENTARIO if arg == "{pack}" else arg for arg in absoluto]
-    argv += ["--output-format", "stream-json", "--verbose", "--model", "haiku", "--tools", ""]
+    argv = argv_inventario(command, afuera)
     out = subprocess.run(
         argv, cwd=afuera, stdin=subprocess.DEVNULL, capture_output=True, timeout=300,
     )
@@ -776,6 +790,20 @@ def test_the_claude_recipe_starts_without_what_the_machine_adds(tmp_path: Path):
     assert not cargado, (
         f"la receta cargo componentes de plugins pese a --safe-mode: {cargado[:10]}"
     )
+
+
+def test_the_inventory_fills_the_model_of_the_recipe_once(tmp_path: Path):
+    """La receta de claude lleva el modelo por `{model}` (#79): el inventario lo
+    llena con la funcion del runner y no le suma otro `--model`. La medicion con
+    costo esta arriba; esto fija el argv sin correr nada."""
+    for command in (CATALOG["claude"]["command"],
+                    [arg for arg in CATALOG["claude"]["command"] if arg != "--safe-mode"]):
+        argv = argv_inventario(command, tmp_path)
+        assert "{model}" not in argv and "{pack}" not in argv
+        assert argv.count("--model") == 1
+        assert argv[argv.index("--model") + 1] == MODELO_INVENTARIO
+        assert PROMPT_INVENTARIO in argv
+    assert "--safe-mode" in argv_inventario(CATALOG["claude"]["command"], tmp_path)
 
 
 def test_every_verified_recipe_is_covered_by_a_hostile_test():

@@ -275,6 +275,7 @@ models by hand.
 disensor reviewer suggest          # what this machine has, offline
 disensor reviewer add codex --model <model> --yes  # once per machine, with a model your account runs
 disensor reviewer login codex      # once, as the owner: the isolated home of the reviewer signs in
+disensor reviewer consent codex    # once per repository, as the owner: its material may leave the machine
 
 disensor round --gate diff --generator-family anthropic \
   --base main --head HEAD --result ../result.json
@@ -304,6 +305,21 @@ the brief did ([#108](https://github.com/NicolasRocchia/disensor/issues/108)).
 That home needs its own credentials, so `disensor reviewer login codex` runs
 the CLI's login there once, with your terminal; disensor never reads, copies
 or stores credentials, and it checks that home on disk before every attempt.
+
+**Registering is not consenting.** `reviewer add --yes` registers a reviewer
+and authorises nothing: the material of a repository leaves the machine only
+after the owner runs `disensor reviewer consent <id>` from that repository,
+and that consent covers that repository, that recipe and those executable
+bytes. An agent does not give it. The registry records how each consent was
+given: when, with which disensor, and whether standard input and output were
+a terminal. The round prints that every time it uses the consent, its result
+carries it, `new --round` puts it in the declaration and the report shows it.
+It records what the process saw, not who typed: an agent that drives a real
+terminal looks like the owner, a terminal that talks through pipes (mintty
+without winpty) looks like none, and whoever can write `~/.disensor` can
+write the record. What it buys is that a consent given from a script or from
+an agent's tool no longer leaves the same record as one a person typed
+([#84](https://github.com/NicolasRocchia/disensor/issues/84)).
 
 **What runs alone, and where you come in.** The runner asks the policy whether a
 round is required at all (a change that only touches exempt paths does not spend
@@ -344,6 +360,27 @@ declaration records the independence it actually had, why it settled for less,
 and a residue item saying that the errors the model shares with itself were not
 covered. Worse than the real thing, and infinitely better than not being able to
 declare what happened.
+
+With a single assistant, the reviewer is your own model with a fresh context,
+and two names make that true in the record: register the reviewer with your
+model's full name, and pass that same name to the round as
+`--generator-model`.
+
+```bash
+disensor reviewer add claude --model claude-opus-5-5 --yes   # your own model, by its full name
+disensor reviewer consent claude   # once per repository, as the owner
+disensor round --gate diff --generator-family anthropic --generator-model claude-opus-5-5 \
+  --base main --head HEAD --result ../result.json
+```
+
+The `claude` and `gemini` recipes put that model in the argv, as `codex` does,
+so what the declaration names is what ran; an entry registered before 0.15
+does not, and the round leaves it out with the command to register it again.
+The round compares the two names literally: the same name is
+`same_model_fresh_context`, and an alias (`opus`) reads as another model.
+Without `--generator-model` the round cannot tell the two apart: it records a
+reviewer of your family as your own model, the least independence it can
+claim, and says so ([#79](https://github.com/NicolasRocchia/disensor/issues/79)).
 
 ## The residue report
 

@@ -447,3 +447,56 @@ def test_verified_needs_a_certified_platform_and_cli_version(repo: Path, informe
                        "diff", "B", "full", repo)
         assert a["actors"]["reviewers"][0]["hardening"] == "unverified"
         assert a["residue"]["items"][0]["description"] == FILL_HARDENING_EVIDENCE
+
+
+# --- La procedencia del consentimiento (#84) -------------------------------------
+
+PROCEDENCIA = {"recorded": True, "given_at": "2026-10-15T12:00:00Z", "disensor_version": "0.15.0",
+               "stdin_terminal": False, "stdout_terminal": True}
+
+
+def _con_consentimiento(repo: Path, informe: Path, consentimiento) -> dict:
+    return resultado_de(repo, informe, observed={"attempts": [
+        {"id": "gemini", "outcome": "failed", "independence": "cross_family",
+         "consent": {"recorded": True, "given_at": "2026-01-01T00:00:00Z",
+                     "disensor_version": "0.15.0", "stdin_terminal": True,
+                     "stdout_terminal": True}},
+        {"id": "codex", "outcome": "ok", "independence": "cross_family",
+         "isolation": "codex_home/1", "cli_version": "0.153.4", "certified": True,
+         "consent": consentimiento},
+    ]})
+
+
+def test_the_consent_behind_the_report_travels_to_the_declaration(repo: Path, informe: Path):
+    """El consentimiento del intento que escribio el informe, no el de otro."""
+    a = from_round(_con_consentimiento(repo, informe, PROCEDENCIA), "diff", "B", "full", repo)
+    assert a["extensions"]["dev.disensor.round"]["consent"] == PROCEDENCIA
+
+
+def test_in_the_minimized_profile_the_consent_is_opaque(repo: Path, informe: Path):
+    """La fecha y la version son texto: en el perfil minimizado la extension
+    tiene que ser opaca, y van solo los booleanos."""
+    import jsonschema
+
+    from disensor.rules import load_schema
+
+    a = from_round(_con_consentimiento(repo, informe, PROCEDENCIA), "diff", "B", "minimized", repo)
+    consentimiento = a["extensions"]["dev.disensor.round"]["consent"]
+    assert consentimiento == {"recorded": True, "stdin_terminal": False, "stdout_terminal": True}
+    esquema = load_schema("residue/v0.4")
+    opaco = {"$schema": esquema["$schema"], "$defs": esquema["$defs"], "$ref": "#/$defs/opaque_value"}
+    jsonschema.validate(a["extensions"], opaco)
+
+
+def test_a_consent_without_provenance_travels_as_such(repo: Path, informe: Path):
+    a = from_round(_con_consentimiento(repo, informe, {"recorded": False}), "diff", "B", "full", repo)
+    assert a["extensions"]["dev.disensor.round"]["consent"] == {"recorded": False}
+
+
+def test_a_hand_edited_consent_cannot_park_text_in_the_extension(repo: Path, informe: Path):
+    """Solo las claves y los tipos que esta version escribe."""
+    editado = {**PROCEDENCIA, "nota": "texto libre", "stdin_terminal": "si"}
+    a = from_round(_con_consentimiento(repo, informe, editado), "diff", "B", "full", repo)
+    assert a["extensions"]["dev.disensor.round"]["consent"] == {"recorded": False}
+    sin_forma = from_round(_con_consentimiento(repo, informe, "texto"), "diff", "B", "full", repo)
+    assert "consent" not in sin_forma["extensions"]["dev.disensor.round"]

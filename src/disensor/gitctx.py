@@ -67,6 +67,27 @@ def repo_root(cwd: Path) -> Path:
     return Path(_git(["rev-parse", "--show-toplevel"], cwd).strip())
 
 
+def root_or_self(path: Path) -> Path:
+    """The root of the worktree that contains `path`, or `path` itself outside one.
+
+    `round` and `reviewer consent` both start here, so the repository a consent
+    names is the one the round asks about from any subdirectory (#79).
+    """
+    try:
+        return repo_root(path)
+    except GitError:
+        return path
+
+
+def repository_identity(root: Path) -> str:
+    """What a round and a consent call this repository: its normalised origin, or its root.
+
+    Without a remote the identity is the path, which is why `root` has to be
+    the root (`root_or_self`) and never the working directory.
+    """
+    return canonical_repository(root) or str(root)
+
+
 def resolve_commit(rev: str, cwd: Path) -> str:
     """Canonical OID of a commit. Raises if unknown or ambiguous."""
     if not rev or not rev.strip():

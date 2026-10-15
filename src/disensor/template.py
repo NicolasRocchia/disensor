@@ -316,6 +316,16 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     segundos = _reviewer_seconds(resultado)
     if segundos is not None:
         ronda["reviewer_seconds"] = segundos
+    # Como se dio el consentimiento que mando el material al revisor que
+    # escribio el informe (#84). Tampoco lo contrasta nadie: el registro de la
+    # maquina es un archivo que su usuario edita. Pero un consentimiento dado
+    # sin terminal, por un agente o un script, tiene que quedar a la vista de
+    # quien lee la declaracion y no solo de quien corrio la ronda. En el perfil
+    # minimizado van los booleanos y nada mas: la fecha y la version son texto,
+    # y la extension tiene que ser opaca.
+    consentimiento = _consent_of(resultado, profile)
+    if consentimiento is not None:
+        ronda["consent"] = consentimiento
     a["extensions"] = {"dev.disensor.round": ronda}
     return a
 
@@ -377,6 +387,33 @@ def _reviewer_seconds(resultado: dict) -> int | None:
             if isinstance(segundos, int) and not isinstance(segundos, bool) and segundos >= 0:
                 return segundos
             return None
+    return None
+
+
+def _consent_of(resultado: dict, profile: str) -> dict | None:
+    """The consent behind the attempt that produced the report, as the extension carries it.
+
+    None when that attempt carries none: a local reviewer needs no consent, and
+    a result from before 0.15 did not record it. Only the keys and types this
+    version writes are copied, so a hand-edited result cannot park free text in
+    the extension.
+    """
+    revisor = resultado.get("declared", {}).get("reviewer_id")
+    for intento in resultado.get("observed", {}).get("attempts", []):
+        if intento.get("outcome") != "ok" or intento.get("id") != revisor:
+            continue
+        registro = intento.get("consent")
+        if not isinstance(registro, dict) or not isinstance(registro.get("recorded"), bool):
+            return None
+        if not registro["recorded"]:
+            return {"recorded": False}
+        booleanos = ("stdin_terminal", "stdout_terminal")
+        textos = () if profile == "minimized" else ("given_at", "disensor_version")
+        if not all(isinstance(registro.get(k), bool) for k in booleanos) or not all(
+            isinstance(registro.get(k), str) for k in textos
+        ):
+            return {"recorded": False}
+        return {"recorded": True, **{k: registro[k] for k in textos + booleanos}}
     return None
 
 

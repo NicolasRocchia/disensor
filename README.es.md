@@ -218,6 +218,7 @@ entre modelos.
 disensor reviewer suggest          # qué tiene esta máquina, sin red
 disensor reviewer add codex --model <model> --yes  # una vez por máquina, con un modelo que corra tu cuenta
 disensor reviewer login codex      # una vez, como dueño: el home aislado del revisor inicia sesión
+disensor reviewer consent codex    # una vez por repositorio, como dueño: su material puede salir de la máquina
 
 disensor round --gate diff --generator-family anthropic \
   --base main --head HEAD --result ../result.json
@@ -247,6 +248,21 @@ consigna ([#108](https://github.com/NicolasRocchia/disensor/issues/108)). Ese
 home necesita sus propias credenciales, así que `disensor reviewer login codex`
 corre ahí el login del CLI una vez, con tu terminal; disensor nunca lee, copia
 ni guarda credenciales, y chequea ese home en disco antes de cada intento.
+
+**Registrar no es consentir.** `reviewer add --yes` registra un revisor y no
+autoriza nada: el material de un repositorio sale de la máquina recién cuando
+el dueño corre `disensor reviewer consent <id>` desde ese repositorio, y ese
+consentimiento cubre ese repositorio, esa receta y esos bytes del ejecutable.
+Un agente no lo da. El registro guarda cómo se dio cada consentimiento: cuándo,
+con qué disensor, y si la entrada y la salida estándar eran una terminal. La
+ronda lo imprime cada vez que usa el consentimiento, su resultado lo lleva,
+`new --round` lo pone en la declaración y el informe lo muestra. Registra lo
+que vio el proceso, no quién tipeó: un agente que maneja una terminal real se
+ve como el dueño, una terminal que habla por tuberías (mintty sin winpty) se
+ve como ninguna, y quien puede escribir `~/.disensor` puede escribir el
+registro. Lo que compra es que un consentimiento dado desde un script o desde
+la herramienta de un agente ya no deja el mismo registro que uno que tipeó una
+persona ([#84](https://github.com/NicolasRocchia/disensor/issues/84)).
 
 **Qué corre solo y dónde aparecés vos.** El runner le pregunta a la política si
 hace falta una ronda (un cambio que solo toca rutas exentas no gasta un token),
@@ -287,6 +303,27 @@ declarable: la declaración registra la independencia que de hecho tuvo, por qu�
 se conformó con menos, y un ítem de residuo que dice que los errores que el
 modelo comparte consigo mismo no los cubrió esa ronda. Peor que lo real, e
 infinitamente mejor que no poder declarar lo que pasó.
+
+Con un solo asistente, el revisor es tu propio modelo con contexto limpio, y
+dos nombres hacen que el registro lo diga: registrá el revisor con el nombre
+completo de tu modelo, y pasale ese mismo nombre a la ronda como
+`--generator-model`.
+
+```bash
+disensor reviewer add claude --model claude-opus-5-5 --yes   # tu propio modelo, con su nombre completo
+disensor reviewer consent claude   # una vez por repositorio, como dueño
+disensor round --gate diff --generator-family anthropic --generator-model claude-opus-5-5 \
+  --base main --head HEAD --result ../result.json
+```
+
+Las recetas `claude` y `gemini` ponen ese modelo en el argv, como `codex`, así
+que lo que la declaración nombra es lo que corrió; una entrada registrada antes
+de 0.15 no lo pone, y la ronda la deja afuera con el comando para registrarla
+de nuevo. La ronda compara los dos nombres al pie de la letra: el mismo nombre
+es `same_model_fresh_context`, y un alias (`opus`) se lee como otro modelo. Sin
+`--generator-model` la ronda no puede distinguirlos: registra a un revisor de tu
+familia como tu propio modelo, la menor independencia que puede afirmar, y lo
+avisa ([#79](https://github.com/NicolasRocchia/disensor/issues/79)).
 
 ## El informe de residuo
 

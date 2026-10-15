@@ -53,7 +53,12 @@ run it. Steps 2, 4, 5 and 6 are the same on both paths.
 Sending the material to a reviewer outside this machine needs the consent of
 the owner of the repository, and an agent never gives it: it does not run
 `disensor reviewer consent`. When `disensor round` exits with 4 because that
-consent is missing, the agent stops and asks the owner to give it.
+consent is missing, the agent stops and asks the owner to give it. The
+registry records how each consent was given (when, with which disensor, and
+whether standard input and output were a terminal); the round shows it every
+time it uses it, and `new --round` carries it as `consent` under
+`extensions["dev.disensor.round"]`. It is what the process saw, not who
+typed it.
 
 Declare what happened, not what should have happened. An event without
 findings and with an express declaration of absence is valid data, not a
@@ -94,7 +99,14 @@ paths. By default everything demands `diff`.
   `fallback_reason` (why the round settled for less) and a residue item of
   class `reviewer_correlation` naming that reviewer: the errors a model shares
   with itself were not covered by the round, and that is residue. Level A does
-  not admit it at all.
+  not admit it at all. With `disensor round` it is computed, not chosen:
+  another family is `cross_family`; the generator's family with a different
+  model name, `same_family_distinct_model`; a reviewer registered with the
+  name passed as `--generator-model`, `same_model_fresh_context`. The
+  comparison is literal, so pass the exact model name, the one the reviewer
+  was registered with: without `--generator-model` a reviewer of your family
+  is recorded as your own model, the least independence the round can claim,
+  and the round warns.
 - `reviewers[].hardening`: `verified` if the reviewer ran through an adapter
   that neutralises, for concrete CLI versions and conditions, the enumerated
   sources the CLI loads on its own before your brief: the instruction files
@@ -261,6 +273,8 @@ boolean, `null`, or containers of those) and every key must be identifier-shaped
 a name, not a message. The extension space is deliberately not interpreted
 by the rules, which is exactly why free text parked there leaves the
 environment as readily as anywhere else the profile does not reach.
+`new --round` follows that: in the minimized profile the `consent` of its
+extension keeps only its booleans, because the date and the version are text.
 
 ## Quick map of validator labels
 

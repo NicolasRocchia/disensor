@@ -395,6 +395,31 @@ def test_a_0_11_installation_is_upgraded(skill_de, repo: Path, monkeypatch, caps
     assert "upgraded" not in capsys.readouterr().out, "la segunda corrida no tiene nada que hacer"
 
 
+def test_a_0_13_installation_is_upgraded(repo: Path, monkeypatch, capsys):
+    """El runbook pide ahora --generator-model (#79) y dice que hacer con la
+    procedencia del consentimiento que la ronda imprime (#84), y eso tiene que
+    llegar a las instalaciones que escribieron 0.13.0 y 0.14.0, cuya marca dice
+    v0.13. En ese tramo hubo un solo texto de cada bloque: init.py no cambio
+    entre los dos tags, y los dos estan en tests/bloques/ tal como salieron.
+    """
+    for nombre, tipo in (("claude-0.13.txt", "claude"), ("skill-0.13.txt", "skill")):
+        assert _block_hash((BLOQUES / nombre).read_bytes().decode("utf-8")) in KNOWN_BLOCKS[tipo]
+    bloque = (BLOQUES / "claude-0.13.txt").read_bytes().decode("utf-8")
+    (repo / "CLAUDE.md").write_bytes(("# Mi proyecto\n\nReglas de la casa.\n\n" + bloque).encode("utf-8"))
+    skill = repo / ".claude" / "skills" / "disensor" / "SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_bytes((BLOQUES / "skill-0.13.txt").read_bytes())
+    assert "--generator-model" not in skill.read_text(encoding="utf-8")
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    salida = capsys.readouterr().out
+    assert f"upgraded CLAUDE.md (v0.13 -> v{BLOCK_VERSION})" in salida
+    assert f"(runbook v0.13 -> runbook v{BLOCK_VERSION})" in salida
+    assert skill.read_text(encoding="utf-8") == SKILL_FRONTMATTER + RUNBOOK
+    assert "--generator-model" in skill.read_text(encoding="utf-8")
+    assert correr(repo, monkeypatch, "--upgrade", "--no-workflow") == 0
+    assert "upgraded" not in capsys.readouterr().out, "la segunda corrida no tiene nada que hacer"
+
+
 def test_upgrade_adds_the_gitignore_entry_once(repo: Path, monkeypatch, capsys):
     """Una instalacion anterior no ignoraba el informe; el upgrade agrega la
     linea y la segunda corrida la deja como esta."""

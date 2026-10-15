@@ -206,6 +206,11 @@ def test_independence_is_what_the_reviewer_is():
     assert independence_of(otro, gen, modelo) == "same_family_distinct_model"
     mismo = entrada("x", "anthropic", ["x"], model=modelo)
     assert independence_of(mismo, gen, modelo) == "same_model_fresh_context"
+    # Sin el modelo del generador no hay con que afirmar que son distintos: se
+    # registra la menor independencia, nunca una que nadie puede mostrar.
+    assert independence_of(otro, gen, "") == "same_model_fresh_context"
+    assert independence_of(otro, gen, None) == "same_model_fresh_context"
+    assert independence_of(entrada("x", "openai", ["x"]), gen, "") == "cross_family"
 
 
 def test_an_empty_registry_is_an_exhausted_chain():
@@ -475,6 +480,144 @@ def test_a_local_reviewer_needs_no_consent(repo: Path, monkeypatch, tmp_path):
     assert correr(repo, registro, monkeypatch, tmp_path) == OK
 
 
+def _registro_consentido(repo: Path, tmp_path: Path, monkeypatch, entry: dict, procedencia=None) -> dict:
+    """Un registro en disco con el consentimiento para este repositorio, como lo
+    dejaria `reviewer consent`, con o sin procedencia. En disco y no solo en
+    `ronda.load_registry`: el consentimiento se lee del registro de reviewers."""
+    from disensor import gitctx, reviewers
+
+    monkeypatch.setattr(reviewers, "REGISTRY_DIR", tmp_path / ".disensor")
+    monkeypatch.setattr(reviewers, "REGISTRY", tmp_path / ".disensor" / "reviewers.json")
+    raiz = gitctx.repo_root(repo)
+    clave = reviewers.consent_key(entry, gitctx.canonical_repository(raiz) or str(raiz))
+    data = {"reviewers": [entry], "consents": [clave]}
+    if procedencia is not None:
+        data["consent_provenance"] = {clave: procedencia}
+    reviewers.save_registry(data)
+    return data
+
+
+@pytest.mark.parametrize("terminal, texto", [
+    (True, "from an interactive terminal"),
+    (False, "without an interactive terminal"),
+])
+def test_the_round_shows_how_the_consent_it_uses_was_given(
+    terminal, texto, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Una ronda destrabada por un consentimiento que nadie tipeo en una terminal
+    queda a la vista de quien la corre, y en el resultado, bajo `observed` (#84)."""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    entry = dict(
+        entrada("nube", "openai", revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)),
+        egress="cloud", provider="AlgunProveedor",
+    )
+    procedencia = {"given_at": "2026-10-15T12:00:00Z", "disensor_version": "0.15.0",
+                   "stdin_terminal": terminal, "stdout_terminal": True}
+    registro = _registro_consentido(repo, tmp_path, monkeypatch, entry, procedencia)
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+    err = capsys.readouterr().err
+    assert f"consent for nube to receive the material of" in err
+    assert f"given 2026-10-15T12:00:00Z {texto} (disensor 0.15.0)" in err
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert intento["consent"] == {"recorded": True, **procedencia}
+
+
+def test_a_consent_without_provenance_runs_and_says_so(repo: Path, monkeypatch, tmp_path, capsys):
+    """Un consentimiento anterior a 0.15 sigue valiendo: lo que cubre no cambio.
+    Lo que cambia es que la ronda dice que no sabe como se dio."""
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    entry = dict(
+        entrada("nube", "openai", revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)),
+        egress="cloud",
+    )
+    registro = _registro_consentido(repo, tmp_path, monkeypatch, entry)
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+    assert "provenance not recorded" in capsys.readouterr().err
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert intento["consent"] == {"recorded": False}
+
+
+def test_a_local_reviewers_attempt_carries_no_consent(repo: Path, monkeypatch, tmp_path, capsys):
+    (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {"reviewers": [dict(
+        entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK
+    assert "consent for" not in capsys.readouterr().err
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert "consent" not in intento
+
+
+def test_a_consent_given_from_a_subdirectory_serves_the_round_from_the_root(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """En un repositorio sin remoto la identidad es la ruta: `reviewer consent`
+    tomaba la del directorio de trabajo y `round` la de la raiz, asi que el
+    consentimiento dado desde un subdirectorio no servia y la ronda salia con 4
+    (#79). Los dos comandos resuelven ahora la identidad con las mismas
+    funciones."""
+    from disensor import reviewers
+    from disensor.cli import build_parser
+
+    monkeypatch.setattr(reviewers, "REGISTRY_DIR", tmp_path / ".disensor")
+    monkeypatch.setattr(reviewers, "REGISTRY", tmp_path / ".disensor" / "reviewers.json")
+    (repo / "sub").mkdir()
+    (repo / "sub" / "c.py").write_text("z = 3" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+
+    def cli(*argv: str) -> int:
+        args = build_parser().parse_args(list(argv))
+        return args.func(args)
+
+    comando = revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)
+    assert cli("reviewer", "add", "nube", "--family", "openai", "--model", "m", "--egress", "cloud",
+               "--stdin", "pack", "--yes", "--command", *comando) == 0
+    monkeypatch.chdir(repo / "sub")
+    assert cli("reviewer", "consent", "nube") == 0
+    capsys.readouterr()
+    registro = reviewers.load_registry()
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK, capsys.readouterr().err
+
+
+@pytest.mark.parametrize("familia, modelo_generador, avisa", [
+    ("anthropic", None, True),
+    ("anthropic", "anthropic-modelo", False),
+    ("openai", None, False),
+])
+def test_a_same_family_reviewer_without_the_generator_model_is_warned(
+    familia, modelo_generador, avisa, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Sin --generator-model la ronda no puede separar el mismo modelo de otro de
+    la familia: registra la menor independencia, que no afirma de mas, y avisa.
+    Antes comparaba contra un modelo vacio y un revisor de la familia salia
+    `same_family_distinct_model` aunque hubiera corrido el mismo modelo (#79,
+    ronda 1 de su evento)."""
+    (repo / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    registro = {"reviewers": [dict(
+        entrada("mismo", familia, revisor_falso(tmp_path, "mismo", ESCRIBE_Y_SALE_BIEN)),
+        egress="local", model="anthropic-modelo",
+    )]}
+    extra = {"generator-model": modelo_generador} if modelo_generador else {}
+    assert correr(repo, registro, monkeypatch, tmp_path, **extra) == OK
+    err = capsys.readouterr().err
+    assert ("--generator-model was not given" in err) == avisa
+    if avisa:
+        assert "it recorded same_model_fresh_context, the least independence" in err
+    declarado = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["declared"]
+    esperado = "cross_family" if familia == "openai" else "same_model_fresh_context"
+    assert declarado["independence"] == esperado
+
+
 def test_an_assistant_entry_cannot_forge_catalogued_hardening():
     """Copiar el argv de una receta no hereda su prueba hostil.
 
@@ -697,10 +840,10 @@ def test_the_suggested_command_includes_the_model_when_the_recipe_needs_it(capsy
     args = build_parser().parse_args(["reviewer", "suggest"])
     args.func(args)
     salida = capsys.readouterr().out
-    assert "disensor reviewer add codex --model" in salida
-    assert "disensor reviewer add gemini" in salida, (
-        "una receta que no fija el modelo en el argv no lo pide"
-    )
+    # Todas las recetas del catalogo fijan hoy el modelo en el argv, claude y
+    # gemini desde #79: el comando sugerido lo pide en todas.
+    for receta in ("codex", "gemini", "claude", "ollama"):
+        assert f"disensor reviewer add {receta} --model" in salida
 
 
 def test_an_entry_registered_before_the_recipe_changed_is_not_used(
@@ -711,20 +854,66 @@ def test_an_entry_registered_before_the_recipe_changed_is_not_used(
     El registro copia el argv al registrar, `reviewer add` rechaza la repetida, y
     actualizar el paquete no toca el archivo: sin esto, el endurecimiento queda
     instalado y nunca corre. La entrada se excluye y el runner dice como
-    registrarla de nuevo.
+    registrarla de nuevo. La entrada ya pasa el modelo por `{model}`, para que
+    lo que se pruebe sea el cambio de la receta y no el del modelo (#79).
     """
     (repo / "e.py").write_text("w = 5\n", encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
     vieja = {
-        "id": "claude", "family": "anthropic", "model": "claude-code", "source": "catalog",
+        "id": "claude", "family": "anthropic", "model": "claude-opus-5-5", "source": "catalog",
         "egress": "cloud", "executable": "x", "executable_hash": "sha256:0",
-        "command": ["claude", "-p", "{pack}"],
+        "command": ["claude", "-p", "{pack}", "--model", "{model}"],
     }
     assert correr(repo, {"reviewers": [vieja]}, monkeypatch, tmp_path) == 4
     salida = capsys.readouterr().err
     assert "has since changed" in salida
-    assert "reviewer remove claude && disensor reviewer add claude" in salida
+    assert "reviewer remove claude && disensor reviewer add claude --model" in salida
+
+
+@pytest.mark.parametrize("vieja", [
+    {"id": "claude", "family": "anthropic", "model": "claude-code",
+     "command": ["claude", "-p", "{pack}", "--safe-mode"]},
+    {"id": "claude", "family": "anthropic", "model": "claude-code",
+     "command": ["claude", "-p", "{pack}"]},
+    {"id": "gemini", "family": "google", "model": "gemini",
+     "command": ["gemini", "--prompt", "{pack}"]},
+], ids=["claude-0.13", "claude-anterior", "gemini"])
+def test_a_claude_or_gemini_entry_that_does_not_pass_its_model_is_not_used(
+    vieja, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Las recetas `claude` y `gemini` declaraban un modelo que no ponian en el
+    argv (#79): el CLI corria el suyo por defecto y la declaracion afirmaba
+    otro. Una entrada registrada asi queda fuera de la cadena, con el comando
+    para registrarla de nuevo, como las de codex antes del arreglo."""
+    (repo / "e.py").write_text("w = 5\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    entrada_vieja = {**vieja, "source": "catalog", "egress": "cloud", "executable": "x",
+                     "executable_hash": "sha256:0"}
+    assert correr(repo, {"reviewers": [entrada_vieja]}, monkeypatch, tmp_path) == 4
+    salida = capsys.readouterr().err
+    assert "does not pass it" in salida
+    assert f"reviewer remove {vieja['id']} && disensor reviewer add {vieja['id']} --model" in salida
+
+
+def test_the_claude_recipe_with_the_generators_model_is_the_same_model():
+    """Lo declarado es lo que corre, asi que la comparacion con el generador dice
+    la verdad: el mismo nombre es `same_model_fresh_context`. La comparacion es
+    literal, y un alias no es el nombre: registrada como `opus` contra un
+    generador `claude-opus-5-5`, la ronda la toma por otro modelo, y por eso la
+    nota de la receta pide el nombre completo."""
+    claude = dict(entrada_catalogada("claude"), model="claude-opus-5-5")
+    assert ronda.stale_entry(claude) is None
+    assert independence_of(claude, "anthropic", "claude-opus-5-5") == "same_model_fresh_context"
+    assert independence_of(claude, "anthropic", "claude-fable-5-1") == "same_family_distinct_model"
+    assert independence_of(claude, "openai", "gpt-5.6-sol") == "cross_family"
+    alias = dict(claude, model="opus")
+    assert independence_of(alias, "anthropic", "claude-opus-5-5") == "same_family_distinct_model"
+    argv = fill_argv(claude["command"], "/usr/bin/claude", package="p", report=Path("r"),
+                     model=claude["model"])
+    assert argv[argv.index("--model") + 1] == "claude-opus-5-5"
+    assert "--safe-mode" in argv
 
 
 def test_a_custom_reviewer_named_like_a_recipe_stays_in_the_chain():

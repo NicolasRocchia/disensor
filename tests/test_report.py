@@ -694,3 +694,49 @@ def test_a_failed_write_leaves_the_previous_report_intact(tmp_path, monkeypatch)
         write_html(out, "<p>nuevo y mucho mas largo que el anterior</p>")
     assert out.read_text(encoding="utf-8") == "<p>viejo</p>"
     assert not list(tmp_path.glob("*.tmp"))
+
+
+# --- the consent behind the round (#84) ----------------------------------------
+
+@pytest.mark.parametrize("consent, shown", [
+    ({"recorded": True, "given_at": "2026-10-15T12:00:00Z", "disensor_version": "0.15.0",
+      "stdin_terminal": True, "stdout_terminal": True},
+     "dado con terminal interactiva el 2026-10-15"),
+    ({"recorded": True, "given_at": "2026-10-15T12:00:00Z", "disensor_version": "0.15.0",
+      "stdin_terminal": False, "stdout_terminal": True},
+     "dado <b>sin terminal interactiva</b> el 2026-10-15"),
+    ({"recorded": True, "stdin_terminal": False, "stdout_terminal": False},
+     "dado <b>sin terminal interactiva</b></dd>"),
+    ({"recorded": False}, "procedencia no registrada"),
+])
+def test_the_card_says_how_the_consent_of_the_round_was_given(tmp_path, consent, shown):
+    """A consent given without a terminal is visible to whoever reads the
+    declaration, not only to whoever ran the round. The minimized profile
+    carries the booleans alone, and the card says what it has."""
+    declaration = example("example_2_diff_gate.json")
+    declaration["extensions"] = {"dev.disensor.round": {"result_version": 4, "consent": consent}}
+    write(tmp_path / ".residue", "a.json", declaration)
+    page = html_of(tmp_path / ".residue")
+    assert "<dt>Consentimiento de envío</dt>" in page
+    assert shown in page
+
+
+@pytest.mark.parametrize("extensions", [
+    None,
+    {"dev.disensor.round": {"result_version": 4}},
+    {"dev.disensor.round": {"consent": "texto"}},
+    {"dev.disensor.round": "texto"},
+    ["no", "es", "un", "objeto"],
+])
+def test_without_a_consent_of_the_shape_new_writes_there_is_no_row(tmp_path, extensions):
+    """The extension space is nobody's contract: a shape the report does not
+    know is read as absent, and the declaration still renders."""
+    declaration = example("example_2_diff_gate.json")
+    if extensions is None:
+        declaration.pop("extensions", None)
+    else:
+        declaration["extensions"] = extensions
+    write(tmp_path / ".residue", "a.json", declaration)
+    declarations, unreadable = read_directory(tmp_path / ".residue")
+    assert len(declarations) == 1 and not unreadable
+    assert "Consentimiento de envío" not in html_of(tmp_path / ".residue")

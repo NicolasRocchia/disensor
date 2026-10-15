@@ -1,0 +1,120 @@
+---
+name: disensor
+description: Run an adversarial review round and declare its residue. Use when closing a plan, a diff or an architecture decision, when `disensor round` returns something unexpected, or when filling the declaration it produced.
+---
+
+# Running a review event
+
+`disensor` does the mechanical half: it decides whether a round is required,
+builds the package, runs the reviewer, captures the report and anchors the
+result. You do the half that needs judgement: checking findings against the
+code, deciding what to incorporate, and telling the story in the pull request.
+
+Never paste material between models by hand. If something cannot be automated,
+say so instead of doing it manually and calling it a round.
+
+## 1. Before the round
+
+The tree has to be clean: a diff round reviews commits that already exist.
+Commit your work first. The runner will not stash for you.
+
+## 2. Run it
+
+Note the clock before you run it. `metrics.extra_time_sec` in the declaration
+is the stopwatch of the whole cycle from this point: the reviewer's runs, your
+verification of each finding, the rewriting and the refutations, up to the
+validated declaration. It excludes the implementation and the waits for the
+owner's answers. Count it from timestamps you actually have (this moment, the
+runner's `started_at` and `finished_at`, your commits); do not estimate it, and
+leave it out if you did not time it. An absent number is honest; a guessed one
+is not.
+
+```
+disensor round --gate diff --generator-family <your family> \
+  --base <target branch> --head HEAD \
+  --result <path outside the repository>
+```
+
+Read the exit code, do not guess from the text:
+
+- `0`: the round ran. Its report and result are where you asked for them.
+- `3`: no review required. The policy of this repository says these paths do
+  not demand one. Go to the pull request; the gate will agree.
+- `4`: no reviewer answered. Run `disensor reviewer suggest`. The catalogue is
+  a shortcut, not the list of what is allowed: ANY assistant with a command
+  line can review, whatever the vendor. Look at what this machine actually has
+  without running it: reading a program's `--help` is already running it, and
+  a candidate runs only after the OWNER approved it. Its name and its path are
+  enough to propose it with `disensor reviewer add`, which prints the entry in
+  full and stops; an entry outside the catalogue needs the OWNER to approve it
+  with `--yes`, so ask; do not approve it yourself. If the round says the
+  material of this repository was not authorised, stop there too: the consent
+  to send it out of this machine is the OWNER's, given with
+  `disensor reviewer consent <id>`. Never run that command yourself, not even
+  after the owner approved the round in the chat: ask them to run it.
+- `5`: the tree changed during the round. Do NOT declare. Tell the user what
+  appeared: a reviewer that writes is not a reviewer that only reads.
+- `6`: could not decide whether a round was needed. Stop and report. This is
+  never a green light.
+
+For a plan or an architecture decision, pass `--gate plan --material <file>` or
+`--gate architecture --material <file>`: that material does not live in the git
+range, and the scope cannot trigger it. Deciding that a plan crosses the impact
+bar is your judgement.
+
+## 3. Read the report and verify
+
+Check EVERY finding against the actual code before accepting it. The reviewer
+is decorrelated, not right, and an unverified finding is not a finding. Fix
+what is real, refute what is not, with evidence.
+
+## 4. If you changed anything, run the round again
+
+The rule is the freshness of the material, not the verdict of the report. If
+you incorporated even a minor finding, the material moved and the previous
+round no longer covers what is going to be merged. In a diff round HEAD moved,
+and `disensor new --round` will refuse the stale result, which is the mechanism
+working, not an error to route around. In a plan or an architecture round the
+document changes and HEAD does not, so the CLI cannot tell: there, repeating
+the round is on you.
+
+## 5. Declare
+
+```
+disensor new --gate <plan|diff|architecture> --level <A|B|C> --round <result>
+```
+
+The gate is the one the round ran: a result from a plan round declared as
+`diff` is refused, because the artifact identifies the review that happened.
+It arrives prefilled with what the runner observed: reviewer, anchors, hashes,
+the reviewer's wall time as `reviewer_seconds` in the extension space, and the
+residue items that a degraded round owes. `metrics.extra_time_sec` is the
+whole cycle, not the reviewer: the stopwatch of step 2, counted from
+timestamps, or left out. Fill in the findings with
+their terminal states and the residue with what stayed open. `disensor guide`
+explains every field. Do not invent findings or states: the artifact declares
+what happened, not what should have happened.
+
+Then `disensor validate` until it says VALID. The declaration goes in its own
+commit, never mixed with code, and the gate reads it from that commit, not from
+the working tree: commit it first, then run
+`disensor gate --no-comment --base <target branch> --head HEAD` (outside
+GitHub Actions the range has to be given) and get it green before the pull
+request.
+
+## 6. The pull request
+
+Its body tells the whole event: what changed, which reviewer attacked it, every
+finding and what was done with it, and what stayed open. That is what the human
+arbiter reads.
+
+## When to stop and ask
+
+- A risk that somebody has to accept (`owner_decision`).
+- A finding escalated without resolution (`escalated_open`).
+- No reviewer available, or an entry that needs approval.
+- The consent to send the material to a reviewer is missing: the owner gives
+  it, never you.
+- The tree changed during a round.
+
+<!-- disensor:block v0.13 -->
