@@ -220,7 +220,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Exact model name of the generator, spelled as a reviewer of its family "
                           "was registered: the only thing that tells the generator's own model "
                           "(same_model_fresh_context) from another model of the family. Without "
-                          "it, a reviewer of that family is recorded as a distinct model.")
+                          "it, a reviewer of that family is recorded as the same model, the "
+                          "least independence the round can claim.")
     rnd.add_argument("--base", default=None)
     rnd.add_argument("--head", "--cabeza", default=None)
     rnd.add_argument("--material", default=None,

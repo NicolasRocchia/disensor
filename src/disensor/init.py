@@ -108,7 +108,8 @@ disensor round --gate diff --generator-family <your family> \\
 `--generator-model` is your exact model name, the full one and not an alias.
 It is the only thing that tells your own model reviewing you
 (`same_model_fresh_context`) from another model of your family: without it, a
-reviewer of your family is recorded as a distinct model, and the round warns.
+reviewer of your family is recorded as your own model, the least independence
+the round can claim, and the round warns.
 
 Read the exit code, do not guess from the text:
 

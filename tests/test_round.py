@@ -206,6 +206,11 @@ def test_independence_is_what_the_reviewer_is():
     assert independence_of(otro, gen, modelo) == "same_family_distinct_model"
     mismo = entrada("x", "anthropic", ["x"], model=modelo)
     assert independence_of(mismo, gen, modelo) == "same_model_fresh_context"
+    # Sin el modelo del generador no hay con que afirmar que son distintos: se
+    # registra la menor independencia, nunca una que nadie puede mostrar.
+    assert independence_of(otro, gen, "") == "same_model_fresh_context"
+    assert independence_of(otro, gen, None) == "same_model_fresh_context"
+    assert independence_of(entrada("x", "openai", ["x"]), gen, "") == "cross_family"
 
 
 def test_an_empty_registry_is_an_exhausted_chain():
@@ -590,9 +595,11 @@ def test_a_consent_given_from_a_subdirectory_serves_the_round_from_the_root(
 def test_a_same_family_reviewer_without_the_generator_model_is_warned(
     familia, modelo_generador, avisa, repo: Path, monkeypatch, tmp_path, capsys,
 ):
-    """Sin --generator-model la ronda compara contra un modelo vacio, y un revisor
-    de la familia del generador sale `same_family_distinct_model` aunque haya
-    corrido el mismo modelo (#79). La ronda avisa que mirar antes de declarar."""
+    """Sin --generator-model la ronda no puede separar el mismo modelo de otro de
+    la familia: registra la menor independencia, que no afirma de mas, y avisa.
+    Antes comparaba contra un modelo vacio y un revisor de la familia salia
+    `same_family_distinct_model` aunque hubiera corrido el mismo modelo (#79,
+    ronda 1 de su evento)."""
     (repo / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
     git(repo, "add", "-A")
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
@@ -605,10 +612,10 @@ def test_a_same_family_reviewer_without_the_generator_model_is_warned(
     err = capsys.readouterr().err
     assert ("--generator-model was not given" in err) == avisa
     if avisa:
-        assert "it recorded same_family_distinct_model" in err
+        assert "it recorded same_model_fresh_context, the least independence" in err
     declarado = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["declared"]
-    if modelo_generador:
-        assert declarado["independence"] == "same_model_fresh_context"
+    esperado = "cross_family" if familia == "openai" else "same_model_fresh_context"
+    assert declarado["independence"] == esperado
 
 
 def test_an_assistant_entry_cannot_forge_catalogued_hardening():

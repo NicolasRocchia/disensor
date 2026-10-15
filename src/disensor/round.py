@@ -102,10 +102,18 @@ def tree_state(repo: Path) -> str:
 
 
 def independence_of(entry: dict, generator_family: str, generator_model: str) -> str:
-    """What this reviewer is, not what somebody would like it to be."""
+    """What this reviewer is, not what somebody would like it to be.
+
+    Distinct models need both names to say so. Without the generator's model
+    the round compared the reviewer's against an empty string and recorded
+    `same_family_distinct_model` for a reviewer that may have run the
+    generator's own model: more independence than anyone could show (ronda 1
+    del evento de #79). What cannot be told apart is recorded as the least
+    independence, which can be an understatement and never a false claim.
+    """
     if entry["family"] != generator_family:
         return "cross_family"
-    if entry.get("model") and entry["model"] != generator_model:
+    if entry.get("model") and generator_model and entry["model"] != generator_model:
         return "same_family_distinct_model"
     return "same_model_fresh_context"
 
@@ -939,19 +947,17 @@ def _round(args, repo: Path) -> int:
             "so: independence, fallback_reason and a reviewer_correlation residue item."
         )
     # El modelo del generador es lo unico con que la ronda separa el mismo
-    # modelo de otro de la misma familia (`independence_of`), y sin el compara
-    # contra un modelo vacio: un revisor de la familia que corrio el modelo del
-    # generador sale `same_family_distinct_model`, que afirma mas independencia
-    # de la que hubo (#79). La ronda ya corrio, asi que el aviso no la frena:
-    # dice que mirar antes de declarar.
+    # modelo de otro de la misma familia (`independence_of`). Sin el, registra
+    # la menor independencia, que no afirma de mas (#79), y lo dice: si el
+    # revisor corrio otro modelo de la familia, el registro se queda corto, y
+    # el flag es lo que lo arregla la proxima vez.
     if entry["family"] == args.generator_family and not args.generator_model:
         estado(
             f"round: {entry['id']} is from the generator's family and --generator-model was not "
             "given, so the round could not tell the generator's own model from another model of "
-            f"that family, and it recorded {independence}. Check it before declaring: if the "
-            "reviewer ran the generator's model, the independence was same_model_fresh_context. "
-            "Next time pass --generator-model with the generator's exact model name, spelled as "
-            "the reviewer was registered."
+            f"that family, and it recorded {independence}, the least independence it can claim. "
+            "If the reviewer ran another model of the family, pass --generator-model with the "
+            "generator's exact model name, spelled as the reviewer was registered."
         )
     if entry.get("hardening") != "verified":
         estado(
