@@ -770,9 +770,9 @@ def test_an_untested_version_runs_under_the_policy_but_is_not_certified(tmp_path
     """`verified` no se extiende solo a lo que nadie probo: el intento corre con
     el home aislado igual, registra la version, y la declaracion lo degrada."""
     monkeypatch.setattr(codex_home, "_platform_key", lambda: ("win32", "x64"))
-    intento = run_reviewer(entrada(_con_version(tmp_path, "0.162.1")), "p", tmp_path / "i", 60)
+    intento = run_reviewer(entrada(_con_version(tmp_path, "0.999.0")), "p", tmp_path / "i", 60)
     assert intento["outcome"] == "ok" and intento["isolation"] == POLICY
-    assert intento["cli_version"] == "0.162.1" and intento["certified"] is False
+    assert intento["cli_version"] == "0.999.0" and intento["certified"] is False
 
 
 def test_a_version_that_cannot_be_read_is_not_certified(tmp_path, monkeypatch):
@@ -784,10 +784,11 @@ def test_a_version_that_cannot_be_read_is_not_certified(tmp_path, monkeypatch):
 
 def test_certified_is_a_pair_of_platform_and_version():
     assert codex_home.certified("0.153.4", sistema="win32")
+    assert codex_home.certified("0.162.1", sistema="win32"), "el smoke corrio con los dos binarios el 2026-10-15"
     assert not codex_home.certified("0.153.4", sistema="linux"), "la prueba hostil no corrio ahi"
-    assert not codex_home.certified("0.162.1", sistema="win32")
+    assert not codex_home.certified("0.999.0", sistema="win32")
     assert not codex_home.certified(None, sistema="win32")
-    assert ("win32", "0.153.4") in codex_home.CERTIFIED
+    assert {("win32", "0.153.4"), ("win32", "0.162.1")} <= codex_home.CERTIFIED
 
 
 def test_an_unreadable_subtree_stops_the_inventory(tmp_path, monkeypatch):

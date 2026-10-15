@@ -135,9 +135,11 @@ AUTH_TIMEOUT = 60
 # prueba nada sobre el (ronda diff 3 de #108). Con otra combinacion la
 # politica se aplica igual, el intento la registra, y `new --round` declara
 # el endurecimiento como no verificado, con su item. Cada release que corra
-# el smoke con otra version la agrega aca.
+# el smoke con otra version la agrega aca: 0.162.1 entro el 2026-10-15, con
+# el smoke completo en verde con cada binario (`DISENSOR_SMOKE_CODEX`).
 CERTIFIED = frozenset({
     ("win32", "0.153.4"),
+    ("win32", "0.162.1"),
 })
 VERSION_RE = re.compile(r"codex-cli\s+(\d+\.\d+\.\d+)")
 
