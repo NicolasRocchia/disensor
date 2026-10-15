@@ -378,10 +378,17 @@ def _same_path(a: str, b: str | Path) -> bool:
     return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
 
 
-def _under(ruta: str, raiz: Path) -> bool:
-    arriba = os.path.normcase(os.path.normpath(str(raiz)))
-    abajo = os.path.normcase(os.path.normpath(ruta))
-    return abajo.startswith(arriba + os.sep)
+ATTEMPT_PREFIX = "attempt-"
+
+
+def _attempt_dir(ruta: str, trabajo: Path) -> bool:
+    """Whether `ruta` is one of the private directories this policy creates:
+    a DIRECT child of `work/` named `attempt-*`, as `tempfile.mkdtemp` makes
+    them. Any other descendant of `work/` is not ours (fifth round of this
+    change: lexical containment let `work/permanent-project` through)."""
+    normal = os.path.normcase(os.path.normpath(ruta))
+    padre, nombre = os.path.split(normal)
+    return padre == os.path.normcase(os.path.normpath(str(trabajo))) and nombre.startswith(ATTEMPT_PREFIX)
 
 
 def sweep_trust_state(home: Path, reviewer_id: str, cwds: tuple[Path, ...] = ()) -> bool:
@@ -398,8 +405,9 @@ def sweep_trust_state(home: Path, reviewer_id: str, cwds: tuple[Path, ...] = ())
 
     What is removed is a file that parses as trust state and nothing else
     (`trust_paths`), AND whose every entry names a directory this policy owns:
-    an attempt directory under `work/` of this reviewer, or one of `cwds`,
-    the directory of the attempt being cleaned up. That is the CLI's own
+    an attempt directory of this reviewer (a direct child of `work/` named
+    `attempt-*`, as `tempfile.mkdtemp` creates them), or one of `cwds`, the
+    directory of the attempt being cleaned up. That is the CLI's own
     record about directories of ours, not a source of instructions or
     configuration. A file with anything else, an entry for any other path
     (the third round of this change: a trust-only file the owner wrote by
@@ -420,7 +428,7 @@ def sweep_trust_state(home: Path, reviewer_id: str, cwds: tuple[Path, ...] = ())
         return False
     trabajo = work_dir(reviewer_id)
     for proyecto in rutas:
-        if not (_under(proyecto, trabajo) or any(_same_path(proyecto, cwd) for cwd in cwds)):
+        if not (_attempt_dir(proyecto, trabajo) or any(_same_path(proyecto, cwd) for cwd in cwds)):
             return False
     try:
         ruta.unlink()
@@ -873,7 +881,7 @@ def prepare(
             limpiar: Callable[[], None] = lambda: sweep_trust_state(home, reviewer_id, (privado,))
         else:
             work_dir(reviewer_id).mkdir(parents=True, exist_ok=True)
-            privado = Path(tempfile.mkdtemp(prefix="attempt-", dir=work_dir(reviewer_id)))
+            privado = Path(tempfile.mkdtemp(prefix=ATTEMPT_PREFIX, dir=work_dir(reviewer_id)))
 
             def limpiar() -> None:
                 shutil.rmtree(privado, ignore_errors=True)

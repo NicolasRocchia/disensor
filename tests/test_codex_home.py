@@ -438,6 +438,28 @@ def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path, texto)
     assert (home / "config.toml").read_text(encoding="utf-8") == texto
 
 
+@pytest.mark.parametrize("relativa", [
+    "permanent-project",          # hijo directo de work/ que no es un intento (ronda 5)
+    "attempt-abc/sub",            # un descendiente de un intento, no el intento
+    "attempt-abc/../otro",        # lexicamente adentro, normalizado afuera
+    "attempts/attempt-abc",       # otro padre
+])
+def test_only_a_direct_attempt_child_of_work_is_ours(tmp_path, relativa):
+    """La procedencia bajo work/ es un directorio de intento, hijo directo con el
+    prefijo de mkdtemp; cualquier otro descendiente de work/ es ajeno y el
+    archivo se queda (ronda 5: la contencion lexica dejaba pasar
+    work/permanent-project)."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    trabajo = codex_home.work_dir("codex")
+    texto = confianza(trabajo / relativa)
+    (home / "config.toml").write_text(texto, encoding="utf-8")
+    assert not sweep_trust_state(home, "codex")
+    assert (home / "config.toml").read_text(encoding="utf-8") == texto
+    (home / "config.toml").write_text(confianza(trabajo / "attempt-abc"), encoding="utf-8")
+    assert sweep_trust_state(home, "codex"), "el intento si es nuestro"
+
+
 def test_one_foreign_entry_among_ours_keeps_the_whole_file(tmp_path):
     """Una sola entrada ajena entre las nuestras y el archivo entero se queda:
     el barrido no edita, dispone del archivo o lo deja."""
