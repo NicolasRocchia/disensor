@@ -38,7 +38,7 @@ from .pin import SHA40, USES, PinError, pin_text, resolve_tag_commit
 # se queda con el procedimiento viejo para siempre, porque init conserva byte
 # por byte lo que ya existe y actualizar el paquete no cambia lo que el agente
 # lee. Con la marca, --upgrade sabe que reemplazar y que dejar quieto.
-BLOCK_VERSION = "0.13"
+BLOCK_VERSION = "0.15"
 
 CLAUDE_HEADING = "## disensor: residue declaration at event close"
 
@@ -100,9 +100,15 @@ is not.
 
 ```
 disensor round --gate diff --generator-family <your family> \\
+  --generator-model <your exact model name> \\
   --base <target branch> --head HEAD \\
   --result <path outside the repository>
 ```
+
+`--generator-model` is your exact model name, the full one and not an alias.
+It is the only thing that tells your own model reviewing you
+(`same_model_fresh_context`) from another model of your family: without it, a
+reviewer of your family is recorded as a distinct model, and the round warns.
 
 Read the exit code, do not guess from the text:
 
@@ -176,6 +182,11 @@ request.
 Its body tells the whole event: what changed, which reviewer attacked it, every
 finding and what was done with it, and what stayed open. That is what the human
 arbiter reads.
+
+Every round prints how the consent it used was given: when, with which
+disensor, and whether standard input and output were a terminal. When it says
+without an interactive terminal, or that the provenance was not recorded, the
+body says so: the owner may not be the one who gave it.
 
 ## When to stop and ask
 
@@ -424,18 +435,22 @@ def main_init(args) -> int:
 # dos skills "v0.11" (0.11.0, y 0.12.0 a 0.12.1) y una sola seccion de
 # CLAUDE.md. Se registraron cuando el runbook paso a pedir el cronometro del
 # ciclo (#114; la variante de 0.11.0 la cazo la ronda adversarial de ese
-# cambio). Los textos exactos estan en tests/bloques/.
+# cambio). La marca v0.13 tuvo un solo texto de cada bloque, de 0.13.0 a
+# 0.14.0, y se registro cuando el runbook paso a pedir --generator-model
+# (#79). Los textos exactos estan en tests/bloques/.
 KNOWN_BLOCKS = {
     "claude": {
         "efc57db2d88bbc34bc9455b99fdb6e93033cece2d65dc3de99ddc87fedfc2e4d": "0.7",
         "48e27292f5ee748b8d01cd3e6fad34a44434885a2b080329d7f61f5d1c660d2f": "0.9",  # 0.9.0 y 0.9.1
         "f019e46fa120f33ba052934a2a3224c986a6168197f810d382b75cf8297f0462": "0.9",  # 0.9.2 a 0.10.0
         "a17940e14b2b3cc94b04ed160ed5e32df924ad386d0ef8e7c56e1dc7701ffa07": "0.11",  # 0.11.0 a 0.12.1
+        "956ccf75ed632db2e4a68a8ee23d21ede01714482f335951e4efffeec311f9e7": "0.13",  # 0.13.0 a 0.14.0
     },
     "skill": {
         "652619d1d7a5906f13f8f476ec883c6acf4c047b5398640bd8ab06806e06db9a": "0.9",  # 0.9.0 a 0.10.0
         "dd6ff218e83e61a7abf484dc626138b8ff004433bd6fcd35ca17950536159449": "0.11",  # 0.11.0
         "b32e021113e0ec359ee700440b823d60deaa483dce89f29a0ea5650a100aa31e": "0.11",  # 0.12.0 a 0.12.1
+        "d9749a1259a80c4d9cfd0f1ef3a2fd468728f8b75ae5936d5eb2e262e3022796": "0.13",  # 0.13.0 a 0.14.0
     },
 }
 
