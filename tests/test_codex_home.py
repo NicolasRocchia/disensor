@@ -304,9 +304,17 @@ CONFIANZA_DE_CODEX = (
 )
 
 
+def como_la_escribe_el_cli(ruta) -> str:
+    """La ruta como el CLI la anota: en minusculas en Windows, tal cual en POSIX.
+
+    `normcase` hace la misma distincion al comparar; bajar a minusculas tambien
+    en POSIX hizo fallar el CI de Linux (`Hostil` no es `hostil` ahi)."""
+    return str(ruta).lower() if os.name == "nt" else str(ruta)
+
+
 def confianza(*rutas) -> str:
-    """El mismo archivo, con las rutas dadas (en minusculas, como lo escribe el CLI en Windows)."""
-    return "".join(f"[projects.'{str(r).lower()}']\ntrust_level = \"trusted\"\n" for r in rutas)
+    """El mismo archivo, con las rutas dadas, como las escribe el CLI."""
+    return "".join(f"[projects.'{como_la_escribe_el_cli(r)}']\ntrust_level = \"trusted\"\n" for r in rutas)
 
 
 # Un CLI que, como el real de 0.153.4, anota la confianza del cwd en el home
@@ -319,8 +327,9 @@ if sys.argv[1:3] == ["login", "status"]:
 if sys.argv[1:2] == ["--version"]:
     sys.exit(0)
 home = Path(os.environ["CODEX_HOME"])
+cwd = os.getcwd().lower() if os.name == "nt" else os.getcwd()
 with open(home / "config.toml", "a", encoding="utf-8") as f:
-    f.write("[projects.'" + os.getcwd().lower() + "']" + chr(10) + 'trust_level = "trusted"' + chr(10))
+    f.write("[projects.'" + cwd + "']" + chr(10) + 'trust_level = "trusted"' + chr(10))
 Path(sys.argv[4]).write_text(json.dumps({"argv": sys.argv, "cwd": os.getcwd()}), encoding="utf-8")
 sys.exit(0)
 """
@@ -457,7 +466,7 @@ def test_the_cleanup_disposes_of_the_entry_for_the_attempts_own_cwd(tmp_path):
     argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
     lanzamiento = prepare("codex", argv, relax=frozenset({"private_cwd", "ancestors"}), cwd=cwd)
     subprocess.run(lanzamiento.argv, cwd=str(lanzamiento.cwd), env=lanzamiento.env, input=b"p", check=True)
-    assert trust_paths((home / "config.toml").read_text(encoding="utf-8")) == [str(cwd).lower()]
+    assert trust_paths((home / "config.toml").read_text(encoding="utf-8")) == [como_la_escribe_el_cli(cwd)]
     lanzamiento.cleanup()
     assert not (home / "config.toml").exists(), "el cleanup barrio la entrada de su propio cwd"
 
