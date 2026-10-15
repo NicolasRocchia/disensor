@@ -1,0 +1,195 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "b6aac819-130a-41b4-a1a9-078cea269340",
+    "created_at": "2026-10-14T21:04:06-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "2d1dab4200d3951d0387aeba9d4d36d6a9eb5b04",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "e0c660ee28ebd861bbdbb38f80f97e7dcf3994b6"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "unverified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "unverified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "unverified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r4",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "unverified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "Un ejecutable nombrado a mano con --executable heredaba la identidad de la receta codex y el endurecimiento verified",
+      "description": "En 95a8df8, build_entry aceptaba cualquier archivo absoluto existente como executable de la receta del catálogo y conservaba source catalog, familia openai, política codex_home/1 y hardening verified; effective_hardening lo confirmaba mientras el hash coincidiera y el sufijo no fuera de lanzador. Nada verificaba que ese archivo fuera el codex que la prueba hostil corrió: un python.exe, o un programa que conteste login status y escriba un informe, salía registrado como OpenAI verificado y una ronda podía declarar una revisión cross-family y verificada producida por otro programa.",
+      "location": "src/disensor/reviewers.py, build_entry (rama del catálogo) y src/disensor/round.py, effective_hardening",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Confirmado por lectura de build_entry y effective_hardening en 95a8df8 y por la reproducción del revisor, que corrió build_entry con executable=sys.executable y obtuvo verified en la entrada y en effective_hardening. El informe ofrecía dos remedios, atar el archivo a la instalación de Codex o degradar el override manual: se eligió degradar, porque la prueba hostil corrió contra el binario que el lanzador de la instalación resuelve y ningún chequeo estructural prueba que un archivo nombrado a mano sea ese. Corregido en 23955e8: la entrada manual lleva executable_source manual y se registra unverified, effective_hardening lo vuelve a decidir aunque el registro se edite a mano, describe lo dice, y la política del home aislado se aplica igual."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_any_file_named_by_hand_would_otherwise_inherit_the_catalogue_identity (lo que el revisor reprodujo, ahora unverified) y ::test_an_unresolvable_launcher_asks_for_the_binary_by_hand (registro manual unverified, política conservada, registro editado a mano también unverified). La ronda diff 2 sobre 23955e8 no lo volvió a levantar."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r2",
+      "severity": "major",
+      "title": "check_ancestors solo miraba .git/HEAD: un worktree enlazado o un submódulo, con .git como archivo, pasaba el chequeo del cwd privado",
+      "description": "En 23955e8 el invariante de la política decía que ningún ancestro del cwd privado es un repositorio git, y el predicado era lexists(ancestro/.git/HEAD). Un worktree enlazado y un submódulo llevan .git como archivo (gitdir: ...): un ancestro así de ~/.disensor pasaba el chequeo y el intento quedaba registrado bajo codex_home/1 aunque el CLI pudiera tomarlo como raíz de proyecto y leer su capa .codex/.",
+      "location": "src/disensor/codex_home.py, check_ancestors",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura del predicado en 23955e8; el revisor lo reprodujo con un sondeo externo que creó un .git de archivo en un ancestro y llamó a check_ancestors sobre un hijo (ACCEPTED_GITFILE_ANCESTOR). Que el CLI tome un .git de archivo como marcador de raíz de proyecto no se verificó contra codex-cli 0.153.4 ni hacía falta: el invariante dice ningún repositorio arriba, y eso es lo que ahora se chequea. Corregido en ae29530: cualquier .git en un ancestro, archivo o directorio, corta el intento."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_a_linked_worktree_or_submodule_above_the_private_cwd_stops_it_too (un .git de archivo gitdir en el ancestro: check_ancestors rechaza y run_reviewer termina context_unverified). La ronda diff 3 sobre ae29530 no lo volvió a levantar."
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r3",
+      "severity": "major",
+      "title": "verified se otorgaba a cualquier versión y plataforma de codex instalada, sin atarlo a las que la prueba hostil cubrió",
+      "description": "En ae29530 el contrato decía que verified vale para versiones y condiciones concretas, pero el catálogo solo guardaba el booleano y el nombre de la política: build_entry resolvía el codex que hubiera instalado, hasheaba esos bytes y le daba verified; effective_hardening solo comprobaba que siguieran siendo los mismos bytes. Una versión nueva del CLI que agregue una fuente de carga automática entraba al nivel A como verificada antes de cualquier prueba hostil. El revisor lo reprodujo registrando el codex-cli 0.162.1 de su PATH (dos codex en esta máquina; el PATH de la sesión del generador resuelve 0.153.4).",
+      "location": "src/disensor/reviewers.py, build_entry y src/disensor/round.py, effective_hardening; el contrato en README.md y GUIDE.md",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Confirmado por lectura (ni build_entry ni effective_hardening llevaban versión ni plataforma) y por la reproducción del revisor con 0.162.1. Preexistente en parte: la receta anterior tampoco ataba la versión, pero este PR redefine verified como válido para versiones y condiciones concretas y el mecanismo no lo hacía valer. De los dos remedios, atar verified al binario y plataforma probados o degradar lo desconocido a unverified, se eligió degradar, en línea con la decisión 2 del dueño (allowlist atada a la versión del CLI) y sin dejar la receta inusable en cada actualización del CLI: corregido en 3b4ba86 (CERTIFIED con el par win32 y 0.153.4; el runner lee --version antes de cada intento y registra cli_version y certified; con otra combinación el intento corre bajo la política igual, el runner avisa y new --round declara unverified con su ítem) y 2d1dab4 (GUIDE, README y notas de la receta). La hipótesis de la misma ronda, subárboles de skills ilegibles salteados en silencio, se incorporó en 3b4ba86: un scandir que falla corta el intento, con su prueba. Queda fuera, como dice la decisión 3 del dueño, exigir esta evidencia en el gate de nivel A (#73): el filtro de la cadena sigue usando el endurecimiento puro del registro, así que una versión no probada corre y la declaración queda unverified."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_codex_home.py::test_an_untested_version_runs_under_the_policy_but_is_not_certified, ::test_a_tested_platform_and_version_is_recorded_as_certified, ::test_a_version_that_cannot_be_read_is_not_certified, ::test_certified_is_a_pair_of_platform_and_version, ::test_an_unreadable_subtree_stops_the_inventory; tests/test_new_round.py::test_verified_needs_a_certified_platform_and_cli_version. La ronda diff 4 sobre 2d1dab4 no trajo hallazgos ni hipótesis sobre esto."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "reviewer_hardening_gap",
+        "reviewer_ref": "r1",
+        "requires_human_attention": true,
+        "description": "Las cuatro rondas de este evento corrieron con el adaptador codex de la 0.13.0 de pip, no con el de este PR: la entrada registrada en esta máquina es anterior a la política codex_home/1 (el runner del checkout la saca de la cadena y manda a registrarla de nuevo), y la entrada nueva necesita que el dueño loguee el home aislado, que no tiene credenciales y que el runner nunca copia. Así que en las cuatro rondas el AGENTS.md global del dueño (~/.codex/AGENTS.md, sus preferencias de trabajo) y las 27 skills de ~/.agents/skills llegaron al revisor antes que la consigna, como en toda ronda anterior a este PR y como midió #108; el informe de la ronda 4 lo muestra sin querer: el revisor intentó lanzar un Bugbot que el paquete no pide y que viene de una de esas skills. new --round del checkout degradó la ronda 4 a unverified por falta de evidencia de la política: es el mecanismo nuevo funcionando sobre sí mismo. Qué se hizo: nada puede hacerse sin el dueño; los tres pasos (reviewer remove y add con la receta nueva, reviewer login del home aislado, reviewer consent) quedan en el PR, y una ronda con el adaptador nuevo puede reemplazar esta declaración antes de mergear. La revisión igual fue cross-family (generador claude-fable-5-1, revisor gpt-5.6-sol, los dos en declared del resultado), con la consigna empaquetada y árbol limpio. Esta es la ronda diff 1 (sobre 95a8df8, 207 s)."
+      },
+      {
+        "id": "r2",
+        "class": "reviewer_hardening_gap",
+        "reviewer_ref": "r2",
+        "requires_human_attention": true,
+        "description": "Ídem r1: la ronda diff 2 (sobre 23955e8, 218 s) corrió con el adaptador 0.13.0 de pip, con las fuentes de la máquina abiertas y sin evidencia de la política codex_home/1; la degradación la aplicó new --round."
+      },
+      {
+        "id": "r3",
+        "class": "reviewer_hardening_gap",
+        "reviewer_ref": "r3",
+        "requires_human_attention": true,
+        "description": "Ídem r1: la ronda diff 3 (sobre ae29530, 261 s) corrió con el adaptador 0.13.0 de pip, con las fuentes de la máquina abiertas y sin evidencia de la política codex_home/1; la degradación la aplicó new --round."
+      },
+      {
+        "id": "r4",
+        "class": "reviewer_hardening_gap",
+        "reviewer_ref": "r4",
+        "requires_human_attention": true,
+        "description": "Ídem r1: la ronda diff 4 (sobre 2d1dab4, 280 s, la anclada en esta declaracion) corrió con el adaptador 0.13.0 de pip, con las fuentes de la máquina abiertas y sin evidencia de la política codex_home/1; la degradación la aplicó new --round."
+      },
+      {
+        "id": "r5",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "Nadie corrió las pruebas con costo de tests/test_hardening.py en esta rama: en cada ronda y en cada corrida del generador quedaron 9 salteadas (las dos mitades de #92, los dos canarios nuevos del home aislado y de la skill de usuario, la de claude y cuatro preexistentes). El home aislado real no tiene credenciales y el runner nunca las copia, así que la neutralización de las fuentes de la máquina bajo codex_home/1 está probada por construcción y por las pruebas sin costo (un CLI de mentira que vuelca entorno, argv y cwd; los invariantes; el inventario; el escape TOML; el lock; el nativo; la versión), no por inferencia contra el CLI real: eso corre cuando el dueño loguee el home, con DISENSOR_SMOKE=1, DISENSOR_SMOKE_MODEL, DISENSOR_SMOKE_HOME_CANARY=1 y DISENSOR_SMOKE_USER_SKILL=1, con su OK, y el release lo registra. Los revisores vieron codex-cli 0.162.1 en su PATH, distinto del 0.153.4 que resuelve la sesión del generador y el registro: 0.162.1 queda unverified por CERTIFIED hasta que el smoke corra con él. macOS y Linux: las ramas Unix del resolvedor y del inventario tienen pruebas sin costo y ninguna medición en vivo. El generador corrió la suite completa de Python antes de cada commit (782, 783, 784 y 790 pasadas, 9 salteadas; Windows 11, Python 3.14.2, caché de pytest y bytecode apagados); los revisores también (783, 784 y 790), con basetemp fuera del checkout; ninguno corrió la suite de plano-evidencia, que no cambia. Confinamiento: git status limpio antes y después de las cuatro rondas, los cuatro informes dicen que no escribieron en el checkout y los de las rondas 3 y 4 revisaron los ignorados (.pytest_cache de las 14:21, anterior a todo esto); verified: true dice eso y nada más. Residuo fuera del checkout: los revisores dejaron sus basetemp de pytest adentro del directorio privado de cada ronda bajo %TEMP%, que el runner no pudo borrar al terminar; el generador los borró después de leer los informes. La ronda 3 sobre el plan v3 (compuerta plan, 194 s, informe en la carpeta del handoff fuera del repo) no se declara acá: su hallazgo, una allowlist de entorno con PYTHON* adentro, entró al plan antes de escribir código."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 3,
+      "valid": {
+        "incorporated": 3,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 2303
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:6f71ab1fa9279af3dab1f5fb94ed4f42bf0ded30f8d408deb2823736b0baf876",
+      "report_hash": "sha256:624969ea09724b955f34168760251806a71a1008e2cb13db0325bf622ea39083",
+      "reviewer_seconds": 280
+    }
+  }
+}
