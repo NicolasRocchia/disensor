@@ -31,6 +31,8 @@ from disensor.codex_home import (
     check_home,
     child_env,
     inventory,
+    is_trust_state,
+    sweep_trust_state,
     native_executable,
     prepare,
     skills_config_arg,
@@ -291,6 +293,95 @@ def test_each_source_the_policy_closes_breaks_the_home(tmp_path, nombre, como):
     intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
     assert intento["outcome"] == "context_unverified"
     assert not (tmp_path / "i").exists(), "el intento se corto antes de correr nada"
+
+
+# Lo que codex-cli 0.153.4 escribe en CODEX_HOME/config.toml al terminar cada
+# exec, tal cual (ruta en minusculas, comillas simples, barras de Windows).
+CONFIANZA_DE_CODEX = (
+    "[projects.'c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc']\n"
+    'trust_level = "trusted"\n'
+)
+
+# Un CLI que, como el real de 0.153.4, anota la confianza del cwd en el home
+# antes de contestar.
+ANOTA_CONFIANZA = """import json, os, sys
+from pathlib import Path
+if sys.argv[1:3] == ["login", "status"]:
+    print("Logged in using ChatGPT")
+    sys.exit(0)
+home = Path(os.environ["CODEX_HOME"])
+with open(home / "config.toml", "a", encoding="utf-8") as f:
+    f.write("[projects." + repr(os.getcwd()) + "]" + chr(10) + 'trust_level = "trusted"' + chr(10))
+Path(sys.argv[4]).write_text(json.dumps({"argv": sys.argv, "cwd": os.getcwd()}), encoding="utf-8")
+sys.exit(0)
+"""
+
+
+@pytest.mark.parametrize("texto", [
+    CONFIANZA_DE_CODEX,
+    CONFIANZA_DE_CODEX * 3,
+    "\n" + CONFIANZA_DE_CODEX + "\n\n[projects.\"D:/otro\"]\ntrust_level = \"untrusted\"\n",
+    "[projects.'C:\\\\x']\ntrust_level=\"trusted\"",
+])
+def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
+    assert is_trust_state(texto)
+
+
+@pytest.mark.parametrize("texto", [
+    "",
+    "model = \"gpt\"\n",
+    CONFIANZA_DE_CODEX + "model = \"gpt\"\n",
+    "# comentario\n" + CONFIANZA_DE_CODEX,
+    "[projects.'a']\n",
+    "trust_level = \"trusted\"\n",
+    "[projects.'a']\n[projects.'b']\ntrust_level = \"trusted\"\n",
+    "[profiles.x]\ntrust_level = \"trusted\"\n",
+    "[projects.'a']\ntrust_level = \"trusted\"\nmodel = \"gpt\"\n",
+])
+def test_anything_but_that_trust_is_configuration(texto):
+    assert not is_trust_state(texto)
+
+
+def test_the_trust_the_cli_left_is_swept_before_the_check_and_the_attempt_runs(tmp_path):
+    """codex-cli 0.153.4 anota el cwd de cada exec como confiable en
+    CODEX_HOME/config.toml (medido el 2026-10-15 con un modelo inexistente, sin
+    inferencia); con el cwd privado nuevo por intento, cada intento dejaba un
+    archivo que el siguiente `check_home` rechazaba y el segundo intento no
+    corria nunca. Ese archivo, y solo ese, se barre antes del chequeo."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    (home / "config.toml").write_text(CONFIANZA_DE_CODEX, encoding="utf-8")
+    datos = volcado(tmp_path, cli_falso(tmp_path, "vuelca", VUELCA))
+    assert datos["intento"]["trust_state_swept"] is True
+    assert datos["env"]["CODEX_HOME"] == str(home)
+    assert not (home / "config.toml").exists()
+    datos = volcado(tmp_path, cli_falso(tmp_path, "vuelca", VUELCA))
+    assert "trust_state_swept" not in datos["intento"], "sin archivo no hay barrido que registrar"
+
+
+def test_two_attempts_in_a_row_with_a_cli_that_records_trust_both_run(tmp_path):
+    """La forma real del fallo: un CLI que anota la confianza al correr. El
+    primer intento la deja, el cleanup la barre, y si algo impidiera el
+    cleanup el barrido previo al chequeo la saca igual."""
+    home = codex_home.home_dir("codex")
+    script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
+    primero = run_reviewer(entrada(script), "p", tmp_path / "i1", 60)
+    assert primero["outcome"] == "ok", primero
+    assert not (home / "config.toml").exists(), "el cleanup del intento barre lo que el CLI dejo"
+    segundo = run_reviewer(entrada(script), "p", tmp_path / "i2", 60)
+    assert segundo["outcome"] == "ok", segundo
+    assert "trust_state_swept" not in segundo
+
+
+def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path):
+    """El barrido no toca configuracion: una clave mas y el intento se corta como antes."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    (home / "config.toml").write_text(CONFIANZA_DE_CODEX + 'model = "gpt"\n', encoding="utf-8")
+    assert not sweep_trust_state(home)
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "context_unverified" and "config.toml" in intento["detail"]
+    assert (home / "config.toml").read_text(encoding="utf-8").endswith('model = "gpt"\n')
 
 
 def test_a_link_in_the_home_with_a_closed_name_breaks_it_too(tmp_path):

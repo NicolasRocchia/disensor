@@ -21,6 +21,14 @@ does NOT do is as much part of the contract as what it does:
 - it never copies, reads or moves credentials: the owner logs the isolated
   home in, once, with `disensor reviewer login codex`.
 
+One thing the CLI itself writes into that home is not a source and is not
+left there: codex-cli 0.153.4 records the cwd of every `exec` as trusted in
+`CODEX_HOME/config.toml`, even with `--ignore-user-config` and even when the
+request fails before the model answers. A file with nothing but that is the
+CLI's own state about directories that no longer exist; `sweep_trust_state`
+removes it before the check and after the attempt, and anything else in a
+`config.toml` keeps refusing the attempt as the owner's configuration.
+
 The policy is a closed, versioned contract: which home, which environment,
 which cwd, which flags, which invariants, which sources. Changing any of it is
 bumping the number, and an entry registered under another number has not
@@ -46,7 +54,9 @@ POLICY = "codex_home/1"
 # Lo que no puede existir en el home aislado, ni como archivo, ni como
 # directorio, ni como enlace. Es una lista de nombres PROHIBIDOS y no de
 # permitidos: el CLI deja archivos de estado propios por version (sqlite,
-# installation_id, .sandbox-bin) que no son fuentes de instrucciones, y una
+# installation_id, .sandbox-bin, y en 0.153.4 un config.toml con la confianza
+# del cwd de cada exec, que `sweep_trust_state` barre antes del chequeo porque
+# no es configuracion del dueño) que no son fuentes de instrucciones, y una
 # lista de permitidos dejaria la receta inusable en cada actualizacion sin
 # ganar nada. Cada nombre de aca es una fuente de carga automatica: la
 # configuracion de usuario y sus perfiles, los archivos de instrucciones, los
@@ -298,6 +308,76 @@ def check_home(home: Path, *, create: bool = True) -> None:
             f"the isolated home {home} carries sources the policy closes: {', '.join(sorted(encontrados))}. "
             "Nothing of the owner's codex configuration belongs there; remove them",
         )
+
+
+# La unica forma de config.toml que el CLI escribe solo: una tabla por cwd con
+# su nivel de confianza, y nada mas. Lineas en blanco entre medio; ningun
+# comentario, ninguna otra clave, ninguna otra tabla. Lo que no tenga EXACTAMENTE
+# esta forma es configuracion del dueño hasta que se demuestre lo contrario.
+TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?:'[^']*'|"[^"]*"|[A-Za-z0-9_.:-]+)\]$""")
+TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"[a-z_]+"$""")
+
+
+def is_trust_state(texto: str) -> bool:
+    """Whether a `config.toml` holds nothing but the trust the CLI records per cwd.
+
+    `[projects.'<cwd>']` followed by `trust_level = "..."`, any number of
+    times, blank lines allowed. An empty file, a comment, any other key or
+    table, or a key before its table, is not trust state.
+    """
+    tablas = 0
+    esperando_clave = False
+    for linea in texto.splitlines():
+        linea = linea.strip()
+        if not linea:
+            continue
+        if TRUST_TABLE_RE.match(linea):
+            if esperando_clave:
+                return False
+            tablas += 1
+            esperando_clave = True
+            continue
+        if TRUST_KEY_RE.match(linea) and esperando_clave:
+            esperando_clave = False
+            continue
+        return False
+    return tablas > 0 and not esperando_clave
+
+
+def sweep_trust_state(home: Path) -> bool:
+    """Remove the trust file the CLI writes into its home, and only that. True if it did.
+
+    codex-cli 0.153.4 records the cwd of every `exec` as trusted in
+    `CODEX_HOME/config.toml` (`[projects.'<cwd>'] trust_level = "trusted"`),
+    even when the request fails before the model answers and even with
+    `--ignore-user-config`; 0.162.1 does not (both measured on 2026-10-15
+    with a nonexistent model, so without inference). The private cwd is fresh
+    for every attempt, so every attempt left a file the next `check_home`
+    refused, and the second attempt on a machine with 0.153.4 never ran; the
+    first smoke with that version found it.
+
+    What is removed is a file that parses as trust state and nothing else
+    (`is_trust_state`): the CLI's own record about directories that no
+    longer exist, not a source of instructions or configuration. A file with
+    anything else, a link, or a file that cannot be read is left where it is,
+    and `check_home` refuses the attempt as before. The contract of the
+    policy did not move: the same sources stay closed and checked on disk;
+    the check now tells the CLI's state from the owner's configuration.
+    """
+    ruta = home / "config.toml"
+    if not os.path.lexists(ruta) or _is_link(ruta) or not ruta.is_file():
+        return False
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    if not is_trust_state(texto):
+        return False
+    try:
+        ruta.unlink()
+    except OSError:
+        return False
+    return True
 
 
 def system_config_dir() -> Path:
@@ -731,19 +811,26 @@ def prepare(
       it; nothing else does, and `check_ancestors` itself did not change.
     """
     home = home_dir(reviewer_id)
+    barrido = False
     with Lock(lock_path(reviewer_id)):
         if "home_invariants" in relax:
             home.mkdir(parents=True, exist_ok=True)
         else:
+            barrido = home.is_dir() and sweep_trust_state(home)
             check_home(home)
         check_system_config()
         if cwd is not None and "private_cwd" in relax:
             privado = cwd
-            limpiar: Callable[[], None] = lambda: None
+            limpiar: Callable[[], None] = lambda: sweep_trust_state(home)
         else:
             work_dir(reviewer_id).mkdir(parents=True, exist_ok=True)
             privado = Path(tempfile.mkdtemp(prefix="attempt-", dir=work_dir(reviewer_id)))
-            limpiar = lambda: shutil.rmtree(privado, ignore_errors=True)
+
+            def limpiar() -> None:
+                shutil.rmtree(privado, ignore_errors=True)
+                # Lo que el CLI dejo en el home al correr, para que entre
+                # intentos el home este como la politica lo describe.
+                sweep_trust_state(home)
         if "ancestors" not in relax:
             try:
                 check_ancestors(privado)
@@ -762,6 +849,8 @@ def prepare(
             "cli_version": version,
             "certified": certified(version),
         }
+        if barrido:
+            observado["trust_state_swept"] = True
         if "skills_config" not in relax:
             rutas = inventory(skill_roots(privado))
             completo += ["-c", skills_config_arg(rutas)]
