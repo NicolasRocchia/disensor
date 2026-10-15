@@ -621,10 +621,7 @@ def main_round(args) -> int:
     # diciendo tree_unchanged sobre un arbol que el propio runner acaba de
     # ensuciar. Todo lo que contiene o mide el arbol se pregunta desde la raiz.
     pedido = Path(args.repository or Path.cwd())
-    try:
-        repo = gitctx.repo_root(pedido)
-    except gitctx.GitError:
-        repo = pedido
+    repo = gitctx.root_or_self(pedido)
     try:
         return _round(args, repo)
     except (RoundError, ReviewerError) as exc:
@@ -677,7 +674,7 @@ def _round(args, repo: Path) -> int:
             return UNDECIDABLE
         base, head, merge_base = ctx.base_oid, ctx.head_oid, ctx.merge_base
         target_tip = ctx.base_oid
-        repository = gitctx.canonical_repository(repo) or str(repo)
+        repository = gitctx.repository_identity(repo)
     else:
         # Un plan o una decision de arquitectura no vive en el rango: el
         # disparador ahi es de quien conoce el impacto, y `round` orquesta.
@@ -687,7 +684,7 @@ def _round(args, repo: Path) -> int:
         if not args.material:
             raise RoundError(f"a {args.gate} gate needs --material")
         base = head = merge_base = target_tip = ""
-        repository = gitctx.canonical_repository(repo) or str(repo)
+        repository = gitctx.repository_identity(repo)
 
     # --- Los destinos, antes de correr a nadie -------------------------------
     # Se miraban despues del bucle de revisores: un --report que ya existia o

@@ -805,7 +805,12 @@ def _consent(args) -> int:
         print(f"reviewer: {args.id} is not registered")
         return 1
 
-    repositorio = gitctx.canonical_repository(Path.cwd()) or str(Path.cwd())
+    # La identidad del repositorio se resuelve igual que en `round`, con las
+    # mismas dos funciones: desde la raiz y no desde el directorio de trabajo.
+    # En un repositorio sin remoto la identidad es la ruta, y un consentimiento
+    # dado desde un subdirectorio quedaba atado a una ruta que `round` nunca
+    # pregunta (#79).
+    repositorio = gitctx.repository_identity(gitctx.root_or_self(Path.cwd()))
     clave = consent_key(entry, repositorio)
     consents = set(data.get("consents", []))
 

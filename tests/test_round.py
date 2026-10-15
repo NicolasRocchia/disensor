@@ -550,6 +550,38 @@ def test_a_local_reviewers_attempt_carries_no_consent(repo: Path, monkeypatch, t
     assert "consent" not in intento
 
 
+def test_a_consent_given_from_a_subdirectory_serves_the_round_from_the_root(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """En un repositorio sin remoto la identidad es la ruta: `reviewer consent`
+    tomaba la del directorio de trabajo y `round` la de la raiz, asi que el
+    consentimiento dado desde un subdirectorio no servia y la ronda salia con 4
+    (#79). Los dos comandos resuelven ahora la identidad con las mismas
+    funciones."""
+    from disensor import reviewers
+    from disensor.cli import build_parser
+
+    monkeypatch.setattr(reviewers, "REGISTRY_DIR", tmp_path / ".disensor")
+    monkeypatch.setattr(reviewers, "REGISTRY", tmp_path / ".disensor" / "reviewers.json")
+    (repo / "sub").mkdir()
+    (repo / "sub" / "c.py").write_text("z = 3" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+
+    def cli(*argv: str) -> int:
+        args = build_parser().parse_args(list(argv))
+        return args.func(args)
+
+    comando = revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)
+    assert cli("reviewer", "add", "nube", "--family", "openai", "--model", "m", "--egress", "cloud",
+               "--stdin", "pack", "--yes", "--command", *comando) == 0
+    monkeypatch.chdir(repo / "sub")
+    assert cli("reviewer", "consent", "nube") == 0
+    capsys.readouterr()
+    registro = reviewers.load_registry()
+    assert correr(repo, registro, monkeypatch, tmp_path) == OK, capsys.readouterr().err
+
+
 def test_an_assistant_entry_cannot_forge_catalogued_hardening():
     """Copiar el argv de una receta no hereda su prueba hostil.
 
