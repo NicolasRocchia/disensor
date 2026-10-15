@@ -11,6 +11,64 @@ sentence ends with a full stop, and the references to README sections became
 links. The versions that paragraph did not describe (0.9.1, 0.6.5, 0.6.2,
 0.3.0 and 0.1.0) have no entry, and there was no 0.8.0.
 
+## 0.14.0 (2026-10-15)
+
+This version is about what reaches the reviewer from the machine it runs on,
+still on residue/v0.4. The `codex` recipe of the catalogue runs from an
+isolated `CODEX_HOME` under the policy `codex_home/1`
+(`~/.disensor/reviewers/codex/home`): its invariants are checked on disk before
+every attempt, each attempt runs from its own private working directory under a
+lock, the environment of the subprocess passes by allowlist, the recipe adds
+`--disable` by name for plugins, apps, hooks, memories, multi_agent and
+remote_plugin, turns off the bundled skills and carries the `skills.config`
+built from the inventory of the disk, and the registry keeps in `executable`
+the native binary behind the npm launcher (`reviewer add --executable` for a
+launcher it cannot resolve); until now the owner's global `AGENTS.md` and
+skills reached the reviewer with the three hardening flags on.
+`disensor reviewer login codex` signs that home in once, with the owner's
+terminal, and disensor never reads, copies or stores credentials.
+`new --round` keeps `verified` only with the evidence of the policy and a
+certified CLI version in the successful attempt, and declares anything else
+`unverified` with its item; `verified` is worded as the neutralisation of
+enumerated sources for concrete CLI versions and conditions, today codex-cli
+0.153.4 and 0.162.1 on Windows, and the fallback reason keeps every failed
+attempt with its detail instead of reporting a `quota_exhausted` the runner
+never observed ([#108](https://github.com/NicolasRocchia/disensor/issues/108),
+[#147](https://github.com/NicolasRocchia/disensor/pull/147)). The hostile test
+of the recipe can no longer pass without the model answering: it reads only the
+answer the CLI writes to a file, demands exit 0, takes `{model}` from
+`DISENSOR_SMOKE_MODEL`, shares `fill_argv` with the runner and takes as the
+verdict only the single word answered
+([#92](https://github.com/NicolasRocchia/disensor/issues/92)); its three pairs
+measure whether a source reaches the model, by the literal quote of a random
+name, and not whether the model obeys an order planted in it,
+`DISENSOR_SMOKE_CODEX` picks the binary, and the cleanup of each attempt
+removes, under the lock, the trust entry that codex-cli 0.153.4 writes in the
+home, only when it has that exact form
+([#149](https://github.com/NicolasRocchia/disensor/pull/149)). The smoke of
+this release, as the test asks: on 2026-10-15, on Windows 11 with Python 3.14.2
+and the model gpt-5.6-sol, `tests/test_hardening.py` passed 28 tests with
+codex-cli 0.153.4 and 28 with codex-cli 0.162.1; with the canary `AGENTS.md` in
+the repository the recipe answered `NINGUNO` and its control quoted the canary,
+with the canary in the isolated home the recipe stopped as
+`context_unverified` before any inference and its control quoted the canary,
+and with the canary skill in `~/.agents/skills` the recipe answered `NINGUNA`
+and its control listed 41 skills, the canary among them; with the earlier
+design of #92 for the repository the recipe had answered `LIMPIO` and its
+control `COMPROMETIDO`, also 28 and 28, and the cleanup as published passed
+again with 0.153.4, the version that writes the file it sweeps. Recorded as
+debt: with codex-cli 0.153.4, on a Windows profile whose path carries an
+apostrophe the cleanup would not recognise the trust entry and the next attempt
+would fail closed (`confianza-clave-basica-con-escapes`). For whoever already
+had `codex` registered: the entry built from the old recipe no longer matches
+the catalogue, so `round` leaves it out of the chain with the instruction to
+register it again; run `disensor reviewer remove codex`,
+`disensor reviewer add codex --model <model> --yes`,
+`disensor reviewer login codex` and, in each repository that runs rounds,
+`disensor reviewer consent codex`, since the consent covers the recipe that
+changed. A new entry whose home has not signed in ends its attempt as
+`not_authenticated`, and the chain moves on to the next reviewer.
+
 ## 0.13.0 (2026-10-14)
 
 This version is about what the reviewer may write, what `init` leaves in the
