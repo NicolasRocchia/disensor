@@ -107,7 +107,7 @@ CATALOG: dict[str, dict] = {
             "codex_home/1) that the owner signs in once with `disensor reviewer login codex`; "
             "the runner never touches credentials. Verified means that the sources the CLI "
             "loads on its own are closed and checked on disk before every attempt, measured "
-            "with codex-cli 0.153.4 on Windows: the repository's instruction files, the global "
+            "with codex-cli 0.153.4 and 0.162.1 on Windows: the repository's instruction files, the global "
             "AGENTS.md, user, repo, admin and bundled skills, plugins, apps, hooks, memories, "
             "agent roles, and the inherited environment (nothing CODEX_* or OPENAI_* reaches "
             "it). Verified holds only on the platform and CLI version pairs that test ran on; "

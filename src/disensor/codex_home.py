@@ -21,6 +21,16 @@ does NOT do is as much part of the contract as what it does:
 - it never copies, reads or moves credentials: the owner logs the isolated
   home in, once, with `disensor reviewer login codex`.
 
+One thing the CLI itself writes into that home is not a source and is not
+left there: codex-cli 0.153.4 records the cwd of every `exec` as trusted in
+`CODEX_HOME/config.toml`, even with `--ignore-user-config` and even when the
+request fails before the model answers. The cleanup of the attempt that ran
+there removes its own entry from that file, under the reviewer's lock, and
+the file itself once nothing is left (`sweep_trust_state`); that is the only
+provenance the policy can prove, so nothing is swept before the check, and a
+`config.toml` found there, trust state or not, refuses the attempt as the
+owner's configuration would.
+
 The policy is a closed, versioned contract: which home, which environment,
 which cwd, which flags, which invariants, which sources. Changing any of it is
 bumping the number, and an entry registered under another number has not
@@ -46,7 +56,9 @@ POLICY = "codex_home/1"
 # Lo que no puede existir en el home aislado, ni como archivo, ni como
 # directorio, ni como enlace. Es una lista de nombres PROHIBIDOS y no de
 # permitidos: el CLI deja archivos de estado propios por version (sqlite,
-# installation_id, .sandbox-bin) que no son fuentes de instrucciones, y una
+# installation_id, .sandbox-bin, y en 0.153.4 un config.toml con la confianza
+# del cwd de cada exec, que el cleanup del intento barre porque es suyo) que no
+# son fuentes de instrucciones, y una
 # lista de permitidos dejaria la receta inusable en cada actualizacion sin
 # ganar nada. Cada nombre de aca es una fuente de carga automatica: la
 # configuracion de usuario y sus perfiles, los archivos de instrucciones, los
@@ -125,9 +137,11 @@ AUTH_TIMEOUT = 60
 # prueba nada sobre el (ronda diff 3 de #108). Con otra combinacion la
 # politica se aplica igual, el intento la registra, y `new --round` declara
 # el endurecimiento como no verificado, con su item. Cada release que corra
-# el smoke con otra version la agrega aca.
+# el smoke con otra version la agrega aca: 0.162.1 entro el 2026-10-15, con
+# el smoke completo en verde con cada binario (`DISENSOR_SMOKE_CODEX`).
 CERTIFIED = frozenset({
     ("win32", "0.153.4"),
+    ("win32", "0.162.1"),
 })
 VERSION_RE = re.compile(r"codex-cli\s+(\d+\.\d+\.\d+)")
 
@@ -293,11 +307,179 @@ def check_home(home: Path, *, create: bool = True) -> None:
     except OSError as exc:
         raise Refused("context_unverified", f"the isolated home {home} cannot be listed ({exc})") from exc
     if encontrados:
+        pista = ""
+        if encontrados == ["config.toml"] and _is_trust_file(home / "config.toml"):
+            pista = (
+                ". It holds nothing but the trust the CLI records for the cwd of an attempt whose cleanup "
+                "did not run (codex-cli 0.153.4 writes it after every exec); the policy removes only "
+                "the entries of the attempts that produced them, so remove it by hand"
+            )
         raise Refused(
             "context_unverified",
             f"the isolated home {home} carries sources the policy closes: {', '.join(sorted(encontrados))}. "
-            "Nothing of the owner's codex configuration belongs there; remove them",
+            "Nothing of the owner's codex configuration belongs there; remove them" + pista,
         )
+
+
+def _is_trust_file(ruta: Path) -> bool:
+    if _is_link(ruta) or not ruta.is_file():
+        return False
+    try:
+        return trust_paths(ruta.read_text(encoding="utf-8")) is not None
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+# La unica forma de config.toml que el CLI escribe solo: una tabla por cwd con
+# su nivel de confianza, y nada mas. Lineas en blanco entre medio; ningun
+# comentario, ninguna otra clave, ninguna otra tabla. Lo que no tenga EXACTAMENTE
+# esta forma es configuracion del dueño hasta que se demuestre lo contrario. La
+# clave de la tabla es la ruta del cwd y el CLI la escribe siempre entre
+# comillas (una ruta lleva barras y dos puntos, que una clave desnuda de TOML
+# no admite): una clave sin comillas no es esta forma. La ronda 1 sobre este
+# cambio cazo que admitirlas dejaba pasar `[projects.foo.bar]`, una tabla
+# anidada, y `[projects.foo:bar]`, TOML invalido, y el barrido los borraba. La
+# ronda 2 cazo que entre comillas entraba cualquier cosa: la clave vacia, un
+# escape que TOML no admite (`"x\q"`) y cualquier valor de confianza. La clave
+# es una ruta no vacia: literal (`'...'`, sin escapes, como la escribe el CLI
+# en Windows) o basica sin barras invertidas (`"..."`, como en POSIX). El valor
+# es el que la receta provoca con el bypass, `"trusted"`, y ningun otro: si una
+# version escribiera otra cosa, el barrido no la reconoce y el intento se corta,
+# que es el lado seguro. Y la sintaxis sola no alcanza (ronda 3): un archivo
+# asi escrito a mano por el dueño, con la ruta de un proyecto suyo, tiene la
+# misma forma. La procedencia la da la ruta, y la unica ruta que la politica
+# puede probar suya es el cwd del intento que acaba de correr, en el cleanup
+# de ese intento (rondas 5 y 6: un directorio bajo `work/`, o un nombre
+# `attempt-*`, se escriben a mano igual). Cualquier otra ruta deja el archivo
+# donde esta y el intento siguiente se corta.
+TRUST_TABLE_RE = re.compile(r"""^\[projects\.(?P<clave>'[^']+'|"[^"\\]+")\]$""")
+TRUST_KEY_RE = re.compile(r"""^trust_level\s*=\s*"trusted"$""")
+
+
+def trust_entries(texto: str) -> list[tuple[str, str]] | None:
+    """The entries of a `config.toml` that holds nothing but the trust the CLI
+    records per cwd, as (key as written, path), or None when the file is
+    anything else.
+
+    `[projects.'<cwd>']` (the key quoted and not empty, without escapes, as
+    the CLI writes a path) followed by `trust_level = "trusted"`, any number
+    of times, blank lines allowed. An empty file, a comment, any other key,
+    value or table, an unquoted or empty key, a backslash inside a basic
+    string, or a key before its table, is not trust state.
+    """
+    entradas: list[tuple[str, str]] = []
+    esperando_clave = False
+    for linea in texto.splitlines():
+        linea = linea.strip()
+        if not linea:
+            continue
+        tabla = TRUST_TABLE_RE.match(linea)
+        if tabla:
+            if esperando_clave:
+                return None
+            clave = tabla.group("clave")
+            entradas.append((clave, clave[1:-1]))
+            esperando_clave = True
+            continue
+        if TRUST_KEY_RE.match(linea) and esperando_clave:
+            esperando_clave = False
+            continue
+        return None
+    if not entradas or esperando_clave:
+        return None
+    return entradas
+
+
+def trust_paths(texto: str) -> list[str] | None:
+    """The project paths of a trust-only `config.toml`, or None (see `trust_entries`)."""
+    entradas = trust_entries(texto)
+    return None if entradas is None else [ruta for _, ruta in entradas]
+
+
+def is_trust_state(texto: str) -> bool:
+    """Whether a `config.toml` has the shape of the trust the CLI records, and nothing else."""
+    return trust_paths(texto) is not None
+
+
+def _same_path(a: str, b: str | Path) -> bool:
+    return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
+
+
+ATTEMPT_PREFIX = "attempt-"
+
+
+def sweep_trust_state(home: Path, cwd: Path) -> bool:
+    """Remove from the trust file the entry the CLI wrote for the attempt that ran
+    from `cwd`, and the file itself once nothing is left. True when the file is gone.
+
+    codex-cli 0.153.4 records the cwd of every `exec` as trusted in
+    `CODEX_HOME/config.toml` (`[projects.'<cwd>'] trust_level = "trusted"`),
+    even when the request fails before the model answers and even with
+    `--ignore-user-config`; 0.162.1 does not (both measured on 2026-10-15
+    with a nonexistent model, so without inference). The private cwd is fresh
+    for every attempt, so every attempt left a file the next `check_home`
+    refused, and the second attempt on a machine with 0.153.4 never ran; the
+    first smoke with that version found it.
+
+    What is touched is a file that parses as trust state and nothing else
+    (`trust_entries`), and in it only the entries that name `cwd`, the
+    directory the attempt being cleaned up ran from: the CLI's own record
+    about a directory of ours, not a source of instructions or configuration.
+    That is the only provenance the policy can prove, and only the cleanup of
+    that attempt knows it: a trust-only file the owner wrote by hand has the
+    same shape (third round of this change), a path under `work/` or a name
+    `attempt-*` can be written by hand too (fifth and sixth rounds), and the
+    directories the policy created before are gone. So nothing is swept
+    before the check: a file with anything else, a link, or a file that
+    cannot be read is left untouched, an entry for any other path stays
+    where it is, and `check_home` refuses the next attempt, naming it. Two
+    attempts may overlap (the lock covers the preparation, not the run), and
+    with 0.153.4 both append their cwd to the same file: each cleanup takes
+    out its own entry, under the lock, and the last one deletes the file
+    (seventh round: a cleanup that needed the whole file to be its own left
+    both entries behind and every later attempt refused). An attempt killed
+    between the CLI's write and its cleanup leaves its entry behind, and the
+    owner removes it; failing closed there is the point. The contract of the
+    policy did not move: the same sources stay closed and checked on disk.
+    """
+    ruta = home / "config.toml"
+    if not os.path.lexists(ruta) or _is_link(ruta) or not ruta.is_file():
+        return False
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    entradas = trust_entries(texto)
+    if entradas is None:
+        return False
+    restantes = [(clave, proyecto) for clave, proyecto in entradas if not _same_path(proyecto, cwd)]
+    if len(restantes) == len(entradas):
+        return False
+    try:
+        if restantes:
+            ruta.write_text(
+                "".join(f"[projects.{clave}]\ntrust_level = \"trusted\"\n" for clave, _ in restantes),
+                encoding="utf-8",
+            )
+            return False
+        ruta.unlink()
+    except OSError:
+        return False
+    return True
+
+
+def _sweep_own_entry(reviewer_id: str, home: Path, cwd: Path) -> None:
+    """The cleanup's sweep, serialised with the other attempts of this reviewer.
+
+    Two overlapping cleanups, or a cleanup and a preparation, must not read
+    and rewrite the same file at once. A lock that stays busy means the entry
+    stays too, and the next attempt fails closed and names it.
+    """
+    try:
+        with Lock(lock_path(reviewer_id)):
+            sweep_trust_state(home, cwd)
+    except Refused:
+        pass
 
 
 def system_config_dir() -> Path:
@@ -715,8 +897,20 @@ def prepare(
     `argv` is the recipe as `fill_argv` built it, native executable first. The
     result appends the machine's `skills.config`, fixes the environment and
     the private cwd, and records what it did. `relax` exists for the hostile
-    test's controls and nowhere else: each value switches off one rule so
-    that the control differs from the recipe in that rule alone.
+    test and nowhere else; the runner never passes it. Each value switches
+    off one rule so that a control differs from the recipe in that rule alone:
+
+    - `home_invariants`: the home is not checked for the sources the policy
+      forbids (the control of the planted `AGENTS.md`);
+    - `skills_config`: the inventory is not appended (the control of the
+      planted user skill);
+    - `private_cwd`: the attempt runs from `cwd` instead of a fresh private
+      directory (the hostile repository only attacks from inside);
+    - `ancestors`: the ancestors of that cwd are not checked for a git
+      repository. The hostile repository IS one, so with `private_cwd` alone
+      `check_ancestors` refused the attempt before the inference the test
+      pays for. Only the two tests that run from inside that repository relax
+      it; nothing else does, and `check_ancestors` itself did not change.
     """
     home = home_dir(reviewer_id)
     with Lock(lock_path(reviewer_id)):
@@ -727,16 +921,26 @@ def prepare(
         check_system_config()
         if cwd is not None and "private_cwd" in relax:
             privado = cwd
-            limpiar: Callable[[], None] = lambda: None
+            limpiar: Callable[[], None] = lambda: _sweep_own_entry(reviewer_id, home, privado)
         else:
             work_dir(reviewer_id).mkdir(parents=True, exist_ok=True)
-            privado = Path(tempfile.mkdtemp(prefix="attempt-", dir=work_dir(reviewer_id)))
-            limpiar = lambda: shutil.rmtree(privado, ignore_errors=True)
-        try:
-            check_ancestors(privado)
-        except Refused:
-            limpiar()
-            raise
+            privado = Path(tempfile.mkdtemp(prefix=ATTEMPT_PREFIX, dir=work_dir(reviewer_id)))
+
+            def limpiar() -> None:
+                shutil.rmtree(privado, ignore_errors=True)
+                # Lo que el CLI dejo en el home al correr desde este cwd, para
+                # que entre intentos el home este como la politica lo describe.
+                _sweep_own_entry(reviewer_id, home, privado)
+        if "ancestors" not in relax:
+            try:
+                check_ancestors(privado)
+            except Refused:
+                # Nada corrio todavia, asi que no hay confianza que barrer, y
+                # el lock sigue tomado: el barrido lo pediria y esperaria su
+                # propio timeout. Solo el directorio privado, si es nuestro.
+                if cwd is None or "private_cwd" not in relax:
+                    shutil.rmtree(privado, ignore_errors=True)
+                raise
     env = child_env(home)
     try:
         programa = program_of(argv)

@@ -31,6 +31,10 @@ from disensor.codex_home import (
     check_home,
     child_env,
     inventory,
+    is_trust_state,
+    sweep_trust_state,
+    trust_entries,
+    trust_paths,
     native_executable,
     prepare,
     skills_config_arg,
@@ -293,6 +297,233 @@ def test_each_source_the_policy_closes_breaks_the_home(tmp_path, nombre, como):
     assert not (tmp_path / "i").exists(), "el intento se corto antes de correr nada"
 
 
+# Lo que codex-cli 0.153.4 escribe en CODEX_HOME/config.toml al terminar cada
+# exec, tal cual (ruta en minusculas, comillas simples, barras de Windows).
+CONFIANZA_DE_CODEX = (
+    "[projects.'c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc']\n"
+    'trust_level = "trusted"\n'
+)
+
+
+def como_la_escribe_el_cli(ruta) -> str:
+    """La ruta como el CLI la anota: en minusculas en Windows, tal cual en POSIX.
+
+    `normcase` hace la misma distincion al comparar; bajar a minusculas tambien
+    en POSIX hizo fallar el CI de Linux (`Hostil` no es `hostil` ahi)."""
+    return str(ruta).lower() if os.name == "nt" else str(ruta)
+
+
+def confianza(*rutas) -> str:
+    """El mismo archivo, con las rutas dadas, como las escribe el CLI."""
+    return "".join(f"[projects.'{como_la_escribe_el_cli(r)}']\ntrust_level = \"trusted\"\n" for r in rutas)
+
+
+# Un CLI que, como el real de 0.153.4, anota la confianza del cwd en el home
+# antes de contestar: la ruta en minusculas y entre comillas simples.
+ANOTA_CONFIANZA = """import json, os, sys
+from pathlib import Path
+if sys.argv[1:3] == ["login", "status"]:
+    print("Logged in using ChatGPT")
+    sys.exit(0)
+if sys.argv[1:2] == ["--version"]:
+    sys.exit(0)
+home = Path(os.environ["CODEX_HOME"])
+cwd = os.getcwd().lower() if os.name == "nt" else os.getcwd()
+with open(home / "config.toml", "a", encoding="utf-8") as f:
+    f.write("[projects.'" + cwd + "']" + chr(10) + 'trust_level = "trusted"' + chr(10))
+Path(sys.argv[4]).write_text(json.dumps({"argv": sys.argv, "cwd": os.getcwd()}), encoding="utf-8")
+sys.exit(0)
+"""
+
+
+@pytest.mark.parametrize("texto", [
+    CONFIANZA_DE_CODEX,
+    CONFIANZA_DE_CODEX * 3,
+    "\n" + CONFIANZA_DE_CODEX + "\n\n[projects.\"/home/u/.disensor/reviewers/codex/work/attempt-x\"]\ntrust_level = \"trusted\"\n",
+    "[projects.'C:\\\\x']\ntrust_level=\"trusted\"",
+])
+def test_the_trust_the_cli_records_per_cwd_is_recognised(texto):
+    assert is_trust_state(texto)
+    assert trust_paths(texto) and all(p for p in trust_paths(texto))
+
+
+def test_the_recogniser_returns_the_paths_as_written():
+    texto = CONFIANZA_DE_CODEX + "[projects.\"/home/u/x\"]\ntrust_level = \"trusted\"\n"
+    assert trust_paths(texto) == ["c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc", "/home/u/x"]
+    claves = [clave for clave, _ in trust_entries(texto)]
+    assert claves == ["'c:\\users\\usuario\\.disensor\\reviewers\\codex\\work\\attempt-abc'", '"/home/u/x"']
+
+
+@pytest.mark.parametrize("texto", [
+    "",
+    "model = \"gpt\"\n",
+    CONFIANZA_DE_CODEX + "model = \"gpt\"\n",
+    "# comentario\n" + CONFIANZA_DE_CODEX,
+    "[projects.'a']\n",
+    "trust_level = \"trusted\"\n",
+    "[projects.'a']\n[projects.'b']\ntrust_level = \"trusted\"\n",
+    "[profiles.x]\ntrust_level = \"trusted\"\n",
+    "[projects.'a']\ntrust_level = \"trusted\"\nmodel = \"gpt\"\n",
+    # Ronda 1: una clave sin comillas no es la forma que el CLI escribe; con el
+    # punto es una tabla anidada y con los dos puntos ni siquiera es TOML.
+    "[projects.foo.bar]\ntrust_level = \"trusted\"\n",
+    "[projects.foo:bar]\ntrust_level = \"trusted\"\n",
+    "[projects.foo]\ntrust_level = \"trusted\"\n",
+    # Ronda 2: entre comillas tampoco entra cualquier cosa. La clave vacia, un
+    # escape que TOML no admite en una cadena basica, y un valor que la receta
+    # no provoca (el CLI escribe "trusted" con el bypass) no son esta forma.
+    "[projects.\"\"]\ntrust_level = \"trusted\"\n",
+    "[projects.'']\ntrust_level = \"trusted\"\n",
+    "[projects.\"x\\\\q\"]\ntrust_level = \"trusted\"\n",
+    "[projects.'a']\ntrust_level = \"made_up\"\n",
+    "[projects.'a']\ntrust_level = \"untrusted\"\n",
+])
+def test_anything_but_that_trust_is_configuration(texto):
+    assert not is_trust_state(texto)
+    assert trust_paths(texto) is None
+
+
+def test_a_trust_file_left_behind_refuses_the_next_attempt_and_says_what_it_is(tmp_path):
+    """codex-cli 0.153.4 anota el cwd de cada exec como confiable en
+    CODEX_HOME/config.toml (medido el 2026-10-15 con un modelo inexistente, sin
+    inferencia). Lo barre el cleanup del intento que lo produjo, y nadie mas:
+    nada se barre antes del chequeo (rondas 3, 5 y 6: la forma, un directorio
+    bajo work/ y un nombre attempt-* se escriben a mano igual). Un archivo
+    que quedo, de un intento matado antes de limpiar o del dueño, corta el
+    intento siguiente, y el detalle dice que es y que hacer."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    (home / "config.toml").write_text(
+        confianza(codex_home.work_dir("codex") / "attempt-abc"), encoding="utf-8",
+    )
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "context_unverified"
+    assert "config.toml" in intento["detail"] and "cleanup" in intento["detail"]
+    assert (home / "config.toml").exists(), "nada se barre antes del chequeo"
+    assert not (tmp_path / "i").exists(), "el intento se corto antes de correr nada"
+
+
+def test_two_attempts_in_a_row_with_a_cli_that_records_trust_both_run(tmp_path):
+    """La forma real del fallo: un CLI que anota la confianza al correr. El
+    primer intento la deja y su cleanup la barre, porque es la entrada de su
+    propio cwd; el segundo encuentra el home como la politica lo describe."""
+    home = codex_home.home_dir("codex")
+    script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
+    primero = run_reviewer(entrada(script), "p", tmp_path / "i1", 60)
+    assert primero["outcome"] == "ok", primero
+    assert not (home / "config.toml").exists(), "el cleanup del intento barre lo que el CLI dejo"
+    segundo = run_reviewer(entrada(script), "p", tmp_path / "i2", 60)
+    assert segundo["outcome"] == "ok", segundo
+    assert not (home / "config.toml").exists()
+
+
+@pytest.mark.parametrize("texto", [
+    CONFIANZA_DE_CODEX + 'model = "gpt"\n',
+    "[projects.\"x\\\\q\"]\ntrust_level = \"trusted\"\n",
+    "[projects.\"\"]\ntrust_level = \"made_up\"\n",
+    # Ronda 3: la forma exacta pero la ruta de un proyecto del dueño. Escrito a
+    # mano en el home tiene la misma sintaxis que lo que el CLI deja, y no es
+    # nuestro: se queda, y el intento se corta.
+    "[projects.'D:\\\\permanent-project']\ntrust_level = \"trusted\"\n",
+    "[projects.\"/home/u/proyecto\"]\ntrust_level = \"trusted\"\n",
+])
+def test_a_config_file_with_anything_else_still_breaks_the_home(tmp_path, texto):
+    """El barrido no toca configuracion: una clave mas, un escape invalido, un
+    valor que el CLI no escribe (ronda 2) o una ruta que no es de esta
+    politica (ronda 3), y el archivo queda donde estaba y el intento se corta
+    como antes."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    (home / "config.toml").write_text(texto, encoding="utf-8")
+    assert not sweep_trust_state(home, tmp_path / "un-intento")
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "context_unverified" and "config.toml" in intento["detail"]
+    assert (home / "config.toml").read_text(encoding="utf-8") == texto
+
+
+@pytest.mark.parametrize("relativa", [
+    "permanent-project",          # hijo directo de work/ que no es un intento (ronda 5)
+    "attempt-manual",             # el nombre de un intento, escrito a mano (ronda 6)
+    "attempt-abc/sub",            # un descendiente de un intento
+    "attempts/attempt-abc",       # otro padre
+])
+def test_the_cleanup_disposes_only_of_the_entry_for_its_own_cwd(tmp_path, relativa):
+    """La unica procedencia que la politica puede probar es el cwd del intento
+    que acaba de correr: un directorio bajo work/ (ronda 5) o un nombre
+    attempt-* (ronda 6) se escriben a mano igual, y los directorios que la
+    politica creo antes ya no existen. El cleanup de un intento barre solo la
+    entrada de su propio cwd; cualquier otra ruta deja el archivo."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    trabajo = codex_home.work_dir("codex")
+    texto = confianza(trabajo / relativa)
+    (home / "config.toml").write_text(texto, encoding="utf-8")
+    assert not sweep_trust_state(home, trabajo / "attempt-abc")
+    assert (home / "config.toml").read_text(encoding="utf-8") == texto
+    (home / "config.toml").write_text(confianza(trabajo / "attempt-abc"), encoding="utf-8")
+    assert sweep_trust_state(home, trabajo / "attempt-abc"), "la entrada del propio cwd si"
+
+
+def test_a_foreign_entry_next_to_ours_stays_and_ours_goes(tmp_path):
+    """El barrido quita la entrada propia y deja las demas tal cual, con su
+    comilla original: la ajena sigue ahi, y el intento siguiente se corta."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    propio = codex_home.work_dir("codex") / "attempt-abc"
+    ajena = "[projects.\"/home/u/permanent-project\"]\ntrust_level = \"trusted\"\n"
+    (home / "config.toml").write_text(confianza(propio) + ajena, encoding="utf-8")
+    assert not sweep_trust_state(home, propio), "el archivo sigue: queda la ajena"
+    assert (home / "config.toml").read_text(encoding="utf-8") == ajena
+    intento = run_reviewer(entrada(cli_falso(tmp_path, "vuelca", VUELCA)), "p", tmp_path / "i", 60)
+    assert intento["outcome"] == "context_unverified" and "config.toml" in intento["detail"]
+
+
+def test_two_overlapping_attempts_each_remove_their_own_entry(tmp_path):
+    """La ronda 7 sobre este cambio: el lock cubre la preparacion y no la
+    corrida, asi que dos intentos pueden pasar `check_home` con el home vacio y
+    correr a la vez, y con 0.153.4 los dos anotan su cwd en el mismo archivo.
+    Un cleanup que exigia que el archivo entero fuera suyo dejaba las dos
+    entradas, y todos los intentos siguientes se cortaban hasta que el dueño
+    borrara el archivo. Ahora cada cleanup quita la suya y el ultimo borra el
+    archivo. Determinista: las dos preparaciones antes de las dos corridas."""
+    home = codex_home.home_dir("codex")
+    script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
+    argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
+    a = prepare("codex", argv)
+    b = prepare("codex", argv)
+    assert a.cwd != b.cwd
+    for lanzamiento in (a, b):
+        subprocess.run(lanzamiento.argv, cwd=str(lanzamiento.cwd), env=lanzamiento.env, input=b"p", check=True)
+    assert len(trust_paths((home / "config.toml").read_text(encoding="utf-8"))) == 2
+    a.cleanup()
+    assert trust_paths((home / "config.toml").read_text(encoding="utf-8")) == [como_la_escribe_el_cli(b.cwd)]
+    b.cleanup()
+    assert not (home / "config.toml").exists()
+    tercero = run_reviewer(entrada(script), "p", tmp_path / "i3", 60)
+    assert tercero["outcome"] == "ok", tercero
+
+
+def test_the_cleanup_disposes_of_the_entry_for_the_attempts_own_cwd(tmp_path):
+    """Con el cwd privado relajado (la prueba hostil corre desde su propio
+    directorio), lo que el CLI anota es ese cwd: el cleanup lo barre porque es
+    el cwd del intento que limpia."""
+    home = codex_home.home_dir("codex")
+    home.mkdir(parents=True)
+    cwd = tmp_path / "Hostil"
+    cwd.mkdir()
+    (home / "config.toml").write_text(confianza(cwd), encoding="utf-8")
+    assert not sweep_trust_state(home, tmp_path / "otro"), "para otro intento esa ruta es ajena"
+    assert sweep_trust_state(home, cwd), "para el intento que corrio ahi es suya"
+    assert not (home / "config.toml").exists()
+    script = cli_falso(tmp_path, "anota", ANOTA_CONFIANZA)
+    argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
+    lanzamiento = prepare("codex", argv, relax=frozenset({"private_cwd", "ancestors"}), cwd=cwd)
+    subprocess.run(lanzamiento.argv, cwd=str(lanzamiento.cwd), env=lanzamiento.env, input=b"p", check=True)
+    assert trust_paths((home / "config.toml").read_text(encoding="utf-8")) == [como_la_escribe_el_cli(cwd)]
+    lanzamiento.cleanup()
+    assert not (home / "config.toml").exists(), "el cleanup barrio la entrada de su propio cwd"
+
+
 def test_a_link_in_the_home_with_a_closed_name_breaks_it_too(tmp_path):
     home = codex_home.home_dir("codex")
     home.mkdir(parents=True)
@@ -428,6 +659,46 @@ def test_relaxing_the_private_cwd_runs_from_the_given_directory(tmp_path):
     lanzamiento = prepare("codex", argv, relax=frozenset({"private_cwd"}), cwd=repo)
     lanzamiento.cleanup()
     assert lanzamiento.cwd == repo and repo.exists()
+
+
+def test_relaxing_the_ancestors_check_lets_the_attempt_run_from_inside_a_repository(tmp_path):
+    """El fixture del repositorio hostil es un repositorio git: con el cwd
+    privado relajado adentro de el, `check_ancestors` cortaba el intento antes
+    de la inferencia (los dos fallos del primer smoke de la politica). La clave
+    `ancestors` apaga ese chequeo, y solo ese: el home, el entorno y el
+    `skills.config` siguen."""
+    script = cli_falso(tmp_path, "vuelca", VUELCA)
+    argv = [sys.executable, script, "exec", "-m", "m", str(tmp_path / "i")]
+    repo = tmp_path / "hostil"
+    (repo / ".git").mkdir(parents=True)
+    with pytest.raises(Refused, match="git repository"):
+        prepare("codex", argv, relax=frozenset({"private_cwd"}), cwd=repo)
+    lanzamiento = prepare("codex", argv, relax=frozenset({"private_cwd", "ancestors"}), cwd=repo)
+    lanzamiento.cleanup()
+    assert lanzamiento.cwd == repo
+    assert lanzamiento.env["CODEX_HOME"] == str(codex_home.home_dir("codex"))
+    assert lanzamiento.argv[-1].startswith("skills.config=")
+
+
+def test_the_runner_never_relaxes_a_rule(tmp_path, monkeypatch):
+    """`run_reviewer` llama a `prepare` con la entrada y el argv, y nada mas:
+    sin `relax` y sin `cwd`. Las claves de relajacion existen para la prueba
+    hostil; si el runner pasara alguna, la politica que el intento registra no
+    seria la que corrio."""
+    llamadas = []
+    original = codex_home.prepare
+
+    def espia(*args, **kwargs):
+        llamadas.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(codex_home, "prepare", espia)
+    datos = volcado(tmp_path, cli_falso(tmp_path, "vuelca", VUELCA))
+    assert len(llamadas) == 1
+    (args, kwargs), = llamadas
+    assert kwargs == {}, f"el runner relajo algo: {kwargs}"
+    assert args[0] == "codex" and len(args) == 2
+    assert datos["intento"]["isolation"] == POLICY
 
 
 def test_relaxing_the_home_invariants_lets_a_planted_agents_file_through(tmp_path):
@@ -639,9 +910,9 @@ def test_an_untested_version_runs_under_the_policy_but_is_not_certified(tmp_path
     """`verified` no se extiende solo a lo que nadie probo: el intento corre con
     el home aislado igual, registra la version, y la declaracion lo degrada."""
     monkeypatch.setattr(codex_home, "_platform_key", lambda: ("win32", "x64"))
-    intento = run_reviewer(entrada(_con_version(tmp_path, "0.162.1")), "p", tmp_path / "i", 60)
+    intento = run_reviewer(entrada(_con_version(tmp_path, "0.999.0")), "p", tmp_path / "i", 60)
     assert intento["outcome"] == "ok" and intento["isolation"] == POLICY
-    assert intento["cli_version"] == "0.162.1" and intento["certified"] is False
+    assert intento["cli_version"] == "0.999.0" and intento["certified"] is False
 
 
 def test_a_version_that_cannot_be_read_is_not_certified(tmp_path, monkeypatch):
@@ -653,10 +924,11 @@ def test_a_version_that_cannot_be_read_is_not_certified(tmp_path, monkeypatch):
 
 def test_certified_is_a_pair_of_platform_and_version():
     assert codex_home.certified("0.153.4", sistema="win32")
+    assert codex_home.certified("0.162.1", sistema="win32"), "el smoke corrio con los dos binarios el 2026-10-15"
     assert not codex_home.certified("0.153.4", sistema="linux"), "la prueba hostil no corrio ahi"
-    assert not codex_home.certified("0.162.1", sistema="win32")
+    assert not codex_home.certified("0.999.0", sistema="win32")
     assert not codex_home.certified(None, sistema="win32")
-    assert ("win32", "0.153.4") in codex_home.CERTIFIED
+    assert {("win32", "0.153.4"), ("win32", "0.162.1")} <= codex_home.CERTIFIED
 
 
 def test_an_unreadable_subtree_stops_the_inventory(tmp_path, monkeypatch):
