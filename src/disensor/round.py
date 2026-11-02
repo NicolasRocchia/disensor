@@ -914,9 +914,10 @@ def _round(args, repo: Path) -> int:
         variantes = {"inline": (canonical, hashes)}
     elif any(effective_material(e) == "inline" for e, _ in chain):
         diff = gitctx.diff_bytes(merge_base, head, repo)
+        texto, escapado = render_diff(diff)
         con_diff = canonical_pack_text(
             args.gate, repository=repository, base=merge_base, head=head, brief=brief,
-            diff_text=render_diff(diff),
+            diff_text=texto, diff_escaped=escapado,
         )
         variantes["inline"] = (con_diff, {
             "prompt_hash": hash_of(brief),

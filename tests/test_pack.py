@@ -335,7 +335,7 @@ def test_the_canonical_shape_is_pinned_to_the_result_version():
     # leyendo un resultado v4 (#152).
     assert pack_hash(diff) == "sha256:56e47b3a13cf876de3e910a8ccbd1bdf56a892dede91207dff714cf7e731f914"
     assert pack_hash(plan) == "sha256:e20c8e796d63c0193a40da06cfdf0db2c26428a971635b27689fcee2f82d843f"
-    assert pack_hash(inline) == "sha256:f9c2a5c8e2ff68275017fae4b1f495917327a465059e26ce314ca077e06fd551"
+    assert pack_hash(inline) == "sha256:76fbc7c4e80809b1938f8c53fa6d88a6253a48ea0ea6ce27250da07bf4973015"
 
 
 def test_the_inline_diff_goes_last_and_cannot_capture_the_delivery():
@@ -376,12 +376,46 @@ def test_a_diff_that_is_not_utf8_stays_two_materials(tmp_path: Path):
     uno = gitctx.diff_bytes(shas[0], shas[1], tmp_path)
     otro = gitctx.diff_bytes(shas[0], shas[2], tmp_path)
     assert material_hash(uno) != material_hash(otro)
-    assert "+caf\\xe9" in render_diff(uno) and "+caf\\xe8" in render_diff(otro)
-    assert "�" not in render_diff(uno)
-    valido = b"+caf\xc3\xa9\n"
+    barra = chr(92)
+    texto_uno, escapado = render_diff(uno)
+    assert escapado
+    assert "+caf" + barra + "xe9" in texto_uno
+    assert "+caf" + barra + "xe8" in render_diff(otro)[0]
+    assert chr(0xFFFD) not in texto_uno
+    valido = bytes([43, 99, 97, 102, 0xC3, 0xA9, 10])
+    assert render_diff(valido) == ("+café" + chr(10), False)
     assert material_hash(valido) == material_hash(valido.decode("utf-8")), (
         "con un diff UTF-8 el hash de los bytes es el del texto, como el de un plan"
     )
+
+
+def test_an_escaped_diff_cannot_be_read_as_another_one():
+    """El byte 0xE9 y los cuatro caracteres de `\\xe9` en un archivo daban el
+    mismo texto con un escape a medias (hallazgo de la ronda diff 2 de #152).
+    Escapado entero, con las barras dobladas, cada texto vuelve a un solo diff;
+    y el paquete dice cuando el diff viene escapado."""
+    from disensor.pack import render_diff
+
+    barra = bytes([92])
+    byte_e9 = bytes([43, 99, 97, 102, 0xE9, 10])
+    literal = b"+caf" + barra + b"xe9" + bytes([10])
+    ambos = b"+caf" + barra + b"xe9 " + bytes([0xE9, 10])
+
+    texto_byte, escapado_byte = render_diff(byte_e9)
+    texto_literal, escapado_literal = render_diff(literal)
+    assert (escapado_byte, escapado_literal) == (True, False)
+    paquetes = {
+        canonical_pack_text("diff", repository="r", base="a", head="b",
+                            diff_text=texto, diff_escaped=escapado)
+        for texto, escapado in (render_diff(byte_e9), render_diff(literal))
+    }
+    assert len(paquetes) == 2, "el revisor tiene que poder distinguirlos"
+    assert "This diff is not valid UTF-8" in canonical_pack_text(
+        "diff", repository="r", base="a", head="b", diff_text=texto_byte, diff_escaped=True)
+
+    texto_ambos, _ = render_diff(ambos)
+    b = chr(92)
+    assert texto_ambos == "+caf" + b + b + "xe9 " + b + "xe9" + chr(10)
 
 
 def test_only_a_diff_gate_carries_a_diff():

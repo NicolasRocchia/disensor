@@ -117,6 +117,7 @@ def canonical_pack_text(
     material_text: str | None = None,
     brief: str | None = None,
     diff_text: str | None = None,
+    diff_escaped: bool = False,
 ) -> str:
     """The package without its delivery: the text `pack_hash` covers.
 
@@ -126,7 +127,8 @@ def canonical_pack_text(
     `prompt_hash` hashes the one text it read, not two reads that could differ.
     `diff_text` puts the change of a diff gate inside the package, for a
     reviewer that cannot read the range itself; without it the package names
-    the range, as it always did.
+    the range, as it always did. `diff_escaped` is the second half of what
+    `render_diff` returns.
     """
     if gate not in GATES:
         raise ValueError(f"unknown gate '{gate}' (expected one of {', '.join(GATES)})")
@@ -182,8 +184,13 @@ def canonical_pack_text(
             "If your tools can read the local checkout, use it for context. What you are "
             "reviewing is the change at the end.",
             "It is the diff git writes: a binary file appears as a marker and a submodule as "
-            "commit ids, and a byte that is not valid UTF-8 appears as a \\xNN escape.",
+            "commit ids.",
         ]
+        if diff_escaped:
+            parts += [
+                "This diff is not valid UTF-8, so it is escaped: every backslash is doubled and "
+                "every byte that is not UTF-8 appears as \\xNN.",
+            ]
     else:
         parts += ["", f"The material is the {gate} document reproduced at the end of this package."]
 
@@ -294,7 +301,7 @@ def canonical_pack_hash(
     base: str | None = None,
     head: str | None = None,
     material_text: str | None = None,
-    diff_text: str | None = None,
+    diff: bytes | None = None,
 ) -> str:
     """The `pack_hash` a round records: `pack_hash` of `canonical_pack_text`.
 
@@ -302,12 +309,14 @@ def canonical_pack_hash(
     `result_version` names and the brief whose hash is its `prompt_hash`, a
     third party rebuilds exactly that text and compares. A plan or an
     architecture round needs the material as well, and so does a diff round
-    whose diff travelled inline: `material_hash` says whether the document or
-    the regenerated diff in hand is the one.
+    whose diff travelled inline (`diff`, the bytes of `gitctx.diff_bytes`):
+    `material_hash` says whether the document or the regenerated diff in hand
+    is the one.
     """
+    texto, escapado = render_diff(diff) if diff is not None else (None, False)
     return pack_hash(canonical_pack_text(
         gate, repository=repository, base=base, head=head, material_text=material_text,
-        diff_text=diff_text,
+        diff_text=texto, diff_escaped=escapado,
     ))
 
 
@@ -326,12 +335,30 @@ def material_hash(material: str | bytes) -> str:
     return hash_of(material)
 
 
-def render_diff(raw: bytes) -> str:
-    """The diff as text for the package: a byte that is not UTF-8 becomes a `\\xNN` escape.
+def render_diff(raw: bytes) -> tuple[str, bool]:
+    """The diff as text for the package, and whether it had to be escaped.
 
-    Replacing it with U+FFFD would show two different changes as the same one.
+    A diff that is valid UTF-8 travels as it is. One that is not cannot, and
+    any rendering has to keep two different changes apart: replacing a bad
+    byte with U+FFFD did not, and escaping it as `\\xNN` alone did not either,
+    since the four characters `\\xe9` already in a file read the same. So the
+    whole diff is escaped: every backslash doubled, every byte that is not
+    UTF-8 as `\\xNN`, and the package says so.
     """
-    return raw.decode("utf-8", "backslashreplace")
+    try:
+        return raw.decode("utf-8"), False
+    except UnicodeDecodeError:
+        pass
+    partes = []
+    for c in raw.decode("utf-8", "surrogateescape"):
+        punto = ord(c)
+        if 0xDC80 <= punto <= 0xDCFF:
+            partes.append(f"\\x{punto - 0xDC00:02x}")
+        elif c == "\\":
+            partes.append("\\\\")
+        else:
+            partes.append(c)
+    return "".join(partes), True
 
 
 def main_pack(args) -> int:
@@ -370,9 +397,10 @@ def main_pack(args) -> int:
         elif inline:
             raise ValueError("--inline needs --base and --head: the diff is the range")
         diff = gitctx.diff_bytes(base, head, pedido) if inline else None
+        texto, escapado = render_diff(diff) if diff is not None else (None, False)
         canonical = canonical_pack_text(
             args.gate, repository=repository, base=base, head=head, material_text=material_text,
-            brief=brief, diff_text=render_diff(diff) if diff is not None else None,
+            brief=brief, diff_text=texto, diff_escaped=escapado,
         )
     except (ValueError, OSError, gitctx.GitError) as exc:
         print(f"pack: {exc}")
