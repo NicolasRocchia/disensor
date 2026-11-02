@@ -8,3 +8,7 @@ updates:
       # El pin del auto-gate sube a mano despues de cada release, en un PR
       # que lleva su ronda; un PR de Dependabot no trae declaracion.
       - dependency-name: "NicolasRocchia/disensor"
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
