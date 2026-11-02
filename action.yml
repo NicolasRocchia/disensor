@@ -18,7 +18,7 @@ inputs:
     required: false
     default: 'disensor.config.json'
   python-version:
-    description: 'Python version for the gate.'
+    description: 'Python version for the gate: CPython 3.10 or later. Dependencies install from wheels only, so a version without a wheel for every locked dependency cannot run it (3.13 free-threaded and 3.10 on Windows ARM, today).'
     required: false
     default: '3.12'
 runs:
@@ -35,11 +35,28 @@ runs:
     # own pip here, installs whatever it wants as `disensor`, and the next step
     # hands it the verdict. Pinning this action by SHA does not help: the
     # hijacked code comes from the tree being judged.
+    #
+    # Nothing is resolved at run time: dependencies come from the hashed lock,
+    # as wheels, and disensor builds with the locked setuptools. The venv is
+    # load bearing too: `--require-hashes` only checks what pip downloads, and
+    # a package already installed at the locked version, as the interpreter of
+    # a self-hosted runner can carry, would be accepted without its hash.
     - name: Install disensor
+      id: install
       shell: bash
-      run: python -I -m pip install --quiet "${{ github.action_path }}"
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        VENV: ${{ runner.temp }}/disensor-venv
+        BIN: ${{ runner.os == 'Windows' && 'Scripts/python.exe' || 'bin/python' }}
+      run: |
+        python -I -m venv --clear "$VENV"
+        "$VENV/$BIN" -I -m pip install --quiet --disable-pip-version-check --require-hashes --no-deps --only-binary :all: -r "$ACTION_PATH/requirements-action.txt"
+        "$VENV/$BIN" -I -m pip install --quiet --disable-pip-version-check --no-deps --no-build-isolation --no-index "$ACTION_PATH"
+        echo "python=$VENV/$BIN" >> "$GITHUB_OUTPUT"
     - name: Run the gate
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-      run: python -I -m disensor gate --directory "${{ inputs.directory }}" --config "${{ inputs.config }}"
+        DISENSOR_PYTHON: ${{ steps.install.outputs.python }}
+      run: |
+        "$DISENSOR_PYTHON" -I -m disensor gate --directory "${{ inputs.directory }}" --config "${{ inputs.config }}"
