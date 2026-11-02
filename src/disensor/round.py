@@ -39,14 +39,24 @@ from pathlib import Path
 from . import __version__, codex_home, gitctx, programs
 from .brief import brief_text, hash_of
 from .gate import GateFailure, classify_requirement, resolve_context
-from .pack import canonical_pack_text, deliver, material_hash, pack_hash, read_material
+from .pack import (
+    canonical_pack_text,
+    deliver,
+    material_hash,
+    pack_hash,
+    read_material,
+    render_diff,
+)
 from .reviewers import (
     CATALOG,
     ReviewerError,
     consent_record,
     describe_consent,
+    effective_material,
     executable_fingerprint,
     has_consent,
+    inline_limit,
+    inline_limit_required,
     load_registry,
 )
 
@@ -64,7 +74,10 @@ from .reviewers import (
 # campos aditivos de `observed`, y `new --round` tolera que un resultado
 # guardado antes no los traiga. Por eso no suben el ordinal. La procedencia del
 # consentimiento de cada intento (#84) tampoco, por el mismo motivo.
-RESULT_VERSION = "disensor/round-result/v4"
+# v5: la forma de v4 mas su variante con el diff adentro, para un revisor que
+# no puede correr git (#152). Las formas de v4 no cambiaron: `new --round`
+# sigue leyendo un v4.
+RESULT_VERSION = "disensor/round-result/v5"
 
 # Codigos de salida, uno por desenlace. Un llamador automatizado no deberia
 # tener que leer prosa para saber que paso, y "no se requiere ronda" no puede
@@ -307,6 +320,114 @@ def fill_argv(
     return argv
 
 
+def inline_refusal(entry: dict, package: str) -> dict | None:
+    """Why this reviewer does not get a package with the material inside, if it does not.
+
+    Checked before anything is sent: a package cut to fit a context window is a
+    review of part of the material, and the round cannot see the cut (#152).
+    """
+    tope = inline_limit(entry)
+    if tope is None:
+        if not inline_limit_required(entry):
+            return None
+        return {
+            "id": entry["id"],
+            "outcome": "inline_limit_unset",
+            "detail": (
+                "this reviewer gets the material inside its package, and its backend may cut a "
+                "prompt longer than its context window without saying so. How much fits is the "
+                "owner's to say: register it again with --max-inline-bytes N, N being what fits "
+                "in the model's effective context window with room for the answer"
+            ),
+        }
+    largo = len(package.encode("utf-8"))
+    if largo > tope:
+        return {
+            "id": entry["id"],
+            "outcome": "material_too_large",
+            "detail": (
+                f"the package is {largo} bytes and this reviewer takes at most {tope} "
+                "(--max-inline-bytes)"
+            ),
+        }
+    return None
+
+
+WINDOWS_COMMAND_LINE = 32767
+LINUX_ARG_STRLEN = 131072
+SCRIPT_LAUNCHERS = {".cmd", ".bat"}
+
+
+def argv_refusal(
+    entry: dict, argv: list[str], env: dict | None, *,
+    windows: bool = os.name == "nt", linux: bool = sys.platform.startswith("linux"),
+    arg_max: int | None = None,
+) -> dict | None:
+    """Why the package cannot travel in this argv, measured on the line the system gets.
+
+    Only for a recipe that passes the package as an argument. On Windows the
+    limit is the whole command line `CreateProcess` receives, quoting included,
+    and a .cmd or .bat launcher goes through cmd.exe, which cuts an argument at
+    its first line break: the reviewer would get the first line of the package.
+    """
+    if "{pack}" not in list(entry.get("command", [])):
+        return None
+    if windows:
+        if Path(argv[0]).suffix.lower() in SCRIPT_LAUNCHERS:
+            return {
+                "id": entry["id"],
+                "outcome": "not_runnable",
+                "detail": (
+                    f"{argv[0]} is a {Path(argv[0]).suffix} launcher, and cmd.exe cuts an argument "
+                    "at its first line break: the reviewer would get the first line of the package. "
+                    "Register the native executable of the CLI instead"
+                ),
+            }
+        unidades = len(subprocess.list2cmdline(argv).encode("utf-16-le")) // 2 + 1
+        if unidades > WINDOWS_COMMAND_LINE:
+            return {
+                "id": entry["id"],
+                "outcome": "material_too_large",
+                "detail": (
+                    f"the command line would be {unidades} UTF-16 code units with its terminator, "
+                    f"and Windows takes at most {WINDOWS_COMMAND_LINE}"
+                ),
+            }
+        return None
+    if linux:
+        mayor = max(len(os.fsencode(a)) + 1 for a in argv)
+        if mayor > LINUX_ARG_STRLEN:
+            return {
+                "id": entry["id"],
+                "outcome": "material_too_large",
+                "detail": (
+                    f"an argument would be {mayor} bytes with its terminator, and Linux takes at "
+                    f"most {LINUX_ARG_STRLEN} in one argument"
+                ),
+            }
+    if arg_max is None:
+        try:
+            arg_max = os.sysconf("SC_ARG_MAX")
+        except (AttributeError, ValueError, OSError):
+            arg_max = -1
+    if arg_max <= 0:
+        return None
+    entorno = os.environ if env is None else env
+    total = sum(len(os.fsencode(a)) + 1 for a in argv)
+    total += sum(len(os.fsencode(f"{k}={v}")) + 1 for k, v in entorno.items())
+    total += 8 * (len(argv) + len(entorno) + 2)
+    if total > arg_max:
+        return {
+            "id": entry["id"],
+            "outcome": "material_too_large",
+            "detail": (
+                f"the arguments and the environment would take {total} bytes, and this system "
+                f"takes at most {arg_max}"
+            ),
+        }
+    return None
+
+
 def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
     """Run one reviewer. Returns what was observed, never an opinion about it."""
     # La ruta absoluta y no el nombre: en Windows un CLI instalado por npm es un
@@ -379,7 +500,10 @@ def run_reviewer(entry: dict, package: str, report: Path, timeout: int) -> dict:
             ),
         }
     try:
-        intento = _run_prepared(entry, lanzamiento, package, report, timeout)
+        intento = (
+            argv_refusal(entry, lanzamiento.argv, lanzamiento.env)
+            or _run_prepared(entry, lanzamiento, package, report, timeout)
+        )
     finally:
         lanzamiento.cleanup()
     intento.update(lanzamiento.observed)
@@ -782,6 +906,25 @@ def _round(args, repo: Path) -> int:
             )
         return CHAIN_EXHAUSTED
 
+    # La variante con el diff adentro, para un revisor que no puede correr git
+    # (#152). Se arma antes de correr a nadie, como la otra, y solo si alguien
+    # de la cadena la va a recibir.
+    variantes = {"reference": (canonical, hashes)}
+    if args.gate != "diff":
+        variantes = {"inline": (canonical, hashes)}
+    elif any(effective_material(e) == "inline" for e, _ in chain):
+        diff = gitctx.diff_bytes(merge_base, head, repo)
+        texto, escapado = render_diff(diff)
+        con_diff = canonical_pack_text(
+            args.gate, repository=repository, base=merge_base, head=head, brief=brief,
+            diff_text=texto, diff_escaped=escapado,
+        )
+        variantes["inline"] = (con_diff, {
+            "prompt_hash": hash_of(brief),
+            "pack_hash": pack_hash(con_diff),
+            "material_hash": material_hash(diff),
+        })
+
     attempts = []
     usado = None
     # Directorio privado y unico, fuera del repositorio: una ruta compartida
@@ -818,6 +961,29 @@ def _round(args, repo: Path) -> int:
                     ),
                 })
                 continue
+            entrega = (
+                "reference" if args.gate == "diff" and effective_material(entry) == "agentic"
+                else "inline"
+            )
+            candidato = Path(tmp) / f"report-{numero}-{entry['id']}.md"
+            # El revisor corre desde un directorio temporal y solo sabe donde
+            # esta el codigo por este texto: la ruta local del checkout viaja
+            # como entrega, junto con la ruta de su informe, fuera del hash.
+            # El hash cubre el texto canonico, con la identidad del repositorio
+            # y sin la rama: lo unico que otro puede recomputar.
+            # Y la nota de que la receta no carga los archivos de instrucciones
+            # del checkout, solo cuando el endurecimiento es el GANADO (la
+            # entrada ya paso por effective_hardening): para una entrada que
+            # copio el argv, o que nunca vino del catalogo, seria falsa (#91).
+            paquete = deliver(
+                variantes[entrega][0], checkout=str(repo), report=str(candidato),
+                instructions_disabled=(entry.get("hardening") == "verified"),
+            )
+            rechazo = inline_refusal(entry, paquete) if entrega == "inline" else None
+            if rechazo is not None:
+                rechazo.update(independence=independence, material=entrega)
+                attempts.append(rechazo)
+                continue
             # Como se dio el consentimiento que autoriza este envio (#84): a la
             # vista de quien corre la ronda, que muchas veces es un agente que
             # se lo cuenta al dueño, y en el intento, bajo `observed`, para que
@@ -830,27 +996,15 @@ def _round(args, repo: Path) -> int:
                     f"round: consent for {entry['id']} to receive the material of {repository}: "
                     f"{describe_consent(consentimiento)}"
                 )
-            candidato = Path(tmp) / f"report-{numero}-{entry['id']}.md"
-            # El revisor corre desde un directorio temporal y solo sabe donde
-            # esta el codigo por este texto: la ruta local del checkout viaja
-            # como entrega, junto con la ruta de su informe, fuera del hash.
-            # El hash cubre el texto canonico, con la identidad del repositorio
-            # y sin la rama: lo unico que otro puede recomputar.
-            # Y la nota de que la receta no carga los archivos de instrucciones
-            # del checkout, solo cuando el endurecimiento es el GANADO (la
-            # entrada ya paso por effective_hardening): para una entrada que
-            # copio el argv, o que nunca vino del catalogo, seria falsa (#91).
-            paquete = deliver(
-                canonical, checkout=str(repo), report=str(candidato),
-                instructions_disabled=(entry.get("hardening") == "verified"),
-            )
             intento = run_reviewer(entry, paquete, candidato, args.timeout)
             intento["independence"] = independence
+            intento["material"] = entrega
             if consentimiento is not None:
                 intento["consent"] = consentimiento
             attempts.append(intento)
             if intento["outcome"] == "ok":
                 usado = (entry, independence)
+                hashes = variantes[entrega][1]
                 report = candidato
                 break
 
@@ -924,6 +1078,9 @@ def _round(args, repo: Path) -> int:
 
     if usado is None:
         sin_permiso = [a for a in attempts if a["outcome"] == "no_consent"]
+        sin_lugar = [
+            a for a in attempts if a["outcome"] in ("inline_limit_unset", "material_too_large")
+        ]
         if sin_permiso:
             estado(
                 "round: no reviewer ran because sending this repository's material was not "
@@ -932,7 +1089,15 @@ def _round(args, repo: Path) -> int:
                 "reviewer, whose material never leaves the machine. An agent stops here and "
                 "asks them."
             )
-        else:
+        if sin_lugar:
+            for a in sin_lugar:
+                estado(f"round: {a['id']} was skipped before receiving anything: {a['detail']}")
+            estado(
+                "round: no reviewer could take the material whole, and none gets part of it. "
+                "Set --max-inline-bytes where the model's context allows it, split the change, "
+                "or register a reviewer that reads the range with git itself."
+            )
+        if not sin_permiso and not sin_lugar:
             estado("round: every registered reviewer failed. See the attempts in the result.")
         return CHAIN_EXHAUSTED
 

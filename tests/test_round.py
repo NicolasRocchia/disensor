@@ -53,6 +53,10 @@ def entrada(nombre: str, familia: str, command: list[str], **extra) -> dict:
         "executable": command[0],
         "hardening": "unverified",
     }
+    if extra.get("source") != "catalog":
+        # Un revisor de mentira no lee nada: agentico y con un tope holgado,
+        # para que lo que no es de #152 siga probando lo suyo.
+        base.update(material="agentic", max_inline_bytes=10**9)
     base.update(extra)
     return base
 
@@ -390,7 +394,7 @@ def test_a_full_round_leaves_the_tree_clean_and_anchors_the_result(
 
     # El resultado lleva la forma vigente del paquete y dice con que version
     # de disensor se armo.
-    assert r["result_version"] == "disensor/round-result/v4"
+    assert r["result_version"] == "disensor/round-result/v5"
     assert r["disensor_version"] == __version__
     assert r["repository"] == gitctx.normalize_repository("https://github.com/mio/repo.git")
     # Y su pack_hash se recomputa desde el propio resultado: sin la ruta local
@@ -579,7 +583,7 @@ def test_a_consent_given_from_a_subdirectory_serves_the_round_from_the_root(
 
     comando = revisor_falso(tmp_path, "nube", ESCRIBE_Y_SALE_BIEN)
     assert cli("reviewer", "add", "nube", "--family", "openai", "--model", "m", "--egress", "cloud",
-               "--stdin", "pack", "--yes", "--command", *comando) == 0
+               "--stdin", "pack", "--material", "agentic", "--yes", "--command", *comando) == 0
     monkeypatch.chdir(repo / "sub")
     assert cli("reviewer", "consent", "nube") == 0
     capsys.readouterr()
@@ -1286,8 +1290,11 @@ sys.exit(0)
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
     argv = revisor_falso(tmp_path, "eco", ECO)
     receta = {"family": "openai", "model": "eco", "command": argv, "stdin": "pack",
-              "hardening": "verified", "egress": "local", "provider": "test"}
+              "material": "agentic", "hardening": "verified", "egress": "local", "provider": "test"}
+    from disensor import reviewers
+
     monkeypatch.setattr(ronda, "CATALOG", {"eco": receta})
+    monkeypatch.setattr(reviewers, "CATALOG", {"eco": receta})
     ganada = entrada("eco", "openai", argv, source="catalog", stdin="pack", egress="local",
                      executable_hash=executable_fingerprint(sys.executable))
 
@@ -1299,7 +1306,7 @@ sys.exit(0)
     # Mismo argv, mismo binario, pero armada por el asistente: no la gano.
     dos = tmp_path / "dos"
     dos.mkdir()
-    copiada = dict(ganada, source="assistant")
+    copiada = dict(ganada, source="assistant", material="agentic")
     assert correr(repo, {"reviewers": [copiada]}, monkeypatch, dos) == OK
     assert INSTRUCTIONS_NOT_LOADED not in (dos / "informe.md").read_text(encoding="utf-8")
 
@@ -1507,3 +1514,193 @@ def test_an_entry_without_the_policy_of_its_recipe_has_not_earned_the_hardening(
     lanzador = dict(base, executable="C:/npm/codex.CMD")
     assert effective_hardening(lanzador) == "unverified", "el hash de un lanzador no cubre lo que corre"
     assert codex_home.LAUNCHER_SUFFIXES >= {".cmd", ".bat", ".ps1", ".js", ".sh"}
+
+
+# --- El material de un revisor que no puede correr git (#152) ------------------
+
+ECO_PAQUETE = """import sys
+from pathlib import Path
+Path(sys.argv[1]).write_bytes(sys.stdin.buffer.read())
+"""
+
+NO_DEBE_CORRER = """import sys
+from pathlib import Path
+Path(sys.argv[2]).write_text("corrio", encoding="utf-8")
+Path(sys.argv[1]).write_text("informe", encoding="utf-8")
+"""
+
+
+def con_cambio(repo: Path) -> None:
+    (repo / "b.py").write_text("y = 'cambio revisado'" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+
+
+def entrada_de_chat(tmp_path: Path, nombre: str, cuerpo: str, **extra) -> dict:
+    """Un revisor de chat registrado a mano: recibe el paquete por stdin y nada mas."""
+    return entrada(
+        nombre, "openai", revisor_falso(tmp_path, nombre, cuerpo), stdin="pack",
+        egress="local", **{"material": "inline", "max_inline_bytes": 10**6, **extra},
+    )
+
+
+def test_an_inline_reviewer_gets_the_diff_inside_its_package(repo: Path, monkeypatch, tmp_path):
+    """El caso del issue: un revisor que no puede correr `git diff` ya no recibe
+    un paquete que solo nombra el rango. Recibe el diff, y el resultado dice que
+    viajo adentro y con que hash."""
+    from disensor import gitctx
+    from disensor.pack import material_hash
+
+    con_cambio(repo)
+    chat = entrada_de_chat(tmp_path, "chat", ECO_PAQUETE)
+    assert correr(repo, {"reviewers": [chat]}, monkeypatch, tmp_path) == OK
+
+    paquete = (tmp_path / "informe.md").read_text(encoding="utf-8")
+    assert "## The diff under review" in paquete
+    assert "+y = 'cambio revisado'" in paquete
+    assert "Read it from git yourself" not in paquete
+    r = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    assert r["observed"]["attempts"][-1]["material"] == "inline"
+    base, head = r["anchors"]["merge_base_oid"], r["anchors"]["head_oid"]
+    assert r["hashes"]["material_hash"] == material_hash(gitctx.diff_bytes(base, head, repo))
+
+
+def test_an_agentic_reviewer_gets_the_range_as_before(repo: Path, monkeypatch, tmp_path):
+    con_cambio(repo)
+    agente = entrada_de_chat(tmp_path, "agente", ECO_PAQUETE, material="agentic")
+    assert correr(repo, {"reviewers": [agente]}, monkeypatch, tmp_path) == OK
+
+    paquete = (tmp_path / "informe.md").read_text(encoding="utf-8")
+    assert "Read it from git yourself" in paquete
+    assert "## The diff under review" not in paquete
+    r = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    assert r["observed"]["attempts"][-1]["material"] == "reference"
+    assert "material_hash" not in r["hashes"]
+
+
+def test_an_inline_reviewer_over_its_cap_sends_nothing_and_the_chain_moves_on(
+    repo: Path, monkeypatch, tmp_path,
+):
+    con_cambio(repo)
+    marca = tmp_path / "corrio.txt"
+    chico = entrada_de_chat(tmp_path, "chico", NO_DEBE_CORRER, max_inline_bytes=100)
+    chico["command"] = [*chico["command"], str(marca)]
+    agente = entrada_de_chat(tmp_path, "agente", ECO_PAQUETE, material="agentic")
+    assert correr(repo, {"reviewers": [chico, agente]}, monkeypatch, tmp_path) == OK
+
+    assert not marca.exists(), "el revisor con el tope chico corrio igual"
+    r = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    primero, segundo = r["observed"]["attempts"]
+    assert primero["outcome"] == "material_too_large"
+    assert "100" in primero["detail"]
+    assert segundo["id"] == "agente" and segundo["outcome"] == "ok"
+    assert r["declared"]["reviewer_id"] == "agente"
+
+
+@pytest.mark.parametrize("gate", ["diff", "plan"])
+def test_without_a_cap_ollama_and_a_hand_registered_reviewer_get_nothing(
+    gate, repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Ningun valor por defecto afirma conocer una ventana de contexto: ollama y
+    una entrada a mano no reciben material adentro hasta que el dueño diga
+    cuanto entra. Vale tambien para un plan, que siempre viaja adentro."""
+    con_cambio(repo)
+    marca = tmp_path / "corrio.txt"
+    a_mano = entrada_de_chat(tmp_path, "propio", NO_DEBE_CORRER)
+    a_mano["command"] = [*a_mano["command"], str(marca)]
+    del a_mano["max_inline_bytes"]
+    ollama = entrada_catalogada("ollama")
+    extra = {}
+    if gate == "plan":
+        plan = tmp_path / "plan.md"
+        plan.write_text("# Plan" + chr(10), encoding="utf-8")
+        extra = {"gate": "plan", "material": plan}
+
+    codigo = correr(repo, {"reviewers": [ollama, a_mano]}, monkeypatch, tmp_path, **extra)
+
+    assert codigo == CHAIN_EXHAUSTED
+    assert not marca.exists()
+    r = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
+    assert {a["outcome"] for a in r["observed"]["attempts"]} == {"inline_limit_unset"}
+    err = capsys.readouterr().err
+    assert "skipped before receiving anything" in err
+    assert "--max-inline-bytes" in err
+
+
+def test_the_catalogue_decides_the_material_not_the_registry():
+    from disensor.reviewers import effective_material, inline_limit_required
+
+    assert effective_material(entrada_catalogada("codex")) == "agentic"
+    assert effective_material(dict(entrada_catalogada("ollama"), material="agentic")) == "inline"
+    assert inline_limit_required(dict(entrada_catalogada("ollama"), max_inline_bytes=5))
+    assert not inline_limit_required(entrada_catalogada("claude"))
+    sin_campo = {"id": "x", "source": "assistant"}
+    assert effective_material(sin_campo) == "inline"
+    assert inline_limit_required(sin_campo)
+    assert effective_material(dict(sin_campo, material="agentic")) == "agentic"
+
+
+def test_a_launcher_that_cuts_the_package_never_runs():
+    """cmd.exe corta un argumento en el primer salto de linea: un .cmd con el
+    paquete en el argv le daria al revisor la primera linea (#152)."""
+    receta = {"id": "c", "command": ["claude", "-p", "{pack}"]}
+    for lanzador in ("C:/npm/claude.cmd", "C:/npm/claude.BAT"):
+        r = ronda.argv_refusal(receta, [lanzador, "-p", "uno\ndos"], None, windows=True)
+        assert r is not None and r["outcome"] == "not_runnable"
+    assert ronda.argv_refusal(receta, ["C:/bin/claude.exe", "-p", "uno\ndos"], None, windows=True) is None
+    por_stdin = {"id": "o", "command": ["ollama", "run", "{model}"]}
+    assert ronda.argv_refusal(por_stdin, ["C:/npm/ollama.cmd", "run", "m"], None, windows=True) is None
+
+
+def test_the_windows_limit_is_measured_on_the_command_line():
+    """Un paquete de 20 000 comillas pesa 20 000 bytes y ocupa el doble en la
+    linea que recibe CreateProcess: list2cmdline escapa cada una."""
+    receta = {"id": "c", "command": ["claude", "-p", "{pack}"]}
+    comillas = '"' * 20_000
+    assert len(comillas.encode("utf-8")) < 24_000
+    r = ronda.argv_refusal(receta, ["C:/bin/claude.exe", "-p", comillas], None, windows=True)
+    assert r is not None and r["outcome"] == "material_too_large"
+    assert "32767" in r["detail"]
+    assert ronda.argv_refusal(receta, ["C:/bin/claude.exe", "-p", "x" * 20_000], None, windows=True) is None
+
+
+def test_the_posix_limits_are_one_argument_and_the_whole_exec():
+    receta = {"id": "g", "command": ["gemini", "--prompt", "{pack}"]}
+    largo = ["/bin/gemini", "--prompt", "x" * 140_000]
+    r = ronda.argv_refusal(receta, largo, {}, windows=False, linux=True, arg_max=10**9)
+    assert r is not None and "one argument" in r["detail"]
+    assert ronda.argv_refusal(receta, largo, {}, windows=False, linux=False, arg_max=10**9) is None
+    r = ronda.argv_refusal(
+        receta, ["/bin/gemini", "--prompt", "x" * 2_000], {"A": "b"},
+        windows=False, linux=False, arg_max=1_000,
+    )
+    assert r is not None and "1000" in r["detail"]
+
+
+def test_the_inline_diff_does_not_depend_on_the_users_git(repo: Path, monkeypatch):
+    """`diff-tree` no lee la configuracion de diff del usuario, salvo
+    core.quotepath, que va fijo; GIT_DIFF_OPTS le gana hasta a un --unified
+    explicito, asi que no se hereda (#152)."""
+    from disensor import gitctx
+
+    nl = chr(10)
+    lineas = [f"v{i} = {i}" for i in range(30)]
+    (repo / "año.py").write_text(nl.join(lineas) + nl, encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base larga")
+    base = git(repo, "rev-parse", "HEAD")
+    lineas[15] = "v15 = 'cambiada'"
+    (repo / "año.py").write_text(nl.join(lineas) + nl, encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio en el medio")
+    head = git(repo, "rev-parse", "HEAD")
+    limpio = gitctx.diff_bytes(base, head, repo).decode("utf-8")
+    assert '"a/a\\303\\261o.py"' in limpio, "la ruta no ASCII va citada, como con quotepath por defecto"
+    contexto = [linea for linea in limpio.splitlines() if linea.startswith(" v")]
+    assert contexto == [" v12 = 12", " v13 = 13", " v14 = 14", " v16 = 16", " v17 = 17", " v18 = 18"]
+
+    for clave, valor in [("diff.noprefix", "true"), ("core.quotepath", "false"),
+                         ("diff.context", "9"), ("diff.renames", "false")]:
+        git(repo, "config", clave, valor)
+    monkeypatch.setenv("GIT_DIFF_OPTS", "--unified=9")
+    assert gitctx.diff_bytes(base, head, repo).decode("utf-8") == limpio

@@ -325,13 +325,135 @@ def test_the_canonical_shape_is_pinned_to_the_result_version():
     from disensor.round import RESULT_VERSION
     from disensor.template import ROUND_RESULT_ORDINAL, ROUND_RESULT_VERSION
 
-    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v4"
-    assert ROUND_RESULT_ORDINAL == 4
+    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v5"
+    assert ROUND_RESULT_ORDINAL == 5
     # Brief inyectado: solo la forma entra al hash.
     diff = canonical_pack_text("diff", repository="r", base="a", head="b", brief="B\n")
     plan = canonical_pack_text("plan", repository="r", material_text="M\n", brief="B\n")
+    inline = canonical_pack_text("diff", repository="r", base="a", head="b", brief="B\n", diff_text="D\n")
+    # Las dos primeras son las de v4, sin tocar: por eso `new --round` sigue
+    # leyendo un resultado v4 (#152).
     assert pack_hash(diff) == "sha256:56e47b3a13cf876de3e910a8ccbd1bdf56a892dede91207dff714cf7e731f914"
     assert pack_hash(plan) == "sha256:e20c8e796d63c0193a40da06cfdf0db2c26428a971635b27689fcee2f82d843f"
+    assert pack_hash(inline) == "sha256:76fbc7c4e80809b1938f8c53fa6d88a6253a48ea0ea6ce27250da07bf4973015"
+
+
+def test_the_inline_diff_goes_last_and_cannot_capture_the_delivery():
+    """El diff va al final, como el documento de un plan (#152). `deliver`
+    reemplaza la PRIMERA aparicion de la cabecera y del destino del informe, asi
+    que un diff que traiga esos textos no puede capturar la entrega."""
+    from disensor.pack import REPORT_TO_STDOUT, REVIEWING
+
+    hostil = f"diff --git a/x b/x\n+{REVIEWING}\n+{REPORT_TO_STDOUT}\n"
+    canonico = canonical_pack_text("diff", repository="r", base="a", head="b", diff_text=hostil)
+    assert canonico.endswith(hostil)
+    assert "Read it from git yourself" not in canonico
+    entregado = deliver(canonico, checkout="/x", report="/tmp/informe.md")
+    assert entregado.endswith(hostil), "la entrega se metio adentro del material"
+    assert entregado.index("Local checkout: /x") < entregado.index("## The diff under review")
+    assert entregado.index("/tmp/informe.md") < entregado.index("## The diff under review")
+
+
+def test_a_diff_that_is_not_utf8_stays_two_materials(tmp_path: Path):
+    """Un blob no tiene por que ser UTF-8. Decodificar con reemplazo mostraba
+    `caf\\xe9` y `caf\\xe8` como el mismo U+FFFD y les daba el mismo
+    `material_hash` (hallazgo de la ronda diff 1 de #152)."""
+    from disensor.pack import material_hash, render_diff
+
+    def git(*argv):
+        return subprocess.run(["git", *argv], cwd=tmp_path, capture_output=True, text=True,
+                              check=True).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    archivo = tmp_path / "legado.txt"
+    shas = []
+    for contenido in (b"caf\xe1\n", b"caf\xe9\n", b"caf\xe8\n"):
+        archivo.write_bytes(contenido)
+        git("add", "-A")
+        git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "latin-1")
+        shas.append(git("rev-parse", "HEAD"))
+
+    uno = gitctx.diff_bytes(shas[0], shas[1], tmp_path)
+    otro = gitctx.diff_bytes(shas[0], shas[2], tmp_path)
+    assert material_hash(uno) != material_hash(otro)
+    barra = chr(92)
+    texto_uno, escapado = render_diff(uno)
+    assert escapado
+    assert "+caf" + barra + "xe9" in texto_uno
+    assert "+caf" + barra + "xe8" in render_diff(otro)[0]
+    assert chr(0xFFFD) not in texto_uno
+    valido = bytes([43, 99, 97, 102, 0xC3, 0xA9, 10])
+    assert render_diff(valido) == ("+café" + chr(10), False)
+    assert material_hash(valido) == material_hash(valido.decode("utf-8")), (
+        "con un diff UTF-8 el hash de los bytes es el del texto, como el de un plan"
+    )
+
+
+def test_an_escaped_diff_cannot_be_read_as_another_one():
+    """El byte 0xE9 y los cuatro caracteres de `\\xe9` en un archivo daban el
+    mismo texto con un escape a medias (hallazgo de la ronda diff 2 de #152).
+    Escapado entero, con las barras dobladas, cada texto vuelve a un solo diff;
+    y el paquete dice cuando el diff viene escapado."""
+    from disensor.pack import render_diff
+
+    barra = bytes([92])
+    byte_e9 = bytes([43, 99, 97, 102, 0xE9, 10])
+    literal = b"+caf" + barra + b"xe9" + bytes([10])
+    ambos = b"+caf" + barra + b"xe9 " + bytes([0xE9, 10])
+
+    texto_byte, escapado_byte = render_diff(byte_e9)
+    texto_literal, escapado_literal = render_diff(literal)
+    assert (escapado_byte, escapado_literal) == (True, False)
+    paquetes = {
+        canonical_pack_text("diff", repository="r", base="a", head="b",
+                            diff_text=texto, diff_escaped=escapado)
+        for texto, escapado in (render_diff(byte_e9), render_diff(literal))
+    }
+    assert len(paquetes) == 2, "el revisor tiene que poder distinguirlos"
+    assert "This diff is not valid UTF-8" in canonical_pack_text(
+        "diff", repository="r", base="a", head="b", diff_text=texto_byte, diff_escaped=True)
+
+    texto_ambos, _ = render_diff(ambos)
+    b = chr(92)
+    assert texto_ambos == "+caf" + b + b + "xe9 " + b + "xe9" + chr(10)
+
+
+def test_only_a_diff_gate_carries_a_diff():
+    with pytest.raises(ValueError, match="only a diff gate carries a diff"):
+        canonical_pack_text("plan", repository="r", material_text="M\n", diff_text="D\n")
+
+
+def test_pack_inline_prints_the_variant_a_round_hands_a_chat_reviewer(tmp_path: Path, capsys):
+    """El camino manual y el de un tercero que reconstruye: la misma variante que
+    la ronda le da a un revisor que no corre git, con el hash del diff (#152)."""
+    from disensor.pack import material_hash
+
+    def git(*argv):
+        return subprocess.run(["git", *argv], cwd=tmp_path, capture_output=True, text=True,
+                              check=True).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    git("add", "-A")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
+    (tmp_path / "a.py").write_text("x = 2\n", encoding="utf-8")
+    git("add", "-A")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    salida = tmp_path.parent / f"{tmp_path.name}-paquete.md"
+
+    args = build_parser().parse_args([
+        "pack", "--gate", "diff", "--base", "HEAD~1", "--head", "HEAD", "--inline",
+        "--repository", str(tmp_path), "--output", str(salida),
+    ])
+    assert args.func(args) == 0
+    paquete = salida.read_text(encoding="utf-8")
+    assert "## The diff under review" in paquete and "+x = 2" in paquete
+    diff = gitctx.diff_bytes(git("rev-parse", "HEAD~1"), git("rev-parse", "HEAD"), tmp_path)
+    assert f"material_hash {material_hash(diff)}" in capsys.readouterr().out
+
+    plan = build_parser().parse_args(["pack", "--gate", "plan", "--material", str(salida), "--inline"])
+    assert plan.func(plan) == 1
+    assert "--inline is for a diff gate" in capsys.readouterr().out
 
 
 def test_the_confinement_distinguishes_the_addressee():

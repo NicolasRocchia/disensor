@@ -34,7 +34,9 @@ class GitError(Exception):
     """A git command failed or answered something the gate cannot rely on."""
 
 
-def run_git(args: list[str], cwd: Path, *, text: bool = True) -> subprocess.CompletedProcess:
+def run_git(
+    args: list[str], cwd: Path, *, text: bool = True, without: tuple[str, ...] = (),
+) -> subprocess.CompletedProcess:
     """git by its absolute path, read-only, with an environment that points nowhere relative.
 
     Every git call of the package goes through here. The program is found in
@@ -43,11 +45,15 @@ def run_git(args: list[str], cwd: Path, *, text: bool = True) -> subprocess.Comp
     that directory when it starts helpers of its own; and it runs with
     `READ_ONLY` in front, so reading does not write the index or consult the
     filesystem monitor (#77). Never raises on a non-zero exit: each caller
-    decides what one means.
+    decides what one means. `without` names variables of the user's
+    environment this call must not inherit.
     """
+    env = programs.child_env()
+    fuera = {nombre.upper() for nombre in without}
+    env = {k: v for k, v in env.items() if k.upper() not in fuera}
     return subprocess.run(
         [programs.require("git"), *READ_ONLY, *args],
-        capture_output=True, text=text, cwd=cwd, check=False, env=programs.child_env(),
+        capture_output=True, text=text, cwd=cwd, check=False, env=env,
     )
 
 
@@ -56,6 +62,31 @@ def _git(args: list[str], cwd: Path) -> str:
     if r.returncode != 0:
         raise GitError(f"git {' '.join(args)}: {r.stderr.strip() or 'failed'}")
     return r.stdout
+
+
+DIFF_ARGS = [
+    "-c", "core.quotepath=true",
+    "diff-tree", "-p", "--unified=3", "--no-color", "--no-ext-diff", "--no-textconv", "-M",
+]
+DIFF_ENV_DROPPED = ("GIT_DIFF_OPTS", "GIT_EXTERNAL_DIFF")
+
+
+def diff_bytes(base: str, head: str, cwd: Path) -> bytes:
+    """The change of a diff round, as git wrote it, for a package that carries it (#152).
+
+    `diff-tree` and not `git diff`: the porcelain reads the user's diff
+    configuration (`diff.noprefix` drops the a/ and b/ prefixes) and the
+    plumbing does not, except `core.quotepath`, which is pinned to its default.
+    `GIT_DIFF_OPTS` wins even over an explicit `--unified`, so it is not
+    inherited. Bytes and not text: a blob does not have to be UTF-8, and the
+    hash the round records has to tell two such changes apart. The output can
+    still differ between git versions, which is why that hash travels.
+    """
+    r = run_git([*DIFF_ARGS, base, head], cwd, text=False, without=DIFF_ENV_DROPPED)
+    if r.returncode != 0:
+        detalle = (r.stderr or b"").decode("utf-8", "replace").strip()
+        raise GitError(f"git diff-tree {base} {head}: {detalle or 'failed'}")
+    return r.stdout or b""
 
 
 def _git_z(args: list[str], cwd: Path) -> list[str]:

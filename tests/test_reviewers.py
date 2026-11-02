@@ -140,6 +140,69 @@ def test_with_approval_it_is_registered(capsys, registro_aislado):
     assert "unverified" in capsys.readouterr().out
 
 
+# --- Cómo recibe el material, y cuánto entra (#152) ---------------------------
+
+def test_an_entry_outside_the_catalog_is_inline_and_says_it_has_no_cap(capsys, registro_aislado):
+    """Sin decir otra cosa, un revisor propio recibe el diff adentro del paquete,
+    y sin tope no recibe ningun paquete con material: lo que se le muestra al
+    dueño antes de aprobar lo dice."""
+    assert correr("add", "raro", "--family", "other", "--model", "m", "--yes",
+                  "--stdin", "pack", "--command", sys.executable, "-c", "pass") == 0
+    entrada = json.loads(registro_aislado.read_text(encoding="utf-8"))["reviewers"][0]
+    assert entrada["material"] == "inline"
+    assert "max_inline_bytes" not in entrada
+    salida = capsys.readouterr().out
+    assert "material:   inline" in salida
+    assert "inline cap: NOT SET" in salida
+
+
+def test_the_owner_sets_the_material_and_the_cap_of_their_own_reviewer(capsys, registro_aislado):
+    assert correr("add", "raro", "--family", "other", "--model", "m", "--yes",
+                  "--stdin", "pack", "--material", "agentic", "--max-inline-bytes", "50000",
+                  "--command", sys.executable, "-c", "pass") == 0
+    entrada = json.loads(registro_aislado.read_text(encoding="utf-8"))["reviewers"][0]
+    assert entrada["material"] == "agentic"
+    assert entrada["max_inline_bytes"] == 50000
+    salida = capsys.readouterr().out
+    assert "material:   agentic" in salida and "inline cap: 50000 bytes" in salida
+
+
+@pytest.mark.parametrize("tope", ["0", "-5"])
+def test_a_cap_that_is_not_a_positive_number_is_refused(tope, capsys, registro_aislado):
+    assert correr("add", "raro", "--family", "other", "--model", "m", "--yes",
+                  "--stdin", "pack", "--max-inline-bytes", tope,
+                  "--command", sys.executable, "-c", "pass") == 1
+    assert "positive number" in capsys.readouterr().out
+    assert not registro_aislado.exists()
+
+
+def test_a_catalogued_recipe_brings_its_own_material(monkeypatch, capsys, registro_aislado):
+    """La capacidad de una receta sale del catalogo: declararla al registrar le
+    abriria al asistente la puerta para marcar agentico a un modelo de chat."""
+    monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
+    assert correr("add", "ollama", "--model", "m", "--material", "agentic") == 1
+    assert "catalogued recipe brings its own" in capsys.readouterr().out
+    assert not registro_aislado.exists()
+
+
+def test_ollama_takes_the_cap_its_owner_sets(monkeypatch, capsys, registro_aislado):
+    monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
+    assert correr("add", "ollama", "--model", "m") == 0
+    assert "inline cap: NOT SET" in capsys.readouterr().out
+    assert correr("remove", "ollama") == 0
+    assert correr("add", "ollama", "--model", "m", "--max-inline-bytes", "12000") == 0
+    entrada = json.loads(registro_aislado.read_text(encoding="utf-8"))["reviewers"][0]
+    assert entrada["max_inline_bytes"] == 12000
+    assert "material" not in entrada, "la de una receta sale del catalogo, no del registro"
+    assert "inline cap: 12000 bytes" in capsys.readouterr().out
+
+
+def test_every_catalogued_recipe_declares_how_it_gets_the_material():
+    assert {r["material"] for r in CATALOG.values()} <= {"agentic", "inline"}
+    assert CATALOG["codex"]["material"] == "agentic"
+    assert CATALOG["ollama"]["material"] == "inline" and CATALOG["ollama"]["inline_limit_required"]
+
+
 def test_a_cloud_reviewer_needs_confirmation_even_from_the_catalog(capsys, registro_aislado, monkeypatch):
     """Consentir el registro no es consentir que el código privado salga."""
     monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)

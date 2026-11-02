@@ -264,6 +264,29 @@ registro. Lo que compra es que un consentimiento dado desde un script o desde
 la herramienta de un agente ya no deja el mismo registro que uno que tipeó una
 persona ([#84](https://github.com/NicolasRocchia/disensor/issues/84)).
 
+**Un revisor que no puede correr git igual ve el cambio.** En una ronda diff el
+paquete nombra el rango, y un revisor agéntico como `codex` lo lee con git por
+su cuenta. Un modelo de chat no puede: con el rango solo, contesta igual, y la
+ronda cerraría sobre un cambio que nadie vio
+([#152](https://github.com/NicolasRocchia/disensor/issues/152)). Por eso cada
+receta dice cómo recibe el material: `codex` es `agentic`; `ollama`, `claude`,
+`gemini` y cualquier entrada que registres a mano son `inline`, y el diff viaja
+adentro de su paquete, armado con `git diff-tree` para que tu configuración de
+diff no lo cambie, con su hash en el resultado y en la declaración
+(`material_hash`). Una entrada tuya que sí lee el rango se registra con
+`--material agentic`. Un paquete con material adentro (ese diff, un plan, una
+decisión de arquitectura) tiene dos límites, y los dos se chequean antes de
+mandar nada. Uno es el contexto del modelo: un backend puede cortar un prompt
+largo sin avisar, como hace `ollama` con su `num_ctx`, y la ronda no ve el
+corte, así que `ollama` y cualquier entrada tuya no reciben un paquete así
+hasta que los registres con `--max-inline-bytes N`, lo que entra en la ventana
+de contexto del modelo con lugar para la respuesta. El otro es del sistema: una
+receta que pasa el paquete como argumento no puede pasarse de la línea de
+comandos (32 767 caracteres en Windows, comillas incluidas), y en Windows un
+lanzador `.cmd` o `.bat` no lo recibe nunca, porque cmd.exe corta un argumento
+en su primer salto de línea. Un revisor que no entra se saltea y la cadena
+sigue; si no entra ninguno, la ronda sale con `4` y dice por qué.
+
 **Qué corre solo y dónde aparecés vos.** El runner le pregunta a la política si
 hace falta una ronda (un cambio que solo toca rutas exentas no gasta un token),
 se niega a correr con el árbol sucio, elige el revisor más independiente

@@ -96,6 +96,9 @@ CATALOG: dict[str, dict] = {
             "-c", "skills.bundled.enabled=false",
         ],
         "stdin": "pack",
+        # Lee el rango con git por su cuenta: medido en la ronda del evento
+        # c38bae3b, cuyo informe lista los `git diff` que corrio sobre el rango.
+        "material": "agentic",
         "hardening": "verified",
         # La politica del home aislado, versionada: que home, que entorno, que
         # cwd, que invariantes. Se persiste al registrar y se compara como el
@@ -131,6 +134,7 @@ CATALOG: dict[str, dict] = {
         # corrida: el CLI no estaba instalado donde se cambio esto.
         "model": None,
         "command": ["gemini", "--model", "{model}", "--prompt", "{pack}"],
+        "material": "inline",
         "hardening": "unverified",
         "egress": "cloud",
         "provider": "Google",
@@ -146,6 +150,10 @@ CATALOG: dict[str, dict] = {
         "model": None,
         "command": ["ollama", "run", "{model}"],
         "stdin": "pack",
+        "material": "inline",
+        # Corta el prompt a su `num_ctx` sin avisar, y el runner no ve ni esa
+        # ventana ni el corte: cuanto entra lo afirma el dueño (#152).
+        "inline_limit_required": True,
         "hardening": "unverified",
         "egress": "local",
         "provider": "local",
@@ -174,6 +182,8 @@ CATALOG: dict[str, dict] = {
         # #108 visto del lado de Claude. No cubre al repositorio revisado: esa
         # prueba hostil no se corrio, y por eso sigue `unverified`.
         "command": ["claude", "-p", "{pack}", "--safe-mode", "--model", "{model}"],
+        # Sin --allowedTools no esta medido que pueda correr `git diff`.
+        "material": "inline",
         "hardening": "unverified",
         "egress": "cloud",
         "provider": "Anthropic",
@@ -259,6 +269,45 @@ def has_material_channel(command, stdin: str | None) -> bool:
     return stdin == "pack" or "{pack}" in list(command or [])
 
 
+MATERIAL_MODES = ("agentic", "inline")
+
+
+def effective_material(entry: dict) -> str:
+    """How this reviewer gets the change of a diff round: from git itself, or in its package.
+
+    For an entry built from the catalogue it comes from the recipe, never from
+    the registry, which is JSON anyone edits: `agentic` written there by hand
+    would hand a chat model a package that only names the range (#152).
+    Anything else is `inline` unless its owner registered it otherwise.
+    """
+    receta = CATALOG.get(entry.get("id")) if entry.get("source") == "catalog" else None
+    if receta:
+        return receta.get("material", "inline")
+    return "agentic" if entry.get("material") == "agentic" else "inline"
+
+
+def inline_limit(entry: dict) -> int | None:
+    """The largest package with material inside this reviewer takes, as its owner set it."""
+    valor = entry.get("max_inline_bytes")
+    if isinstance(valor, bool) or not isinstance(valor, int) or valor <= 0:
+        return None
+    return valor
+
+
+def inline_limit_required(entry: dict) -> bool:
+    """Whether this reviewer takes no package with material inside until its owner sets a limit.
+
+    A backend that cuts a prompt to its context window without saying so turns
+    a package that did not fit into a review of part of it, and the round
+    cannot see the cut. A default here would claim to know a window it does
+    not (#152).
+    """
+    receta = CATALOG.get(entry.get("id")) if entry.get("source") == "catalog" else None
+    if receta:
+        return bool(receta.get("inline_limit_required"))
+    return True
+
+
 def _is_known_placeholder(arg: str) -> bool:
     return arg in PLACEHOLDERS or arg == "{model}"
 
@@ -316,6 +365,8 @@ def build_entry(
     egress: str = "unknown",
     provider: str = "",
     executable: str | None = None,
+    material: str | None = None,
+    max_inline_bytes: int | None = None,
 ) -> dict:
     """The entry as it will be stored, with hardening decided rather than declared.
 
@@ -331,6 +382,17 @@ def build_entry(
     errors = validate_command(command)
     if errors:
         raise ReviewerError("; ".join(errors))
+    if material is not None and from_catalog:
+        raise ReviewerError(
+            "--material is for an entry outside the catalogue: a catalogued recipe brings its own"
+        )
+    if material is not None and material not in MATERIAL_MODES:
+        raise ReviewerError(f"--material has to be one of {', '.join(MATERIAL_MODES)}")
+    if max_inline_bytes is not None and (
+        isinstance(max_inline_bytes, bool) or not isinstance(max_inline_bytes, int)
+        or max_inline_bytes <= 0
+    ):
+        raise ReviewerError("--max-inline-bytes has to be a positive number of bytes")
     if "{model}" in list(command) and not model:
         raise ReviewerError(
             "this recipe puts the model in the command, so it needs --model: without uno el "
@@ -402,6 +464,10 @@ def build_entry(
         entry["isolation"] = receta["isolation"]
     if a_mano:
         entry["executable_source"] = "manual"
+    if not receta:
+        entry["material"] = material or "inline"
+    if max_inline_bytes is not None:
+        entry["max_inline_bytes"] = max_inline_bytes
     return entry
 
 
@@ -561,6 +627,18 @@ def describe(entry: dict) -> str:
         f"  command:    {' '.join(entry['command'])}",
         f"  hardening:  {entry['hardening']}",
     ]
+    if effective_material(entry) == "agentic":
+        lineas.append("  material:   agentic, it reads the range of a diff round with git itself")
+    else:
+        lineas.append("  material:   inline, the change of a diff round travels inside its package")
+    tope = inline_limit(entry)
+    if tope is not None:
+        lineas.append(f"  inline cap: {tope} bytes for a package with material inside")
+    elif inline_limit_required(entry):
+        lineas.append(
+            "  inline cap: NOT SET, so it takes no package with material inside (a diff round, "
+            "a plan, an architecture decision) until registered with --max-inline-bytes"
+        )
     if entry.get("isolation"):
         lineas.append(
             f"  isolation:  {entry['isolation']}, home {codex_home.home_dir(entry['id'])} "
@@ -682,6 +760,8 @@ def _add(args) -> int:
             args.id, receta["family"], args.model or receta["model"],
             receta["command"], from_catalog=True,
             executable=getattr(args, "executable", None),
+            material=getattr(args, "material", None),
+            max_inline_bytes=getattr(args, "max_inline_bytes", None),
         )
     else:
         if getattr(args, "executable", None):
@@ -699,6 +779,8 @@ def _add(args) -> int:
         entry = build_entry(
             args.id, args.family, args.model, args.command,
             from_catalog=False, stdin=args.stdin, egress=args.egress,
+            material=getattr(args, "material", None),
+            max_inline_bytes=getattr(args, "max_inline_bytes", None),
         )
 
     print("About to register this reviewer:\n")

@@ -144,7 +144,7 @@ def test_a_single_assistant_declares_the_degraded_mode_end_to_end(repo, tmp_path
     script.write_text(REVISOR_PROPIO, encoding="utf-8")
     assert cli(
         "reviewer", "add", "mismo", "--family", "anthropic", "--model", GENERADOR,
-        "--egress", "cloud", "--stdin", "pack", "--yes",
+        "--egress", "cloud", "--stdin", "pack", "--max-inline-bytes", "1000000", "--yes",
         "--command", sys.executable, str(script), "{report}",
     ) == 0
     # Registrar no autoriza mandar nada: el registro no tiene consentimientos.

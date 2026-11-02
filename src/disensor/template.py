@@ -126,7 +126,7 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     from the result, literally, and a moved HEAD is refused here.
     """
     version = resultado.get("result_version")
-    if version != ROUND_RESULT_VERSION:
+    if version not in READABLE_RESULTS:
         if version == "disensor/round-result/v1":
             # Con nombre, porque es el caso que va a pasar: un resultado guardado
             # antes del cambio. Su pack_hash llevaba la ruta local del worktree,
@@ -301,7 +301,7 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     # contrasta nadie, pero el runner los midio, y sin ellos el costo de la
     # ronda no tenia ningun numero en ningun lado.
     ronda = {
-        "result_version": ROUND_RESULT_ORDINAL,
+        "result_version": READABLE_RESULTS[resultado["result_version"]],
         "pack_hash": hashes.get("pack_hash"),
         "report_hash": observado.get("report_hash"),
     }
@@ -346,8 +346,11 @@ FILL_HARDENING_EVIDENCE = (
     "(global AGENTS.md, user skills) may have reached the reviewer before the brief did. "
     "Say what you did about it."
 )
-ROUND_RESULT_VERSION = "disensor/round-result/v4"
-ROUND_RESULT_ORDINAL = 4
+ROUND_RESULT_VERSION = "disensor/round-result/v5"
+ROUND_RESULT_ORDINAL = 5
+# Un v4 se sigue leyendo: v5 le agrego la variante con el diff adentro (#152) y
+# no cambio ninguna de sus formas, asi que su `pack_hash` se puede recomputar.
+READABLE_RESULTS = {"disensor/round-result/v4": 4, ROUND_RESULT_VERSION: ROUND_RESULT_ORDINAL}
 
 
 def _effective_hardening(resultado: dict) -> str | None:
