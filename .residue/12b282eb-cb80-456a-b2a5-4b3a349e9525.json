@@ -1,0 +1,122 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "12b282eb-cb80-456a-b2a5-4b3a349e9525",
+    "created_at": "2026-11-02T11:15:19-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "98ecbbcaab04230eca23411c00decb5607317a40",
+    "gate": "plan",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    }
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:1a8f3006b22a72235825a3646c94474f346dfa356b9c470342a8113537a7d394"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El tope por defecto de ollama no salía de su ventana de contexto y dejaba el verde falso que el cambio cierra",
+      "description": "El plan le daba a un revisor inline por stdin un tope por defecto de 200 000 bytes y admitía a la vez que ollama corta el prompt a su num_ctx sin avisar. Con una entrada recién registrada, un paquete menor al tope y mayor que la ventana pasaba el control, ollama lo truncaba en silencio y la ronda podía cerrar con un informe sin hallazgos sobre parte del material.",
+      "location": "plan-152A.md, sección 3 (el tope, por canal) y riesgo 2",
+      "final_state": "incorporated",
+      "remedy_adjustment": "El revisor proponía un límite seguro por receta y modelo, medir el contexto efectivo o impedir un valor por defecto que se presente como seguro. Se tomó la tercera, extendida: ollama y toda entrada registrada a mano no tienen tope por defecto y no reciben un paquete con material adentro hasta que el dueño fija --max-inline-bytes (inline_limit_unset), y el chequeo vale también para plan y arquitectura, que ya llevaban su documento adentro.",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura del plan contra la receta ollama de src/disensor/reviewers.py (ollama run {model}, stdin pack) y contra el propio riesgo 2 del plan, que reconocía el truncado invisible. Implementado en 5eacb57 (inline_limit_required, el campo de la receta) y e66e1c0 (inline_refusal en la ronda)."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_without_a_cap_ollama_and_a_hand_registered_reviewer_get_nothing (diff y plan), tests/test_round.py::test_an_inline_reviewer_over_its_cap_sends_nothing_and_the_chain_moves_on y tests/test_reviewers.py::test_ollama_takes_the_cap_its_owner_sets. Una mutación que anula inline_refusal hace fallar tres de ellas. Las rondas diff 1 a 3 sobre 5eacb57..98ecbbc no lo volvieron a levantar."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El límite de Windows se medía sobre el paquete y no sobre la línea de comandos que Windows limita",
+      "description": "El tope de 24 000 bytes para recetas con {pack} se medía sobre los bytes del paquete. CreateProcess limita la línea entera a 32 767 unidades UTF-16: el resto del argv de una entrada a mano y las barras que list2cmdline agrega antes de cada comilla del diff podían pasarla con un paquete que el control daba por bueno.",
+      "location": "plan-152A.md, sección 3, el canal por argv",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura de fill_argv y _run_prepared en src/disensor/round.py: subprocess.run con una lista en Windows arma la línea con list2cmdline. Al verificarlo apareció además el lanzador .cmd o .bat con {pack}, que el revisor no había visto: cmd.exe corta el argumento en el primer salto de línea (lo documentaba el motivo del skip de tests/test_degraded_mode.py), así que el revisor recibía la primera línea del paquete. Los dos quedaron en argv_refusal (e66e1c0)."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_round.py::test_the_windows_limit_is_measured_on_the_command_line (20 000 comillas: 20 000 bytes de paquete, el doble en la línea), tests/test_round.py::test_the_posix_limits_are_one_argument_and_the_whole_exec y tests/test_round.py::test_a_launcher_that_cuts_the_package_never_runs."
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La compatibilidad con v4 suponía que todo resultado v4 era por referencia",
+      "description": "Hipótesis del revisor: el plan decía que un resultado v4 es por referencia, y los de plan y arquitectura llevan el documento adentro con su material_hash. Un lector v5 que infiriera la entrega de la versión los leería mal.",
+      "location": "plan-152A.md, sección 4",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura de canonical_pack_text en src/disensor/pack.py (plan y arquitectura reproducen el documento al final) y de los tests de round que esperan material_hash en un plan. El plan pasó a decir cada compuerta por separado, y new --round lee un v4 como antes, sin inferir la entrega de la versión (READABLE_RESULTS en template.py, e66e1c0)."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_new_round.py::test_a_v4_result_is_still_read_as_it_was, parametrizado en diff, plan y architecture: el v4 de plan y de arquitectura conserva su material_hash y el de diff no lleva ninguno."
+      }
+    }
+  ],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "Los tres hallazgos de la ronda de plan quedaron incorporados y verificados con pruebas en la compuerta diff (rondas 1 a 3 sobre 5eacb57..98ecbbc). Lo que el cambio deja abierto, incluido lo que ningún backend real ejecutó, se declara en el evento diff de este mismo PR, no acá."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 3,
+      "valid": {
+        "incorporated": 3,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 350
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:a3bb08b540f05ef1116d7f3c9529ffaf89a07d0ec4dffc90acc511c5b0e10012",
+      "report_hash": "sha256:12186933c2edf0c3f94adb6b686f6b42b2273b1374059fed87ef8a91c5d4e8b2",
+      "material_hash": "sha256:035ebe2925e7463167bf57f29518ff78440c6a369e76a245d46846a6ce8fdd04",
+      "reviewer_seconds": 193
+    }
+  }
+}
