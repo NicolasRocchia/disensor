@@ -4,14 +4,24 @@ on:
   pull_request:
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         # pyproject declara requires-python >=3.10, así que se prueban los
         # extremos de lo que se promete soportar y no solo el del que desarrolla.
+        os: [ubuntu-latest]
         python-version: ['3.10', '3.12']
+        include:
+          - os: windows-latest
+            python-version: '3.12'
+          - os: macos-latest
+            python-version: '3.12'
     steps:
+      # Git for Windows trae core.autocrlf=true: el checkout dejaría los schemas
+      # en CRLF y dejarían de coincidir con su hash en spec/frozen.sha256.
+      - if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
         with:
           # Historia completa: la suite verifica que el SHA pineado del

@@ -177,7 +177,7 @@ print({informe!r})
     reason=(
         "la receta pasa el paquete como argumento, y en Windows un `claude` de mentira "
         "tendria que ser un .cmd que corta el argumento en el primer salto de linea; "
-        "el CI corre en Linux"
+        "el CI lo corre en Linux y macOS"
     ),
 )
 def test_the_claude_recipe_with_the_generators_model_is_same_model_fresh_context(
