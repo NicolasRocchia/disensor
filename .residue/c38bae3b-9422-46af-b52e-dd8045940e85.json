@@ -1,0 +1,83 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c38bae3b-9422-46af-b52e-dd8045940e85",
+    "created_at": "2026-11-02T09:31:09-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "1b16aae8bc155f3b3e6cdd82ca3a50ebb7b91729",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "db36ef71c88adaad4e3e5c746e46853a58eeb804"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": true,
+        "description": "Ni el revisor ni el generador corrieron la suite en macOS: los dos trabajaron en Windows 11, donde pasó completa (869 pasadas, 10 salteadas, Python 3.12). El primer contacto con macos-latest es el CI de este PR. main no tiene protección de rama ni rulesets (gh api .../branches/main/protection da 404), así que un job rojo no frena el merge por sí solo: hay que mirar los cuatro jobs de tests antes de mergear, y lo que falle en macOS va a su propio issue, como pide el criterio de cierre de #156."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "Nadie comprobó que el runner windows-latest traiga core.autocrlf=true, que es lo que justifica el paso nuevo. Se reprodujo con un clon local hecho con autocrlf=true: los schemas quedan en CRLF y tests/test_v04.py::test_the_frozen_resources_still_have_the_content_they_were_frozen_with falla contra spec/frozen.sha256. Si el runner ya lo trae en false, el paso no cambia nada. Tampoco se corrió la suite con el entorno exacto del runner: se aproximó sacando NoDefaultCurrentDirectoryInExePath, que esta sesión setea y el runner no (test_programs, test_reviewers y test_codex_home: 194 pasadas, 1 salteada)."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 234
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:3415aaed4830ec8b217dc81a573b961d2dc8b15c4a12525aec12c96f65d8d15f",
+      "report_hash": "sha256:a421c47442030de5d218d4d9ed44140f7f7c18fda20c1044cd715828e1838703",
+      "reviewer_seconds": 166
+    }
+  }
+}
