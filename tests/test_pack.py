@@ -325,13 +325,71 @@ def test_the_canonical_shape_is_pinned_to_the_result_version():
     from disensor.round import RESULT_VERSION
     from disensor.template import ROUND_RESULT_ORDINAL, ROUND_RESULT_VERSION
 
-    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v4"
-    assert ROUND_RESULT_ORDINAL == 4
+    assert RESULT_VERSION == ROUND_RESULT_VERSION == "disensor/round-result/v5"
+    assert ROUND_RESULT_ORDINAL == 5
     # Brief inyectado: solo la forma entra al hash.
     diff = canonical_pack_text("diff", repository="r", base="a", head="b", brief="B\n")
     plan = canonical_pack_text("plan", repository="r", material_text="M\n", brief="B\n")
+    inline = canonical_pack_text("diff", repository="r", base="a", head="b", brief="B\n", diff_text="D\n")
+    # Las dos primeras son las de v4, sin tocar: por eso `new --round` sigue
+    # leyendo un resultado v4 (#152).
     assert pack_hash(diff) == "sha256:56e47b3a13cf876de3e910a8ccbd1bdf56a892dede91207dff714cf7e731f914"
     assert pack_hash(plan) == "sha256:e20c8e796d63c0193a40da06cfdf0db2c26428a971635b27689fcee2f82d843f"
+    assert pack_hash(inline) == "sha256:801bef24dd3b596c6c150da6a5077b7a26d1f81478f150bc3564371fad378eca"
+
+
+def test_the_inline_diff_goes_last_and_cannot_capture_the_delivery():
+    """El diff va al final, como el documento de un plan (#152). `deliver`
+    reemplaza la PRIMERA aparicion de la cabecera y del destino del informe, asi
+    que un diff que traiga esos textos no puede capturar la entrega."""
+    from disensor.pack import REPORT_TO_STDOUT, REVIEWING
+
+    hostil = f"diff --git a/x b/x\n+{REVIEWING}\n+{REPORT_TO_STDOUT}\n"
+    canonico = canonical_pack_text("diff", repository="r", base="a", head="b", diff_text=hostil)
+    assert canonico.endswith(hostil)
+    assert "Read it from git yourself" not in canonico
+    entregado = deliver(canonico, checkout="/x", report="/tmp/informe.md")
+    assert entregado.endswith(hostil), "la entrega se metio adentro del material"
+    assert entregado.index("Local checkout: /x") < entregado.index("## The diff under review")
+    assert entregado.index("/tmp/informe.md") < entregado.index("## The diff under review")
+
+
+def test_only_a_diff_gate_carries_a_diff():
+    with pytest.raises(ValueError, match="only a diff gate carries a diff"):
+        canonical_pack_text("plan", repository="r", material_text="M\n", diff_text="D\n")
+
+
+def test_pack_inline_prints_the_variant_a_round_hands_a_chat_reviewer(tmp_path: Path, capsys):
+    """El camino manual y el de un tercero que reconstruye: la misma variante que
+    la ronda le da a un revisor que no corre git, con el hash del diff (#152)."""
+    from disensor.pack import material_hash
+
+    def git(*argv):
+        return subprocess.run(["git", *argv], cwd=tmp_path, capture_output=True, text=True,
+                              check=True).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    git("add", "-A")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base")
+    (tmp_path / "a.py").write_text("x = 2\n", encoding="utf-8")
+    git("add", "-A")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    salida = tmp_path.parent / f"{tmp_path.name}-paquete.md"
+
+    args = build_parser().parse_args([
+        "pack", "--gate", "diff", "--base", "HEAD~1", "--head", "HEAD", "--inline",
+        "--repository", str(tmp_path), "--output", str(salida),
+    ])
+    assert args.func(args) == 0
+    paquete = salida.read_text(encoding="utf-8")
+    assert "## The diff under review" in paquete and "+x = 2" in paquete
+    diff = gitctx.diff_text(git("rev-parse", "HEAD~1"), git("rev-parse", "HEAD"), tmp_path)
+    assert f"material_hash {material_hash(diff)}" in capsys.readouterr().out
+
+    plan = build_parser().parse_args(["pack", "--gate", "plan", "--material", str(salida), "--inline"])
+    assert plan.func(plan) == 1
+    assert "--inline is for a diff gate" in capsys.readouterr().out
 
 
 def test_the_confinement_distinguishes_the_addressee():

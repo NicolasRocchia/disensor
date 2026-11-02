@@ -200,9 +200,31 @@ def test_the_observed_data_travels_in_the_extension_space(repo: Path, informe: P
     a = from_round(resultado_de(repo, informe), "diff", "B", "full", repo)
     ext = a["extensions"]["dev.disensor.round"]
     assert set(ext) == {"result_version", "pack_hash", "report_hash"}
-    assert ext["result_version"] == 4
+    assert ext["result_version"] == 5
     assert ext["pack_hash"].startswith("sha256:")
     assert ext["report_hash"].startswith("sha256:")
+
+
+@pytest.mark.parametrize("gate", ["diff", "plan", "architecture"])
+def test_a_v4_result_is_still_read_as_it_was(gate, repo: Path, informe: Path):
+    """v5 solo agrego la variante con el diff adentro (#152): las formas de v4 no
+    cambiaron, asi que un resultado v4 se sigue leyendo, con su ordinal. El de
+    plan o arquitectura conserva su `material_hash`, que en v4 ya existia."""
+    extra = {} if gate == "diff" else {"material_hash": "sha256:" + "c" * 64}
+    r = resultado_de(repo, informe, gate=gate, hashes=extra)
+    r["result_version"] = "disensor/round-result/v4"
+    ext = from_round(r, gate, "B", "full", repo)["extensions"]["dev.disensor.round"]
+    assert ext["result_version"] == 4
+    assert ("material_hash" in ext) is (gate != "diff")
+
+
+def test_an_inline_diff_round_carries_its_material_hash(repo: Path, informe: Path):
+    """El diff que viajo adentro del paquete es material: su hash va a la
+    extension, para que un tercero compare el diff que regenera (#152)."""
+    r = resultado_de(repo, informe, hashes={"material_hash": "sha256:" + "d" * 64})
+    ext = from_round(r, "diff", "B", "full", repo)["extensions"]["dev.disensor.round"]
+    assert ext["result_version"] == 5
+    assert ext["material_hash"] == "sha256:" + "d" * 64
 
 
 def test_the_material_hash_travels_when_the_round_had_one(repo: Path, informe: Path):

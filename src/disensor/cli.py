@@ -188,6 +188,9 @@ def build_parser() -> argparse.ArgumentParser:
     pack.add_argument("--head", "--cabeza", default=None, help="Head of the range (a diff gate needs it).")
     pack.add_argument("--material", default=None,
                       help="File with the plan or decision under review, or - for standard input.")
+    pack.add_argument("--inline", action="store_true",
+                      help="Diff gate: put the diff of the range inside the package, as a round "
+                           "does for a reviewer that cannot run git.")
     pack.add_argument("--branch", default=None,
                       help="Branch name, for the reviewer's context. Delivery only: not in the hash.")
     pack.add_argument("--report", default=None,
