@@ -1,0 +1,87 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "0c67550e-504c-435e-bdd3-23e8bb845ec9",
+    "created_at": "2026-11-02T15:26:21-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "23af7a6e0ba5f45cf0f1ea244280bcd9af3e0926",
+    "gate": "plan",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    }
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:1a8f3006b22a72235825a3646c94474f346dfa356b9c470342a8113537a7d394"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El plan dejaba implícito en qué plataformas puede correr la Action",
+      "description": "Hipótesis del revisor: con solo wheels, la instalación falla donde una dependencia fijada no publica wheel, y action.yml solo nombra el input python-version, sin límite de sistema ni arquitectura. Seis casos de CI no prueban Linux ARM, musl, Windows ARM, macOS Intel ni los Python futuros.",
+      "location": "plan-154b.md, secciones 2 y 5",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "external_source",
+        "detail": "Confirmado con la API JSON de PyPI sobre los archivos publicados de rpds-py, la única dependencia compilada del lock. 2026.9.1 (el del lock desde 3.11) publica wheels de CPython 3.11 a 3.15 para manylinux y musllinux (x86_64, aarch64, i686, armv7l, ppc64le, s390x, riscv64), macOS x86_64 y arm64 y Windows win32, amd64 y arm64, y de 3.14t y 3.15t, pero no de 3.13t. 0.30.0 (el de 3.10) no tiene win_arm64 para cp310 ni wheel de PyPy 3.10. El límite real es más angosto que lo que el plan dejaba suponer: CPython 3.13 free-threaded, Windows ARM con 3.10 y PyPy 3.10 no instalan."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Evento e6fd4f4b, ronda diff sobre c06590a..23af7a6, sin hallazgos: el límite quedó en la descripción del input python-version de action.yml (ed7dec5) y en el punto de fijar la Action por SHA de los dos README (23af7a6)."
+      }
+    }
+  ],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "El único hallazgo de la ronda de plan, el límite de plataformas, quedó incorporado y su corrección pasó por la compuerta diff del evento e6fd4f4b sin hallazgos. La otra hipótesis del revisor, que Dependabot regenere el lock de uv conservando los marcadores por versión de Python y los hashes, no se puede ejecutar antes del merge: se declara como hueco de ejecución en ese evento, no acá."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 248
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:bf7cf17afed02a11a0f8de16515ce26b72125f39cd2e660c069ae0fa957b67cd",
+      "report_hash": "sha256:c16d8aef7e7397f5b6bb4e2124f8767897de40a5d5ecac9537971382cb1c4a51",
+      "material_hash": "sha256:9774611de46591199715fc05abf0fee28241d13740d825ba49bf84244ad50604",
+      "reviewer_seconds": 187
+    }
+  }
+}
