@@ -67,3 +67,28 @@ jobs:
         with:
           fetch-depth: 0
       - uses: NicolasRocchia/disensor@d518e12b262605ecca8d637e9dd07749b20a1281  # v0.14.0
+
+  # La Action del arbol del PR, instalada desde su lock en los tres sistemas y
+  # en los dos extremos de Python que el lock cubre. No comenta, y su veredicto
+  # no vale: lo computa el codigo que se esta juzgando. El que vale es el de
+  # residuo.
+  accion:
+    if: github.event_name == 'pull_request'
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.10', '3.14']
+    steps:
+      - if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: ./
+        with:
+          github-token: ''
+          python-version: ${{ matrix.python-version }}
