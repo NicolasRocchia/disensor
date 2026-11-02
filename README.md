@@ -321,6 +321,29 @@ write the record. What it buys is that a consent given from a script or from
 an agent's tool no longer leaves the same record as one a person typed
 ([#84](https://github.com/NicolasRocchia/disensor/issues/84)).
 
+**A reviewer that cannot run git still sees the change.** In a diff round the
+package names the range, and an agentic reviewer like `codex` reads it with git
+itself. A chat model cannot: handed only the range, it answers anyway, and the
+round would close on a change nobody saw
+([#152](https://github.com/NicolasRocchia/disensor/issues/152)). So each recipe
+says how it gets the material: `codex` is `agentic`; `ollama`, `claude`,
+`gemini` and any entry you register by hand are `inline`, and the diff travels
+inside their package, made with `git diff-tree` so your diff configuration does
+not change it, with its hash in the result and the declaration
+(`material_hash`). An entry of yours that does read the range is registered
+with `--material agentic`. A package with material inside (that diff, a plan,
+an architecture decision) has two limits, both checked before anything is sent.
+One is the model's context: a backend can cut a long prompt without saying so,
+as `ollama` does with its `num_ctx`, and the round cannot see the cut, so
+`ollama` and any entry of yours take no such package until you register them
+with `--max-inline-bytes N`, what fits in the model's context window with room
+for the answer. The other is the system's: a recipe that passes the package as
+an argument cannot exceed the command line (32 767 characters on Windows,
+quoting included), and on Windows a `.cmd` or `.bat` launcher never gets it,
+because cmd.exe cuts an argument at its first line break. A reviewer that does
+not fit is skipped and the chain moves on; if none fits, the round exits with
+`4` and says why.
+
 **What runs alone, and where you come in.** The runner asks the policy whether a
 round is required at all (a change that only touches exempt paths does not spend
 a token), refuses to run on a dirty tree, picks the most independent reviewer
