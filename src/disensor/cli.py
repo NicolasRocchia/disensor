@@ -265,6 +265,17 @@ def build_parser() -> argparse.ArgumentParser:
     radd.add_argument("--stdin", choices=["pack"], default=None,
                       help="Pass the package on standard input instead of as an argument.")
     radd.add_argument("--egress", choices=["local", "cloud", "unknown"], default="unknown")
+    radd.add_argument("--material", choices=["agentic", "inline"], default=None,
+                      help="How an entry outside the catalogue gets the change of a diff round: "
+                           "agentic reads the range with git itself; inline, the default, gets "
+                           "the diff inside its package. A catalogued recipe brings its own.")
+    radd.add_argument("--max-inline-bytes", type=int, default=None, metavar="N",
+                      help="Largest package with material inside (a diff round for an inline "
+                           "reviewer, a plan, an architecture decision) this reviewer takes, in "
+                           "UTF-8 bytes. Set it to what fits in the model's effective context "
+                           "window with room for the answer: the round cannot see a backend cut "
+                           "the prompt. ollama and entries outside the catalogue take no such "
+                           "package without it.")
     radd.add_argument("--yes", action="store_true",
                       help="Approve exactly what the command prints before writing it.")
     radd.add_argument("--executable", metavar="PATH",
