@@ -1562,7 +1562,7 @@ def test_an_inline_reviewer_gets_the_diff_inside_its_package(repo: Path, monkeyp
     r = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))
     assert r["observed"]["attempts"][-1]["material"] == "inline"
     base, head = r["anchors"]["merge_base_oid"], r["anchors"]["head_oid"]
-    assert r["hashes"]["material_hash"] == material_hash(gitctx.diff_text(base, head, repo))
+    assert r["hashes"]["material_hash"] == material_hash(gitctx.diff_bytes(base, head, repo))
 
 
 def test_an_agentic_reviewer_gets_the_range_as_before(repo: Path, monkeypatch, tmp_path):
@@ -1694,7 +1694,7 @@ def test_the_inline_diff_does_not_depend_on_the_users_git(repo: Path, monkeypatc
     git(repo, "add", "-A")
     git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio en el medio")
     head = git(repo, "rev-parse", "HEAD")
-    limpio = gitctx.diff_text(base, head, repo)
+    limpio = gitctx.diff_bytes(base, head, repo).decode("utf-8")
     assert '"a/a\\303\\261o.py"' in limpio, "la ruta no ASCII va citada, como con quotepath por defecto"
     contexto = [linea for linea in limpio.splitlines() if linea.startswith(" v")]
     assert contexto == [" v12 = 12", " v13 = 13", " v14 = 14", " v16 = 16", " v17 = 17", " v18 = 18"]
@@ -1703,4 +1703,4 @@ def test_the_inline_diff_does_not_depend_on_the_users_git(repo: Path, monkeypatc
                          ("diff.context", "9"), ("diff.renames", "false")]:
         git(repo, "config", clave, valor)
     monkeypatch.setenv("GIT_DIFF_OPTS", "--unified=9")
-    assert gitctx.diff_text(base, head, repo) == limpio
+    assert gitctx.diff_bytes(base, head, repo).decode("utf-8") == limpio

@@ -43,6 +43,7 @@ is of the very bytes the reviewer got, minus those lines.
 """
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -180,6 +181,8 @@ def canonical_pack_text(
             "",
             "If your tools can read the local checkout, use it for context. What you are "
             "reviewing is the change at the end.",
+            "It is the diff git writes: a binary file appears as a marker and a submodule as "
+            "commit ids, and a byte that is not valid UTF-8 appears as a \\xNN escape.",
         ]
     else:
         parts += ["", f"The material is the {gate} document reproduced at the end of this package."]
@@ -308,14 +311,27 @@ def canonical_pack_hash(
     ))
 
 
-def material_hash(text: str) -> str:
-    """The `sha256:` of the material of a plan or architecture round.
+def material_hash(material: str | bytes) -> str:
+    """The `sha256:` of the material that travelled inside the package.
 
-    That material does not live in the git range, so nobody who was not handed
-    the document can recompute its `pack_hash`. This hash lets whoever holds a
-    document check it is the same one before trying.
+    A plan or an architecture decision does not live in the git range, so
+    nobody who was not handed the document can recompute its `pack_hash`. This
+    hash lets whoever holds a document check it is the same one before trying.
+    For a diff it is taken over the bytes git wrote, not over the text in the
+    package: two changes that differ only in bytes that are not UTF-8 are two
+    materials.
     """
-    return hash_of(text)
+    if isinstance(material, bytes):
+        return "sha256:" + hashlib.sha256(material).hexdigest()
+    return hash_of(material)
+
+
+def render_diff(raw: bytes) -> str:
+    """The diff as text for the package: a byte that is not UTF-8 becomes a `\\xNN` escape.
+
+    Replacing it with U+FFFD would show two different changes as the same one.
+    """
+    return raw.decode("utf-8", "backslashreplace")
 
 
 def main_pack(args) -> int:
@@ -353,10 +369,10 @@ def main_pack(args) -> int:
             base = gitctx.merge_base(gitctx.resolve_commit(base, pedido), head, pedido)
         elif inline:
             raise ValueError("--inline needs --base and --head: the diff is the range")
-        diff = gitctx.diff_text(base, head, pedido) if inline else None
+        diff = gitctx.diff_bytes(base, head, pedido) if inline else None
         canonical = canonical_pack_text(
             args.gate, repository=repository, base=base, head=head, material_text=material_text,
-            brief=brief, diff_text=diff,
+            brief=brief, diff_text=render_diff(diff) if diff is not None else None,
         )
     except (ValueError, OSError, gitctx.GitError) as exc:
         print(f"pack: {exc}")

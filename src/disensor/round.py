@@ -39,7 +39,14 @@ from pathlib import Path
 from . import __version__, codex_home, gitctx, programs
 from .brief import brief_text, hash_of
 from .gate import GateFailure, classify_requirement, resolve_context
-from .pack import canonical_pack_text, deliver, material_hash, pack_hash, read_material
+from .pack import (
+    canonical_pack_text,
+    deliver,
+    material_hash,
+    pack_hash,
+    read_material,
+    render_diff,
+)
 from .reviewers import (
     CATALOG,
     ReviewerError,
@@ -906,10 +913,10 @@ def _round(args, repo: Path) -> int:
     if args.gate != "diff":
         variantes = {"inline": (canonical, hashes)}
     elif any(effective_material(e) == "inline" for e, _ in chain):
-        diff = gitctx.diff_text(merge_base, head, repo)
+        diff = gitctx.diff_bytes(merge_base, head, repo)
         con_diff = canonical_pack_text(
             args.gate, repository=repository, base=merge_base, head=head, brief=brief,
-            diff_text=diff,
+            diff_text=render_diff(diff),
         )
         variantes["inline"] = (con_diff, {
             "prompt_hash": hash_of(brief),

@@ -335,7 +335,7 @@ def test_the_canonical_shape_is_pinned_to_the_result_version():
     # leyendo un resultado v4 (#152).
     assert pack_hash(diff) == "sha256:56e47b3a13cf876de3e910a8ccbd1bdf56a892dede91207dff714cf7e731f914"
     assert pack_hash(plan) == "sha256:e20c8e796d63c0193a40da06cfdf0db2c26428a971635b27689fcee2f82d843f"
-    assert pack_hash(inline) == "sha256:801bef24dd3b596c6c150da6a5077b7a26d1f81478f150bc3564371fad378eca"
+    assert pack_hash(inline) == "sha256:f9c2a5c8e2ff68275017fae4b1f495917327a465059e26ce314ca077e06fd551"
 
 
 def test_the_inline_diff_goes_last_and_cannot_capture_the_delivery():
@@ -352,6 +352,36 @@ def test_the_inline_diff_goes_last_and_cannot_capture_the_delivery():
     assert entregado.endswith(hostil), "la entrega se metio adentro del material"
     assert entregado.index("Local checkout: /x") < entregado.index("## The diff under review")
     assert entregado.index("/tmp/informe.md") < entregado.index("## The diff under review")
+
+
+def test_a_diff_that_is_not_utf8_stays_two_materials(tmp_path: Path):
+    """Un blob no tiene por que ser UTF-8. Decodificar con reemplazo mostraba
+    `caf\\xe9` y `caf\\xe8` como el mismo U+FFFD y les daba el mismo
+    `material_hash` (hallazgo de la ronda diff 1 de #152)."""
+    from disensor.pack import material_hash, render_diff
+
+    def git(*argv):
+        return subprocess.run(["git", *argv], cwd=tmp_path, capture_output=True, text=True,
+                              check=True).stdout.strip()
+
+    git("init", "-q", "-b", "main")
+    archivo = tmp_path / "legado.txt"
+    shas = []
+    for contenido in (b"caf\xe1\n", b"caf\xe9\n", b"caf\xe8\n"):
+        archivo.write_bytes(contenido)
+        git("add", "-A")
+        git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "latin-1")
+        shas.append(git("rev-parse", "HEAD"))
+
+    uno = gitctx.diff_bytes(shas[0], shas[1], tmp_path)
+    otro = gitctx.diff_bytes(shas[0], shas[2], tmp_path)
+    assert material_hash(uno) != material_hash(otro)
+    assert "+caf\\xe9" in render_diff(uno) and "+caf\\xe8" in render_diff(otro)
+    assert "�" not in render_diff(uno)
+    valido = b"+caf\xc3\xa9\n"
+    assert material_hash(valido) == material_hash(valido.decode("utf-8")), (
+        "con un diff UTF-8 el hash de los bytes es el del texto, como el de un plan"
+    )
 
 
 def test_only_a_diff_gate_carries_a_diff():
@@ -384,7 +414,7 @@ def test_pack_inline_prints_the_variant_a_round_hands_a_chat_reviewer(tmp_path: 
     assert args.func(args) == 0
     paquete = salida.read_text(encoding="utf-8")
     assert "## The diff under review" in paquete and "+x = 2" in paquete
-    diff = gitctx.diff_text(git("rev-parse", "HEAD~1"), git("rev-parse", "HEAD"), tmp_path)
+    diff = gitctx.diff_bytes(git("rev-parse", "HEAD~1"), git("rev-parse", "HEAD"), tmp_path)
     assert f"material_hash {material_hash(diff)}" in capsys.readouterr().out
 
     plan = build_parser().parse_args(["pack", "--gate", "plan", "--material", str(salida), "--inline"])

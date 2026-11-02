@@ -71,21 +71,22 @@ DIFF_ARGS = [
 DIFF_ENV_DROPPED = ("GIT_DIFF_OPTS", "GIT_EXTERNAL_DIFF")
 
 
-def diff_text(base: str, head: str, cwd: Path) -> str:
-    """The change of a diff round as it travels inside a package (#152).
+def diff_bytes(base: str, head: str, cwd: Path) -> bytes:
+    """The change of a diff round, as git wrote it, for a package that carries it (#152).
 
     `diff-tree` and not `git diff`: the porcelain reads the user's diff
     configuration (`diff.noprefix` drops the a/ and b/ prefixes) and the
     plumbing does not, except `core.quotepath`, which is pinned to its default.
     `GIT_DIFF_OPTS` wins even over an explicit `--unified`, so it is not
-    inherited. The output can still differ between git versions, which is why
-    the round records the hash of this text.
+    inherited. Bytes and not text: a blob does not have to be UTF-8, and the
+    hash the round records has to tell two such changes apart. The output can
+    still differ between git versions, which is why that hash travels.
     """
     r = run_git([*DIFF_ARGS, base, head], cwd, text=False, without=DIFF_ENV_DROPPED)
     if r.returncode != 0:
         detalle = (r.stderr or b"").decode("utf-8", "replace").strip()
         raise GitError(f"git diff-tree {base} {head}: {detalle or 'failed'}")
-    return (r.stdout or b"").decode("utf-8", "replace")
+    return r.stdout or b""
 
 
 def _git_z(args: list[str], cwd: Path) -> list[str]:
