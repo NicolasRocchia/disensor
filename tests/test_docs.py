@@ -198,6 +198,37 @@ def test_the_schema_declares_the_version_the_tool_enforces():
         )
 
 
+def test_every_action_this_repository_runs_is_pinned_to_a_commit():
+    """Fijado por SHA, con la versión en un comentario (#154).
+
+    El README pide fijar esta Action por SHA porque un tag se puede mover, y
+    adentro usaba `actions/setup-python@v5`: quien la fijaba seguía dependiendo
+    de adónde apuntara `v5`. Lo mismo valía para los workflows propios.
+    """
+    linea_uses = re.compile(r"^\s*(?:-\s*)?uses:")
+    patron = re.compile(r"^\s*(?:-\s*)?uses:\s*(\S+)(?:\s+#\s*(\S+))?\s*$")
+    archivos = [
+        ROOT / "action.yml",
+        ROOT / ".github" / "workflows" / "ci.yml",
+        ROOT / ".github" / "workflows" / "release.yml",
+    ]
+    for archivo in archivos:
+        lineas = [l for l in archivo.read_text(encoding="utf-8").splitlines() if linea_uses.match(l)]
+        assert lineas, f"{archivo.name}: no hay ningún uses, y el test pasaría en vacío"
+        for linea in lineas:
+            m = patron.match(linea)
+            assert m, f"{archivo.name}: no se entiende la línea {linea.strip()!r}"
+            ref, version = m.group(1), m.group(2)
+            if ref.startswith("./"):
+                continue
+            assert re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", ref), (
+                f"{archivo.name}: {ref} no está fijado a un commit"
+            )
+            assert version and version.startswith("v"), (
+                f"{archivo.name}: {ref} no dice en un comentario qué versión es"
+            )
+
+
 def test_the_self_gate_pin_is_a_commit_not_a_tag_object():
     """El SHA pineado en ci.yml tiene que ser un commit pelado.
 
