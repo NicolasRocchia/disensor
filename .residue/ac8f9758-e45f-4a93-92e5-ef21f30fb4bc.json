@@ -1,0 +1,205 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "ac8f9758-e45f-4a93-92e5-ef21f30fb4bc",
+    "created_at": "2026-11-02T11:16:15-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "98ecbbcaab04230eca23411c00decb5607317a40",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "1cef5c97b7ba45999997c6b05686e279e441d3ee"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r3",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "El diff inline perdía los bytes que no son UTF-8 y dos cambios distintos daban el mismo material_hash",
+      "description": "diff_text decodificaba la salida de git con errors=replace. Un blob no tiene por qué ser UTF-8: dos cambios que difieren en bytes que no lo son llegaban al revisor inline como el mismo U+FFFD y daban el mismo material_hash, así que ni el revisor ni el hash distinguían el material comprometido.",
+      "location": "src/disensor/gitctx.py, diff_text; src/disensor/round.py, la variante inline",
+      "final_state": "incorporated",
+      "remedy_adjustment": "El revisor pedía una representación reversible que preserve los bytes. La primera corrección (79e8ea4) llevó el hash a los bytes crudos de git (gitctx.diff_bytes) y escapó los bytes inválidos con backslashreplace, que no es reversible: la ronda 2 lo encontró (h4). La que queda (98ecbbc) deja pasar tal cual un diff UTF-8 válido y escapa entero uno que no lo es, con cada barra doblada y cada byte inválido como \\xNN, y el paquete dice que viene escapado.",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura de diff_text en 5eacb57..e66e1c0: el decode con replace es con pérdida por construcción. El revisor lo reprodujo en memoria con b'-old\\xff' y b'-old\\x80'; un test con un repositorio real con tres commits en Latin-1 lo fija."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_pack.py::test_a_diff_that_is_not_utf8_stays_two_materials (repositorio real, caf\\xe9 contra caf\\xe8: hashes distintos, ningún U+FFFD, y un diff UTF-8 conserva el hash de su texto) y tests/test_pack.py::test_an_escaped_diff_cannot_be_read_as_another_one. La ronda 3 sobre 98ecbbc no lo volvió a levantar."
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Un archivo binario o un submódulo llegan al revisor inline como marcador",
+      "description": "Hipótesis del revisor: diff-tree -p sin --binary representa un binario como 'Binary files differ' y un submódulo por ids de commit, así que un revisor que no puede leer el checkout no ve ese contenido, y el paquete no lo decía.",
+      "location": "src/disensor/gitctx.py, DIFF_ARGS; src/disensor/pack.py, la variante inline",
+      "final_state": "incorporated",
+      "remedy_adjustment": "El revisor pedía un contrato explícito o transportar el contenido. Se tomó el contrato: es la misma representación que el git diff que corre un revisor agéntico, así que el revisor inline no ve menos que ese; el paquete ahora lo dice en una línea.",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura de DIFF_ARGS (sin --binary) y del brief de la compuerta diff, que manda al revisor agéntico a git diff base...head con la misma representación de binarios y submódulos."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_pack.py::test_the_canonical_shape_is_pinned_to_the_result_version: el golden de la variante inline incluye la línea que lo dice."
+      }
+    },
+    {
+      "id": "h3",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "Las recetas hospedadas claude y gemini reciben material adentro sin tope de contexto",
+      "description": "Hipótesis del revisor: inline_limit_required da falso para claude y gemini, y nada en el repositorio prueba que sus backends rechacen en voz alta un prompt mayor que su ventana en vez de truncarlo.",
+      "location": "src/disensor/reviewers.py, CATALOG e inline_limit_required",
+      "final_state": "debt_recorded",
+      "debt_id": "#158",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado en parte por lectura: en Windows (32 767 unidades) y en Linux (128 KiB por argumento) el límite físico de argv_refusal queda por debajo de esas ventanas, pero en macOS un argumento puede acercarse a 1 MB, más que los 200 K tokens de Claude, y codex recibe plan y arquitectura por stdin sin límite físico. Lo que no se pudo establecer es el comportamiento del backend: no se invocó ninguno. El dueño eligió registrarlo como deuda (#158) en vez de poner topes por defecto en este PR."
+      }
+    },
+    {
+      "id": "h4",
+      "origin": "r2",
+      "severity": "major",
+      "title": "El escape con backslashreplace no era biyectivo: el byte 0xE9 y el texto \\xe9 se veían igual",
+      "description": "render_diff escapaba los bytes inválidos como \\xNN pero no las barras que ya estaban en el diff, así que una línea con el byte 0xE9 y otra con los cuatro caracteres \\xe9 daban el mismo texto en el paquete. Los hashes las distinguían; el revisor no.",
+      "location": "src/disensor/pack.py, render_diff (79e8ea4)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura: backslashreplace escapa solo lo que no decodifica. El revisor lo reprodujo con bytes([43,99,97,102,233,10]) contra el literal +caf\\xe9 (iguales en el paquete, hashes distintos). Corregido en 98ecbbc."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_pack.py::test_an_escaped_diff_cannot_be_read_as_another_one: el byte y el literal dan paquetes distintos, el escapado lleva la línea que lo dice, y un diff con los dos dobla la barra del literal. La ronda 3 sobre 98ecbbc no trajo hallazgos."
+      }
+    },
+    {
+      "id": "h5",
+      "origin": "r2",
+      "severity": "minor",
+      "title": "Otra vez: claude y gemini sin tope de contexto",
+      "description": "La ronda 2 repitió como hipótesis lo de h3: el catálogo no exige un tope para claude y gemini y no está establecido si sus backends truncan.",
+      "location": "src/disensor/reviewers.py, inline_limit_required",
+      "final_state": "debt_recorded",
+      "debt_id": "#158",
+      "verification": {
+        "against": "repository",
+        "detail": "El mismo punto que h3, sin datos nuevos; la deuda ya estaba abierta en #158 cuando corrió la ronda 2."
+      }
+    },
+    {
+      "id": "h6",
+      "origin": "r3",
+      "severity": "minor",
+      "title": "claude y gemini instalados por npm en Windows quedan sin poder recibir el paquete",
+      "description": "Hipótesis del revisor: argv_refusal rechaza todo lanzador .cmd o .bat con {pack}, y una instalación común de claude o gemini en Windows resuelve a uno de esos lanzadores, así que la receta puede quedar inutilizable ahí.",
+      "location": "src/disensor/round.py, argv_refusal",
+      "final_state": "debt_recorded",
+      "debt_id": "#158",
+      "verification": {
+        "against": "repository",
+        "detail": "Confirmado por lectura y por esta máquina: programs.find resuelve con PATHEXT, y el codex instalado por npm acá resuelve a AppData\\Roaming\\npm\\codex.CMD; gemini-cli se instala por npm, así que en Windows siempre es un .cmd. El rechazo es lo buscado: antes cmd.exe cortaba el paquete en el primer salto de línea y el revisor recibía la primera línea. La salida es entregar por stdin, que #158 anota para claude y vale igual para gemini."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "third_party_no_test_environment",
+        "requires_human_attention": true,
+        "description": "Ningún backend real recibió un paquete con el diff adentro: ollama y gemini no están instalados en esta máquina, y claude no se corrió porque cuesta. La ruta inline se ejercitó con revisores de mentira por stdin (tests/test_round.py) y por argv (la variante de claude del catálogo en tests/test_degraded_mode.py). Las tres rondas las hizo codex, que es agéntico, con el disensor 0.14.0 instalado, así que recibieron el paquete por referencia v4 y no la variante nueva. Conviene mirar la primera ronda real con ollama: ahí se ve si el modelo usa el diff y si el tope que fije el dueño alcanza."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "La variante de tests/test_degraded_mode.py con la receta claude del catálogo, que ahora recibe el diff dentro del argv, se saltea en Windows y no corrió en local: corre en el CI de Linux y macOS de este PR. Las ramas POSIX de argv_refusal se probaron en Windows con los parámetros windows, linux y arg_max explícitos, no contra un exec real que pase ARG_MAX. Suite completa del generador en Windows 11 con Python 3.12.6 antes de 98ecbbc: 895 pasadas, 10 salteadas."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 6,
+      "valid": {
+        "incorporated": 3,
+        "debt_recorded": 3,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 1644
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:7bc30fe70c21006a169203199b6afe0cd77adb4c899c7c20f029b8084f8bfb58",
+      "report_hash": "sha256:f7bbe53ea3c264e4994bab4ea983d63a25b84c02736a9105726a68a60dd75e33",
+      "reviewer_seconds": 261
+    }
+  }
+}
