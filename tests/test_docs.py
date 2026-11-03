@@ -229,6 +229,112 @@ def test_every_action_this_repository_runs_is_pinned_to_a_commit():
             )
 
 
+def test_the_action_installs_from_the_hashed_lock_into_its_own_venv():
+    """La instalación de la Action no resuelve versiones al correr (#154).
+
+    Antes `pip install` resolvía `jsonschema>=4.18` y el setuptools del
+    build contra PyPI en cada corrida: fijar la Action por SHA no congelaba
+    lo que instalaba.
+    """
+    texto = (ROOT / "action.yml").read_text(encoding="utf-8")
+    llamadas = [l.strip() for l in texto.splitlines() if re.search(r"\s-m\s", l)]
+    assert llamadas, "action.yml no corre ningún python -m, y el test pasaría en vacío"
+    for llamada in llamadas:
+        assert " -I -m " in llamada, f"python sin -I: {llamada!r}"
+
+    assert 'python -I -m venv --clear "$VENV"' in llamadas
+    assert re.search(r"^\s+VENV: \$\{\{ runner\.temp \}\}/", texto, re.M)
+    instalaciones = [l for l in llamadas if " -m pip install " in l]
+    assert len(instalaciones) == 2
+    for linea in instalaciones:
+        assert linea.startswith('"$VENV/$BIN" -I -m pip install '), (
+            f"instala fuera del venv: {linea!r}"
+        )
+    deps, propio = instalaciones
+    assert deps.endswith('-r "$ACTION_PATH/requirements-action.txt"')
+    for opcion in ("--require-hashes", "--no-deps", "--only-binary :all:"):
+        assert opcion in deps, f"las dependencias se instalan sin {opcion}"
+    assert propio.endswith('"$ACTION_PATH"')
+    for opcion in ("--no-deps", "--no-build-isolation", "--no-index"):
+        assert opcion in propio, f"disensor se instala sin {opcion}"
+    assert any(l.startswith('"$DISENSOR_PYTHON" -I -m disensor gate ') for l in llamadas)
+
+
+def requisitos_del_lock(texto: str) -> list[str]:
+    entradas, actual = [], []
+    for linea in texto.splitlines():
+        s = linea.strip()
+        if not actual and (not s or s.startswith("#")):
+            continue
+        actual.append(s.removesuffix("\\").strip())
+        if not s.endswith("\\"):
+            entradas.append(" ".join(actual))
+            actual = []
+    assert not actual, "el lock termina en una línea continuada"
+    return entradas
+
+
+def test_the_action_lock_is_hashed_universal_and_follows_pyproject():
+    """El lock cubre todo Python que acepta pyproject, con hash en cada archivo.
+
+    El input `python-version` deja elegir cualquier Python desde el mínimo, y
+    la resolución cambia con la versión: rpds-py dejó de publicar para 3.10.
+    Un lock compilado para un solo Python dejaría sin instalación a los demás.
+    Lo que asegura que sea universal es el comando del encabezado: sin los
+    metadatos de cada archivo, este test no sabe qué Python soporta una versión
+    fijada. Eso lo prueba el job `accion` de ci.yml, que instala en 3.10 y 3.14.
+    """
+    from packaging.requirements import Requirement
+
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'^dependencies = \[(.*)\]$', pyproject, re.M)
+    assert m, "pyproject.toml no declara dependencies en una línea"
+    dependencias = [Requirement(d) for d in re.findall(r'"([^"]+)"', m.group(1))]
+    minimo = re.search(r'^requires-python = ">=3\.(\d+)"$', pyproject, re.M)
+    assert minimo, "pyproject.toml no declara requires-python como >=3.N"
+    menor = int(minimo.group(1))
+
+    entrada = [
+        Requirement(l) for l in (ROOT / "requirements-action.in").read_text(encoding="utf-8").splitlines()
+        if l.strip()
+    ]
+    assert sorted(map(str, entrada)) == sorted(map(str, dependencias + [Requirement("setuptools>=70.1")]))
+
+    texto = (ROOT / "requirements-action.txt").read_text(encoding="utf-8")
+    assert (
+        "uv pip compile requirements-action.in --universal --generate-hashes "
+        f"--python-version 3.{menor} -o requirements-action.txt"
+    ) in texto
+
+    fijados = []
+    for linea in requisitos_del_lock(texto):
+        requisito, _, hashes = linea.partition(" --hash=")
+        hashes = ("--hash=" + hashes).split()
+        assert all(re.fullmatch(r"--hash=sha256:[0-9a-f]{64}", h) for h in hashes), linea
+        req = Requirement(requisito)
+        (especificador,) = req.specifier
+        assert especificador.operator == "==", f"{req.name} no está fijado"
+        fijados.append(req)
+
+    plataformas = [
+        {"sys_platform": "linux", "platform_system": "Linux", "os_name": "posix"},
+        {"sys_platform": "darwin", "platform_system": "Darwin", "os_name": "posix"},
+        {"sys_platform": "win32", "platform_system": "Windows", "os_name": "nt"},
+    ]
+    for version in range(menor, 15):
+        for plataforma in plataformas:
+            entorno = {**plataforma, "python_version": f"3.{version}", "python_full_version": f"3.{version}.0"}
+            aplican = [r for r in fijados if r.marker is None or r.marker.evaluate(entorno)]
+            nombres = [r.name for r in aplican]
+            assert len(nombres) == len(set(nombres)), f"dos versiones del mismo paquete en {entorno}"
+            for requerido in dependencias + [Requirement("setuptools>=70.1")]:
+                (fijado,) = [r for r in aplican if r.name == requerido.name]
+                version_fijada = next(iter(fijado.specifier)).version
+                assert requerido.specifier.contains(version_fijada), (
+                    f"{fijado} no cumple {requerido} en {entorno}"
+                )
+
+
 def test_the_self_gate_pin_is_a_commit_not_a_tag_object():
     """El SHA pineado en ci.yml tiene que ser un commit pelado.
 
