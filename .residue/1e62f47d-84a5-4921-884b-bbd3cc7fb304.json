@@ -1,0 +1,93 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "1e62f47d-84a5-4921-884b-bbd3cc7fb304",
+    "created_at": "2026-11-03T12:01:15-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "8cea035de1b34a95d2f3c1b0168d5f89e04ad9c1",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "4cf2ebbb694d5ad4aca1215386d498fc485e0151"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-1"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "Las actions subidas no corrieron contra los servicios de GitHub antes de esta declaración. Las tres de ci.yml (checkout 7.0.1, setup-python 7.1.0, setup-node 7.1.0) corren recién en el CI de este PR, en ubuntu, windows y macos, y el job accion ejercita el setup-python 7.1.0 de action.yml con Python 3.10 y 3.14; las tres de release.yml (upload-artifact 7.0.2, download-artifact 8.0.2, gh-action-pypi-publish 1.14.3) corren solo con el próximo tag, contra el servicio de artefactos y el Trusted Publishing de PyPI, y ningún CI de PR las ejercita. Lo que sí se verificó: cada SHA resuelve al tag que dice su comentario (el generador con la API de GitHub, el revisor con git ls-remote), y los mismos SHA de checkout, setup-python y setup-node ya pasaron tests y conformidad-ts en los PR #163, #164 y #165 de Dependabot."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "El revisor no pudo correr npm run typecheck: esta máquina tiene Node 16 y el workflow aprovisiona Node 22; en una copia externa del head pasaron npm ci, npm run conformidad y npm test, y el typecheck cortó por ERR_UNKNOWN_FILE_EXTENSION. El generador tampoco corrió la suite de plano-evidencia en local. El typecheck con Node 22 corre en el job conformidad-ts del CI, con setup-node 7.1.0, después de esta declaración."
+      },
+      {
+        "id": "r3",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": true,
+        "description": "Hipótesis del revisor, no verificada: quien use la Action compuesta desde un runner autoalojado anterior a 2.327.1 no puede correr el setup-python 7.1.0 de action.yml, que exige Node 24. El repositorio no declara una versión mínima de runner, y acá no hay un runner autoalojado viejo donde probarlo; los runners hospedados por GitHub están por encima (2.338.2 en los logs del CI de hoy). El dueño decide si el README o la descripción de la Action lo dicen."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 434
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:089700454bfddce393c7838154676f72998a65ab9277fa273bd88a7e0813c765",
+      "report_hash": "sha256:6b5041cd298ada0b374f1b42f4f758fc7abcf71de6b6ec72489d688e24783f70",
+      "reviewer_seconds": 231,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}

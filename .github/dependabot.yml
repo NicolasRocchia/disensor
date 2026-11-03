@@ -4,6 +4,12 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # Un PR por tanda y no uno por action: cada PR sobre los workflows le
+    # exige al gate su ronda y su declaracion, y seis PR sueltos son seis
+    # rondas para una tanda que se revisa de una.
+    groups:
+      actions:
+        patterns: ["*"]
     ignore:
       # El pin del auto-gate sube a mano despues de cada release, en un PR
       # que lleva su ronda; un PR de Dependabot no trae declaracion.
@@ -12,3 +18,7 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    # Lo mismo para el lock de la Action: una tanda, una ronda.
+    groups:
+      lock:
+        patterns: ["*"]
