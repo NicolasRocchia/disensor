@@ -11,6 +11,88 @@ sentence ends with a full stop, and the references to README sections became
 links. The versions that paragraph did not describe (0.9.1, 0.6.5, 0.6.2,
 0.3.0 and 0.1.0) have no entry, and there was no 0.8.0.
 
+## 0.15.0 (2026-11-03)
+
+This version closes what an external team reported after twelve days of real
+use, plus what had been waiting on main since 0.14.0, still on residue/v0.4. A
+reviewer that cannot run git now receives the change it reviews: each recipe of
+the catalogue declares how it gets the material (`codex` is `agentic` and reads
+the range with git; `claude`, `gemini` and `ollama` are `inline`), an entry
+registered by hand is `inline` unless `reviewer add --material agentic` says
+otherwise, and an `inline` reviewer in a diff round receives the diff at the
+end of the package, written by `git diff-tree` with no dependence on the user's
+diff configuration (`core.quotepath` and `GIT_DIFF_OPTS` are fixed), escaped
+and announced when it is not UTF-8, with `material_hash` over the bytes git
+wrote. The diff goes whole or not at all: `reviewer add --max-inline-bytes N`
+caps any package with material inside (the diff, a plan, an architecture
+decision), `ollama` and every entry registered by hand have no default and get
+no such package until the owner sets one (`inline_limit_unset`), the limit of a
+recipe that passes the package as an argument is measured on the real command
+line before sending (32,767 UTF-16 units on Windows, 128 KiB per argument on
+Linux, `ARG_MAX` on POSIX), a `.cmd` or `.bat` launcher that would take the
+package as an argument on Windows is refused because `cmd.exe` cut it at its
+first line break, and a reviewer that does not fit is skipped and the chain
+moves on. The result of `round` becomes `disensor/round-result/v5`, where each
+attempt says how it received the material, and `new --round` still reads v4;
+`disensor pack --gate diff --inline` prints the same package
+([#152](https://github.com/NicolasRocchia/disensor/issues/152),
+[#159](https://github.com/NicolasRocchia/disensor/pull/159); recording the
+delivery in the declaration waits for v0.5 in
+[#160](https://github.com/NicolasRocchia/disensor/issues/160), and the context
+windows of the hosted recipes are
+[#158](https://github.com/NicolasRocchia/disensor/issues/158)). `reviewer
+consent` records how it was given (UTC date, disensor version, and whether
+standard input and output were a console, which on Windows also asks
+`GetConsoleMode` because a pipe to NUL answers `isatty()` with true), `round`
+prints that provenance each time it uses a consent and `new --round` carries it
+into the declaration; a consent given before this version shows as "provenance
+not recorded" ([#84](https://github.com/NicolasRocchia/disensor/issues/84)).
+`reviewer add --yes` no longer claims to cover the repository, `consent` and
+`round` resolve the repository the same way from a subdirectory,
+`--generator-model` is documented, `round` warns when a reviewer of the
+generator's family ran without it, and without it that reviewer is recorded as
+`same_model_fresh_context`, the least independence a round can claim; the
+`claude` and `gemini` recipes pass `--model {model}`, which they declared and
+never sent ([#79](https://github.com/NicolasRocchia/disensor/issues/79),
+[#151](https://github.com/NicolasRocchia/disensor/pull/151)). Pinning the
+Action by SHA now freezes what it installs too: the actions it uses are pinned
+by commit, and it installs from `requirements-action.txt`, a lock with the hash
+of every file, as wheels only and into a venv of its own, with disensor built
+by the locked setuptools, so nothing is resolved at run time
+([#154](https://github.com/NicolasRocchia/disensor/issues/154),
+[#161](https://github.com/NicolasRocchia/disensor/pull/161),
+[#168](https://github.com/NicolasRocchia/disensor/pull/168)). `disensor gate`
+exits with 6 when it could not decide (no range, a commit it cannot find, a
+shallow clone without the merge base, a policy on the target it cannot read, or
+a crash) and keeps 1 for a red verdict
+([#153](https://github.com/NicolasRocchia/disensor/issues/153),
+[#171](https://github.com/NicolasRocchia/disensor/pull/171)). The suite runs on
+Windows and macOS as well as Linux
+([#156](https://github.com/NicolasRocchia/disensor/issues/156)). The smoke of
+this release, as the test asks: on 2026-11-03, on Windows 11 with Python 3.14.2
+and the model gpt-5.6-sol, `tests/test_hardening.py` passed 29 tests with
+codex-cli 0.153.4 and 29 with codex-cli 0.162.1, the binary the rounds use; in
+both, with the canary `AGENTS.md` in the repository the recipe answered
+`NINGUNO` and its control quoted the canary, with the canary in the isolated
+home the recipe stopped as `context_unverified` before any inference and its
+control quoted the canary, and with the canary skill in `~/.agents/skills` the
+recipe answered `NINGUNA` and its control listed 41 skills, the canary among
+them. The recipe of `codex` did not change, so an entry registered with 0.14.0
+keeps working. What changes for whoever uses it: an entry for `claude` or
+`gemini` registered with an earlier version is left out of the chain as
+`stale_model_entry` and has to be registered again with `--model`; `ollama` and
+the entries registered by hand need `--max-inline-bytes` before they review a
+diff, a plan or an architecture decision; on Windows, `claude` and `gemini`
+installed through npm resolve to a `.cmd` and no longer receive the package,
+and `claude` by argument does not fit a diff of more than about 20 KB; the
+Action leaves disensor out of the job's Python, so a later step that called
+`disensor` or imported jsonschema relying on it no longer finds it, and CPython
+3.13 free-threaded, 3.10 on Windows ARM and PyPy 3.10 cannot run it; a CI that
+compares the exit code of `disensor gate` with 1 no longer sees red when the
+gate could not decide; and the runbook block that `init` writes moved to 0.15,
+so `disensor init --upgrade` brings it. Giving the consent again records its
+provenance.
+
 ## 0.14.0 (2026-10-15)
 
 This version is about what reaches the reviewer from the machine it runs on,

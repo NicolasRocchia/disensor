@@ -11,6 +11,90 @@ oración cierra con punto, y las referencias a secciones del README pasaron a
 ser enlaces. Las versiones que ese párrafo no describía (0.9.1, 0.6.5, 0.6.2,
 0.3.0 y 0.1.0) no tienen entrada, y no hubo 0.8.0.
 
+## 0.15.0 (2026-11-03)
+
+Esta versión cierra lo que reportó un equipo externo después de doce días de
+uso real, más lo que esperaba en main desde la 0.14.0, todavía sobre
+residue/v0.4. Un revisor que no puede correr git ahora recibe el cambio que
+revisa: cada receta del catálogo declara cómo recibe el material (`codex` es
+`agentic` y lee el rango con git; `claude`, `gemini` y `ollama` son `inline`),
+una entrada registrada a mano es `inline` salvo que `reviewer add --material
+agentic` diga otra cosa, y un revisor `inline` en una ronda diff recibe el diff
+al final del paquete, escrito por `git diff-tree` sin depender de la
+configuración de diff del usuario (`core.quotepath` y `GIT_DIFF_OPTS` quedan
+fijos), escapado y avisado cuando no es UTF-8, con `material_hash` sobre los
+bytes que escribió git. El diff va entero o no va: `reviewer add
+--max-inline-bytes N` pone tope a todo paquete con material adentro (el diff,
+un plan, una decisión de arquitectura), `ollama` y toda entrada registrada a
+mano no tienen valor por defecto y no reciben un paquete así hasta que el dueño
+fija uno (`inline_limit_unset`), el límite de una receta que pasa el paquete
+como argumento se mide sobre la línea de comandos real antes de mandar nada
+(32.767 unidades UTF-16 en Windows, 128 KiB por argumento en Linux, `ARG_MAX`
+en POSIX), un lanzador `.cmd` o `.bat` que en Windows recibiría el paquete como
+argumento se rechaza porque `cmd.exe` lo cortaba en el primer salto de línea, y
+un revisor que no entra se saltea y la cadena sigue. El resultado de `round`
+pasa a `disensor/round-result/v5`, donde cada intento dice cómo recibió el
+material, y `new --round` sigue leyendo v4; `disensor pack --gate diff
+--inline` imprime el mismo paquete
+([#152](https://github.com/NicolasRocchia/disensor/issues/152),
+[#159](https://github.com/NicolasRocchia/disensor/pull/159); registrar la
+entrega en la declaración espera a la v0.5 en
+[#160](https://github.com/NicolasRocchia/disensor/issues/160), y las ventanas
+de contexto de las recetas hospedadas son
+[#158](https://github.com/NicolasRocchia/disensor/issues/158)). `reviewer
+consent` registra cómo se dio (fecha UTC, versión de disensor, y si la entrada
+y la salida estándar eran una consola, que en Windows además pregunta
+`GetConsoleMode` porque una tubería a NUL contesta `isatty()` con verdadero),
+`round` imprime esa procedencia cada vez que usa un consentimiento y `new
+--round` la lleva a la declaración; un consentimiento dado antes de esta
+versión se muestra como "provenance not recorded"
+([#84](https://github.com/NicolasRocchia/disensor/issues/84)). `reviewer add
+--yes` ya no dice que cubre el repositorio, `consent` y `round` resuelven el
+repositorio igual desde un subdirectorio, `--generator-model` está documentado,
+`round` avisa cuando corrió sin él un revisor de la familia del generador, y
+sin él ese revisor se registra como `same_model_fresh_context`, la menor
+independencia que una ronda puede afirmar; las recetas `claude` y `gemini`
+pasan `--model {model}`, que declaraban y nunca mandaban
+([#79](https://github.com/NicolasRocchia/disensor/issues/79),
+[#151](https://github.com/NicolasRocchia/disensor/pull/151)). Fijar la Action
+por SHA ahora congela también lo que instala: las actions que usa están fijadas
+por commit, e instala desde `requirements-action.txt`, un lock con el hash de
+cada archivo, solo como wheels y en un venv propio, con disensor construido por
+el setuptools del lock, así que nada se resuelve al correr
+([#154](https://github.com/NicolasRocchia/disensor/issues/154),
+[#161](https://github.com/NicolasRocchia/disensor/pull/161),
+[#168](https://github.com/NicolasRocchia/disensor/pull/168)). `disensor gate`
+sale con 6 cuando no pudo decidir (sin rango, un commit que no encuentra, un
+clon superficial sin el merge base, una política del destino que no puede leer,
+o un crash) y deja el 1 para un veredicto rojo
+([#153](https://github.com/NicolasRocchia/disensor/issues/153),
+[#171](https://github.com/NicolasRocchia/disensor/pull/171)). La suite corre en
+Windows y macOS además de Linux
+([#156](https://github.com/NicolasRocchia/disensor/issues/156)). El smoke de
+esta release, como pide la prueba: el 2026-11-03, en Windows 11 con Python
+3.14.2 y el modelo gpt-5.6-sol, `tests/test_hardening.py` dio 29 pasadas con
+codex-cli 0.153.4 y 29 con codex-cli 0.162.1, el binario que usan las rondas;
+en las dos, con el `AGENTS.md` canario en el repositorio la receta contestó
+`NINGUNO` y su control citó el canario, con el canario en el home aislado la
+receta cortó como `context_unverified` antes de inferir y su control citó el
+canario, y con la skill canario en `~/.agents/skills` la receta contestó
+`NINGUNA` y su control listó 41 skills, la canario entre ellas. La receta de
+`codex` no cambió, así que una entrada registrada con la 0.14.0 sigue
+funcionando. Qué cambia para quien la usa: una entrada de `claude` o `gemini`
+registrada con una versión anterior queda fuera de la cadena como
+`stale_model_entry` y hay que registrarla de nuevo con `--model`; `ollama` y
+las entradas registradas a mano necesitan `--max-inline-bytes` antes de revisar
+un diff, un plan o una decisión de arquitectura; en Windows, `claude` y
+`gemini` instalados por npm resuelven a un `.cmd` y ya no reciben el paquete, y
+`claude` por argumento no entra con un diff de más de unos 20 KB; la Action
+deja a disensor fuera del Python del job, así que un paso posterior que llamaba
+a `disensor` o importaba jsonschema contando con ella ya no lo encuentra, y
+CPython 3.13 free-threaded, 3.10 en Windows ARM y PyPy 3.10 no pueden correrla;
+un CI que compara el código de salida de `disensor gate` con 1 deja de ver rojo
+cuando el gate no pudo decidir; y el bloque del runbook que escribe `init` pasó
+a 0.15, así que `disensor init --upgrade` lo trae. Dar de nuevo el
+consentimiento registra su procedencia.
+
 ## 0.14.0 (2026-10-15)
 
 Esta versión es sobre lo que le llega al revisor desde la máquina donde corre,
