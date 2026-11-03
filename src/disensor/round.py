@@ -38,7 +38,7 @@ from pathlib import Path
 
 from . import __version__, codex_home, gitctx, programs
 from .brief import brief_text, hash_of
-from .gate import GateFailure, classify_requirement, resolve_context
+from .gate import UNDECIDABLE, GateFailure, classify_requirement, resolve_context
 from .pack import (
     canonical_pack_text,
     deliver,
@@ -87,7 +87,7 @@ ERROR = 1
 NOT_REQUIRED = 3
 CHAIN_EXHAUSTED = 4
 TREE_MODIFIED = 5
-UNDECIDABLE = 6
+# UNDECIDABLE = 6 viene de gate: el gate y round --check lo comparten.
 
 STATUS_ARGS = [
     # `gitctx.run_git` antepone READ_ONLY: mirar el arbol no escribe el indice

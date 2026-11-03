@@ -1,0 +1,68 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "53bd39a3-0784-45cd-80d4-8465f91de803",
+    "created_at": "2026-11-03T10:51:43-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "2b544bda750db5159408d1aff4d798aec8e49b40",
+    "gate": "plan",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    }
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-opus-5-5"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:1a8f3006b22a72235825a3646c94474f346dfa356b9c470342a8113537a7d394"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "declared_absence": true,
+    "declaration": "La ronda de plan no trajo hallazgos ni hipótesis. Su única sugerencia, que no bloqueaba, era que el test del crash entrara por main_gate y no por run_gate; se aplicó en d6c7a1e: test_a_crash_is_no_verdict_rather_than_a_red_one arma los argumentos con el parser real del CLI y llama a la función del subcomando. Lo que la implementación deja abierto se declara en el evento ccf82398."
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 4,
+      "pack_hash": "sha256:7080cb87ea92a97143b6a2356fc6856fef30ebf09639bd14fd1bb4397bc6d323",
+      "report_hash": "sha256:90345af43b77cc929f78bc0169ff7b0bb2eb3d363c7b9349fc9ee1d38db2686c",
+      "material_hash": "sha256:dc68d8af146516ca5e2358dc69e89a12783480361c2329aa27be4421c1519681",
+      "reviewer_seconds": 202
+    }
+  }
+}

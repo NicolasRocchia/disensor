@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import os
+import traceback
 import urllib.request
 import uuid
 from dataclasses import dataclass, field
@@ -65,6 +66,8 @@ KNOWN_CONFIG_KEYS = {"criticality_level", "level_A_enabled", "gate"}
 CURRENT_SCHEMA = CURRENT
 
 KNOWN_GATE_KEYS = {"required", "level_A_accepted_confinement", "warn_unverified_confinement", "scope"}
+
+UNDECIDABLE = 6
 
 
 class GateFailure(Exception):
@@ -772,7 +775,7 @@ def run_gate(directory: Path | str, config_path: Path | str, base: str | None,
         write_summary(body)
         print(body)
         print(f"\n[gate] FAILED: {exc}")
-        return 1
+        return UNDECIDABLE
 
 
 def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
@@ -936,13 +939,20 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
 
 
 def main_gate(args) -> int:
-    return run_gate(
-        directory=args.directory,
-        config_path=args.config,
-        base=args.base,
-        head=args.head,
-        repo_dir=Path.cwd(),
-        post=not args.no_comment,
-        report=not getattr(args, "no_report", False),
-        report_out=getattr(args, "report_out", None),
-    )
+    # Un crash no puede salir con el 1 de Python: es el codigo del rojo, y un CI
+    # que lee el codigo de salida lo tomaria por un PR que no cumple.
+    try:
+        return run_gate(
+            directory=args.directory,
+            config_path=args.config,
+            base=args.base,
+            head=args.head,
+            repo_dir=Path.cwd(),
+            post=not args.no_comment,
+            report=not getattr(args, "no_report", False),
+            report_out=getattr(args, "report_out", None),
+        )
+    except Exception as exc:
+        traceback.print_exc()
+        print(f"\n[gate] FAILED: unexpected error, no verdict: {type(exc).__name__}: {exc}")
+        return UNDECIDABLE
