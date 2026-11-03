@@ -15,7 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from disensor.gate import event_key, run_gate
+from disensor import gate as gate_module
+from disensor.cli import build_parser
+from disensor.gate import UNDECIDABLE, event_key, run_gate
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "spec" / "examples"
 PLAN = json.loads((EXAMPLES / "example_1_plan_gate.json").read_text(encoding="utf-8"))
@@ -522,7 +524,7 @@ def test_missing_range_fails_closed(repo, capsys):
     repo.write("src/app.py", "code")
     repo.commit("feat")
     assert run_gate(directory=".residue", config_path="disensor.config.json",
-                    base=None, head=None, repo_dir=repo.path, post=False) == 1
+                    base=None, head=None, repo_dir=repo.path, post=False) == UNDECIDABLE
     assert "range" in out(capsys).lower()
 
 
@@ -530,8 +532,66 @@ def test_unknown_commit_fails_closed(repo, capsys):
     base = repo.git("rev-parse", "HEAD")
     repo.write("src/app.py", "code")
     head = repo.commit("feat")
-    assert repo.run(base, "0" * 40) == 1
-    assert repo.run("0" * 40, head) == 1
+    assert repo.run(base, "0" * 40) == UNDECIDABLE
+    assert repo.run("0" * 40, head) == UNDECIDABLE
+
+
+def test_a_red_verdict_and_no_verdict_exit_differently(repo, capsys):
+    """1 es un PR que no cumple; 6, un gate que no llegó a evaluarlo (#153).
+
+    Con `--no-comment` el código de salida es todo lo que ve un CI fuera de
+    GitHub, y lo primero pide trabajo en el PR y lo segundo, en el CI.
+    """
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat sin declaracion")
+    assert repo.run(base, head) == 1
+    assert repo.run(base, "0" * 40) == UNDECIDABLE
+
+
+def test_a_shallow_clone_without_the_merge_base_cannot_decide(repo, tmp_path_factory, capsys):
+    base = repo.git("rev-parse", "HEAD")
+    repo.git("branch", "destino", base)
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat")
+    clon = tmp_path_factory.mktemp("shallow") / "clon"
+    subprocess.run(["git", "clone", "-q", "--depth", "1", repo.path.as_uri(), str(clon)], check=True)
+    subprocess.run(["git", "-C", str(clon), "fetch", "-q", "--depth", "1", "origin", "destino"], check=True)
+    assert run_gate(directory=".residue", config_path="disensor.config.json",
+                    base=base, head=head, repo_dir=clon, post=False) == UNDECIDABLE
+    assert "fetch-depth: 0" in out(capsys)
+
+
+@pytest.mark.parametrize("politica", [
+    "{ no es json",
+    json.dumps(["no", "es", "un", "objeto"]),
+    json.dumps({"criticality_level": "Z", "level_A_enabled": False}),
+], ids=["no-json", "no-objeto", "forma-invalida"])
+def test_a_policy_at_the_target_that_cannot_be_read_cannot_decide(repo, politica, capsys):
+    repo.write("disensor.config.json", politica)
+    base = repo.commit("la politica del destino no se puede usar")
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat")
+    assert repo.run(base, head) == UNDECIDABLE
+    assert "could not reach a verdict" in out(capsys)
+
+
+def test_a_crash_is_no_verdict_rather_than_a_red_one(repo, monkeypatch, capsys):
+    """Un traceback sin atrapar sale con el 1 de Python, el código del rojo."""
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat")
+
+    def explota(*args, **kwargs):
+        raise RuntimeError("explota a mitad del gate")
+
+    monkeypatch.setattr(gate_module, "classify_requirement", explota)
+    monkeypatch.chdir(repo.path)
+    args = build_parser().parse_args(["gate", "--no-comment", "--base", base, "--head", head])
+    assert args.func(args) == UNDECIDABLE
+    salida = capsys.readouterr()
+    assert "RuntimeError: explota a mitad del gate" in salida.err
+    assert "no verdict" in salida.out
 
 
 def test_diff_artifact_without_base_commit_fails(repo, capsys):
@@ -607,7 +667,7 @@ def test_invalid_evidence_directory_is_rejected(repo, directory, capsys):
     base = repo.git("rev-parse", "HEAD")
     repo.write("src/app.py", "code")
     head = repo.commit("feat")
-    assert repo.run(base, head, directory=directory) == 1
+    assert repo.run(base, head, directory=directory) == 6
 
 
 def test_working_tree_does_not_change_the_verdict(repo, capsys):
@@ -651,7 +711,7 @@ def test_level_a_refuses_a_reviewer_without_verified_hardening(repo, capsys):
             }
     repo.write(ruta, json.dumps(datos, ensure_ascii=False))
     head = repo.commit("docs(residue)")
-    assert repo.run(base, head) != 0
+    assert repo.run(base, head) == 1
     assert "hardening 'not declared' in Level A" in out(capsys)
 
 
@@ -665,7 +725,7 @@ def test_level_a_cannot_switch_coverage_off(repo, capsys):
     base = repo.commit("config de nivel A sin cobertura")
     repo.write("src/app.py", "code")
     head = repo.commit("feat")
-    assert repo.run(base, head) != 0
+    assert repo.run(base, head) == 1
     assert "Level A with gate.required=false" in out(capsys)
 
 
@@ -679,7 +739,7 @@ def test_a_pr_that_introduces_level_a_without_coverage_is_refused(repo, capsys):
     base = repo.git("rev-parse", "HEAD")
     repo.config({"criticality_level": "A", "level_A_enabled": True, "gate": {"required": False}})
     head = repo.commit("relaja la politica")
-    assert repo.run(base, head) != 0
+    assert repo.run(base, head) == 1
     assert "leaves Level A with gate.required=false" in out(capsys)
 
 
@@ -689,7 +749,7 @@ def test_a_repository_already_on_level_a_without_coverage_fails_closed(repo, cap
     base = repo.commit("politica de nivel A sin cobertura")
     repo.write("src/app.py", "code")
     head = repo.commit("feat")
-    assert repo.run(base, head) != 0
+    assert repo.run(base, head) == 1
     assert "declares Level A with gate.required=false" in out(capsys)
 
 
@@ -707,7 +767,7 @@ def test_repairing_the_invalid_policy_is_an_administrative_step(repo, capsys):
     base = repo.commit("politica invalida")
     repo.config({"criticality_level": "B", "level_A_enabled": False})
     head = repo.commit("intenta repararla")
-    assert repo.run(base, head) != 0
+    assert repo.run(base, head) == 1
     assert "administrative step" in out(capsys)
 
 
