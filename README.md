@@ -593,10 +593,13 @@ run Python over a checkout of the repository can host it. It takes four things:
   be read from an older commit than the tip of the target.
 - **The whole history**, the equivalent of `fetch-depth: 0`: without it there
   is no merge base and the gate fails closed. In GitLab, `GIT_DEPTH: "0"`.
-- **`--no-comment`, and the verdict by exit code**: 0 is green, and 1 is red or
-  a gate that could not decide. The body the comment would carry goes to
-  stdout, and on a green verdict `--report-out <file>` writes the HTML report
-  where the CI can archive it.
+- **`--no-comment`, and the verdict by exit code**: 0 is green, 1 is red (the
+  gate judged the change and a check failed) and 6 is a gate that could not
+  decide (no range, a commit it cannot find, a shallow clone without the merge
+  base, a policy on the target it cannot read, or a crash). Both fail closed;
+  a 1 asks for work on the change and a 6 for work on the CI. The body the
+  comment would carry goes to stdout, and on a green verdict
+  `--report-out <file>` writes the HTML report where the CI can archive it.
 - **The same deployment requirements, under the names each platform gives
   them**: a required check that runs on the head of every change, the
   configuration and the pipeline definition owned outside the audited
@@ -709,7 +712,8 @@ things.
 exhausted, `5` tree modified during the round, `6` could not decide whether a
 round was required), and the three of them that `disensor round --check`
 answers with (`0` a round is required, `3` it is not, `6` it could not be
-decided); the subcommands and flags documented in this file; the four
+decided); those of `disensor gate` (`0` green, `1` red, `6` could not decide);
+the subcommands and flags documented in this file; the four
 inputs of the Action (`github-token`, `directory`, `config`, `python-version`);
 and the keys of `disensor.config.json`, which already fail closed on anything
 unknown. Breaking these needs a major.

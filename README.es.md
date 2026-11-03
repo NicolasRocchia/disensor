@@ -420,7 +420,7 @@ El veredicto no depende de GitHub; el comentario sí. Con `--base`, `--head` y `
 
 - **El rango, desde las variables del propio CI.** `--base` es la punta de la rama de destino, que es de donde se lee la política, y `--head` es el último commit del cambio. En un pipeline de merge request de GitLab, la rama de destino se trae por nombre (`git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"`) y `--base` es `FETCH_HEAD`; `--head` es `CI_COMMIT_SHA`, o `CI_MERGE_REQUEST_SOURCE_BRANCH_SHA` en un pipeline de resultados combinados, donde `CI_COMMIT_SHA` es el commit de merge temporal. No `CI_MERGE_REQUEST_DIFF_BASE_SHA`: ese es el merge base, y la política se leería de un commit más viejo que la punta del destino.
 - **La historia completa**, el equivalente de `fetch-depth: 0`: sin ella no hay merge base y el gate falla cerrado. En GitLab, `GIT_DEPTH: "0"`.
-- **`--no-comment`, y el veredicto por código de salida**: 0 es verde, y 1 es rojo o un gate que no pudo decidir. El cuerpo que llevaría el comentario sale por stdout, y con veredicto verde `--report-out <archivo>` escribe el informe HTML donde el CI lo pueda archivar.
+- **`--no-comment`, y el veredicto por código de salida**: 0 es verde, 1 es rojo (el gate juzgó el cambio y falló algún chequeo) y 6 es un gate que no pudo decidir (sin rango, un commit que no encuentra, un clon superficial sin el merge base, una política del destino que no puede leer, o un crash). Los dos fallan cerrado; un 1 pide trabajo en el cambio y un 6, en el CI. El cuerpo que llevaría el comentario sale por stdout, y con veredicto verde `--report-out <archivo>` escribe el informe HTML donde el CI lo pueda archivar.
 - **Los mismos requisitos de despliegue, con el nombre que les da cada plataforma**: un check obligatorio que corra sobre el head de cada cambio, la configuración y la definición del pipeline con dueño fuera del repositorio auditado, y el ejecutable fijado a una versión exacta del paquete, corrido como lo corre `action.yml` (`python -I -m`), porque el directorio de trabajo es el checkout que se está juzgando.
 
 Lo que no viaja es el comentario del PR y el resumen del job, que escriben en GitHub; quien los quiera en otra plataforma los arma desde stdout. Un job mínimo de GitLab CI está en [`docs/ejemplo-gitlab-ci.yml`](https://github.com/NicolasRocchia/disensor/blob/main/docs/ejemplo-gitlab-ci.yml).
@@ -465,7 +465,8 @@ El paquete y el esquema se numeran por separado, y prometen cosas distintas.
 `disensor round` (`0` revisado, `1` error, `3` no hacía falta ronda, `4` cadena
 agotada, `5` árbol modificado durante la ronda, `6` no se pudo decidir si hacía
 falta), y los tres con los que contesta `disensor round --check` (`0` hace falta
-ronda, `3` no hace falta, `6` no se pudo decidir); los subcomandos y banderas
+ronda, `3` no hace falta, `6` no se pudo decidir); los de `disensor gate` (`0`
+verde, `1` rojo, `6` no pudo decidir); los subcomandos y banderas
 documentados en este archivo; los cuatro
 inputs de la Action (`github-token`, `directory`, `config`, `python-version`); y
 las claves de `disensor.config.json`, que ya fallan cerrado ante cualquier cosa
