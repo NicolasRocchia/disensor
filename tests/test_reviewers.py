@@ -361,8 +361,11 @@ def test_a_recipe_that_puts_the_model_in_the_command_demands_one():
     Ese es el defecto que llevo a cinco declaraciones afirmando un modelo que la
     cuenta ni siquiera puede correr.
     """
-    with pytest.raises(ReviewerError, match="needs --model"):
+    with pytest.raises(ReviewerError, match="needs --model") as error:
         build_entry("codex", "openai", None, CATALOG["codex"]["command"], from_catalog=True)
+    assert str(error.value).endswith("while the declaration claims another model"), (
+        "el mensaje empezaba en ingles y terminaba en castellano (#175)"
+    )
 
 
 def test_the_claude_recipe_does_not_load_what_the_machine_adds():
