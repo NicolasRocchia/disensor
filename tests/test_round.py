@@ -991,6 +991,30 @@ def test_a_diff_round_refuses_a_material_document(repo: Path, monkeypatch, tmp_p
     assert not (tmp_path / "resultado.json").exists()
 
 
+@pytest.mark.parametrize("contenido", [None, "# un plan\n".encode("utf-16")], ids=["ausente", "utf-16"])
+def test_a_material_that_cannot_be_read_is_not_a_traceback(repo: Path, monkeypatch, tmp_path, capsys, contenido):
+    """`pack` atrapaba el error de lectura del material y `round` no (#180)."""
+    from disensor.cli import build_parser
+
+    material = tmp_path / "plan.md"
+    if contenido is not None:
+        material.write_bytes(contenido)
+    registro = {"reviewers": [dict(
+        entrada("falso", "openai", revisor_falso(tmp_path, "falso", ESCRIBE_Y_SALE_BIEN)),
+        egress="local",
+    )]}
+    monkeypatch.setattr(ronda, "load_registry", lambda: registro)
+    args = build_parser().parse_args([
+        "round", "--gate", "plan", "--generator-family", "anthropic",
+        "--material", str(material), "--repository", str(repo),
+        "--report", str(tmp_path / "informe.md"), "--result", str(tmp_path / "resultado.json"),
+    ])
+    monkeypatch.chdir(repo)
+    assert args.func(args) == ronda.ERROR
+    assert "cannot read the material" in capsys.readouterr().err
+    assert not (tmp_path / "informe.md").exists(), "ningun revisor corre sin el material"
+
+
 # --- Los destinos, antes de correr a nadie (#80) --------------------------------
 
 def anota_y_escribe(antes: str = "") -> str:

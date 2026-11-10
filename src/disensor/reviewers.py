@@ -395,9 +395,9 @@ def build_entry(
         raise ReviewerError("--max-inline-bytes has to be a positive number of bytes")
     if "{model}" in list(command) and not model:
         raise ReviewerError(
-            "this recipe puts the model in the command, so it needs --model: without uno el "
-            "argumento queda vacio y el revisor corre lo que tenga por defecto mientras la "
-            "declaracion afirma otra cosa"
+            "this recipe puts the model in the command, so it needs --model: without one the "
+            "argument stays empty and the reviewer runs whatever its default is while the "
+            "declaration claims another model"
         )
     if executable is not None:
         if not programs.is_absolute(executable) or not os.path.isfile(executable):

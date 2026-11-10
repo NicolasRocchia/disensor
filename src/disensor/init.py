@@ -413,10 +413,12 @@ def main_init(args) -> int:
     for line in report:
         print(line)
     print(
-        "\nNext: `disensor prompt --gate <plan|diff|architecture>` prints the brief to "
-        "reviewer from ANOTHER model family (rule R4; a free tier is enough). Then "
-        "`disensor new` creates the declaration, the skill or `disensor guide` explains "
-        "every field, and `disensor validate` checks it before committing."
+        "\nNext: `disensor reviewer suggest` lists the reviewers this machine can run, "
+        "`disensor round` runs the adversarial round and `disensor new --round` starts the "
+        "declaration from its result. To drive the round by hand instead, `disensor prompt "
+        "--gate <plan|diff|architecture>` prints the brief for the reviewer. The skill or "
+        "`disensor guide` explains every field, and `disensor validate` checks the "
+        "declaration before committing."
     )
     return 0
 

@@ -1,0 +1,118 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "97f5383c-b762-4e24-a6b6-a53dc5f030dd",
+    "created_at": "2026-11-10T08:16:09-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "b4da012122b193851b63b675e76091d3c4626ef1",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "1190b9719d26658f23cec04a2715a185e7380cac"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      },
+      {
+        "reviewer_id": "r2",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "new --round seguía dando un traceback con un resultado cuyas partes anidadas tienen otra forma",
+      "description": "El arreglo de #180 en 92d2434 comprobaba solo que la raíz del resultado fuera un objeto JSON. from_round lee después anchors, observed y declared con .get, así que un resultado bien formado con una lista en uno de esos lugares (por ejemplo \"anchors\": []) terminaba en AttributeError, que main_new no atrapa: la persona veía un traceback y no el diagnóstico new: que el cambio prometía. Lo mismo pasaba con otras formas equivocadas de observed o declared.",
+      "location": "src/disensor/template.py, from_round y el except de main_new",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El revisor lo reprodujo corriendo el CLI (AttributeError: 'list' object has no attribute 'get'). El generador lo confirmó con trece casos parametrizados corridos contra el template.py de 92d2434: los trece fallan, y recorren result_version, anchors, anchors.head_oid, observed, observed.attempts, observed.report_path, declared, declared.reviewer_id, declared.generator, declared.family, declared.independence y hashes. Era además el caso que el generador había dejado fuera del alcance al cerrar la primera pasada, sin reproducirlo."
+      },
+      "fix_verification": {
+        "type": "diff_gate",
+        "reference": "Corregido en b4da012 con _require_shape al entrar a from_round. La ronda 2 (r2) revisó el rango 1190b97..b4da012 completo y no levantó hallazgos. Además, tests/test_cli_errors.py::test_a_round_result_with_a_part_of_another_shape_is_not_a_traceback pasa en sus trece casos, y la suite completa pasa sobre b4da012 (925 pasadas, 10 salteadas, Windows 11, Python 3.14.2), corrida por el generador y otra vez por el revisor."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Ninguna ronda ni el generador corrieron las diez pruebas que la suite saltea en esta máquina: tres smokes con costo contra revisores reales, dos que plantan material en el home real del usuario, una del bit de ejecución en Unix, una del argv de la receta claude que no aplica en Windows y tres casos del índice de vectores. Ninguna toca el código de este evento, salvo de forma indirecta la de la receta claude, que pasa por reviewers.py. El caso de origen de #180, una declaración escrita con la redirección > de Windows PowerShell 5.1, no se ejercitó con una redirección real: las pruebas escriben los bytes con encode('utf-16'), que lleva el mismo BOM y la misma codificación pero no pasó por esa shell. _require_shape comprueba los tipos que from_round lee hoy; un campo que from_round empiece a leer más adelante no queda cubierto por la comprobación ni por las trece pruebas. El revisor de la ronda 1 encontró un .pytest_cache/ ignorado en el worktree y no pudo decir si era anterior a su corrida: era de las corridas de la suite del generador, previas a la ronda, y se borró antes de la ronda 2, que terminó sin ningún archivo ignorado nuevo. La verificación de confinamiento de las dos rondas es git status limpio antes y después, que no ve archivos ignorados ni escrituras fuera del árbol."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 1500
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:69fe18e11387d362c54a22c06da97ad807953cedb0f93b77f79f330f6797b72c",
+      "report_hash": "sha256:e748148d9b79fd4f70dba30dc11acd9f11597923db479b7f2f393fa0d7b3ebcb",
+      "reviewer_seconds": 220,
+      "consent": {
+        "recorded": false
+      }
+    },
+    "dev.disensor.rounds": {
+      "count": 2,
+      "reviewer_seconds_total": 498,
+      "heads": [
+        "92d2434",
+        "b4da012"
+      ]
+    }
+  }
+}

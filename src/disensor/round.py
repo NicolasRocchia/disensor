@@ -852,7 +852,10 @@ def _round(args, repo: Path) -> int:
     # correr a nadie: cada intento recibe este texto mas su entrega, asi que el
     # hash que va al resultado es el de los bytes que el revisor vio, y no el
     # de un brief que pudo cambiar en disco mientras el revisor trabajaba.
-    material_text = read_material(args.material) if args.material else None
+    try:
+        material_text = read_material(args.material) if args.material else None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise RoundError(f"cannot read the material at {args.material}: {exc}") from exc
     brief = brief_text(args.gate)
     canonical = canonical_pack_text(
         args.gate,

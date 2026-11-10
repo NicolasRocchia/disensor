@@ -467,6 +467,21 @@ def test_a_new_artifact_needs_a_canonical_event_id(repo, event_id, capsys):
     assert "canonical UUID" in out(capsys)
 
 
+def test_a_new_declaration_in_another_encoding_is_a_red_not_a_crash(repo, capsys):
+    """La lectura de las historicas ya atrapaba el error de decodificacion y la
+    de las que el PR agrega no: el gate salia sin veredicto y sin comentario
+    por un archivo que tenia que rechazar (#180)."""
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/a.py", "one")
+    repo.commit("feat")
+    path = repo.path / ".residue" / "00000000-1a2b-4c3d-8e5f-6a7b8c9d0e1f.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(json.dumps(DIFF).encode("utf-16"))
+    head = repo.commit("docs(residue)")
+    assert repo.run(base, head) == 1
+    assert "invalid JSON" in out(capsys)
+
+
 def test_unreadable_historical_evidence_fails_closed(repo, capsys):
     """If a past artifact cannot be read, its id is unknown and could be reused."""
     repo.write(".residue/legacy.json", "{ this is not valid json")
