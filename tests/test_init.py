@@ -63,6 +63,27 @@ def test_init_scaffolds_everything(repo, monkeypatch):
     assert "fetch-depth: 0" in workflow
 
 
+def test_the_closing_message_follows_the_orchestrated_round(repo, monkeypatch, capsys):
+    """El cierre mandaba a `prompt` y `new`, el camino manual, y no nombraba la
+    ronda orquestada (#179). Cada comando que cita tiene que existir."""
+    import re
+
+    run_init(repo, monkeypatch)
+    cierre = capsys.readouterr().out.split("\nNext:", 1)[1]
+    citados = [c.split() for c in re.findall(r"`disensor ([^`]+)`", cierre)]
+    assert ["reviewer", "suggest"] in citados
+    assert ["round"] in citados
+    assert ["new", "--round"] in citados
+    for palabras in citados:
+        subcomando = [p for p in palabras if not p.startswith(("-", "<"))]
+        with pytest.raises(SystemExit) as salida:
+            build_parser().parse_args([*subcomando, "--help"])
+        assert salida.value.code == 0, f"`disensor {' '.join(subcomando)}` no existe"
+        ayuda = capsys.readouterr().out
+        for bandera in (p for p in palabras if p.startswith("-")):
+            assert bandera in ayuda, f"`disensor {' '.join(subcomando)}` no tiene {bandera}"
+
+
 def test_init_pins_the_workflow_by_sha_when_it_can_resolve(repo, monkeypatch, capsys):
     monkeypatch.setattr(
         "disensor.init.resolve_tag_commit", lambda version, runner=None: PINNED_SHA
