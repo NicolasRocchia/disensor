@@ -840,7 +840,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
     for path in new_paths:
         try:
             data = json.loads(gitctx.show_text(head_oid, path, repo_dir))
-        except (json.JSONDecodeError, gitctx.GitError) as exc:
+        except (json.JSONDecodeError, gitctx.GitError, UnicodeDecodeError) as exc:
             errors_by_file[path] = [f"invalid JSON: {exc}"]
             continue
         artifact = Artifact(path=path, data=data, errors=validate_artifact(data))

@@ -50,6 +50,11 @@ def main_validate(args) -> int:
             print(f"{path}: cannot read ({exc.strerror or exc})")
             failed = True
             continue
+        except UnicodeDecodeError:
+            print(f"{path}: not UTF-8. A declaration is a UTF-8 JSON file; a shell redirection "
+                  "can write another encoding without saying so")
+            failed = True
+            continue
         except json.JSONDecodeError as exc:
             print(f"{path}: not valid JSON ({exc})")
             failed = True

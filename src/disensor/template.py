@@ -95,8 +95,14 @@ def main_new(args) -> int:
     if getattr(args, "round", None):
         try:
             crudo = sys.stdin.read() if args.round == "-" else Path(args.round).read_text(encoding="utf-8")
-            a = from_round(json.loads(crudo), args.gate, args.level, args.profile, Path.cwd())
-        except (RoundMismatch, OSError, json.JSONDecodeError) as exc:
+            resultado = json.loads(crudo)
+            if not isinstance(resultado, dict):
+                raise RoundMismatch(
+                    "the result is not a JSON object: --round takes the file `disensor round` "
+                    "wrote with --result, or its standard output"
+                )
+            a = from_round(resultado, args.gate, args.level, args.profile, Path.cwd())
+        except (RoundMismatch, OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             print(f"new: {exc}")
             return 1
     else:

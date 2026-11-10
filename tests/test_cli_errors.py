@@ -59,6 +59,32 @@ def test_broken_json_is_not_a_traceback(tmp_path, capsys):
     assert "not valid JSON" in capsys.readouterr().out
 
 
+def test_a_file_in_another_encoding_is_not_a_traceback(tmp_path, capsys):
+    """`>` en Windows PowerShell 5.1 escribe UTF-16, y el archivo se ve bien en
+    cualquier editor (#180)."""
+    path = tmp_path / "utf16.json"
+    path.write_bytes('{"schema": "residue/v0.4"}'.encode("utf-16"))
+    assert run(["validate", str(path)]) == 1
+    out = capsys.readouterr().out
+    assert "not UTF-8" in out
+    assert "What to do next" not in out
+
+
+@pytest.mark.parametrize(
+    "contenido",
+    [b"[]", b'"un texto"', '{"result_version": "x"}'.encode("utf-16")],
+    ids=["lista", "texto", "utf-16"],
+)
+def test_a_round_result_of_another_shape_is_not_a_traceback(tmp_path, monkeypatch, contenido, capsys):
+    """`new --round` atrapaba el JSON roto y no el JSON bien formado que no es un
+    resultado (#180)."""
+    monkeypatch.chdir(tmp_path)
+    resultado = tmp_path / "resultado.json"
+    resultado.write_bytes(contenido)
+    assert run(["new", "--round", str(resultado)]) == 1
+    assert capsys.readouterr().out.startswith("new: ")
+
+
 def test_hashing_a_missing_file_points_at_the_packaged_brief(tmp_path, capsys):
     assert run(["hash", str(tmp_path / "nope.md")]) == 1
     out = capsys.readouterr().out
