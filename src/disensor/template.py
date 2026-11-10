@@ -131,6 +131,7 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
     the record already claimed something that did not happen. The anchors come
     from the result, literally, and a moved HEAD is refused here.
     """
+    _require_shape(resultado)
     version = resultado.get("result_version")
     if version not in READABLE_RESULTS:
         if version == "disensor/round-result/v1":
@@ -334,6 +335,51 @@ def from_round(resultado: dict, gate: str, level: str, profile: str, cwd: Path) 
         ronda["consent"] = consentimiento
     a["extensions"] = {"dev.disensor.round": ronda}
     return a
+
+
+def _require_shape(resultado: dict) -> None:
+    """Refuse a result whose parts are not what `disensor round` writes.
+
+    Everything below reads the result as nested objects holding text. A file
+    that was edited by hand, cut short or produced by something else can be
+    well-formed JSON and still put a list where an object goes.
+    """
+
+    def malformed(what: str) -> RoundMismatch:
+        return RoundMismatch(
+            f"the result is malformed: {what}. --round takes what `disensor round` wrote, "
+            "as it wrote it"
+        )
+
+    def an_object(parent: dict, key: str, name: str) -> dict:
+        value = parent.get(key, {})
+        if not isinstance(value, dict):
+            raise malformed(f"`{name}` is not an object")
+        return value
+
+    def texts(parent: dict, keys: tuple, prefix: str) -> None:
+        for key in keys:
+            if parent.get(key) is not None and not isinstance(parent[key], str):
+                raise malformed(f"`{prefix}{key}` is not text")
+
+    texts(resultado, ("result_version", "gate", "repository"), "")
+    texts(an_object(resultado, "anchors", "anchors"), ("head_oid", "merge_base_oid"), "anchors.")
+    texts(an_object(resultado, "hashes", "hashes"), ("prompt_hash", "pack_hash", "material_hash"), "hashes.")
+
+    observed = an_object(resultado, "observed", "observed")
+    texts(observed, ("report_path", "report_hash"), "observed.")
+    attempts = observed.get("attempts", [])
+    if not isinstance(attempts, list) or not all(isinstance(i, dict) for i in attempts):
+        raise malformed("`observed.attempts` is not a list of objects")
+
+    declared = an_object(resultado, "declared", "declared")
+    texts(declared, ("reviewer_id", "family", "model", "independence", "hardening"), "declared.")
+    if declared.get("generator") is not None:
+        texts(an_object(declared, "generator", "declared.generator"), ("family", "model"), "declared.generator.")
+    if declared.get("reviewer_id") is not None:
+        for key in ("family", "independence"):
+            if declared.get(key) is None:
+                raise malformed(f"`declared.{key}` is missing")
 
 
 FILL_CORRELATION = (

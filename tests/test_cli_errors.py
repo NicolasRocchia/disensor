@@ -85,6 +85,48 @@ def test_a_round_result_of_another_shape_is_not_a_traceback(tmp_path, monkeypatc
     assert capsys.readouterr().out.startswith("new: ")
 
 
+@pytest.mark.parametrize(
+    "ruta, valor",
+    [
+        (("result_version",), []),
+        (("anchors",), []),
+        (("anchors", "head_oid"), 7),
+        (("observed",), "un texto"),
+        (("observed", "attempts"), {"id": "codex"}),
+        (("observed", "attempts"), ["codex"]),
+        (("observed", "report_path"), 7),
+        (("declared",), []),
+        (("declared", "reviewer_id"), []),
+        (("declared", "generator"), []),
+        (("declared", "family"), None),
+        (("declared", "independence"), None),
+        (("hashes",), []),
+    ],
+    ids=lambda v: ".".join(v) if isinstance(v, tuple) else type(v).__name__,
+)
+def test_a_round_result_with_a_part_of_another_shape_is_not_a_traceback(
+    tmp_path, monkeypatch, ruta, valor, capsys
+):
+    """La raíz puede ser un objeto y tener una lista donde va otro: `from_round`
+    lee cada parte con `.get` (#180)."""
+    monkeypatch.chdir(tmp_path)
+    resultado = {
+        "result_version": "disensor/round-result/v5",
+        "anchors": {},
+        "observed": {},
+        "declared": {"reviewer_id": "codex", "family": "openai", "independence": "cross_family"},
+        "hashes": {},
+    }
+    destino = resultado
+    for clave in ruta[:-1]:
+        destino = destino[clave]
+    destino[ruta[-1]] = valor
+    archivo = tmp_path / "resultado.json"
+    archivo.write_text(json.dumps(resultado), encoding="utf-8")
+    assert run(["new", "--round", str(archivo)]) == 1
+    assert capsys.readouterr().out.startswith("new: the result is malformed: ")
+
+
 def test_hashing_a_missing_file_points_at_the_packaged_brief(tmp_path, capsys):
     assert run(["hash", str(tmp_path / "nope.md")]) == 1
     out = capsys.readouterr().out
