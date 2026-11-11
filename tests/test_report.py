@@ -485,10 +485,47 @@ def test_the_board_counts_process_health_over_the_events_that_declare_the_field(
     assert (h["hardening_verified"], h["hardening_declared"]) == (0, 0)
     assert (h["confinement_verified"], h["arbiter"], h["absence"]) == (2, 2, 0)
     board = board_of(build_html(declarations, unreadable, Source(directory=".residue")))
-    assert "1 declaración no trae el campo (v0.2 y v0.3)" in board
-    assert "2 declaraciones no traen el campo (v0.2 y v0.3)" in board
+    assert "1 declaración no trae el campo (v0.3)" in board
+    assert "2 declaraciones no traen el campo (v0.3 y v0.4)" in board
     assert '<div class="v">1 de 1</div>' in board
     assert '<div class="v">0 de 0</div>' in board
+
+
+def test_a_corpus_of_v04_alone_is_not_told_about_older_versions(tmp_path):
+    """Las dos notas nombraban v0.2 y v0.3 sin mirar el corpus: en un
+    repositorio que solo tiene v0.4 afirmaban algo falso de sus declaraciones (#183)."""
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_2_diff_gate.json"))   # v0.4, hallazgos sin ubicacion, sin hardening
+    page = html_of(residue)
+    assert "3 hallazgos no registran ubicación." in page
+    assert "1 declaración no trae el campo (v0.4)" in page
+    assert "v0.2" not in page and "v0.3" not in page
+
+
+def test_the_location_note_counts_the_findings_that_come_from_v02(tmp_path):
+    residue = tmp_path / ".residue"
+    viejo = artifact("v0.2", "valid_real_01_plan_gate")
+    write(residue, "a.json", viejo)
+    write(residue, "b.json", example("example_2_diff_gate.json"))
+    page = html_of(residue)
+    de_v02 = sum(1 for f in viejo["findings"] if not f.get("location"))
+    assert de_v02
+    assert f"{de_v02 + 3} hallazgos no registran ubicación ({de_v02} de v0.2, que no la traía)." in page
+
+
+def test_every_issue_of_disensor_is_cited_with_its_full_address(tmp_path):
+    """Un `#66` suelto, leido dentro de otro repositorio, nombra el issue que
+    ese repositorio tenga con ese numero; y las dos vistas citaban numeros
+    distintos para el mismo hueco (#183)."""
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_2_diff_gate.json"))
+    page = html_of(residue)
+    cierres = '<a href="https://github.com/NicolasRocchia/disensor/issues/66" rel="noopener">#66</a>'
+    plana = " ".join(page.split())
+    assert plana.count(f"Es un hueco conocido del esquema (issue {cierres} de disensor)") == 2
+    prosa = re.sub("<(script|style)[ >].*?</(script|style)>", "", page, flags=re.S)
+    assert re.findall("issues? #[0-9]+", prosa) == []
+    assert 'issues/6"' not in page
 
 
 def test_the_board_counts_declarations_per_week_and_names_the_bucket(tmp_path):
