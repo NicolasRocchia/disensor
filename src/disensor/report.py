@@ -466,6 +466,7 @@ class Model:
     counts: dict
     by_file: list
     without_location: int
+    without_location_v02: int
     minimized: int
     by_day: list
     unit: str                  # day, week, month, year or sparse
@@ -614,12 +615,21 @@ def _health(declarations: list[dict]) -> dict:
         "events": len(declarations),
         "cross_family": sum(1 for d in independence if every(d, lambda r: r["independence"] == "cross_family")),
         "independence_declared": len(independence),
+        "independence_missing_in": _versions_without(declarations, independence),
         "hardening_verified": sum(1 for d in hardening if every(d, lambda r: r["hardening"] == "verified")),
         "hardening_declared": len(hardening),
+        "hardening_missing_in": _versions_without(declarations, hardening),
         "confinement_verified": sum(1 for d in declarations if every(d, lambda r: r["confinement_verified"] is True)),
         "arbiter": sum(1 for d in declarations if d["arbiter"]),
         "absence": sum(1 for d in declarations if d["absence"]),
     }
+
+
+def _versions_without(declarations: list[dict], declaring: list[dict]) -> list[str]:
+    known = {id(d) for d in declaring}
+    return sorted({
+        d["schema"].replace("residue/", "") for d in declarations if id(d) not in known
+    })
 
 
 def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
@@ -652,6 +662,9 @@ def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
     by_file = Counter(name for f in findings for name in f["files"])
     top_files = sorted(by_file.items(), key=lambda kv: (-kv[1], kv[0]))[:12]
     without_location = sum(1 for f in findings if not f["location"])
+    without_location_v02 = sum(
+        1 for f in findings if not f["location"] and f["decl"]["schema"].endswith("v0.2")
+    )
     minimized = sum(1 for d in declarations if d["profile"] == "minimized")
 
     dated = [d for d in declarations if d["date"]]
@@ -691,6 +704,7 @@ def aggregate(declarations: list[dict], unreadable: list[Unreadable]) -> Model:
         counts=dict(counts),
         by_file=top_files,
         without_location=without_location,
+        without_location_v02=without_location_v02,
         minimized=minimized,
         by_day=by_day,
         unit=unit,
@@ -732,6 +746,20 @@ def _link(url, text=None) -> str:
     if isinstance(url, str) and _SCHEME.match(url):
         return f'<a href="{E(url)}" rel="noopener">{E(text)}</a>'
     return E(text)
+
+
+ISSUES = "https://github.com/NicolasRocchia/disensor/issues"
+
+
+def _issue(*numbers: int) -> str:
+    """An issue of disensor, linked by its full address.
+
+    The page is read inside any repository, where a bare `#66` names
+    whatever issue that repository has under the number.
+    """
+    links = [_link(f"{ISSUES}/{n}", f"#{n}") for n in numbers]
+    listed = " y ".join([", ".join(links[:-1]), links[-1]]) if len(links) > 1 else links[0]
+    return f"{'issues' if len(links) > 1 else 'issue'} {listed} de disensor"
 
 
 def _fmt_date(d: dict) -> str:
@@ -954,7 +982,7 @@ def render_open(model: Model) -> str:
     <div class="nota"><b>El artefacto no registra cierres.</b> Una deuda anotada hace un mes y una de ayer se ven
       igual, porque nada en el formato dice que algo se saldó después. Lo que sigue es lo declarado abierto en su
       momento, sin evidencia posterior de cierre; no una lista de pendientes vigentes. Es un hueco conocido del
-      esquema (issue #6), y este informe existe en parte para hacerlo visible.</div>
+      esquema ({_issue(66)}), y este informe existe en parte para hacerlo visible.</div>
     {_now(model)}
     <div class="tools">
       <div class="conmutador" role="group" aria-label="Orden de la lista">
@@ -1199,8 +1227,8 @@ def render_corpus(model: Model) -> str:
     n = len(model.declarations)
     if model.minimized:
         location_note = " (el perfil minimizado no la lleva por diseño)"
-    elif model.without_location:
-        location_note = " (casi todos de v0.2, que no la traía)"
+    elif model.without_location_v02:
+        location_note = f" ({model.without_location_v02} de v0.2, que no la traía)"
     else:
         location_note = ""
     files_html = _file_bars(model.by_file) if model.by_file else (
@@ -1362,15 +1390,16 @@ def _board_health(h: dict) -> str:
     if not n:
         return '<div class="vacio">Sin declaraciones.</div>'
 
-    def missing(declared: int) -> str:
+    def missing(declared: int, versions: list[str]) -> str:
         k = n - declared
         if not k:
             return "todas las declaraciones lo traen"
-        return f'{k} {"declaración no trae" if k == 1 else "declaraciones no traen"} el campo (v0.2 y v0.3)'
+        where = " y ".join([", ".join(versions[:-1]), versions[-1]] if len(versions) > 1 else versions)
+        return f'{k} {"declaración no trae" if k == 1 else "declaraciones no traen"} el campo ({where})'
 
     return "".join([
-        _gauge("Revisor de otra familia", missing(h["independence_declared"]), h["cross_family"], h["independence_declared"]),
-        _gauge("Endurecimiento del revisor verificado", missing(h["hardening_declared"]), h["hardening_verified"], h["hardening_declared"]),
+        _gauge("Revisor de otra familia", missing(h["independence_declared"], h["independence_missing_in"]), h["cross_family"], h["independence_declared"]),
+        _gauge("Endurecimiento del revisor verificado", missing(h["hardening_declared"], h["hardening_missing_in"]), h["hardening_verified"], h["hardening_declared"]),
         _gauge("Confinamiento verificado", "git status limpio después de la ronda", h["confinement_verified"], n),
         _gauge("Árbitro humano presente", "", h["arbiter"], n),
         _gauge("Ausencia de residuo declarada", "eventos sin ítems, con declaración expresa", h["absence"], n),
@@ -1552,7 +1581,7 @@ def render_board(model: Model, coverage=None) -> str:
     </div>
     <div class="nota fuerte"><b>El artefacto no registra cierres.</b> Todo lo listado abajo está declarado abierto en su
       momento, sin evidencia posterior de cierre: una deuda saldada fuera del registro sigue figurando, y esta vista no
-      puede saberlo. No es una lista de pendientes vigentes. Es un hueco conocido del esquema (issue #66).</div>
+      puede saberlo. No es una lista de pendientes vigentes. Es un hueco conocido del esquema ({_issue(66)}).</div>
     <div class="rejilla">
       <section class="panel p-7">
         <div class="panel-cab"><h3>Decisiones esperando</h3><span class="c">{n}</span></div>
@@ -1591,7 +1620,7 @@ def render_board(model: Model, coverage=None) -> str:
     <div class="rejilla">
       <section class="panel p-6">
         <div class="panel-cab"><h3>Huecos de ejecución por motivo</h3><span class="c">{g}</span></div>
-        <p class="ayuda">Todo lo que ninguna ronda pudo arbitrar por ejecución, con y sin atención humana. Con tres motivos en el vocabulario, "otro" se lleva casi todo y la recurrencia queda en el texto libre, donde ningún programa la lee (issues #51 a #53).</p>
+        <p class="ayuda">Todo lo que ninguna ronda pudo arbitrar por ejecución, con y sin atención humana. Con tres motivos en el vocabulario, "otro" se lleva casi todo y la recurrencia queda en el texto libre, donde ningún programa la lee ({_issue(51, 52, 53)}).</p>
         {_board_gaps(model.gaps_by_reason, g)}
       </section>
       <section class="panel p-6">
@@ -1599,10 +1628,10 @@ def render_board(model: Model, coverage=None) -> str:
         <p class="ayuda">Todo lo de arriba sale de los campos declarados y de los objetos git de la rama. Lo que quien coordina pregunta después necesita esquema o está fuera del registro.</p>
         <div class="tabla-scroll"><table><thead><tr><th>Pregunta</th><th>Qué falta</th></tr></thead><tbody>
           <tr><td><div class="tit">Quién tiene que decidir cada escalación</div></td><td class="txt">Un dueño por ítem. Hoy solo el registro de riesgo y la aceptación de nivel A nombran a alguien.</td></tr>
-          <tr><td><div class="tit">Cuándo se cerró, cuánto tardó</div></td><td class="txt">El cierre declarado (issue #66). Sin eso, todo envejece para siempre y la vista no distingue lo saldado de lo olvidado.</td></tr>
-          <tr><td><div class="tit">Qué brecha se repite</div></td><td class="txt">Motivos de hueco más finos (issues #51 a #53) y el límite permanente marcado al abrir.</td></tr>
-          <tr><td><div class="tit">Si el gate corrió en cada merge</div></td><td class="txt">El repositorio no guarda el veredicto de una corrida, y una declaración anclada no lo prueba. Lo garantiza el required check de la plataforma, y lo verifica el muestreo (issue #96).</td></tr>
-          <tr><td><div class="tit">Si lo declarado es lo que pasó</div></td><td class="txt">El muestreo humano de eventos mergeados (issue #96). Esta vista muestra la declaración, no la verdad.</td></tr>
+          <tr><td><div class="tit">Cuándo se cerró, cuánto tardó</div></td><td class="txt">El cierre declarado ({_issue(66)}). Sin eso, todo envejece para siempre y la vista no distingue lo saldado de lo olvidado.</td></tr>
+          <tr><td><div class="tit">Qué brecha se repite</div></td><td class="txt">Motivos de hueco más finos ({_issue(51, 52, 53)}) y el límite permanente marcado al abrir.</td></tr>
+          <tr><td><div class="tit">Si el gate corrió en cada merge</div></td><td class="txt">El repositorio no guarda el veredicto de una corrida, y una declaración anclada no lo prueba. Lo garantiza el required check de la plataforma, y lo verifica el muestreo ({_issue(96)}).</td></tr>
+          <tr><td><div class="tit">Si lo declarado es lo que pasó</div></td><td class="txt">El muestreo humano de eventos mergeados ({_issue(96)}). Esta vista muestra la declaración, no la verdad.</td></tr>
         </tbody></table></div>
       </section>
     </div>"""

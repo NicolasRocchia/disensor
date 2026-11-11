@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 from . import gitctx
-from .render import MARKER, md_literal, render_comment
+from .render import MARKER, md_code, md_literal, render_comment
 from .report import after_gate
 from .rules import CURRENT, load_schema, validate_artifact
 from .scope import DEFAULT_SCOPE, ScopeError, accepts_for, floor_patterns, validate_scope
@@ -655,7 +655,8 @@ def evaluate_coverage(
     for path in ordinary:
         allowed, rule = accepts_for(path, scope, floor)
         accepts[path] = allowed
-        notes.append(f"`{path}`: {', '.join(allowed) if allowed else 'exempt'} (rule `{rule}`)")
+        accepted = ", ".join(md_literal(g) for g in allowed) if allowed else "exempt"
+        notes.append(f"{md_code(path)}: {accepted} (rule {md_code(rule)})")
 
     demanding = [p for p in ordinary if accepts[p]]
     if not demanding:
@@ -760,6 +761,29 @@ def write_summary(body: str) -> None:
     if path:
         with open(path, "a", encoding="utf-8") as f:
             f.write(body + "\n")
+
+
+SCOPE_LINES_MAX = 50
+SCOPE_CHARS_MAX = 20_000
+
+
+def scope_lines(notes: list[str]) -> list[str]:
+    """The notes of "Scope applied" that fit in the comment, and how many were left out.
+
+    One line per changed path has no ceiling of its own, and GitHub refuses a
+    comment over 65,536 characters: the PR would be left with no comment at all.
+    """
+    shown: list[str] = []
+    used = 0
+    for note in notes:
+        if len(shown) == SCOPE_LINES_MAX or used + len(note) > SCOPE_CHARS_MAX:
+            break
+        shown.append(note)
+        used += len(note)
+    left = len(notes) - len(shown)
+    if left:
+        shown.append(f"and {left} more path(s), judged by the same policy")
+    return shown
 
 
 def run_gate(directory: Path | str, config_path: Path | str, base: str | None,
@@ -915,7 +939,7 @@ def _run_gate(directory, config_path, base, head, repo_dir: Path, post: bool,
     body = render_comment([a.data for a in valid], errors_by_file, gate_errors)
     body += f"\n\nPolicy: {policy_note}."
     if coverage_notes:
-        body += "\n\nScope applied:\n" + "\n".join(f"- {n}" for n in coverage_notes)
+        body += "\n\nScope applied:\n" + "\n".join(f"- {n}" for n in scope_lines(coverage_notes))
     if warnings:
         # Un aviso puede citar la declaracion (el reviewer_id) o la
         # configuracion del head: el mismo escape que el resto del comentario (#85).
