@@ -1,0 +1,86 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "62b003e0-e4a6-4aca-b312-7db08191b952",
+    "created_at": "2026-11-11T16:29:17-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "458b6a3cd5df19e73f4741757d1b312c3d817d09",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "629cf1bee8a17512162b5782878260ce5ea599c4"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "Ni el generador ni el revisor corrieron en esta máquina la prueba de #185 con un nombre de ruta que lleva `<!--`: NTFS no admite `<` ni `>` en un nombre de archivo y la prueba se saltea en Windows. Acá corrió la variante con backtick, corchetes y numeral. El caso con `<!--` queda para los jobs de Linux y macOS del CI, que al declarar todavía no habían corrido sobre este head. Tampoco corrieron las otras diez pruebas que la suite saltea en esta máquina (smokes con costo, material plantado en el home real, el bit de ejecución en Unix, el argv de la receta claude y tres casos del índice de vectores); ninguna toca el código de este evento."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El arreglo de #184 es JavaScript de la plantilla del informe y la suite no tiene motor de JS: la prueba nueva fija la estructura (las dos entradas pasan por la misma función, que limpia el buscador y la casilla cuando el destino está oculto), no el comportamiento. El comportamiento lo comprobó el generador a mano antes de la ronda, en un navegador y sobre un informe generado desde las declaraciones de este repositorio: con el buscador y con la casilla de atención humana activos, el clic en un enlace deja la declaración visible y abierta, y un destino que ya pasa el filtro lo conserva. No se ejercitó la entrada por URL con `#d-<id>` y el texto del buscador restaurado por el navegador, y el revisor no ejecutó nada de esto. La verificación de confinamiento es git status limpio antes y después de la ronda, que no ve archivos ignorados ni escrituras fuera del árbol; el revisor informa que no escribió caché ni archivos generados dentro del checkout."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 388
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:87b334dcef4cb130310efc5a3a2a24d971e95d7577a957ce874c000d3700a114",
+      "report_hash": "sha256:c09720a972a865403ec4dae459d17a7928634f5687eaaf4649f1a68058e99f52",
+      "reviewer_seconds": 341,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}
