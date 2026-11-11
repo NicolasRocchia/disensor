@@ -10,6 +10,7 @@ against real repositories with real ranges. Faking git here would test the mock.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -17,7 +18,7 @@ import pytest
 
 from disensor import gate as gate_module
 from disensor.cli import build_parser
-from disensor.gate import UNDECIDABLE, event_key, run_gate
+from disensor.gate import SCOPE_LINES_MAX, UNDECIDABLE, event_key, run_gate, scope_lines
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "spec" / "examples"
 PLAN = json.loads((EXAMPLES / "example_1_plan_gate.json").read_text(encoding="utf-8"))
@@ -914,3 +915,59 @@ def test_report_out_on_a_file_git_tracks_is_refused(repo, capsys):
     assert repo.run(base, head, report_out="README.md") == 0
     assert (repo.path / "README.md").read_text(encoding="utf-8") == "start"
     assert "git tracks" in out(capsys).strip().splitlines()[-1]
+
+
+# --- "Scope applied" is part of the comment the arbiter reads (#185) ------------
+
+@pytest.mark.skipif(os.name == "nt", reason="NTFS no admite `<` ni `>` en un nombre de archivo")
+def test_a_hostile_path_name_shows_literally_in_scope_applied(repo, capsys):
+    """El nombre de una ruta lo elige quien abre el PR: un backtick cerraba el
+    tramo de codigo y lo que seguia se leia como markdown."""
+    hostil = "docs/a` **approved** <!-- x.md"
+    repo.config({**CONFIG, "gate": {"scope": [
+        {"paths": ["docs/**"], "accepts": []},
+        {"paths": ["**"], "accepts": ["diff"]},
+    ]}})
+    base = repo.commit("chore: scope")
+    repo.write(hostil, "text")
+    head = repo.commit("docs")
+    assert repo.run(base, head) == 0
+    printed = out(capsys)
+    assert f"- ``{hostil}``: exempt (rule `docs/**`)" in printed
+
+
+def test_a_backtick_in_a_path_cannot_close_its_code_span(repo, capsys):
+    hostil = "docs/a` [approved](x) # .md"
+    repo.config({**CONFIG, "gate": {"scope": [
+        {"paths": ["docs/**"], "accepts": []},
+        {"paths": ["**"], "accepts": ["diff"]},
+    ]}})
+    base = repo.commit("chore: scope")
+    repo.write(hostil, "text")
+    head = repo.commit("docs")
+    assert repo.run(base, head) == 0
+    assert f"- ``{hostil}``: exempt (rule `docs/**`)" in out(capsys)
+
+
+def test_scope_applied_has_a_ceiling(repo, capsys):
+    """Una linea por ruta sin tope pasaba el limite de un comentario de GitHub
+    en un PR grande, y el PR se quedaba sin comentario."""
+    repo.config({**CONFIG, "gate": {"scope": [
+        {"paths": ["docs/**"], "accepts": []},
+        {"paths": ["**"], "accepts": ["diff"]},
+    ]}})
+    base = repo.commit("chore: scope")
+    for n in range(400):
+        repo.write(f"docs/{n:03d}.md", "text")
+    head = repo.commit("docs")
+    assert repo.run(base, head) == 0
+    printed = out(capsys)
+    seccion = printed.split("Scope applied:\n", 1)[1].split("\n\n", 1)[0].splitlines()
+    assert len(seccion) == SCOPE_LINES_MAX + 1
+    assert seccion[-1] == f"- and {400 - SCOPE_LINES_MAX} more path(s), judged by the same policy"
+    assert len(printed) < 65_536
+
+
+def test_scope_lines_stop_at_the_character_budget():
+    notas = ["x" * 9_000] * 5
+    assert scope_lines(notas) == [notas[0], notas[1], "and 3 more path(s), judged by the same policy"]
