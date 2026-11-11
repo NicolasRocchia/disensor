@@ -151,7 +151,8 @@ def test_a_single_assistant_declares_the_degraded_mode_end_to_end(repo, tmp_path
     assert not json.loads(reviewers.REGISTRY.read_text(encoding="utf-8")).get("consents")
     capsys.readouterr()
 
-    declaracion, _ = ronda_degradada(repo, tmp_path, monkeypatch, capsys, "mismo")
+    declaracion, err = ronda_degradada(repo, tmp_path, monkeypatch, capsys, "mismo")
+    assert "No reviewer from another family was available" in err
     revisor = declaracion["actors"]["reviewers"][0]
     assert declaracion["actors"]["generator"] == {"family": "anthropic", "model": GENERADOR}
     assert revisor["family"] == "anthropic" and revisor["model"] == GENERADOR
@@ -162,6 +163,28 @@ def test_a_single_assistant_declares_the_degraded_mode_end_to_end(repo, tmp_path
     consentimiento = declaracion["extensions"]["dev.disensor.round"]["consent"]
     assert consentimiento["recorded"] is True
     assert consentimiento["stdin_terminal"] is False and consentimiento["stdout_terminal"] is False
+
+
+def test_the_degraded_warning_names_the_other_family_reviewer_that_was_skipped(
+    repo, tmp_path, monkeypatch, capsys,
+):
+    """Con un revisor de otra familia registrado y sin consentimiento, la ronda
+    degradada no dice que no habia ninguno: lo nombra, con el comando que lo
+    habilita (#182)."""
+    script = tmp_path / "revisor.py"
+    script.write_text(REVISOR_PROPIO, encoding="utf-8")
+    for nombre, familia, modelo in (("otro", "openai", "gpt-x"), ("mismo", "anthropic", GENERADOR)):
+        assert cli(
+            "reviewer", "add", nombre, "--family", familia, "--model", modelo,
+            "--egress", "cloud", "--stdin", "pack", "--max-inline-bytes", "1000000", "--yes",
+            "--command", sys.executable, str(script), "{report}",
+        ) == 0
+    capsys.readouterr()
+
+    _, err = ronda_degradada(repo, tmp_path, monkeypatch, capsys, "mismo")
+    assert "No reviewer from another family was available" not in err
+    assert "otro was skipped (no_consent)" in err
+    assert "disensor reviewer consent otro" in err
 
 
 CLAUDE_FALSO = """#!{python}

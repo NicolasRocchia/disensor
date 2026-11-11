@@ -89,6 +89,8 @@ CHAIN_EXHAUSTED = 4
 TREE_MODIFIED = 5
 # UNDECIDABLE = 6 viene de gate: el gate y round --check lo comparten.
 
+SKIPPED_WITHIN_REACH = ("no_consent", "not_authenticated", "inline_limit_unset")
+
 STATUS_ARGS = [
     # `gitctx.run_git` antepone READ_ONLY: mirar el arbol no escribe el indice
     # ni consulta el monitor del sistema de archivos (#77).
@@ -1109,11 +1111,26 @@ def _round(args, repo: Path) -> int:
         f"hardening {entry.get('hardening', 'unverified')}). Report at {destino}"
     )
     if independence != "cross_family":
-        estado(
-            "round: DEGRADED MODE. No reviewer from another family was available, so the errors "
-            "the reviewer shares with the generator were not covered. The declaration has to say "
-            "so: independence, fallback_reason and a reviewer_correlation residue item."
-        )
+        salteados = [
+            a for a in attempts
+            if a.get("independence") == "cross_family" and a["outcome"] in SKIPPED_WITHIN_REACH
+        ]
+        if salteados:
+            estado(
+                "round: DEGRADED MODE. A reviewer from another family is registered and was "
+                "skipped, so the errors the reviewer shares with the generator were not covered. "
+                "The declaration has to say so: independence, fallback_reason and a "
+                "reviewer_correlation residue item."
+            )
+            for a in salteados:
+                estado(f"round: {a['id']} was skipped ({a['outcome']}). {_within_reach(a)}")
+        else:
+            estado(
+                "round: DEGRADED MODE. No reviewer from another family was available, so the "
+                "errors the reviewer shares with the generator were not covered. The declaration "
+                "has to say so: independence, fallback_reason and a reviewer_correlation residue "
+                "item."
+            )
     # El modelo del generador es lo unico con que la ronda separa el mismo
     # modelo de otro de la misma familia (`independence_of`). Sin el, registra
     # la menor independencia, que no afirma de mas (#79), y lo dice: si el
@@ -1220,6 +1237,17 @@ def estado(*args, **kwargs) -> None:
     """
     kwargs.setdefault("file", sys.stderr)
     print(*args, **kwargs)
+
+
+def _within_reach(attempt: dict) -> str:
+    if attempt["outcome"] == "no_consent":
+        return (
+            "Sending it this repository's material is the owner's decision; they authorise it "
+            f"with `disensor reviewer consent {attempt['id']}`."
+        )
+    if attempt["outcome"] == "not_authenticated":
+        return f"The owner signs it in once with `disensor reviewer login {attempt['id']}`."
+    return "It gets no material inside its package until registered with --max-inline-bytes N."
 
 
 def _paid_for(destino: Path) -> str:
