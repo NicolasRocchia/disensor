@@ -777,3 +777,22 @@ def test_without_a_consent_of_the_shape_new_writes_there_is_no_row(tmp_path, ext
     declarations, unreadable = read_directory(tmp_path / ".residue")
     assert len(declarations) == 1 and not unreadable
     assert "Consentimiento de envío" not in html_of(tmp_path / ".residue")
+
+
+def test_a_link_to_a_declaration_clears_the_filter_that_hides_it(tmp_path):
+    """El enlace abria un bloque que el filtro activo dejaba oculto: la pestaña
+    cambiaba y la declaracion no aparecia (#184). Sin motor de JS en la suite,
+    se fija la estructura de la que depende: las dos entradas (el clic y el
+    `#d-<id>` de la URL) pasan por la misma funcion, que limpia el buscador y la
+    casilla cuando el destino esta oculto, y los controles que nombra existen."""
+    residue = tmp_path / ".residue"
+    write(residue, "a.json", example("example_2_diff_gate.json"))
+    page = html_of(residue)
+    funcion = page.split("function mostrarDecl(el){", 1)[1].split("\n  }\n", 1)[0]
+    oculto = funcion.split("if(el.hidden){", 1)[1].split("}", 1)[0]
+    assert 'q.value = ""' in oculto and "soloAtencion = false" in oculto and "filtrarDecls()" in oculto
+    assert "el.open = true" in funcion.split("if(el.hidden){", 1)[1].split("}", 1)[1]
+    assert page.count(".open = true") == 1
+    assert page.count("mostrarDecl(") == 3
+    for control in ('id="q"', 'id="f-atencion"', 'id="lista"'):
+        assert control in page

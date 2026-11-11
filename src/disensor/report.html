@@ -344,13 +344,8 @@ footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--ink-3);fon
     if(!a) return;
     var el = document.getElementById(a.getAttribute("href").slice(1));
     if(!el) return;
-    activar("declaraciones");
-    el.open = true;
+    mostrarDecl(el);
   });
-  if(location.hash.indexOf("#d-") === 0){
-    var objetivo = document.getElementById(location.hash.slice(1));
-    if(objetivo){ activar("declaraciones"); objetivo.open = true; objetivo.scrollIntoView(); }
-  }
   /* quien coordina entra por #tablero; quien revisa sigue cayendo en Abierto */
   if(location.hash === "#tablero"){
     activar("tablero");
@@ -421,6 +416,22 @@ footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--ink-3);fon
     fAtencion.setAttribute("aria-pressed", String(soloAtencion));
     filtrarDecls();
   });
+  /* el destino de un enlace se muestra aunque el filtro activo lo oculte: el filtro se limpia */
+  function mostrarDecl(el){
+    if(el.hidden){
+      if(q) q.value = "";
+      soloAtencion = false;
+      if(fAtencion) fAtencion.setAttribute("aria-pressed", "false");
+      filtrarDecls();
+    }
+    activar("declaraciones");
+    el.open = true;
+    el.scrollIntoView();
+  }
+  if(location.hash.indexOf("#d-") === 0){
+    var objetivo = document.getElementById(location.hash.slice(1));
+    if(objetivo) mostrarDecl(objetivo);
+  }
 
   /* casos: filtro por texto */
   var qc = $("#qc");
