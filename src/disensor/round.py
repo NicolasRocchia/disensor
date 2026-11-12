@@ -59,7 +59,9 @@ from .reviewers import (
     ReviewerError,
     consent_record,
     describe_consent,
+    effective_egress,
     effective_material,
+    effective_provider,
     executable_fingerprint,
     has_consent,
     inline_limit,
@@ -1007,7 +1009,7 @@ def _round(args, repo: Path) -> int:
                     # A quien le habla este texto es al que corre la ronda, que
                     # muchas veces es un agente: la decision es del dueño (#84).
                     "detail": (
-                        f"sending the material of {repository} to {entry.get('provider') or 'a third party'} "
+                        f"sending the material of {repository} to {effective_provider(entry) or 'a third party'} "
                         "was not authorised. That is the owner's decision; they authorise it with: "
                         f"disensor reviewer consent {entry['id']}"
                     ),
@@ -1042,7 +1044,7 @@ def _round(args, repo: Path) -> int:
             # el resultado y la declaracion lo lleven. Un revisor local no
             # necesita ninguno, y su intento no trae la clave.
             consentimiento = None
-            if entry.get("egress") != "local":
+            if effective_egress(entry) != "local":
                 consentimiento = consent_record(entry, repository)
                 estado(
                     f"round: consent for {entry['id']} to receive the material of {repository}: "

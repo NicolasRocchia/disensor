@@ -545,6 +545,22 @@ def test_a_consent_without_provenance_runs_and_says_so(repo: Path, monkeypatch, 
     assert intento["consent"] == {"recorded": False}
 
 
+def test_an_ollama_entry_registered_as_local_is_skipped_without_consent(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Una entrada anterior a #120 guardo `egress: local` y pasaba sin consentimiento."""
+    (repo / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    vieja = dict(entrada_catalogada("ollama"), egress="local", provider="local", model="m",
+                 max_inline_bytes=10**9)
+    assert correr(repo, {"reviewers": [vieja]}, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert intento["outcome"] == "no_consent"
+    assert "to Ollama was not authorised" in intento["detail"]
+    assert "disensor reviewer consent ollama" in intento["detail"]
+
+
 def test_a_local_reviewers_attempt_carries_no_consent(repo: Path, monkeypatch, tmp_path, capsys):
     (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
     git(repo, "add", "-A")
@@ -1718,6 +1734,8 @@ def test_without_a_cap_ollama_and_a_hand_registered_reviewer_get_nothing(
         plan.write_text("# Plan" + chr(10), encoding="utf-8")
         extra = {"gate": "plan", "material": plan}
 
+    # Con el consentimiento dado: sin el, a ollama lo frena antes eso y no el tope (#120).
+    _registro_consentido(repo, tmp_path, monkeypatch, ollama)
     codigo = correr(repo, {"reviewers": [ollama, a_mano]}, monkeypatch, tmp_path, **extra)
 
     assert codigo == CHAIN_EXHAUSTED

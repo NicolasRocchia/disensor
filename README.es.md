@@ -253,7 +253,11 @@ ni guarda credenciales, y chequea ese home en disco antes de cada intento.
 autoriza nada: el material de un repositorio sale de la máquina recién cuando
 el dueño corre `disensor reviewer consent <id>` desde ese repositorio, y ese
 consentimiento cubre ese repositorio, esa receta y esos bytes del ejecutable.
-Un agente no lo da. El registro guarda cómo se dio cada consentimiento: cuándo,
+Un agente no lo da. El `ollama` del catálogo también lo pide: un modelo servido
+en esta máquina no manda nada afuera, pero `ollama run <modelo>:cloud` y un
+`OLLAMA_HOST` que apunta a otro servidor sí, y el runner no los distingue por
+el comando. Solo una entrada que registrás a mano con `--egress local` corre
+sin consentimiento, y esa afirmación es tuya. El registro guarda cómo se dio cada consentimiento: cuándo,
 con qué disensor, y si la entrada y la salida estándar eran una terminal. La
 ronda lo imprime cada vez que usa el consentimiento, su resultado lo lleva,
 `new --round` lo pone en la declaración y el informe lo muestra. Registra lo

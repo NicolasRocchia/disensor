@@ -310,7 +310,11 @@ or stores credentials, and it checks that home on disk before every attempt.
 and authorises nothing: the material of a repository leaves the machine only
 after the owner runs `disensor reviewer consent <id>` from that repository,
 and that consent covers that repository, that recipe and those executable
-bytes. An agent does not give it. The registry records how each consent was
+bytes. An agent does not give it. The catalogued `ollama` asks for it too: a
+model served on this machine sends nothing out, but `ollama run <model>:cloud`
+and an `OLLAMA_HOST` that points at another server do, and the runner cannot
+tell them apart from the command. Only an entry you register by hand with
+`--egress local` runs without consent, and that claim is yours. The registry records how each consent was
 given: when, with which disensor, and whether standard input and output were
 a terminal. The round prints that every time it uses the consent, its result
 carries it, `new --round` puts it in the declaration and the report shows it.
