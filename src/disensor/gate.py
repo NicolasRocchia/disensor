@@ -286,12 +286,25 @@ def load_config_at(rev: str, config_path: str, repo_dir: Path) -> tuple[dict, st
 
 
 def pr_range(base: str | None, head: str | None) -> tuple[str | None, str | None]:
-    if base and head:
+    # Un rango explicito no vuelve soportada a la cola: un workflow que le pasa
+    # al gate el base_sha y el head_sha del grupo pide justo lo que no se juzga.
+    queued = os.environ.get("GITHUB_EVENT_NAME") == "merge_group"
+    if base and head and not queued:
         return base, head
     event_path = os.environ.get("GITHUB_EVENT_PATH")
-    if event_path and Path(event_path).exists():
+    event = {}
+    if not queued and event_path and Path(event_path).exists():
         with open(event_path, encoding="utf-8") as f:
             event = json.load(f)
+    if queued or (isinstance(event, dict) and "merge_group" in event):
+        raise GateFailure(
+            "this is a merge_group event, and the merge queue is not supported. The range of a "
+            "merge group can gather several pull requests, so membership, coverage and the "
+            "integration witness (G5 to G7) would be judged over commits no pull request gate "
+            "saw together. Run the gate on pull_request with a strict required check; a queue "
+            "that waits for this check will not get a verdict from it."
+        )
+    if isinstance(event, dict) and event:
         pr = event.get("pull_request") or {}
         return (
             base or (pr.get("base") or {}).get("sha"),

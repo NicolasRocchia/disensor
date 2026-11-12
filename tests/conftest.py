@@ -22,6 +22,7 @@ if str(SRC) not in sys.path:
 # testing the gate instead of the environment it happens to run in.
 GITHUB_ENV = (
     "GITHUB_EVENT_PATH",
+    "GITHUB_EVENT_NAME",
     "GITHUB_STEP_SUMMARY",
     "GITHUB_TOKEN",
     "GITHUB_REPOSITORY",

@@ -586,6 +586,30 @@ def test_missing_range_fails_closed(repo, capsys):
     assert "range" in out(capsys).lower()
 
 
+def test_a_merge_group_event_is_refused_by_name(repo, capsys, monkeypatch, tmp_path_factory):
+    """The gate used to say the PR range was missing, and the README offered the queue (#176)."""
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat")
+    event = tmp_path_factory.mktemp("event") / "event.json"
+    event.write_text(json.dumps({"merge_group": {"base_sha": base, "head_sha": head}}), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    assert run_gate(directory=".residue", config_path="disensor.config.json",
+                    base=None, head=None, repo_dir=repo.path, post=False) == UNDECIDABLE
+    text = out(capsys)
+    assert "merge queue is not supported" in text
+    assert "range is missing" not in text
+
+
+def test_an_explicit_range_does_not_make_the_merge_queue_supported(repo, capsys, monkeypatch):
+    base, head = declared_pr(repo)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "merge_group")
+    assert repo.run(base, head) == UNDECIDABLE
+    assert "merge queue is not supported" in out(capsys)
+    monkeypatch.delenv("GITHUB_EVENT_NAME")
+    assert repo.run(base, head, report=False) == 0
+
+
 def test_unknown_commit_fails_closed(repo, capsys):
     base = repo.git("rev-parse", "HEAD")
     repo.write("src/app.py", "code")
