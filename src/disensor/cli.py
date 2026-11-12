@@ -230,7 +230,9 @@ def build_parser() -> argparse.ArgumentParser:
                           "(same_model_fresh_context) from another model of the family. Without "
                           "it, a reviewer of that family is recorded as the same model, the "
                           "least independence the round can claim.")
-    rnd.add_argument("--base", default=None)
+    rnd.add_argument("--base", default=None,
+                     help="Target of the range (diff gate). For plan and architecture, the commit "
+                          "whose configuration sets the criticality level; left out, HEAD's does.")
     rnd.add_argument("--head", "--cabeza", default=None)
     rnd.add_argument("--material", default=None,
                      help="Plan or decision under review (plan and architecture gates).")

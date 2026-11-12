@@ -253,7 +253,11 @@ ni guarda credenciales, y chequea ese home en disco antes de cada intento.
 autoriza nada: el material de un repositorio sale de la máquina recién cuando
 el dueño corre `disensor reviewer consent <id>` desde ese repositorio, y ese
 consentimiento cubre ese repositorio, esa receta y esos bytes del ejecutable.
-Un agente no lo da. El registro guarda cómo se dio cada consentimiento: cuándo,
+Un agente no lo da. El `ollama` del catálogo también lo pide: un modelo servido
+en esta máquina no manda nada afuera, pero `ollama run <modelo>:cloud` y un
+`OLLAMA_HOST` que apunta a otro servidor sí, y el runner no los distingue por
+el comando. Solo una entrada que registrás a mano con `--egress local` corre
+sin consentimiento, y esa afirmación es tuya. El registro guarda cómo se dio cada consentimiento: cuándo,
 con qué disensor, y si la entrada y la salida estándar eran una terminal. La
 ronda lo imprime cada vez que usa el consentimiento, su resultado lo lleva,
 `new --round` lo pone en la declaración y el informe lo muestra. Registra lo
@@ -319,6 +323,15 @@ lleva `token_cost`: ninguna receta del catálogo informa tokens. Son conteos con
 fecha sacados de `.residue/`, no un total, y una prueba los compara con las
 declaraciones hasta esa fecha.
 
+**Rondas de plan y de arquitectura.** Revisan un documento, no un rango, e igual
+piden árbol limpio: el runner verifica que el revisor no escribió comparando el
+árbol antes y después, así que el plan se commitea o se deja fuera del
+repositorio. Su nivel de criticidad sale de la configuración: la de `--base` si
+se pasa, la de `HEAD` si no. En nivel A la cadena se recorta a revisores de otra
+familia con endurecimiento verificado antes de gastar nada. Ese filtro ahorra
+una ronda; el control sigue siendo la regla sobre la declaración y el gate con
+la política del destino.
+
 **Cuando no hay una segunda familia.** El método quiere un revisor de otra
 familia de modelo, y eso es lo que la política sigue exigiendo en nivel A. Por
 debajo, una ronda con el mismo modelo y sin contexto es un modo degradado
@@ -369,7 +382,7 @@ Por PR:
 
 - **G1**: si el PR toca rutas que requieren revisión, agrega al menos una declaración válida.
 - **G6, cobertura**: cada ruta cambiada está cubierta por una declaración cuya compuerta la política de alcance acepta para esa ruta, y que **califica** para ella, o sea que la ruta no cambió entre el commit revisado y el head. Una declaración rancia no cubre nada.
-- **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración.
+- **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración. El testigo tiene que haber visto todas las rutas para las que la política de alcance exige revisión; un cambio posterior en una ruta que la política exime no lo invalida.
 - **G8, la evidencia es de solo agregar**: un PR no puede modificar, borrar ni renombrar declaraciones que ya estaban, ni reutilizar un `event_id` existente.
 - **G9, lo nuevo declara la versión vigente**: una declaración que el PR agrega tiene que declarar `residue/v0.4`. Las versiones superadas se siguen leyendo para que la historia no se reescriba; esa legibilidad no es un permiso para seguir emitiendo bajo las reglas más débiles. El plano de evidencia aplica el mismo criterio en la ingesta.
 
@@ -404,7 +417,7 @@ Gana la primera entrada que matchea. `accepts: []` es una exención explícita, 
 
 Esto es requisito, no sugerencia. El gate corre dentro del workflow que audita, así que hay una frontera que ningún código suyo puede cruzar y que resuelve la plataforma:
 
-- **Required check estricto** (o merge queue) sobre `pull_request`, para que el check tenga que corresponder al último head.
+- **Required check estricto** sobre `pull_request`, para que el check tenga que corresponder al último head. La merge queue no está soportada: ante un evento `merge_group` el gate sale 6 y lo dice, porque el rango de un grupo puede juntar varios pull requests y G5 a G7 se juzgarían sobre commits que ningún gate de PR vio juntos. Una cola que exige este check no avanza.
 - **CODEOWNERS** sobre la ruta efectiva de configuración (puede no llamarse `disensor.config.json` si se usa `--config`) y sobre `.github/workflows/`.
 - **Ruleset o required workflow de organización**, definido fuera del repositorio auditado.
 - **Pin de la Action por SHA**, no por tag: un tag es movible y no es raíz de confianza. `disensor init` resuelve el tag de la versión instalada al commit al que apunta y escribe el workflow ya congelado; sin red al momento del init el tag queda y `disensor pin` termina el trabajo. El comando resuelve los tags anotados al commit que envuelven, nunca al objeto tag, que es la trampa clásica de hacerlo a mano. La documentación de este repo sigue usando el tag, porque documenta qué versión corresponde; el SHA congelado lo produce quien despliega. El SHA congela también lo que instala la Action: sus dependencias salen de `requirements-action.txt`, un lock con el hash de cada archivo, solo como wheels y en un venv propio, y disensor se construye con el setuptools del lock, así que nada se resuelve al correr. El input `python-version` acepta CPython 3.10 o posterior con wheel para cada dependencia del lock; hoy no lo tienen 3.13 free-threaded ni 3.10 en Windows ARM. disensor no queda instalado en el Python del job.

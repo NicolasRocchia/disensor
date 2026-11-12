@@ -187,10 +187,10 @@ def test_a_catalogued_recipe_brings_its_own_material(monkeypatch, capsys, regist
 
 def test_ollama_takes_the_cap_its_owner_sets(monkeypatch, capsys, registro_aislado):
     monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
-    assert correr("add", "ollama", "--model", "m") == 0
+    assert correr("add", "ollama", "--model", "m", "--yes") == 0
     assert "inline cap: NOT SET" in capsys.readouterr().out
     assert correr("remove", "ollama") == 0
-    assert correr("add", "ollama", "--model", "m", "--max-inline-bytes", "12000") == 0
+    assert correr("add", "ollama", "--model", "m", "--max-inline-bytes", "12000", "--yes") == 0
     entrada = json.loads(registro_aislado.read_text(encoding="utf-8"))["reviewers"][0]
     assert entrada["max_inline_bytes"] == 12000
     assert "material" not in entrada, "la de una receta sale del catalogo, no del registro"
@@ -303,6 +303,60 @@ def test_a_local_reviewer_needs_no_egress_consent():
     from disensor.reviewers import has_consent
 
     assert has_consent({"id": "x", "egress": "local", "command": ["x"]}, "cualquiera")
+
+
+def test_ollama_is_not_taken_for_local(capsys, registro_aislado, monkeypatch):
+    """`ollama run <modelo>:cloud` y un OLLAMA_HOST remoto mandan el material
+    afuera, y el argv no los distingue del modelo servido aca (#120)."""
+    from disensor.reviewers import has_consent
+
+    monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
+    assert correr("add", "ollama", "--model", "m") == 2
+    assert "may leave this machine" in capsys.readouterr().out
+    assert not registro_aislado.exists()
+
+    assert correr("add", "ollama", "--model", "m", "--yes") == 0
+    salida = capsys.readouterr().out
+    assert "EGRESS:     unknown" in salida and "Nothing will be sent yet" in salida
+    entrada = json.loads(registro_aislado.read_text(encoding="utf-8"))["reviewers"][0]
+    assert entrada["egress"] == "unknown"
+    assert not has_consent(entrada, "github.com/mio/privado")
+
+
+def test_an_ollama_entry_registered_as_local_asks_for_consent_too():
+    """El registro guardo `local` al registrarla: manda la receta de hoy."""
+    from disensor.reviewers import effective_egress, has_consent
+
+    vieja = {"id": "ollama", "family": "other", "model": "m", "source": "catalog",
+             "command": ["ollama", "run", "{model}"], "stdin": "pack", "executable": sys.executable,
+             "egress": "local", "provider": "local", "hardening": "unverified"}
+    assert effective_egress(vieja) == "unknown"
+    assert not has_consent(vieja, "github.com/mio/privado")
+    assert "EGRESS:     unknown" in describe(vieja)
+    assert "nothing leaves the machine" not in describe(vieja)
+
+
+def test_local_on_a_hand_registered_entry_is_its_owners_claim():
+    from disensor.reviewers import effective_egress, has_consent
+
+    a_mano = {"id": "ollama", "family": "other", "model": "m", "source": "assistant",
+              "command": ["ollama", "run", "m"], "egress": "local"}
+    assert effective_egress(a_mano) == "local"
+    assert has_consent(a_mano, "cualquiera")
+    assert effective_egress(dict(a_mano, egress="lan")) == "unknown"
+    assert not has_consent(dict(a_mano, egress="lan"), "cualquiera")
+
+
+def test_consenting_to_ollama_records_a_consent(capsys, registro_aislado, monkeypatch, tmp_path):
+    """Decia que corre local y que no habia nada que autorizar."""
+    monkeypatch.setattr(reviewers, "resolve_executable", lambda cmd: sys.executable)
+    assert correr("add", "ollama", "--model", "m", "--yes") == 0
+    capsys.readouterr()
+    monkeypatch.chdir(tmp_path)
+    assert correr("consent", "ollama") == 0
+    salida = capsys.readouterr().out
+    assert "runs locally" not in salida and "authorised" in salida
+    assert json.loads(registro_aislado.read_text(encoding="utf-8"))["consents"]
 
 
 def test_two_different_recipes_never_share_a_consent():

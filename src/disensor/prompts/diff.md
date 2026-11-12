@@ -1,11 +1,13 @@
 # Adversarial review brief: diff gate
 
 Give this to a model from a **different family** than the one that wrote the
-code: same training data means the same blind spots, and rule R4 rejects the
-declaration if the reviewer shares the generator's family.
+code: same training data means the same blind spots. A reviewer of the same family is
+declarable, with its independence stated (`same_family_distinct_model` or
+`same_model_fresh_context`) and its own residue item; level A does not admit it.
 
 Point it at the diff (`git diff <base>...<head>`), at the goal the change serves,
-and at the repository. Then paste everything below.
+and at the repository. Then paste the brief: `disensor prompt` writes it to stdout without this note,
+which is for you and not for the reviewer.
 
 ---
 

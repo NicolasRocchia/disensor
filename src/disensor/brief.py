@@ -37,6 +37,20 @@ def brief_text(gate: str) -> str:
     data rather than as instructions), so having three copies of them would be
     three chances to weaken one by accident.
     """
+    title, _preface, body = _parts(gate)
+    return f"{title}\n\n{_read('_common.md').strip()}\n\n{body}\n"
+
+
+def brief_preface(gate: str) -> str:
+    """What the packaged file says to the person handing the brief over.
+
+    Kept out of `brief_text`: the reviewer was receiving instructions addressed
+    to somebody else, and they were part of what `prompt_hash` anchors.
+    """
+    return _parts(gate)[1] + "\n"
+
+
+def _parts(gate: str) -> tuple[str, str, str]:
     if gate not in GATES:
         raise ValueError(f"unknown gate '{gate}' (expected one of {', '.join(GATES)})")
     raw = _read(f"{gate}.md")
@@ -50,8 +64,13 @@ def brief_text(gate: str) -> str:
             f"malformed brief for gate '{gate}': expected exactly one '---' separator with "
             f"content on both sides, found {len(parts) - 1}"
         )
-    head, body = parts
-    return f"{head.rstrip()}\n\n{SEPARATOR.strip()}\n\n{_read('_common.md').strip()}\n\n{body.strip()}\n"
+    title, _, preface = parts[0].strip().partition("\n")
+    if not title.startswith("# ") or not preface.strip():
+        raise ValueError(
+            f"malformed brief for gate '{gate}': expected a title line and a note for the "
+            "person handing it over before the separator"
+        )
+    return title.strip(), preface.strip(), parts[1].strip()
 
 
 def hash_of(text: str) -> str:
@@ -94,4 +113,5 @@ def main_prompt(args) -> int:
     if args.hash:
         print(brief_hash(args.gate))
         return 0
+    print(brief_preface(args.gate), file=sys.stderr)
     return emit(brief_text(args.gate).encode("utf-8"), args.output, brief_hash(args.gate))

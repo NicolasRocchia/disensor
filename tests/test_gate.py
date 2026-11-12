@@ -283,6 +283,48 @@ def test_exempt_paths_need_no_artifact(repo, capsys):
     assert repo.run(base, head) == 0
 
 
+EXEMPT_CHANGELOG = {**CONFIG, "gate": {"scope": [
+    {"paths": ["CHANGELOG.md", ".github/**"], "accepts": []},
+    {"paths": ["**"], "accepts": ["diff"]},
+]}}
+
+
+def reviewed_pr(repo) -> tuple[str, str]:
+    repo.config(EXEMPT_CHANGELOG)
+    base = repo.commit("chore: scope")
+    repo.write("src/app.py", "reviewed")
+    reviewed = repo.commit("feat")
+    repo.artifact("diff", head=reviewed, base=base)
+    repo.commit("docs(residue)")
+    return base, reviewed
+
+
+def test_an_exempt_path_changed_after_the_review_keeps_the_witness(repo, capsys):
+    base, _ = reviewed_pr(repo)
+    repo.write("CHANGELOG.md", "release notes")
+    head = repo.commit("chore: changelog")
+    assert repo.run(base, head) == 0
+
+
+def test_a_demanding_path_changed_after_the_review_still_loses_the_witness(repo, capsys):
+    base, _ = reviewed_pr(repo)
+    repo.write("CHANGELOG.md", "release notes")
+    repo.write("src/other.py", "never reviewed")
+    head = repo.commit("feat sneaked in next to the changelog")
+    assert repo.run(base, head) == 1
+    text = out(capsys)
+    assert "[G6]" in text and "[G7]" in text
+
+
+def test_a_floor_path_changed_after_the_review_is_never_exempt(repo, capsys):
+    base, _ = reviewed_pr(repo)
+    repo.write(".github/workflows/ci.yml", "on: push")
+    head = repo.commit("ci sneaked in under an exemption")
+    assert repo.run(base, head) == 1
+    text = out(capsys)
+    assert "[G6]" in text and "[G7]" in text
+
+
 def test_scope_cannot_lower_the_floor_on_workflows(repo, capsys):
     """The artifact is the gate the relaxed policy accepts, so only the floor can reject it."""
     repo.config({**CONFIG, "gate": {"scope": [
@@ -542,6 +584,30 @@ def test_missing_range_fails_closed(repo, capsys):
     assert run_gate(directory=".residue", config_path="disensor.config.json",
                     base=None, head=None, repo_dir=repo.path, post=False) == UNDECIDABLE
     assert "range" in out(capsys).lower()
+
+
+def test_a_merge_group_event_is_refused_by_name(repo, capsys, monkeypatch, tmp_path_factory):
+    """The gate used to say the PR range was missing, and the README offered the queue (#176)."""
+    base = repo.git("rev-parse", "HEAD")
+    repo.write("src/app.py", "code")
+    head = repo.commit("feat")
+    event = tmp_path_factory.mktemp("event") / "event.json"
+    event.write_text(json.dumps({"merge_group": {"base_sha": base, "head_sha": head}}), encoding="utf-8")
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    assert run_gate(directory=".residue", config_path="disensor.config.json",
+                    base=None, head=None, repo_dir=repo.path, post=False) == UNDECIDABLE
+    text = out(capsys)
+    assert "merge queue is not supported" in text
+    assert "range is missing" not in text
+
+
+def test_an_explicit_range_does_not_make_the_merge_queue_supported(repo, capsys, monkeypatch):
+    base, head = declared_pr(repo)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "merge_group")
+    assert repo.run(base, head) == UNDECIDABLE
+    assert "merge queue is not supported" in out(capsys)
+    monkeypatch.delenv("GITHUB_EVENT_NAME")
+    assert repo.run(base, head, report=False) == 0
 
 
 def test_unknown_commit_fails_closed(repo, capsys):

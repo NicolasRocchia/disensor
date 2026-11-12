@@ -155,11 +155,16 @@ CATALOG: dict[str, dict] = {
         # ventana ni el corte: cuanto entra lo afirma el dueño (#152).
         "inline_limit_required": True,
         "hardening": "unverified",
-        "egress": "local",
-        "provider": "local",
+        # Ni `ollama run <modelo>:cloud` ni un OLLAMA_HOST remoto se ven desde
+        # el argv: el runner no distingue el modelo servido aca del que no (#120).
+        "egress": "unknown",
+        "provider": "Ollama",
         "notes": (
-            "Runs locally: nothing leaves the machine, which makes it the answer for a "
-            "private repository that cannot send code to a third party. Hardening not tested."
+            "A model pulled and served on this machine sends nothing out, which makes it the "
+            "answer for a private repository that cannot send code to a third party. A `:cloud` "
+            "model, or an OLLAMA_HOST that points at another server, does send the material "
+            "out, and the runner cannot tell them apart: it asks for consent either way. "
+            "Hardening not tested."
         ),
     },
     "claude": {
@@ -284,6 +289,26 @@ def effective_material(entry: dict) -> str:
     if receta:
         return receta.get("material", "inline")
     return "agentic" if entry.get("material") == "agentic" else "inline"
+
+
+def effective_egress(entry: dict) -> str:
+    """Where this reviewer sends the material, as far as the runner can claim.
+
+    For an entry built from the catalogue the current recipe decides, not what
+    the registry stored when it was registered: an `ollama` entry registered
+    as `local` before #120 would keep receiving material with no consent.
+    `local` on any other entry is its owner's claim.
+    """
+    receta = CATALOG.get(entry.get("id")) if entry.get("source") == "catalog" else None
+    if receta:
+        return receta["egress"]
+    return entry.get("egress") if entry.get("egress") in ("local", "cloud") else "unknown"
+
+
+def effective_provider(entry: dict) -> str:
+    """Who receives the material, named by the current recipe for a catalogued entry."""
+    receta = CATALOG.get(entry.get("id")) if entry.get("source") == "catalog" else None
+    return (receta.get("provider") if receta else entry.get("provider")) or ""
 
 
 def inline_limit(entry: dict) -> int | None:
@@ -494,7 +519,7 @@ def consent_key(entry: dict, repository: str) -> str:
 
 
 def has_consent(entry: dict, repository: str) -> bool:
-    if entry.get("egress") == "local":
+    if effective_egress(entry) == "local":
         return True  # no sale nada de la maquina: no hay nada que consentir
     return consent_key(entry, repository) in set(load_registry().get("consents", []))
 
@@ -649,15 +674,19 @@ def describe(entry: dict) -> str:
             "  note:       the executable was named by hand, so the hardening stays unverified: "
             "the hostile test ran against the binary the installation resolves, not this file"
         )
-    if entry.get("egress") == "cloud":
+    egress = effective_egress(entry)
+    if egress == "cloud":
         lineas.append(
             f"  EGRESS:     the material under review LEAVES this machine towards "
-            f"{entry.get('provider') or 'a third party'}"
+            f"{effective_provider(entry) or 'a third party'}"
         )
-    elif entry.get("egress") == "local":
+    elif egress == "local":
         lineas.append("  egress:     local, nothing leaves the machine")
     else:
-        lineas.append("  EGRESS:     unknown, assume it may use the network")
+        lineas.append(
+            "  EGRESS:     unknown, assume it may use the network. No material is sent "
+            "without the owner's consent for the repository"
+        )
     return "\n".join(lineas)
 
 
@@ -806,9 +835,10 @@ def _add(args) -> int:
     # comportamiento a proposito: `--yes` lo pasa cualquiera que corra el
     # comando, agente incluido, y hacerlo consentir le abria un segundo camino
     # para darse a si mismo lo que #84 separa del agente.
-    if entry.get("egress") != "local" and not args.yes:
+    if effective_egress(entry) != "local" and not args.yes:
+        verbo = "would" if effective_egress(entry) == "cloud" else "may"
         print(
-            "The material under review would leave this machine. Re-run with --yes to register "
+            f"The material under review {verbo} leave this machine. Re-run with --yes to register "
             "it, or register a local reviewer instead.\n"
             "Registering authorises nothing: no repository's material is sent until the owner "
             f"consents for it, from that repository, with `disensor reviewer consent {args.id}`."
@@ -818,7 +848,7 @@ def _add(args) -> int:
     data["reviewers"].append(entry)
     save_registry(data)
     print(f"registered {args.id} in {REGISTRY}")
-    if entry.get("egress") != "local":
+    if effective_egress(entry) != "local":
         print(
             "Nothing will be sent yet: each repository needs the owner's consent, given from it "
             f"with `disensor reviewer consent {args.id}`. An agent does not give it."
@@ -939,7 +969,7 @@ def _consent(args) -> int:
         print(f"withdrawn: {args.id} can no longer receive the material of {repositorio}")
         return 0
 
-    if entry.get("egress") == "local":
+    if effective_egress(entry) == "local":
         print(f"{args.id} runs locally: nothing leaves the machine, so there is nothing to authorise")
         return 0
 
@@ -956,7 +986,7 @@ def _consent(args) -> int:
     save_registry(data)
     print(
         f"authorised: the material of {repositorio} may be sent to "
-        f"{entry.get('provider') or 'this reviewer'}.\n"
+        f"{effective_provider(entry) or 'this reviewer'}.\n"
         "This covers this repository, this recipe and these executable bytes. Another project, "
         "a changed command or a replaced binary needs its own authorisation.\n"
         f"recorded with it: {describe_consent({'recorded': True, **registro})}. "

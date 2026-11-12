@@ -1,12 +1,14 @@
 # Adversarial review brief: architecture gate
 
 Give this to a model from a **different family** than the one that proposed the
-design: same training data means the same blind spots, and rule R4 rejects the
-declaration if the reviewer shares the generator's family.
+design: same training data means the same blind spots. A reviewer of the same family is
+declarable, with its independence stated (`same_family_distinct_model` or
+`same_model_fresh_context`) and its own residue item; level A does not admit it.
 
 Attach the design or decision record, the alternatives that were considered, and
 the constraints that are real (deadline, team size, what already exists). Then
-paste everything below.
+paste the brief: `disensor prompt` writes it to stdout without this note,
+which is for you and not for the reviewer.
 
 ---
 

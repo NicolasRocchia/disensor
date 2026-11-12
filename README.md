@@ -310,7 +310,11 @@ or stores credentials, and it checks that home on disk before every attempt.
 and authorises nothing: the material of a repository leaves the machine only
 after the owner runs `disensor reviewer consent <id>` from that repository,
 and that consent covers that repository, that recipe and those executable
-bytes. An agent does not give it. The registry records how each consent was
+bytes. An agent does not give it. The catalogued `ollama` asks for it too: a
+model served on this machine sends nothing out, but `ollama run <model>:cloud`
+and an `OLLAMA_HOST` that points at another server do, and the runner cannot
+tell them apart from the command. Only an entry you register by hand with
+`--egress local` runs without consent, and that claim is yours. The registry records how each consent was
 given: when, with which disensor, and whether standard input and output were
 a terminal. The round prints that every time it uses the consent, its result
 carries it, `new --round` puts it in the declaration and the report shows it.
@@ -375,6 +379,15 @@ same reviewer (Codex, `gpt-5.6-sol`) on this repository's own pull requests.
 `token_cost`: no recipe in the catalogue reports tokens. These are dated counts
 from `.residue/`, not a total, and a test compares them with the declarations
 up to that date.
+
+**Plan and architecture rounds.** They review a document, not a range, and they
+still ask for a clean tree: the runner checks that the reviewer wrote nothing by
+comparing the tree before and after, so the plan is committed or kept outside
+the repository. Their criticality level comes from the configuration: the one at
+`--base` when it is given, the one at `HEAD` otherwise. At Level A the chain is
+cut down to cross-family reviewers with verified hardening before anything is
+spent. That filter saves a round; the control is still the rule on the
+declaration and the gate with the policy of the target.
 
 **When there is no second family.** The method wants a reviewer from another
 model family, and that is still what the policy demands at Level A. Below that,
@@ -495,7 +508,7 @@ Per PR:
 
 - **G1**: if the PR touches paths that require review, it adds at least one valid declaration.
 - **G6, coverage**: every changed path is covered by a declaration whose gate the scope policy accepts for that path, and which **qualifies** for it, meaning the path did not change between the reviewed commit and the head. A stale declaration covers nothing.
-- **G7, integration witness**: some declaration saw the complete final tree. Path-by-path coverage is not enough: two side branches reviewed separately and later merged cover every path between them while nobody reviewed the integration.
+- **G7, integration witness**: some declaration saw the complete final tree. Path-by-path coverage is not enough: two side branches reviewed separately and later merged cover every path between them while nobody reviewed the integration. The witness has to have seen every path the scope policy demands a review for; a later change to a path the policy exempts does not unseat it.
 - **G8, evidence is append-only**: a PR cannot modify, delete or rename declarations that were already there, nor reuse an existing `event_id`.
 - **G9, new declarations state the current version**: a declaration the PR adds has to declare `residue/v0.4`. Superseded versions are still read so that history is not rewritten; that readability is not a permit to keep emitting under the weaker rules. The evidence plane applies the same criterion at ingestion.
 
@@ -562,7 +575,7 @@ This is a requirement, not a suggestion. The gate runs inside the workflow it
 audits, so there is a boundary no code of its own can cross and the platform has
 to resolve:
 
-- **Strict required check** (or merge queue) on `pull_request`, so that the check has to correspond to the latest head.
+- **Strict required check** on `pull_request`, so that the check has to correspond to the latest head. The merge queue is not supported: on a `merge_group` event the gate exits 6 and says so, because the range of a merge group can gather several pull requests and G5 to G7 would be judged over commits no pull request gate saw together. A queue that requires this check does not advance.
 - **CODEOWNERS** over the effective configuration path (it may not be called `disensor.config.json` if `--config` is used) and over `.github/workflows/`.
 - **Organisation ruleset or required workflow**, defined outside the audited repository.
 - **Pin the Action by SHA**, not by tag: a tag is movable and is not a root of trust. `disensor init` resolves the tag of the installed version to the commit it points at and writes the workflow already frozen; without network at init time the tag stays and `disensor pin` finishes the job. The command resolves annotated tags to the commit they wrap, never to the tag object, which is the classic trap of doing it by hand. This repository's documentation still uses the tag, because it documents which version corresponds; the frozen SHA is produced by whoever deploys. The SHA freezes what the Action installs too: its dependencies come from `requirements-action.txt`, a lock with the hash of every file, as wheels only and into a venv of its own, and disensor builds with the locked setuptools, so nothing is resolved at run time. The `python-version` input takes CPython 3.10 or later with a wheel for every locked dependency; today 3.13 free-threaded and 3.10 on Windows ARM have none. disensor is not left installed in the job's Python.

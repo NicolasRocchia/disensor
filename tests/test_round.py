@@ -545,6 +545,22 @@ def test_a_consent_without_provenance_runs_and_says_so(repo: Path, monkeypatch, 
     assert intento["consent"] == {"recorded": False}
 
 
+def test_an_ollama_entry_registered_as_local_is_skipped_without_consent(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    """Una entrada anterior a #120 guardo `egress: local` y pasaba sin consentimiento."""
+    (repo / "b.py").write_text("y = 2" + chr(10), encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "cambio")
+    vieja = dict(entrada_catalogada("ollama"), egress="local", provider="local", model="m",
+                 max_inline_bytes=10**9)
+    assert correr(repo, {"reviewers": [vieja]}, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
+    [intento] = json.loads((tmp_path / "resultado.json").read_text(encoding="utf-8"))["observed"]["attempts"]
+    assert intento["outcome"] == "no_consent"
+    assert "to Ollama was not authorised" in intento["detail"]
+    assert "disensor reviewer consent ollama" in intento["detail"]
+
+
 def test_a_local_reviewers_attempt_carries_no_consent(repo: Path, monkeypatch, tmp_path, capsys):
     (repo / "b.py").write_text("y = 2\n", encoding="utf-8")
     git(repo, "add", "-A")
@@ -721,6 +737,84 @@ sys.exit(0)
     assert r["hashes"]["pack_hash"] == canonical_pack_hash(
         "plan", repository=r["repository"], material_text=material,
     )
+
+
+def correr_plan(repo: Path, registro: dict, monkeypatch, tmp_path: Path, *extra: str) -> int:
+    from disensor.cli import build_parser
+
+    material = tmp_path / "plan.md"
+    material.write_text("# un plan" + chr(10), encoding="utf-8")
+    monkeypatch.setattr(ronda, "load_registry", lambda: registro)
+    args = build_parser().parse_args([
+        "round", "--gate", "plan", "--generator-family", "anthropic",
+        "--material", str(material), "--repository", str(repo),
+        "--report", str(tmp_path / "informe-plan.md"), "--result", str(tmp_path / "r.json"),
+        *extra,
+    ])
+    monkeypatch.chdir(repo)
+    return args.func(args)
+
+
+def commit(repo: Path, mensaje: str) -> None:
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", mensaje)
+
+
+def test_a_plan_round_on_a_dirty_tree_says_why_in_its_own_words(repo: Path, monkeypatch, tmp_path, capsys):
+    """El mensaje hablaba de la ronda de diff y de commits ya hechos (#181)."""
+    (repo / "a.py").write_text("x = 2" + chr(10), encoding="utf-8")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == ronda.ERROR
+    err = capsys.readouterr().err
+    assert "A plan round checks that the reviewer wrote nothing" in err
+    assert "diff round" not in err
+    assert not (tmp_path / "informe-plan.md").exists(), "el revisor no llego a correr"
+
+
+def test_a_plan_round_takes_level_a_from_the_configuration(repo: Path, monkeypatch, tmp_path, capsys):
+    """Corria como nivel B y la declaracion de nivel A la rechazaba despues de pagar (#181)."""
+    (repo / "disensor.config.json").write_text('{"criticality_level": "A"}', encoding="utf-8")
+    commit(repo, "nivel A")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
+    assert "Level A demands" in capsys.readouterr().err
+    assert not (tmp_path / "informe-plan.md").exists()
+
+
+def test_a_plan_round_with_a_base_takes_the_level_from_that_commit(repo: Path, monkeypatch, tmp_path, capsys):
+    git(repo, "checkout", "-q", "main")
+    (repo / "disensor.config.json").write_text('{"criticality_level": "A"}', encoding="utf-8")
+    commit(repo, "nivel A en el destino")
+    git(repo, "checkout", "-q", "trabajo")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path, "--base", "main") == CHAIN_EXHAUSTED
+    assert "Level A demands" in capsys.readouterr().err
+
+
+def test_a_plan_round_at_level_b_still_runs(repo: Path, monkeypatch, tmp_path, capsys):
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == OK
+
+
+def test_a_plan_round_does_not_guess_the_level_of_a_broken_configuration(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    (repo / "disensor.config.json").write_text("{not json", encoding="utf-8")
+    commit(repo, "config rota")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == ronda.ERROR
+    assert "cannot read the criticality level" in capsys.readouterr().err
+    assert not (tmp_path / "informe-plan.md").exists()
 
 
 def test_an_existing_report_destination_is_not_overwritten(repo: Path, monkeypatch, tmp_path, capsys):
@@ -1640,6 +1734,8 @@ def test_without_a_cap_ollama_and_a_hand_registered_reviewer_get_nothing(
         plan.write_text("# Plan" + chr(10), encoding="utf-8")
         extra = {"gate": "plan", "material": plan}
 
+    # Con el consentimiento dado: sin el, a ollama lo frena antes eso y no el tope (#120).
+    _registro_consentido(repo, tmp_path, monkeypatch, ollama)
     codigo = correr(repo, {"reviewers": [ollama, a_mano]}, monkeypatch, tmp_path, **extra)
 
     assert codigo == CHAIN_EXHAUSTED

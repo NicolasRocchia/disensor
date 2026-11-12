@@ -22,7 +22,9 @@ Per PR:
   G7: integration witness. Coverage alone is satisfiable by a mosaic: two side
       branches reviewed separately and merged without reviewing the integration,
       where each artifact qualifies for its own path and nobody ever saw the
-      combined tree. So one artifact must qualify for every changed ordinary path.
+      combined tree. So one artifact must qualify for every changed path the
+      scope policy demands a review for. A path the policy exempts asks for no
+      declaration and does not unseat the witness either.
   G8: evidence is append-only, and event ids are unique against history.
   G9: a declaration the PR adds states the current schema version. Superseded
       versions stay readable so history is never rewritten; that readability is
@@ -284,12 +286,25 @@ def load_config_at(rev: str, config_path: str, repo_dir: Path) -> tuple[dict, st
 
 
 def pr_range(base: str | None, head: str | None) -> tuple[str | None, str | None]:
-    if base and head:
+    # Un rango explicito no vuelve soportada a la cola: un workflow que le pasa
+    # al gate el base_sha y el head_sha del grupo pide justo lo que no se juzga.
+    queued = os.environ.get("GITHUB_EVENT_NAME") == "merge_group"
+    if base and head and not queued:
         return base, head
     event_path = os.environ.get("GITHUB_EVENT_PATH")
-    if event_path and Path(event_path).exists():
+    event = {}
+    if not queued and event_path and Path(event_path).exists():
         with open(event_path, encoding="utf-8") as f:
             event = json.load(f)
+    if queued or (isinstance(event, dict) and "merge_group" in event):
+        raise GateFailure(
+            "this is a merge_group event, and the merge queue is not supported. The range of a "
+            "merge group can gather several pull requests, so membership, coverage and the "
+            "integration witness (G5 to G7) would be judged over commits no pull request gate "
+            "saw together. Run the gate on pull_request with a strict required check; a queue "
+            "that waits for this check will not get a verdict from it."
+        )
+    if isinstance(event, dict) and event:
         pr = event.get("pull_request") or {}
         return (
             base or (pr.get("base") or {}).get("sha"),
@@ -698,15 +713,15 @@ def evaluate_coverage(
 
     witnesses = [
         a for a in usable
-        if a.gate in required_gates and a.in_range and not (set(ordinary) & a.changed_after)
+        if a.gate in required_gates and a.in_range and not (set(demanding) & a.changed_after)
     ]
     if not witnesses:
         errors.append(
             "[G7] no declaration saw the final tree of this PR. Coverage path by path is not "
             "enough: two side branches reviewed separately and then merged cover every path "
             "between them while nobody reviewed the integration. One review "
-            f"({' or '.join(sorted(required_gates))}) has to reach the head with no changed path "
-            "left behind it."
+            f"({' or '.join(sorted(required_gates))}) has to reach the head with no path that "
+            "requires review changed behind it."
         )
     return errors, notes, demanding
 

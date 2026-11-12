@@ -38,7 +38,14 @@ from pathlib import Path
 
 from . import __version__, codex_home, gitctx, programs
 from .brief import brief_text, hash_of
-from .gate import UNDECIDABLE, GateFailure, classify_requirement, resolve_context
+from .gate import (
+    UNDECIDABLE,
+    GateFailure,
+    canonical_repo_path,
+    classify_requirement,
+    load_config_at,
+    resolve_context,
+)
 from .pack import (
     canonical_pack_text,
     deliver,
@@ -52,7 +59,9 @@ from .reviewers import (
     ReviewerError,
     consent_record,
     describe_consent,
+    effective_egress,
     effective_material,
+    effective_provider,
     executable_fingerprint,
     has_consent,
     inline_limit,
@@ -773,6 +782,25 @@ def main_round(args) -> int:
         return UNDECIDABLE
 
 
+def _level_without_a_range(args, repo: Path) -> str:
+    cfg_path = canonical_repo_path(args.config, gitctx.repo_root(repo), "--config")
+    if args.base:
+        rev = gitctx.resolve_commit(args.base, repo)
+    else:
+        try:
+            rev = gitctx.resolve_commit("HEAD", repo)
+        except gitctx.GitError:
+            # Sin commits y con el arbol limpio no hay configuracion que leer.
+            return "B"
+    try:
+        config, _ = load_config_at(rev, cfg_path, repo)
+    except (json.JSONDecodeError, UnicodeDecodeError, GateFailure) as exc:
+        raise RoundError(
+            f"cannot read the criticality level from {cfg_path} at {rev[:12]}: {exc}"
+        ) from exc
+    return config.get("criticality_level", "B")
+
+
 def _round(args, repo: Path) -> int:
     # Un documento de material no entra al paquete de una compuerta diff, asi
     # que hashearlo pondria en el resultado, y de ahi en la declaracion, un
@@ -839,12 +867,25 @@ def _round(args, repo: Path) -> int:
     # despues parecia mas flexible y tenia falsos negativos propios: un archivo
     # ya modificado que el revisor vuelve a tocar sigue diciendo "M", y un
     # directorio sin trackear cambia por dentro sin cambiar su linea.
+    # Una ronda de plan o de arquitectura no revisa commits, pero mide lo mismo:
+    # que el revisor no escribio. Una huella de contenido que tolerara un arbol
+    # sucio no ve una escritura dentro de un submodulo que ya estaba sucio.
     antes = tree_state(repo)
     if antes.strip():
+        if args.gate == "diff":
+            motivo = (
+                "A diff round reviews commits that already exist: commit or stash first"
+            )
+        else:
+            motivo = (
+                f"A {args.gate} round checks that the reviewer wrote nothing by comparing the "
+                "tree before and after, and only a clean tree makes that comparison mean "
+                "something: commit or stash first, and keep the material under review committed "
+                "or outside the repository"
+            )
         raise RoundError(
-            "the working tree is not clean. A diff round reviews commits that already exist: "
-            "commit or stash first. The runner never stashes on its own, because deciding what "
-            "to do with unfinished work is not its call"
+            f"the working tree is not clean. {motivo}. The runner never stashes on its own, "
+            "because deciding what to do with unfinished work is not its call"
         )
 
     # --- El material y el paquete canonico -----------------------------------
@@ -883,7 +924,15 @@ def _round(args, repo: Path) -> int:
     # El nivel sale de la politica del DESTINO, la misma que el gate va a
     # aplicar, y no del archivo que hay en el working tree: leer el checkout
     # dejaria que la rama bajara su propio nivel para pasar su propio filtro.
-    nivel = ctx.config.get("criticality_level", "B") if args.gate == "diff" else "B"
+    # Un plan o una decision de arquitectura no tiene rango ni destino resuelto:
+    # su nivel sale de la configuracion en --base si se paso, y si no de la del
+    # commit que esta en el checkout. No es el control, que sigue siendo la
+    # regla sobre la declaracion: una rama que se baja el nivel solo paga una
+    # ronda que el nivel A no le va a admitir.
+    if args.gate == "diff":
+        nivel = ctx.config.get("criticality_level", "B")
+    else:
+        nivel = _level_without_a_range(args, repo)
     if nivel == "A":
         chain = [
             (e, ind) for e, ind in chain
@@ -960,7 +1009,7 @@ def _round(args, repo: Path) -> int:
                     # A quien le habla este texto es al que corre la ronda, que
                     # muchas veces es un agente: la decision es del dueño (#84).
                     "detail": (
-                        f"sending the material of {repository} to {entry.get('provider') or 'a third party'} "
+                        f"sending the material of {repository} to {effective_provider(entry) or 'a third party'} "
                         "was not authorised. That is the owner's decision; they authorise it with: "
                         f"disensor reviewer consent {entry['id']}"
                     ),
@@ -995,7 +1044,7 @@ def _round(args, repo: Path) -> int:
             # el resultado y la declaracion lo lleven. Un revisor local no
             # necesita ninguno, y su intento no trae la clave.
             consentimiento = None
-            if entry.get("egress") != "local":
+            if effective_egress(entry) != "local":
                 consentimiento = consent_record(entry, repository)
                 estado(
                     f"round: consent for {entry['id']} to receive the material of {repository}: "
