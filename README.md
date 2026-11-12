@@ -495,7 +495,7 @@ Per PR:
 
 - **G1**: if the PR touches paths that require review, it adds at least one valid declaration.
 - **G6, coverage**: every changed path is covered by a declaration whose gate the scope policy accepts for that path, and which **qualifies** for it, meaning the path did not change between the reviewed commit and the head. A stale declaration covers nothing.
-- **G7, integration witness**: some declaration saw the complete final tree. Path-by-path coverage is not enough: two side branches reviewed separately and later merged cover every path between them while nobody reviewed the integration.
+- **G7, integration witness**: some declaration saw the complete final tree. Path-by-path coverage is not enough: two side branches reviewed separately and later merged cover every path between them while nobody reviewed the integration. The witness has to have seen every path the scope policy demands a review for; a later change to a path the policy exempts does not unseat it.
 - **G8, evidence is append-only**: a PR cannot modify, delete or rename declarations that were already there, nor reuse an existing `event_id`.
 - **G9, new declarations state the current version**: a declaration the PR adds has to declare `residue/v0.4`. Superseded versions are still read so that history is not rewritten; that readability is not a permit to keep emitting under the weaker rules. The evidence plane applies the same criterion at ingestion.
 

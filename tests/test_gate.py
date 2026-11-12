@@ -283,6 +283,48 @@ def test_exempt_paths_need_no_artifact(repo, capsys):
     assert repo.run(base, head) == 0
 
 
+EXEMPT_CHANGELOG = {**CONFIG, "gate": {"scope": [
+    {"paths": ["CHANGELOG.md", ".github/**"], "accepts": []},
+    {"paths": ["**"], "accepts": ["diff"]},
+]}}
+
+
+def reviewed_pr(repo) -> tuple[str, str]:
+    repo.config(EXEMPT_CHANGELOG)
+    base = repo.commit("chore: scope")
+    repo.write("src/app.py", "reviewed")
+    reviewed = repo.commit("feat")
+    repo.artifact("diff", head=reviewed, base=base)
+    repo.commit("docs(residue)")
+    return base, reviewed
+
+
+def test_an_exempt_path_changed_after_the_review_keeps_the_witness(repo, capsys):
+    base, _ = reviewed_pr(repo)
+    repo.write("CHANGELOG.md", "release notes")
+    head = repo.commit("chore: changelog")
+    assert repo.run(base, head) == 0
+
+
+def test_a_demanding_path_changed_after_the_review_still_loses_the_witness(repo, capsys):
+    base, _ = reviewed_pr(repo)
+    repo.write("CHANGELOG.md", "release notes")
+    repo.write("src/other.py", "never reviewed")
+    head = repo.commit("feat sneaked in next to the changelog")
+    assert repo.run(base, head) == 1
+    text = out(capsys)
+    assert "[G6]" in text and "[G7]" in text
+
+
+def test_a_floor_path_changed_after_the_review_is_never_exempt(repo, capsys):
+    base, _ = reviewed_pr(repo)
+    repo.write(".github/workflows/ci.yml", "on: push")
+    head = repo.commit("ci sneaked in under an exemption")
+    assert repo.run(base, head) == 1
+    text = out(capsys)
+    assert "[G6]" in text and "[G7]" in text
+
+
 def test_scope_cannot_lower_the_floor_on_workflows(repo, capsys):
     """The artifact is the gate the relaxed policy accepts, so only the floor can reject it."""
     repo.config({**CONFIG, "gate": {"scope": [

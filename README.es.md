@@ -369,7 +369,7 @@ Por PR:
 
 - **G1**: si el PR toca rutas que requieren revisión, agrega al menos una declaración válida.
 - **G6, cobertura**: cada ruta cambiada está cubierta por una declaración cuya compuerta la política de alcance acepta para esa ruta, y que **califica** para ella, o sea que la ruta no cambió entre el commit revisado y el head. Una declaración rancia no cubre nada.
-- **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración.
+- **G7, testigo de integración**: alguna declaración vio el árbol final completo. La cobertura ruta por ruta no alcanza: dos ramas laterales revisadas por separado y después fusionadas cubren entre las dos todas las rutas mientras nadie revisó la integración. El testigo tiene que haber visto todas las rutas para las que la política de alcance exige revisión; un cambio posterior en una ruta que la política exime no lo invalida.
 - **G8, la evidencia es de solo agregar**: un PR no puede modificar, borrar ni renombrar declaraciones que ya estaban, ni reutilizar un `event_id` existente.
 - **G9, lo nuevo declara la versión vigente**: una declaración que el PR agrega tiene que declarar `residue/v0.4`. Las versiones superadas se siguen leyendo para que la historia no se reescriba; esa legibilidad no es un permiso para seguir emitiendo bajo las reglas más débiles. El plano de evidencia aplica el mismo criterio en la ingesta.
 
