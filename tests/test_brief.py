@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from disensor.brief import GATES, brief_hash, brief_text
+from disensor.brief import GATES, brief_hash, brief_preface, brief_text
 
 
 @pytest.mark.parametrize("gate", GATES)
@@ -39,14 +39,65 @@ def flat(gate: str) -> str:
 @pytest.mark.parametrize("gate", GATES)
 def test_the_brief_asks_for_the_things_the_method_needs(gate):
     text = flat(gate)
-    # Decorrelation, because a same-family reviewer nods at the same blind spots
-    # and R4 rejects the declaration anyway.
-    assert "different family" in text
     # Confinement, which is what the artifact declares as read_only_by_instruction.
     assert "read only" in text
     # Attack, not approval: a brief that asks for a review gets a review.
     assert "red team" in text
     assert "severity" in text
+
+
+@pytest.mark.parametrize("gate", GATES)
+def test_the_note_for_the_person_stays_out_of_the_brief(gate):
+    """The reviewer was being handed instructions addressed to whoever pastes the brief."""
+    text = flat(gate)
+    assert "paste" not in text
+    assert "give this to" not in text
+    note = " ".join(brief_preface(gate).split()).lower()
+    assert "different family" in note
+    assert "same_family_distinct_model" in note and "level a does not admit it" in note
+
+
+@pytest.mark.parametrize("gate", GATES)
+def test_nothing_says_r4_rejects_a_reviewer_of_the_same_family(gate):
+    """True until v0.3. Since v0.4 it is declarable, with its residue item."""
+    assert "rejects" not in flat(gate)
+    assert "rejects" not in brief_preface(gate)
+
+
+def test_the_note_is_not_part_of_what_the_hash_anchors(monkeypatch):
+    import disensor.brief as brief
+
+    before = brief.brief_hash("diff")
+    real = brief._read
+
+    def reworded(name):
+        raw = real(name)
+        if name != "diff.md":
+            return raw
+        head, body = raw.split(brief.SEPARATOR)
+        return head + "A sentence only the person reads." + brief.SEPARATOR + body
+
+    monkeypatch.setattr(brief, "_read", reworded)
+    assert "only the person reads" in brief.brief_preface("diff")
+    assert brief.brief_hash("diff") == before
+
+
+def test_a_brief_without_a_note_for_the_person_is_rejected(monkeypatch):
+    import disensor.brief as brief
+
+    monkeypatch.setattr(brief, "_read", lambda name: "# title only" + brief.SEPARATOR + "body")
+    with pytest.raises(ValueError, match="malformed brief"):
+        brief.brief_text("diff")
+
+
+def test_prompt_sends_the_note_to_stderr_and_the_brief_to_stdout(capsys):
+    from disensor.cli import build_parser
+
+    args = build_parser().parse_args(["prompt", "--gate", "plan"])
+    assert args.func(args) == 0
+    captured = capsys.readouterr()
+    assert captured.out == brief_text("plan")
+    assert captured.err == brief_preface("plan") + chr(10)
 
 
 @pytest.mark.parametrize("gate", GATES)
