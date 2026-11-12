@@ -1,0 +1,113 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "d27a6e01-ad46-4613-aac8-c9478d6efaff",
+    "created_at": "2026-11-11T22:29:51-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "c11890ab826c489430da2ee893f553c4ea447966",
+    "gate": "plan",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    }
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:1a8f3006b22a72235825a3646c94474f346dfa356b9c470342a8113537a7d394"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "major",
+      "title": "La huella de contenido propuesta no ve una escritura dentro de un submódulo que ya estaba sucio",
+      "description": "El plan de #181 dejaba correr una ronda de plan o de arquitectura sobre un árbol sucio y medía que el revisor no escribió con una huella de tres partes: el estado del árbol, el sha256 de git diff HEAD --binary y los hashes de los archivos sin seguimiento. Si un submódulo ya estaba sucio antes de la ronda y el revisor edita otro archivo con seguimiento adentro sin mover el commit del submódulo, las tres partes quedan iguales y la declaración diría que el árbol no cambió. Es además una regresión contra la precondición de árbol limpio, que hoy rechaza ese submódulo antes de correr.",
+      "location": "plan: sección 3(a), huella de contenido; src/disensor/round.py, tree_state",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "Reproducido por el generador en un superproyecto temporal con un submódulo: con un archivo con seguimiento ya modificado adentro, una segunda modificación al mismo submódulo deja idénticos el estado de git status, la salida de git diff HEAD --binary y la lista de archivos sin seguimiento del superproyecto. El revisor lo dedujo de la lectura y declaró que no lo había ejecutado."
+      },
+      "remedy_adjustment": "El revisor ofrecía dos salidas: una huella recursiva sobre los submódulos sucios, con el manejo de submódulos anidados definido, o conservar el requisito de árbol limpio. Se eligió la segunda, que era la alternativa mínima del propio plan: las rondas de plan y de arquitectura siguen pidiendo árbol limpio y lo que cambia es el mensaje, que dice por qué y qué hacer con el material. La huella de contenido no se implementa.",
+      "fix_verification": {
+        "type": "pending_in_diff_gate"
+      }
+    },
+    {
+      "id": "h2",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "La migración del egress efectivo se apoya en el campo source del registro",
+      "description": "El plan de #120 hace que para una entrada del catálogo mande la receta actual y no el egress guardado. El revisor lo trajo como hipótesis no verificada: el repositorio reconoce una entrada del catálogo por los campos source e id, que son editables, y no estableció un salteo alcanzable bajo el modelo de amenaza del registro, que es del dueño. Pidió una prueba de migración con registros reales de versiones anteriores, incluido un id editado a mano o en colisión.",
+      "location": "plan: sección de #120, egress efectivo; src/disensor/reviewers.py",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "repository",
+        "detail": "Verificado contra src/disensor/reviewers.py: el campo source existe desde la primera versión del registro y vale catalog para toda entrada creada con reviewer add sobre una receta, de modo que una entrada de ollama registrada antes del cambio se reconoce por source e id. Una entrada con source assistant o editada a mano no pasa por la receta, y su egress local es la afirmación de quien la escribió."
+      },
+      "remedy_adjustment": "El revisor pedía registros reales de cada versión anterior soportada y un caso de id en colisión. Se comprometió menos: una prueba con una entrada de ollama en el formato viejo (egress local guardado) que tiene que pedir consentimiento, en el registro y en la ronda, y otra que fija que local en una entrada registrada a mano sigue siendo la afirmación de su dueño. El predicado sigue siendo source igual a catalog; una entrada editada a mano para dejar de parecer del catálogo queda fuera, porque el registro es del dueño.",
+      "fix_verification": {
+        "type": "pending_in_diff_gate"
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "La ronda revisó un plan: ninguna de las dos correcciones incorporadas tenía código que ejecutar al momento de la ronda. El revisor corrió la suite sobre el árbol sin el cambio (933 pasados, 11 salteados) y declaró que no corrió el gate ni una ronda de diff porque no había implementación. La verificación de h1 y h2 queda para la compuerta de diff del mismo PR. El caso de submódulos anidados no se ejercitó: con la salida elegida, el árbol limpio lo rechaza antes de correr."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 2,
+      "valid": {
+        "incorporated": 2,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:c1ac6279176dfdc10f5fdc270edb50d5deebb8fd42f3a793cbdb5b389b618542",
+      "report_hash": "sha256:247cb0ab3e786d88261a9e9dd54ace0db023e1a96944cdba08f704b9b90d2776",
+      "material_hash": "sha256:5b792ff02779cd7608f13440e0968144aa29a562598d51e88b96a94969fa3b5d",
+      "reviewer_seconds": 644,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}
