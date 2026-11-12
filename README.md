@@ -376,6 +376,15 @@ same reviewer (Codex, `gpt-5.6-sol`) on this repository's own pull requests.
 from `.residue/`, not a total, and a test compares them with the declarations
 up to that date.
 
+**Plan and architecture rounds.** They review a document, not a range, and they
+still ask for a clean tree: the runner checks that the reviewer wrote nothing by
+comparing the tree before and after, so the plan is committed or kept outside
+the repository. Their criticality level comes from the configuration: the one at
+`--base` when it is given, the one at `HEAD` otherwise. At Level A the chain is
+cut down to cross-family reviewers with verified hardening before anything is
+spent. That filter saves a round; the control is still the rule on the
+declaration and the gate with the policy of the target.
+
 **When there is no second family.** The method wants a reviewer from another
 model family, and that is still what the policy demands at Level A. Below that,
 a round with the same model and no context is a declarable degraded mode: the

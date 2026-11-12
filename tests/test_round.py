@@ -723,6 +723,84 @@ sys.exit(0)
     )
 
 
+def correr_plan(repo: Path, registro: dict, monkeypatch, tmp_path: Path, *extra: str) -> int:
+    from disensor.cli import build_parser
+
+    material = tmp_path / "plan.md"
+    material.write_text("# un plan" + chr(10), encoding="utf-8")
+    monkeypatch.setattr(ronda, "load_registry", lambda: registro)
+    args = build_parser().parse_args([
+        "round", "--gate", "plan", "--generator-family", "anthropic",
+        "--material", str(material), "--repository", str(repo),
+        "--report", str(tmp_path / "informe-plan.md"), "--result", str(tmp_path / "r.json"),
+        *extra,
+    ])
+    monkeypatch.chdir(repo)
+    return args.func(args)
+
+
+def commit(repo: Path, mensaje: str) -> None:
+    git(repo, "add", "-A")
+    git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", mensaje)
+
+
+def test_a_plan_round_on_a_dirty_tree_says_why_in_its_own_words(repo: Path, monkeypatch, tmp_path, capsys):
+    """El mensaje hablaba de la ronda de diff y de commits ya hechos (#181)."""
+    (repo / "a.py").write_text("x = 2" + chr(10), encoding="utf-8")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == ronda.ERROR
+    err = capsys.readouterr().err
+    assert "A plan round checks that the reviewer wrote nothing" in err
+    assert "diff round" not in err
+    assert not (tmp_path / "informe-plan.md").exists(), "el revisor no llego a correr"
+
+
+def test_a_plan_round_takes_level_a_from_the_configuration(repo: Path, monkeypatch, tmp_path, capsys):
+    """Corria como nivel B y la declaracion de nivel A la rechazaba despues de pagar (#181)."""
+    (repo / "disensor.config.json").write_text('{"criticality_level": "A"}', encoding="utf-8")
+    commit(repo, "nivel A")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == CHAIN_EXHAUSTED
+    assert "Level A demands" in capsys.readouterr().err
+    assert not (tmp_path / "informe-plan.md").exists()
+
+
+def test_a_plan_round_with_a_base_takes_the_level_from_that_commit(repo: Path, monkeypatch, tmp_path, capsys):
+    git(repo, "checkout", "-q", "main")
+    (repo / "disensor.config.json").write_text('{"criticality_level": "A"}', encoding="utf-8")
+    commit(repo, "nivel A en el destino")
+    git(repo, "checkout", "-q", "trabajo")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path, "--base", "main") == CHAIN_EXHAUSTED
+    assert "Level A demands" in capsys.readouterr().err
+
+
+def test_a_plan_round_at_level_b_still_runs(repo: Path, monkeypatch, tmp_path, capsys):
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == OK
+
+
+def test_a_plan_round_does_not_guess_the_level_of_a_broken_configuration(
+    repo: Path, monkeypatch, tmp_path, capsys,
+):
+    (repo / "disensor.config.json").write_text("{not json", encoding="utf-8")
+    commit(repo, "config rota")
+    registro = {"reviewers": [
+        dict(entrada("local", "openai", revisor_falso(tmp_path, "local", ESCRIBE_Y_SALE_BIEN)), egress="local")
+    ]}
+    assert correr_plan(repo, registro, monkeypatch, tmp_path) == ronda.ERROR
+    assert "cannot read the criticality level" in capsys.readouterr().err
+    assert not (tmp_path / "informe-plan.md").exists()
+
+
 def test_an_existing_report_destination_is_not_overwritten(repo: Path, monkeypatch, tmp_path, capsys):
     """Lo que haya en ese archivo es de otro: perderlo en silencio para dejar un
     informe es lo que una herramienta que promete no tocar nada no puede hacer."""

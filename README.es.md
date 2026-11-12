@@ -319,6 +319,15 @@ lleva `token_cost`: ninguna receta del catálogo informa tokens. Son conteos con
 fecha sacados de `.residue/`, no un total, y una prueba los compara con las
 declaraciones hasta esa fecha.
 
+**Rondas de plan y de arquitectura.** Revisan un documento, no un rango, e igual
+piden árbol limpio: el runner verifica que el revisor no escribió comparando el
+árbol antes y después, así que el plan se commitea o se deja fuera del
+repositorio. Su nivel de criticidad sale de la configuración: la de `--base` si
+se pasa, la de `HEAD` si no. En nivel A la cadena se recorta a revisores de otra
+familia con endurecimiento verificado antes de gastar nada. Ese filtro ahorra
+una ronda; el control sigue siendo la regla sobre la declaración y el gate con
+la política del destino.
+
 **Cuando no hay una segunda familia.** El método quiere un revisor de otra
 familia de modelo, y eso es lo que la política sigue exigiendo en nivel A. Por
 debajo, una ronda con el mismo modelo y sin contexto es un modo degradado
