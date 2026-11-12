@@ -229,6 +229,29 @@ def test_every_action_this_repository_runs_is_pinned_to_a_commit():
             )
 
 
+def test_the_workflow_init_writes_runs_no_action_by_tag():
+    """El checkout corre en el job del gate, antes que el gate (#169).
+
+    `init` fijaba disensor por SHA y dejaba `actions/checkout@v4`. El SHA es el
+    mismo que usan los workflows de este repositorio: cuando un bump lo mueve
+    en ci.yml, este test obliga a moverlo en lo que `init` escribe.
+    """
+    from disensor.init import CHECKOUT, WORKFLOW
+
+    usos = [l.split("uses:", 1)[1].strip() for l in WORKFLOW.splitlines() if "uses:" in l]
+    assert usos == [CHECKOUT, f"NicolasRocchia/disensor@v{__version__}"]
+    assert re.fullmatch(r"actions/checkout@[0-9a-f]{40}  # v\d+\.\d+\.\d+", CHECKOUT)
+    for ruta in (
+        ROOT / ".github" / "workflows" / "ci.yml",
+        ROOT / "docs" / "ejemplo-workflow.yml",
+        ROOT / "README.md",
+        ROOT / "README.es.md",
+    ):
+        texto = ruta.read_text(encoding="utf-8")
+        assert f"uses: {CHECKOUT}\n" in texto, f"{ruta.name} no usa el checkout que escribe init"
+        assert "actions/checkout@v" not in texto, f"{ruta.name} deja un checkout por tag"
+
+
 def test_the_action_installs_from_the_hashed_lock_into_its_own_venv():
     """La instalación de la Action no resuelve versiones al correr (#154).
 
