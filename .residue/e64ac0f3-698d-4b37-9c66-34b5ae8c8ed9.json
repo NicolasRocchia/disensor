@@ -1,0 +1,86 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "e64ac0f3-698d-4b37-9c66-34b5ae8c8ed9",
+    "created_at": "2026-11-11T22:39:38-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "ea5b1c8701554f63432decda5b2edd8b89586c31",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "c11890ab826c489430da2ee893f553c4ea447966"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "third_party_no_test_environment",
+        "requires_human_attention": false,
+        "description": "Nadie ejercitó el rechazo de #176 contra un evento merge_group real de GitHub ni el consentimiento de #120 contra un Ollama con un modelo :cloud o un OLLAMA_HOST remoto. Los dos comportamientos están cubiertos por pruebas automáticas que arman el evento y el registro a mano, y por la lectura del código que hizo el revisor. El nombre del evento sale de GITHUB_EVENT_NAME y del archivo del evento, tal como los documenta GitHub; no se verificó en una cola real."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "La suite completa corrió sobre el head del rango, antes de la ronda por el generador y durante la ronda por el revisor (957 pasados, 11 salteados las dos veces). Los cuatro commits intermedios no se probaron por separado: se armaron repartiendo por issue los cambios de un árbol ya probado entero. Las once pruebas salteadas en esta máquina (por plataforma, por costo o por herramientas que acá no están) no corrieron; las que dependen de la plataforma quedan para los jobs de Linux y macOS del CI, que al declarar no habían corrido sobre este head. La verificación de confinamiento es git status limpio antes y después de la ronda, que no ve archivos ignorados ni escrituras fuera del árbol."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 317
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:9b61386b63f18a13b9d62881b073d36fb966717b3af1f03fee86e13ca30b140e",
+      "report_hash": "sha256:24c944eb13d46810de2cda4769c4f395ddea5d627da1c35b12497ebb7459f7a1",
+      "reviewer_seconds": 265,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}
