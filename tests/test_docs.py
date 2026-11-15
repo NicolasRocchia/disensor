@@ -252,6 +252,57 @@ def test_the_workflow_init_writes_runs_no_action_by_tag():
         assert "actions/checkout@v" not in texto, f"{ruta.name} deja un checkout por tag"
 
 
+def pasos_run(texto):
+    """Los `- run:` de un workflow, con los bloques plegados (`>-`) ya unidos.
+
+    Sin PyYAML a propósito: los tests no suman dependencias para leer tres
+    archivos. Alcanza con las dos formas que usan los workflows de este
+    repositorio, una línea o un bloque plegado.
+    """
+    lineas = texto.splitlines()
+    pasos = []
+    for i, linea in enumerate(lineas):
+        if not linea.strip().startswith("- run:"):
+            continue
+        valor = linea.split("run:", 1)[1].strip()
+        if valor in (">-", ">"):
+            sangria = len(linea) - len(linea.lstrip())
+            cuerpo = []
+            for siguiente in lineas[i + 1:]:
+                if siguiente.strip() and len(siguiente) - len(siguiente.lstrip()) <= sangria:
+                    break
+                cuerpo.append(siguiente.strip())
+            valor = " ".join(c for c in cuerpo if c)
+        pasos.append(valor)
+    return pasos
+
+
+def test_no_one_line_run_reads_as_a_mapping():
+    """Un `run:` en una línea con `: ` adentro rompe el archivo entero.
+
+    El release de #170 instalaba con `--only-binary :all: -r ...` en una sola
+    línea. En un escalar plano, `: ` abre un mapping: GitHub rechazó el
+    workflow antes de arrancar un job y los tests, que lo leían como texto,
+    pasaban. Lo mismo vale para ` #`, que corta el comando en un comentario.
+    """
+    archivos = [ROOT / "action.yml", *sorted((ROOT / ".github" / "workflows").glob("*.yml"))]
+    vistos = 0
+    for archivo in archivos:
+        for linea in archivo.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"^\s*(?:-\s*)?run:\s*(.*)$", linea)
+            if not m:
+                continue
+            valor = m.group(1)
+            if not valor or valor[0] in "|>'\"":
+                continue
+            vistos += 1
+            assert ": " not in valor and not valor.endswith(":"), (
+                f"{archivo.name}: {valor!r} tiene ': ' y YAML lo lee como mapping; va en un bloque"
+            )
+            assert " #" not in valor, f"{archivo.name}: {valor!r} se corta en ' #'"
+    assert vistos, "no hay ningún run en una línea, y el test pasaría en vacío"
+
+
 def test_the_release_builds_from_a_hashed_lock():
     """El job que arma lo que va a PyPI no resuelve versiones al construir (#170).
 
@@ -262,7 +313,7 @@ def test_the_release_builds_from_a_hashed_lock():
     from packaging.requirements import Requirement
 
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-    pasos = [l.split("run:", 1)[1].strip() for l in workflow.splitlines() if l.strip().startswith("- run:")]
+    pasos = pasos_run(workflow)
     instalaciones = [p for p in pasos if "pip install" in p]
     assert len(instalaciones) == 1
     (instalacion,) = instalaciones
