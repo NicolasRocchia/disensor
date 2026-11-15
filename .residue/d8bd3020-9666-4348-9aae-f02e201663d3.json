@@ -1,0 +1,86 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "d8bd3020-9666-4348-9aae-f02e201663d3",
+    "created_at": "2026-11-12T20:12:01-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "569d6e5c8922f0af82cc78dc8d1eb640130e7d4c",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "a6402b62d726340346445d8a1e811b817f795119"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "El job construir de release.yml no corrió: se dispara con un tag y recién se ejercita al publicar la próxima versión. El generador y el revisor instalaron el lock con sus hashes y construyeron con --no-isolation en esta máquina (Windows, Python 3.14) desde un git archive, no en ubuntu-latest con Python 3.12. El generador comparó además ese build contra el del método anterior sobre el mismo árbol: el wheel salió idéntico byte a byte y el sdist con los mismos 76 archivos y el mismo contenido, con diferencias solo en las fechas de los archivos generados. El pip del job sigue siendo el que trae setup-python, fuera del lock, y un workflow_dispatch sobre un tag anterior a este cambio falla porque ese árbol no tiene el lock."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "Nadie corrió el workflow que escribe init en un repositorio real con el checkout fijado en v7.0.1: es el mismo commit que usan los workflows de este repositorio, y su ejecución se ve en el CI de este PR, no en el de un usuario. No se verificó que Dependabot actualice un lock generado con uv; es el mismo hueco que tiene requirements-action.txt. El revisor no pudo correr el typecheck del plano de evidencia con el Node 16 de esta máquina; el cambio no toca ese directorio. Las once pruebas que la suite saltea acá no corrieron (959 pasados, 11 salteados, por el generador y por el revisor). La verificación de confinamiento es git status limpio antes y después de la ronda, que no ve archivos ignorados ni escrituras fuera del árbol."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 441
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:6e8117abfbbf54127c8e73021b9280871e35c3a803b7439c5c4caf168e76a87c",
+      "report_hash": "sha256:6ca6df983c67ebd296b545c73f234f76f38e45e1493b1a97d467270385f69c84",
+      "reviewer_seconds": 414,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}

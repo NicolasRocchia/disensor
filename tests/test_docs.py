@@ -229,6 +229,82 @@ def test_every_action_this_repository_runs_is_pinned_to_a_commit():
             )
 
 
+def test_the_workflow_init_writes_runs_no_action_by_tag():
+    """El checkout corre en el job del gate, antes que el gate (#169).
+
+    `init` fijaba disensor por SHA y dejaba `actions/checkout@v4`. El SHA es el
+    mismo que usan los workflows de este repositorio: cuando un bump lo mueve
+    en ci.yml, este test obliga a moverlo en lo que `init` escribe.
+    """
+    from disensor.init import CHECKOUT, WORKFLOW
+
+    usos = [l.split("uses:", 1)[1].strip() for l in WORKFLOW.splitlines() if "uses:" in l]
+    assert usos == [CHECKOUT, f"NicolasRocchia/disensor@v{__version__}"]
+    assert re.fullmatch(r"actions/checkout@[0-9a-f]{40}  # v\d+\.\d+\.\d+", CHECKOUT)
+    for ruta in (
+        ROOT / ".github" / "workflows" / "ci.yml",
+        ROOT / "docs" / "ejemplo-workflow.yml",
+        ROOT / "README.md",
+        ROOT / "README.es.md",
+    ):
+        texto = ruta.read_text(encoding="utf-8")
+        assert f"uses: {CHECKOUT}\n" in texto, f"{ruta.name} no usa el checkout que escribe init"
+        assert "actions/checkout@v" not in texto, f"{ruta.name} deja un checkout por tag"
+
+
+def test_the_release_builds_from_a_hashed_lock():
+    """El job que arma lo que va a PyPI no resuelve versiones al construir (#170).
+
+    `pip install build` y `python -m build` bajaban el último build y, en un
+    entorno aislado, el setuptools que hubiera ese día. Sin `--no-isolation`
+    el lock no alcanza: build vuelve a bajar el backend por su cuenta.
+    """
+    from packaging.requirements import Requirement
+
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    pasos = [l.split("run:", 1)[1].strip() for l in workflow.splitlines() if l.strip().startswith("- run:")]
+    instalaciones = [p for p in pasos if "pip install" in p]
+    assert len(instalaciones) == 1
+    (instalacion,) = instalaciones
+    assert instalacion.endswith("-r requirements-release.txt")
+    for opcion in ("--require-hashes", "--no-deps", "--only-binary :all:"):
+        assert opcion in instalacion, f"el release instala sin {opcion}"
+    assert [p for p in pasos if "-m build" in p] == ["python -m build --no-isolation"]
+
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'^requires = \["([^"]+)"\]$', pyproject, re.M)
+    assert m, "pyproject.toml no declara un solo requisito de build en una línea"
+    backend = Requirement(m.group(1))
+
+    entrada = [
+        Requirement(l) for l in (ROOT / "requirements-release.in").read_text(encoding="utf-8").splitlines()
+        if l.strip()
+    ]
+    assert sorted(r.name for r in entrada) == ["build", backend.name]
+
+    texto = (ROOT / "requirements-release.txt").read_text(encoding="utf-8")
+    assert (
+        "uv pip compile requirements-release.in --universal --generate-hashes "
+        "--python-version 3.12 -o requirements-release.txt"
+    ) in texto
+    assert "python-version: '3.12'" in workflow
+
+    fijados = {}
+    for linea in requisitos_del_lock(texto):
+        requisito, _, hashes = linea.partition(" --hash=")
+        hashes = ("--hash=" + hashes).split()
+        assert all(re.fullmatch(r"--hash=sha256:[0-9a-f]{64}", h) for h in hashes), linea
+        req = Requirement(requisito)
+        (especificador,) = req.specifier
+        assert especificador.operator == "==", f"{req.name} no está fijado"
+        assert req.name not in fijados, f"dos versiones de {req.name}"
+        fijados[req.name] = especificador.version
+    for requerido in entrada + [backend]:
+        assert requerido.specifier.contains(fijados[requerido.name]), (
+            f"{requerido.name}=={fijados[requerido.name]} no cumple {requerido}"
+        )
+
+
 def test_the_action_installs_from_the_hashed_lock_into_its_own_venv():
     """La instalación de la Action no resuelve versiones al correr (#154).
 
