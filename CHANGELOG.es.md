@@ -11,6 +11,83 @@ oración cierra con punto, y las referencias a secciones del README pasaron a
 ser enlaces. Las versiones que ese párrafo no describía (0.9.1, 0.6.5, 0.6.2,
 0.3.0 y 0.1.0) no tienen entrada, y no hubo 0.8.0.
 
+## 0.16.0 (2026-11-18)
+
+Esta versión cierra los once bugs que dejó un repaso de la herramienta el 9 de
+noviembre, fija las dos referencias que la 0.15.0 dejó movibles y pone un
+camino corto arriba del README, todavía sobre residue/v0.4. En el gate, el
+testigo de integración de G7 mira solo las rutas para las que la política de
+alcance exige revisión: un commit posterior a la ronda que toca solo una ruta
+exenta ya no cuesta otra ronda, y uno que toca una ruta exigente o del piso no
+relajable sigue fallando
+([#177](https://github.com/NicolasRocchia/disensor/issues/177)). Un evento
+`merge_group` sale con 6 y dice que la merge queue no está soportada, también
+cuando el workflow pasa `--base` y `--head` a mano, y el README deja de ofrecer
+la cola ([#176](https://github.com/NicolasRocchia/disensor/issues/176)). Las
+notas de "Scope applied" del comentario del pull request van escapadas y con
+tope ([#185](https://github.com/NicolasRocchia/disensor/issues/185)). En la
+ronda, una ronda de plan o de arquitectura toma el nivel de criticidad de la
+configuración (la de `--base` cuando se pasa, si no la de HEAD) en vez de
+asumir B, así que en nivel A la cadena se filtra antes de gastar; una
+configuración que no puede leer corta la ronda, y el rechazo de un árbol sucio
+dice por qué esas rondas piden uno limpio
+([#181](https://github.com/NicolasRocchia/disensor/issues/181)). El aviso de
+modo degradado nombra al revisor de otra familia que quedó salteado
+([#182](https://github.com/NicolasRocchia/disensor/issues/182)). La nota para
+la persona que entrega la consigna ya no es parte de la consigna: `disensor
+prompt` escribe la consigna en la salida estándar y la nota en la de error, y
+la nota deja de decir que R4 rechaza a un revisor de la familia del generador
+([#178](https://github.com/NicolasRocchia/disensor/issues/178)). El `ollama`
+del catálogo declara egress `unknown` y pide consentimiento, porque `ollama run
+<modelo>:cloud` y un `OLLAMA_HOST` remoto mandan el material afuera y el runner
+no los distingue de un modelo servido en la máquina; `local` en una entrada
+registrada a mano sigue siendo la afirmación de su dueño
+([#120](https://github.com/NicolasRocchia/disensor/issues/120)). El error de
+una receta registrada sin `--model` sale entero en inglés
+([#175](https://github.com/NicolasRocchia/disensor/issues/175)). El cierre de
+`init` guía por la ronda orquestada y deja el camino manual como alternativa
+([#179](https://github.com/NicolasRocchia/disensor/issues/179)), y el workflow
+que escribe fija `actions/checkout` a un commit, el mismo que usan los
+workflows de este repositorio
+([#169](https://github.com/NicolasRocchia/disensor/issues/169)). Un archivo en
+otra codificación, o un resultado de ronda de otra forma, dan un error y no un
+traceback ([#180](https://github.com/NicolasRocchia/disensor/issues/180)). En
+el informe, las notas de versión salen del corpus leído y las citas de issues
+llevan su dirección completa
+([#183](https://github.com/NicolasRocchia/disensor/issues/183)), y el enlace a
+una declaración limpia el filtro que la ocultaba
+([#184](https://github.com/NicolasRocchia/disensor/issues/184)). El paquete que
+va a PyPI se construye desde `requirements-release.txt`, un lock con el hash de
+cada archivo, instalado solo como wheels y construido con `--no-isolation` para
+que `build` use el setuptools del lock; esta es la primera release que
+construye ese job
+([#170](https://github.com/NicolasRocchia/disensor/issues/170),
+[#189](https://github.com/NicolasRocchia/disensor/pull/189),
+[#190](https://github.com/NicolasRocchia/disensor/pull/190)). El README abre
+con un solo camino que termina en `disensor report --open`, con los dos commits
+y el consentimiento que la ronda necesita, y la lista completa de comandos baja
+a una sección de referencia
+([#69](https://github.com/NicolasRocchia/disensor/issues/69),
+[#191](https://github.com/NicolasRocchia/disensor/pull/191)). Subieron las
+actions de los workflows de este repositorio, y Dependabot agrupa sus bumps por
+ecosistema ([#174](https://github.com/NicolasRocchia/disensor/pull/174)). Qué
+cambia para quien la usa: cambia el `prompt_hash` de las tres consignas
+empaquetadas, a
+`sha256:fbee6a5f62e4039e1e2d57939de982f2f5ab8558ce020aed0873a608018c0079` para
+plan, `sha256:9f23efc3da8a86124c5e8926ca606099c4aecf9f6554ccb44bba5bd8a6c10e6e`
+para diff y
+`sha256:a4fa73d7eac6d753a3e438becd070907033d31628fc79058b7565948a12cadb1` para
+arquitectura, y una declaración ya emitida conserva el hash de la consigna que
+usó su ronda; un script que leía `disensor prompt` con la salida de error
+mezclada en la estándar ahora recibe también la nota; una entrada de `ollama`
+ya registrada queda salteada como `no_consent` hasta que su dueño corra
+`disensor reviewer consent ollama` en cada repositorio; un repositorio cuyo
+required check corre en la merge queue ve salir al gate con 6 en cada evento
+`merge_group`; y un workflow que `init` escribió antes de esta versión conserva
+`actions/checkout@v4`, porque `init` no reescribe un workflow que existe. El
+bloque del runbook que escribe `init` no cambió, así que `disensor init
+--upgrade` no trae nada nuevo.
+
 ## 0.15.0 (2026-11-03)
 
 Esta versión cierra lo que reportó un equipo externo después de doce días de
