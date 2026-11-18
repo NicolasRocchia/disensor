@@ -1,0 +1,86 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "2e8758a7-7811-4b7d-a535-2203f5109ac8",
+    "created_at": "2026-11-14T23:36:27-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "8610ea83e56090e46ed4258dc131cb95e016c393",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "f8b5a374614ede689bb4881f19799caa882347f5"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": true,
+        "description": "El bloque de la primera pantalla no se corrió tal como está escrito. El generador lo recorrió antes de la ronda en un repositorio de prueba, con el registro de revisores en un home temporal y un revisor falso registrado con --command: init --no-workflow, el commit de lo que escribe init, reviewer add, reviewer consent, round, new --round, validate, el commit de la declaración y el gate terminaron bien, y el gate en verde escribió el informe. No se ejercitaron ahí reviewer add codex ni reviewer login codex, que piden una cuenta real, ni la apertura del navegador de report --open (se corrió report sin --open). El revisor no recorrió el bloque. El criterio de cierre del issue pide un repositorio limpio con un revisor registrado, y esa corrida con Codex queda para quien lo tenga."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "third_party_no_test_environment",
+        "requires_human_attention": false,
+        "description": "La reproducción externa que cita el README no se repitió: el generador y el revisor leyeron, cada uno por su lado, el mensaje del 31 de agosto de 2026 en el archivo público de la lista del W3C y confirmaron que informa 89 vectores, 28 casos de ordinalidad y cero divergencias sobre un clon de v0.9.4. La página disensor.dev/demo se leyó para confirmar que recorre una ronda terminada y que no muestra el informe HTML; el README lo dice así. Las once pruebas que la suite saltea en esta máquina no corrieron (960 pasados, 11 salteados, por el generador y por el revisor). La verificación de confinamiento es git status limpio antes y después de la ronda, que no ve archivos ignorados ni escrituras fuera del árbol."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 320
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:ea3bb8aa18018e1fe44964ee43ffeef0416740dbc35d15e8751257b65e974fd1",
+      "report_hash": "sha256:9269626922a11d533d157972b9811d0366cd324b195308b29ed9ebd48af58d4a",
+      "reviewer_seconds": 294,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}

@@ -920,3 +920,33 @@ def test_the_published_cost_matches_the_corpus_up_to_its_date():
             f"{fecha} hay {real['token_cost']}."
         )
     assert len(fechas) == 1, f"los dos README fechan el costo distinto: {fechas}"
+
+
+def test_the_short_path_of_each_readme_ends_in_the_report():
+    from disensor.guide import guide_text
+
+    for path in [p for p in DOCS if p.name.startswith("README")]:
+        texto = path.read_text(encoding="utf-8")
+        bloques = re.findall(r"^```bash\n(.*?)^```", texto, re.S | re.M)
+        comandos = [l.split("#")[0].strip() for l in bloques[0].splitlines()]
+        comandos = [c for c in comandos if c]
+        assert comandos[0] == "pip install disensor" and comandos[-1] == "disensor report --open", path.name
+        orden = [
+            "disensor init", "git add .claude", "disensor reviewer add", "disensor reviewer consent",
+            "disensor round", "disensor new", "disensor validate", "git add .residue", "disensor gate",
+        ]
+        posiciones = [next(i for i, c in enumerate(comandos) if c.startswith(paso)) for paso in orden]
+        assert posiciones == sorted(posiciones), f"{path.name}: el camino corto está fuera de orden"
+        assert not any(c.startswith(("disensor prompt", "disensor pack")) for c in comandos), (
+            f"{path.name}: el camino corto mezcla la ronda manual"
+        )
+        assert texto.index(bloques[0]) < texto.index("<!-- example-from:"), (
+            f"{path.name}: el camino corto quedó debajo del ejemplo del registro"
+        )
+        assert any("--no-workflow" in b and "disensor report --open" in b for b in bloques[1:]), (
+            f"{path.name}: la sección de prueba sin CI no llega al informe"
+        )
+
+    for idioma in ("en", "es"):
+        guia = guide_text(idioma)
+        assert guia.index("disensor round") < guia.index("disensor prompt"), idioma

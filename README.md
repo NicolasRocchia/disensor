@@ -21,6 +21,55 @@ scrutiny instead of reading as a seal of quality. A CLI validates it, and a CI
 gate stops the pull request when the change calls for a record and the record
 is missing, generic, or does not match the change the pull request makes.
 
+The limit, said once: the machine checks the shape and the coherence of the
+record, not whether it is true. A made-up declaration with the right shape
+passes, and human sampling is the only thing that catches it.
+
+## Quick start
+
+One path, from nothing to the report. It needs a git repository with a branch
+to review and a second assistant on this machine: the example registers Codex,
+and `disensor reviewer suggest` lists what yours has.
+
+```bash
+pip install disensor
+disensor init --no-workflow          # config, CLAUDE.md and skill; nothing under .github/
+git add .claude .gitignore CLAUDE.md disensor.config.json && git commit -m disensor-init
+
+disensor reviewer add codex --model <model> --yes   # once per machine, with a model your account runs
+disensor reviewer login codex        # once: the isolated home of the reviewer signs in
+disensor reviewer consent codex      # once per repository, as its owner: the material may leave the machine
+
+disensor round --gate diff --generator-family anthropic --generator-model <your-model> --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json
+# fill in what the template left as FILL_IN; `disensor guide` says how
+disensor validate .residue/<id>.json
+git add .residue && git commit -m residue-declaration
+disensor gate --no-comment --base main --head HEAD   # what CI will run; green writes the report
+disensor report --open
+```
+
+The two commits are part of the path: the round reviews commits and asks for a
+clean tree, and the gate reads the declaration from a commit, not from the
+working tree. The last command opens the residue report in the browser, with
+what the round left open first and the coverage in grey. Driving the round by
+hand, the hashes and the rest of the commands are in
+[Command reference](#command-reference). This repository carries its own
+declarations, so `disensor report --open` on a clone of it shows a real report,
+and [disensor.dev/demo](https://disensor.dev/demo/) walks through a finished
+round without installing anything.
+
+Three things here can be checked instead of believed. This repository goes
+through its own gate: its pull requests carry their declarations under
+[`.residue/`](https://github.com/NicolasRocchia/disensor/tree/main/.residue), and [CI](https://github.com/NicolasRocchia/disensor/blob/main/.github/workflows/ci.yml) runs this Action on them. An external
+reader cloned the v0.9.4 tag and ran both implementations cold, 89 vectors and
+28 ordinality cases with zero divergences
+([message of 31 August 2026 on the W3C public-agent-conformance list](https://lists.w3.org/Archives/Public/public-agent-conformance/2026Aug/0006.html));
+that is one reader's run, not an endorsement by the group. And the method is
+published with a DOI, [10.5281/zenodo.21633495](https://doi.org/10.5281/zenodo.21633495).
+
+## The method
+
 The method behind it is **controlled disagreement**: one model generates, a
 model from another family attacks, the generator verifies every finding, and
 the cycle ends when each finding has been resolved, refuted with evidence, or
@@ -168,9 +217,11 @@ field-by-field guide is `disensor guide`.
 - `docs/integracion-claude-code.md` (Spanish only): how the real flow (Claude Code plus a reviewer from another family) emits the artifact at the close of each event.
 - `docs/antecedentes.md` (Spanish only): where the method sits relative to the literature (residual doubt and defeaters, design rationale and its capture bottleneck, multi-agent adversarial review, governance runtimes, supply chain provenance), with the verification status of each reference.
 
-## Quick start
+## Command reference
 
-The package is installed once (globally); each repository is initialised once:
+Every command in one place, with both ways of running the round: orchestrated
+(`round`, then `new --round`) and by hand (`prompt` or `pack`, then `new`). The
+package is installed once (globally); each repository is initialised once:
 
 ```bash
 pip install disensor        # or pipx install disensor, recommended for CLIs
@@ -212,7 +263,11 @@ disensor prompt --gate diff          # the brief, to the reviewer from another f
 disensor new --gate diff --level B   # and you fill the declaration with what happened
 disensor validate .residue/<id>.json
 disensor gate --no-comment --base <base-sha> --head HEAD
+disensor report --open               # the residue report the green gate just wrote
 ```
+
+A green gate writes `informe-residuo.html` at the repository root on its own;
+`disensor report --open` writes it again and opens it in the browser.
 
 Only when you want it to **enforce** do you run the full `disensor init` (which
 writes the workflow) and apply the deployment requirements below. Before that it

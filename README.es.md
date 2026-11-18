@@ -13,6 +13,36 @@ como un archivo JSON en tu repo, al lado del código que juzga.
 
 Ni un badge verde ni un puntaje de cobertura. Un registro versionado de lo que la revisión no pudo establecer: qué hallazgos se verificaron y contra qué, cuáles se refutaron, qué no se pudo ejecutar y qué sigue descansando sobre el juicio de alguien. El registro dice quién generó el cambio, quién lo revisó y de qué familia de modelos, sobre qué commits, con qué consigna y quién aceptó el riesgo residual. Lista residuo, no cobertura: dirige el escrutinio del revisor humano en lugar de leerse como sello de calidad. Un CLI lo valida, y un gate de CI frena el pull request cuando el cambio exige un registro y ese registro falta, es genérico o no coincide con el cambio que el PR hace.
 
+El límite, dicho una vez: la máquina mira la forma y la coherencia del registro, no si es verdad. Una declaración inventada con buena forma pasa, y lo único que la caza es el muestreo humano.
+
+## Uso rápido
+
+Un solo camino, desde cero hasta el informe. Hace falta un repositorio git con una rama para revisar y un segundo asistente en esta máquina: el ejemplo registra Codex, y `disensor reviewer suggest` lista lo que tiene la tuya.
+
+```bash
+pip install disensor
+disensor init --no-workflow          # config, CLAUDE.md y skill; nada en .github/
+git add .claude .gitignore CLAUDE.md disensor.config.json && git commit -m disensor-init
+
+disensor reviewer add codex --model <model> --yes   # una vez por máquina, con un modelo que tu cuenta corra
+disensor reviewer login codex        # una vez: el home aislado del revisor inicia sesión
+disensor reviewer consent codex      # una vez por repositorio, como su dueño: el material puede salir de la máquina
+
+disensor round --gate diff --generator-family anthropic --generator-model <your-model> --base main --head HEAD --result ../result.json
+disensor new --gate diff --level B --round ../result.json
+# completá lo que la plantilla dejó en FILL_IN; `disensor guide` dice cómo
+disensor validate .residue/<id>.json
+git add .residue && git commit -m residue-declaration
+disensor gate --no-comment --base main --head HEAD   # lo que va a correr CI; en verde escribe el informe
+disensor report --open
+```
+
+Los dos commits son parte del camino: la ronda revisa commits y pide árbol limpio, y el gate lee la declaración desde un commit, no desde el árbol de trabajo. El último comando abre el informe de residuo en el navegador, con lo que la ronda dejó abierto primero y la cobertura en gris. La ronda a mano, los hashes y el resto de los comandos están en [Referencia de comandos](#referencia-de-comandos). Este repositorio lleva sus propias declaraciones, así que `disensor report --open` sobre un clon muestra un informe real, y [disensor.dev/demo](https://disensor.dev/demo/) recorre una ronda terminada sin instalar nada.
+
+Tres cosas de acá se pueden comprobar en vez de creer. Este repositorio pasa por su propio gate: sus pull requests llevan sus declaraciones en [`.residue/`](https://github.com/NicolasRocchia/disensor/tree/main/.residue), y el [CI](https://github.com/NicolasRocchia/disensor/blob/main/.github/workflows/ci.yml) corre esta Action sobre ellos. Un lector externo clonó el tag v0.9.4 y corrió las dos implementaciones en frío, 89 vectores y 28 casos de ordinalidad con cero divergencias ([mensaje del 31 de agosto de 2026 en la lista public-agent-conformance del W3C](https://lists.w3.org/Archives/Public/public-agent-conformance/2026Aug/0006.html)); es la corrida de un lector, no un aval del grupo. Y el método está publicado con DOI, [10.5281/zenodo.21633495](https://doi.org/10.5281/zenodo.21633495).
+
+## El método
+
 El método detrás es el **desacuerdo controlado**: un modelo genera, un modelo de otra familia ataca, el generador verifica cada hallazgo, y el ciclo termina cuando todo hallazgo quedó resuelto, refutado con evidencia o escalado a un humano. Este repositorio es la implementación de referencia del artefacto que ese método define, la declaración de **residuo**: lo que la ronda deja para que lo mire una persona.
 
 Paper del método: Rocchia, N. (2026), *Desacuerdo controlado: revisión adversarial automatizada con un segundo asistente de código en el desarrollo de software*, DOI [10.5281/zenodo.21633495](https://doi.org/10.5281/zenodo.21633495).
@@ -134,9 +164,9 @@ Un extracto de un evento real de este repositorio, de [`.residue/27089d19-ee91-4
 - `docs/integracion-claude-code.md`: cómo el flujo real (Claude Code más un revisor de otra familia) emite el artefacto al cierre de cada evento.
 - `docs/antecedentes.md`: dónde se ubica el método respecto de la literatura (residual doubt y defeaters, design rationale y su capture bottleneck, revisión adversarial multi-agente, governance runtimes, provenance de cadena de suministro), con el estado de verificación de cada referencia.
 
-## Uso rápido
+## Referencia de comandos
 
-El paquete se instala una vez (global); cada repositorio se inicializa una vez:
+Todos los comandos en un lugar, con las dos formas de correr la ronda: orquestada (`round` y después `new --round`) y a mano (`prompt` o `pack`, y después `new`). El paquete se instala una vez (global); cada repositorio se inicializa una vez:
 
 ```bash
 pip install disensor        # o pipx install disensor, recomendado para CLIs
@@ -173,7 +203,10 @@ disensor prompt --gate diff          # la consigna, al revisor de otra familia
 disensor new --gate diff --level B   # y llenás la declaración con lo que pasó
 disensor validate .residue/<id>.json
 disensor gate --no-comment --base <base-sha> --head HEAD
+disensor report --open               # el informe de residuo que el gate en verde acaba de escribir
 ```
+
+El gate en verde escribe `informe-residuo.html` en la raíz del repositorio por su cuenta; `disensor report --open` lo escribe de nuevo y lo abre en el navegador.
 
 Recién cuando quieras que **haga cumplir**, corré `disensor init` completo (que escribe el workflow) y aplicá los requisitos de despliegue de más abajo. Antes de eso es una herramienta que te dice cómo te iría; después es un control que bloquea.
 
