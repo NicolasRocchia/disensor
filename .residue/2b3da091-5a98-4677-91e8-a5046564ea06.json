@@ -1,0 +1,86 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "2b3da091-5a98-4677-91e8-a5046564ea06",
+    "created_at": "2026-11-18T17:08:48-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "871e208758a320d77f739acccaa9b62caf78c9cf",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "afc3b199f61022d3fd673644f42ec3e744268251"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": true,
+        "description": "Nada de la publicación se ejecutó: el evento es el commit previo al tag. El job construir de release.yml corre por primera vez con el lock de requirements-release.txt al pushear v0.16.0, y su línea de instalación ya tuvo un error que ningún test vio (un escalar plano de YAML, corregido en el PR #190). Quedan para después del merge el run de release.yml, la comparación de los digests de PyPI con el artefacto del run y la instalación limpia. La entrada del CHANGELOG lleva la fecha del 18 de noviembre de 2026: si el tag sale otro día, hay que corregirla antes."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "La entrada del CHANGELOG resume cambios ya mergeados y el generador la escribió desde los commits y los issues, sin volver a ejercitar cada comportamiento que nombra; los tres prompt_hash que cita los calculó con disensor prompt --hash sobre este árbol. El revisor no informó haber contrastado cada afirmación de la entrada contra el código. Las once pruebas que la suite saltea en esta máquina no corrieron (962 pasados, 11 salteados, por el generador y por el revisor). La verificación de confinamiento es git status limpio antes y después de la ronda, que no ve archivos ignorados ni escrituras fuera del árbol."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 235
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:d819b5d0e19034fc3c60abf1b858fb99fff758d4ae60e3320b053d4cb02f97e0",
+      "report_hash": "sha256:1cf72fcd016b348e31fd009c42bbc1935a324399045fa4c79a48f2947865c717",
+      "reviewer_seconds": 200,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}
