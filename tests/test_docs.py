@@ -252,6 +252,104 @@ def test_the_workflow_init_writes_runs_no_action_by_tag():
         assert "actions/checkout@v" not in texto, f"{ruta.name} deja un checkout por tag"
 
 
+def pasos_run(texto):
+    """Los `- run:` de un workflow, con los bloques plegados (`>-`) ya unidos.
+
+    Sin PyYAML a propósito: los tests no suman dependencias para leer tres
+    archivos. Alcanza con las dos formas que usan los workflows de este
+    repositorio, una línea o un bloque plegado.
+    """
+    lineas = texto.splitlines()
+    pasos = []
+    for i, linea in enumerate(lineas):
+        if not linea.strip().startswith("- run:"):
+            continue
+        valor = linea.split("run:", 1)[1].strip()
+        if valor in (">-", ">"):
+            sangria = len(linea) - len(linea.lstrip())
+            cuerpo = []
+            for siguiente in lineas[i + 1:]:
+                if siguiente.strip() and len(siguiente) - len(siguiente.lstrip()) <= sangria:
+                    break
+                cuerpo.append(siguiente.strip())
+            valor = " ".join(c for c in cuerpo if c)
+        pasos.append(valor)
+    return pasos
+
+
+def problema_de_run_en_linea(valor):
+    """Por qué un `run:` de una línea no dice lo que parece, o None.
+
+    `valor` es lo que sigue a `run:` en la misma línea. Los bloques (`|`, `>`)
+    y los escalares entre comillas no se miran: ahí `: ` y ` #` son texto.
+    """
+    if not valor or valor[0] in "|>'\"":
+        return None
+    if valor.startswith("#"):
+        return "es solo un comentario y el paso queda sin comando"
+    if ": " in valor or valor.endswith(":"):
+        return "tiene ': ' y YAML lo lee como mapping; va en un bloque"
+    if " #" in valor:
+        return "se corta en ' #'"
+    return None
+
+
+def test_no_one_line_run_reads_as_a_mapping():
+    """Un `run:` en una línea con `: ` adentro rompe el archivo entero.
+
+    El release de #170 instalaba con `--only-binary :all: -r ...` en una sola
+    línea. En un escalar plano, `: ` abre un mapping: GitHub rechazó el
+    workflow antes de arrancar un job y los tests, que lo leían como texto,
+    pasaban. Lo mismo vale para ` #`, que corta el comando en un comentario,
+    y para un `run:` seguido solo de un comentario, que queda nulo.
+    """
+    archivos = [ROOT / "action.yml", *sorted((ROOT / ".github" / "workflows").glob("*.yml"))]
+    vistos = 0
+    for archivo in archivos:
+        for linea in archivo.read_text(encoding="utf-8").splitlines():
+            m = re.match(r"^\s*(?:-\s*)?run:\s*(.*)$", linea)
+            if not m:
+                continue
+            valor = m.group(1)
+            if valor and valor[0] not in "|>'\"":
+                vistos += 1
+            problema = problema_de_run_en_linea(valor)
+            assert problema is None, f"{archivo.name}: {valor!r} {problema}"
+    assert vistos, "no hay ningún run en una línea, y el test pasaría en vacío"
+
+
+def test_the_one_line_run_guard_catches_what_it_claims():
+    """El guardián, contra las líneas que tiene que rechazar y las que no.
+
+    La primera es la que rompió el release. La de solo comentario la encontró
+    el revisor de la ronda de #190: pasaba las dos aserciones de entonces y
+    YAML la lee como `run: null`.
+    """
+    rechazadas = [
+        "python -m pip install --only-binary :all: -r requirements-release.txt",
+        "echo listo:",
+        "python -m build # sin aislamiento",
+        "# build release",
+        "#",
+    ]
+    for valor in rechazadas:
+        assert problema_de_run_en_linea(valor), f"{valor!r} pasa y no debería"
+    aceptadas = [
+        "python -m build --no-isolation",
+        "pytest -q",
+        "git config --global core.autocrlf false",
+        "echo a:b",
+        "echo a#b",
+        ">-",
+        "|",
+        "'echo a: b'",
+        '"echo a # b"',
+        "",
+    ]
+    for valor in aceptadas:
+        assert problema_de_run_en_linea(valor) is None, f"{valor!r} se rechaza y es válido"
+
+
 def test_the_release_builds_from_a_hashed_lock():
     """El job que arma lo que va a PyPI no resuelve versiones al construir (#170).
 
@@ -262,7 +360,7 @@ def test_the_release_builds_from_a_hashed_lock():
     from packaging.requirements import Requirement
 
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-    pasos = [l.split("run:", 1)[1].strip() for l in workflow.splitlines() if l.strip().startswith("- run:")]
+    pasos = pasos_run(workflow)
     instalaciones = [p for p in pasos if "pip install" in p]
     assert len(instalaciones) == 1
     (instalacion,) = instalaciones

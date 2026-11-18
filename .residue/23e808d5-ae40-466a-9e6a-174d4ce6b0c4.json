@@ -1,0 +1,103 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "23e808d5-ae40-466a-9e6a-174d4ce6b0c4",
+    "created_at": "2026-11-18T16:16:07-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "9d2f2c4e92afd4c009a19f14cefcf01c865a6314",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "f8b5a374614ede689bb4881f19799caa882347f5"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [
+    {
+      "id": "h1",
+      "origin": "r1",
+      "severity": "minor",
+      "title": "El guardián nuevo acepta un run que es solo comentario",
+      "description": "Hallazgo de la primera ronda del evento, sobre 33fccff. test_no_one_line_run_reads_as_a_mapping decía cubrir el comentario que corta un comando, pero solo rechazaba la subcadena ' #'. Una línea como `- run: # build release` quedaba capturada como `# build release`, pasaba las dos aserciones y YAML la lee como `run: null`: el test seguía verde con un paso sin comando.",
+      "location": "tests/test_docs.py:280-302 (en 33fccff)",
+      "final_state": "incorporated",
+      "verification": {
+        "against": "execution",
+        "detail": "El generador corrió el predicado del test contra la línea del revisor y la parseó con PyYAML: las aserciones pasaban y el valor de run era None. Después del arreglo comparó el guardián con PyYAML en diez valores, cinco que debe rechazar y cinco que debe aceptar, y coinciden en los diez."
+      },
+      "fix_verification": {
+        "type": "specific_test",
+        "reference": "tests/test_docs.py::test_the_one_line_run_guard_catches_what_it_claims, agregado en 9d2f2c4. La segunda ronda, sobre 9d2f2c4, revisó además el arreglo y no trajo hallazgos."
+      }
+    }
+  ],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "Nadie vio a GitHub aceptar release.yml: el archivo se valida al llegar a main y el job construir se ejercita recién con un tag. El generador y el revisor lo parsearon con PyYAML y el run plegado reconstruye el comando original exacto. El generador corrió los dos pasos de construir (instalar el lock con hashes y python -m build --no-isolation) en un contenedor Linux con Python 3.12.3 sobre 33fccff, no en ubuntu-latest y no sobre 9d2f2c4, que solo cambia tests; salieron el sdist y el wheel de 0.15.0. El job publicar no corrió y el workflow manual no se disparó a propósito, porque publica en PyPI."
+      },
+      {
+        "id": "r2",
+        "class": "execution_gap",
+        "gap_reason": "other",
+        "requires_human_attention": false,
+        "description": "El guardián de los run de una línea mira texto, no parsea YAML: cubre ': ', el ':' final, ' #' y el run de solo comentario. No cubre otras formas en que un escalar plano dice otra cosa (un ':' seguido de tabulación, un valor que empieza con un indicador como *, &, !, %, @, { o [), ni un run plano que sigue en la línea siguiente; pasos_run entiende solo una línea o un bloque plegado. Nadie corrió la suite TypeScript del plano de evidencia en local: el cambio no toca ese directorio y su job corre en el CI del PR. Las once pruebas que la suite saltea no corrieron (961 pasados, 11 salteados, por el generador en Linux y por el revisor en Windows). La verificación de confinamiento es git status limpio antes y después de cada ronda; el revisor informó archivos ignorados ya presentes en el checkout (cachés, build/, dist/, node_modules) cuyo estado previo y posterior no se comparó. El evento tuvo dos rondas con el mismo revisor: esta declaración ancla la segunda, y el informe de la primera (sha256:8d0f12366a1f1144df613d70b62e5363a23d2fa0a5980cee976d50c884a9fe40, sobre 33fccff) no queda anclado más que por esta mención. El generador trabajó en una sesión en la nube y no ejecutó las rondas: las corrió el dueño en su máquina y le pasó los informes por el chat. La procedencia del consentimiento para enviar el material a codex no está registrada."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 1,
+      "valid": {
+        "incorporated": 1,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    }
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:3008fb5e4c8935cd217fe60668ee785f958bdf25655f46526de6bbb2bdbe0617",
+      "report_hash": "sha256:e7c77ebb6f148f52562764f63e336f4edcb7fb68ec2e4ae8ce63cbf235b02e68",
+      "reviewer_seconds": 281,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}
