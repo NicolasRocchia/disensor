@@ -235,7 +235,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@v0.15.0
+      - uses: NicolasRocchia/disensor@v0.16.0
 ```
 
 El gate valida las declaraciones que **el PR agrega**, aplica la política y publica el resultado como comentario (se actualiza en el lugar en cada push). Todo lo que decide sale de objetos de git en el rango `merge-base..head`, nunca del working tree: en un evento `pull_request` el checkout deja el merge commit sintético mientras `head.sha` apunta al head real, así que leer del disco clasificaría un árbol y validaría otro.
@@ -643,7 +643,7 @@ El esquema del artefacto no cambia y las declaraciones ya versionadas siguen sie
 
 ## Estado
 
-v0.15.0, sobre **residue/v0.4**. Qué cambió en cada versión, de la más nueva a
+v0.16.0, sobre **residue/v0.4**. Qué cambió en cada versión, de la más nueva a
 la más vieja, está en
 [CHANGELOG.es.md](https://github.com/NicolasRocchia/disensor/blob/main/CHANGELOG.es.md).
 
