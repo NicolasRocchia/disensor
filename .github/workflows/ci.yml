@@ -66,7 +66,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
-      - uses: NicolasRocchia/disensor@ba90675cbb211fa77cb585c0639091eb3231627e  # v0.15.0
+      - uses: NicolasRocchia/disensor@26f23a2f23cc7f6eca83269890de3ecd632c622b  # v0.16.0
 
   # La Action del arbol del PR, instalada desde su lock en los tres sistemas y
   # en los dos extremos de Python que el lock cubre. No comenta, y su veredicto
