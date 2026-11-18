@@ -1,0 +1,79 @@
+{
+  "schema": "residue/v0.4",
+  "profile": "full",
+  "event": {
+    "event_id": "c1ee99b1-7ba3-44d4-948e-1de9b3598e68",
+    "created_at": "2026-11-18T17:29:54-03:00",
+    "repository": "github.com/NicolasRocchia/disensor",
+    "head_commit": "3c0ca4d5aadac404fbd8de527285c0f97b3028c1",
+    "gate": "diff",
+    "criticality_level": "B",
+    "abbreviated_path": {
+      "used": false
+    },
+    "base_commit": "26f23a2f23cc7f6eca83269890de3ecd632c622b"
+  },
+  "actors": {
+    "generator": {
+      "family": "anthropic",
+      "model": "claude-fable-5-2"
+    },
+    "reviewers": [
+      {
+        "reviewer_id": "r1",
+        "family": "openai",
+        "model": "gpt-5.6-sol",
+        "independence": "cross_family",
+        "confinement": {
+          "mode": "read_only_by_instruction",
+          "verified": true,
+          "verification_method": "clean_git_status"
+        },
+        "hardening": "verified",
+        "prompt_hash": "sha256:81c2fd27a1e68b31809288ea87b6f1a6ca4ada69fc99c5e69cf908d2347ac8f6"
+      }
+    ],
+    "human_arbiter": {
+      "present": true
+    }
+  },
+  "findings": [],
+  "residue": {
+    "items": [
+      {
+        "id": "r1",
+        "class": "execution_gap",
+        "gap_reason": "environment_not_reproducible",
+        "requires_human_attention": false,
+        "description": "El workflow con el pin nuevo no corrió en GitHub antes de declarar: el job del auto-gate se ejercita recién en el CI de este PR, con la Action de la 0.16.0. El generador y el revisor verificaron, cada uno por su lado, que 26f23a2f23cc7f6eca83269890de3ecd632c622b es un commit, que es a lo que apunta el tag v0.16.0 y que es el merge de la release. El generador no corrió la suite completa para este cambio de una línea, solo los tests de documentación (27 pasados), que incluyen el que exige que el pin sea un commit; el revisor informa que corrió la suite completa y que pasó, sin dar la cifra en el informe. El typecheck del plano de evidencia no corrió con el Node 16 de esta máquina; el cambio no toca ese directorio. La verificación de confinamiento es git status limpio antes y después de la ronda, que no ve archivos ignorados ni escrituras fuera del árbol."
+      }
+    ]
+  },
+  "metrics": {
+    "counts": {
+      "total_findings": 0,
+      "valid": {
+        "incorporated": 0,
+        "debt_recorded": 0,
+        "owner_decision": 0
+      },
+      "false_positives": {
+        "refuted_verifiable": 0,
+        "refuted_interpretive": 0
+      },
+      "escalated_open": 0
+    },
+    "extra_time_sec": 283
+  },
+  "extensions": {
+    "dev.disensor.round": {
+      "result_version": 5,
+      "pack_hash": "sha256:ec05954e0702e6aac3eb7bf4c56c56843814cc4c7a32596ed7b836618bacfaeb",
+      "report_hash": "sha256:9c82be088eea71825d3b356444bad48e52265430fd4ee5fcc44beb8e69048660",
+      "reviewer_seconds": 251,
+      "consent": {
+        "recorded": false
+      }
+    }
+  }
+}
